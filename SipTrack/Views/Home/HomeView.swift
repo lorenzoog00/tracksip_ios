@@ -66,7 +66,12 @@ struct HomeView: View {
                                 .foregroundStyle(AppColors.text)
                                 .padding(.horizontal)
 
-                            ForEach(appState.visibleEvents) { event in
+                            ForEach(Array(appState.visibleEvents.enumerated()), id: \.element.id) { index, event in
+                                // Inject native ad after position 2 (3rd item) for free users
+                                if index == 2 && !appState.isPro {
+                                    NativeAdCardView()
+                                        .padding(.horizontal)
+                                }
                                 NavigationLink(value: Route.summary(event.id)) {
                                     EventRow(event: event, drinkCount: appState.totalDrinks(for: event.id))
                                 }
