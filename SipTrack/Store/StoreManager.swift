@@ -1,8 +1,11 @@
 import StoreKit
 import Foundation
+import Combine
 
 @MainActor
 final class StoreManager: ObservableObject {
+    let objectWillChange: ObservableObjectPublisher
+    
 
     // Configure these in App Store Connect to match:
     static let productIDs: Set<String> = [

@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 // import GoogleMobileAds   ← uncomment after adding the SDK package
 
 /// Central ad coordinator — initialize once on app launch, call showAppOpenAd() on foreground.
