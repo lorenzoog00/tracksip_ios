@@ -1,8 +1,8 @@
-Failed to install the app on the device.
+ailed to install the app on the device.
 Domain: com.apple.dt.CoreDeviceError
 Code: 3002
 User Info: {
-    DVTErrorCreationDateKey = "2026-04-25 10:15:07 +0000";
+    DVTErrorCreationDateKey = "2026-04-25 10:23:00 +0000";
     IDERunOperationFailingWorker = IDEInstallCoreDeviceWorker;
     NSURL = "file:///Users/lorenzo.orozco/Library/Developer/Xcode/DerivedData/siptrack-dymzokqhkqxirjfjommyrbozvpey/Build/Products/Debug-iphoneos/siptrack.app";
 }
@@ -34,7 +34,7 @@ Event Metadata: com.apple.dt.IDERunOperationWorkerFinished : {
     "launchSession_schemeCommand_enum" = 1;
     "launchSession_targetArch" = arm64;
     "launchSession_targetArch_enum" = 6;
-    "operation_duration_ms" = 80;
+    "operation_duration_ms" = 27;
     "operation_errorCode" = 3000;
     "operation_errorDomain" = "com.apple.dt.CoreDeviceError.3002.com.apple.dt.CoreDeviceError";
     "operation_errorWorker" = IDEInstallCoreDeviceWorker;
@@ -94,4 +94,4 @@ System Information
 
 macOS Version 26.3.1 (a) (Build 25D771280a)
 Xcode 26.4.1 (24909.0.3) (Build 17E202)
-Timestamp: 2026-04-25T04:15:07-06:00
+Timestamp: 2026-04-25T04:23:00-06:00s
