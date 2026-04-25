@@ -1,5 +1,6 @@
 import StoreKit
 import Foundation
+import Combine
 
 @MainActor
 final class StoreManager: ObservableObject {
