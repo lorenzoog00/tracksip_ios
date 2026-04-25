@@ -1,19 +1,10 @@
-
-
-lorenzo.orozco@ITGMACM4PJWNN7YV siptrack % find . -maxdepth 3 -name "*.xcodeproj" -o -name "*.xcworkspace" 2>/dev/null
-./siptrack.xcodeproj
-./siptrack.xcodeproj/project.xcworkspace
-lorenzo.orozco@ITGMACM4PJWNN7YV siptrack % ls -la
-total 16
-drwxr-xr-x   6 lorenzo.orozco  staff   192 24 abr 17:07 .
-drwxr-xr-x   5 lorenzo.orozco  staff   160 24 abr 17:04 ..
--rw-r--r--@  1 lorenzo.orozco  staff  6148 25 abr 04:46 .DS_Store
-drwxr-xr-x  13 lorenzo.orozco  staff   416 25 abr 03:30 .git
-drwxr-xr-x@  5 lorenzo.orozco  staff   160 25 abr 04:27 siptrack.xcodeproj
-drwxr-xr-x   6 lorenzo.orozco  staff   192 24 abr 17:07 tracksip_ios
-lorenzo.orozco@ITGMACM4PJWNN7YV siptrack % ls -d *.xcodeproj
-siptrack.xcodeproj
-lorenzo.orozco@ITGMACM4PJWNN7YV siptrack % ls
-
-
 ls -la ~/Library/Developer/Xcode/DerivedData/siptrack-dymzokqhkqxirjfjommyrbozvpey/Build/Products/Debug-iphoneos/siptrack.app/
+lorenzo.orozco@ITGMACM4PJWNN7YV siptrack % ls -la ~/Library/Developer/Xcode/DerivedData/siptrack-dymzokqhkqxirjfjommyrbozvpey/Build/Products/Debug-iphoneos/siptrack.app/
+total 48
+drwxr-xr-x  6 lorenzo.orozco  staff    192 25 abr 04:37 _CodeSignature
+drwxr-xr-x  6 lorenzo.orozco  staff    192 25 abr 04:37 .
+drwxr-xr-x@ 3 lorenzo.orozco  staff     96 25 abr 04:37 ..
+-rw-r--r--  1 lorenzo.orozco  staff  14249 25 abr 04:37 embedded.mobileprovision
+-rw-r--r--  1 lorenzo.orozco  staff   1249 25 abr 04:37 Info.plist
+-rw-r--r--  1 lorenzo.orozco  staff      8 25 abr 04:37 PkgInfo
+lorenzo.orozco@ITGMACM4PJWNN7YV siptrack %
