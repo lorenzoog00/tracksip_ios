@@ -17,10 +17,12 @@ final class StoreManager: ObservableObject {
     private var updatesTask: Task<Void, Never>?
 
     init() {
-        updatesTask = Task { await listenForTransactions() }
-        Task {
-            await loadProducts()
-            await refreshStatus()
+        updatesTask = Task { [weak self] in
+            await self?.listenForTransactions()
+        }
+        Task { [weak self] in
+            await self?.loadProducts()
+            await self?.refreshStatus()
         }
     }
 
