@@ -101,3 +101,23 @@ lorenzo.orozco@ITGMACM4PJWNN7YV tracksip_ios % xcodebuild -project SipTrack.xcod
 2026-04-25 04:39:55.325 xcodebuild[82171:38808536] Writing error result bundle to /var/folders/2x/7sj1p5_92pjgmr79qv6sppbr0000gn/T/ResultBundle_2026-25-04_04-39-0055.xcresult
 xcodebuild: error: 'SipTrack.xcodeproj' does not exist.
 lorenzo.orozco@ITGMACM4PJWNN7YV tracksip_ios %
+
+lorenzo.orozco@ITGMACM4PJWNN7YV SipTrack % find . -maxdepth 3 -name "*.xcodeproj" -o -name "*.xcworkspace" 2>/dev/null
+lorenzo.orozco@ITGMACM4PJWNN7YV SipTrack % ls -la
+total 40
+drwxr-xr-x  15 lorenzo.orozco  staff   480 25 abr 04:40 .
+drwxr-xr-x   6 lorenzo.orozco  staff   192 24 abr 17:07 ..
+-rw-r--r--@  1 lorenzo.orozco  staff  6148 25 abr 01:02 .DS_Store
+drwxr-xr-x   6 lorenzo.orozco  staff   192 24 abr 17:07 Ads
+drwxr-xr-x   3 lorenzo.orozco  staff    96 24 abr 17:07 Constants
+drwxr-xr-x   7 lorenzo.orozco  staff   224 24 abr 17:07 Core
+-rw-r--r--@  1 lorenzo.orozco  staff  4797 25 abr 04:40 errors.txt
+drwxr-xr-x   6 lorenzo.orozco  staff   192 24 abr 17:07 Models
+drwxr-xr-x   3 lorenzo.orozco  staff    96 25 abr 00:06 Navigation
+-rw-r--r--@  1 lorenzo.orozco  staff  1266 25 abr 00:06 SipTrackApp.swift
+drwxr-xr-x   3 lorenzo.orozco  staff    96 25 abr 00:06 State
+drwxr-xr-x   3 lorenzo.orozco  staff    96 24 abr 17:07 Storage
+drwxr-xr-x   3 lorenzo.orozco  staff    96 24 abr 17:07 Store
+drwxr-xr-x   3 lorenzo.orozco  staff    96 25 abr 00:06 Supabase
+drwxr-xr-x  15 lorenzo.orozco  staff   480 25 abr 04:08 Views
+lorenzo.orozco@ITGMACM4PJWNN7YV SipTrack %
