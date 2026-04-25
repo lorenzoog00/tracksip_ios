@@ -14,3 +14,6 @@ drwxr-xr-x   6 lorenzo.orozco  staff   192 24 abr 17:07 tracksip_ios
 lorenzo.orozco@ITGMACM4PJWNN7YV siptrack % ls -d *.xcodeproj
 siptrack.xcodeproj
 lorenzo.orozco@ITGMACM4PJWNN7YV siptrack % ls
+
+
+ls -la ~/Library/Developer/Xcode/DerivedData/siptrack-dymzokqhkqxirjfjommyrbozvpey/Build/Products/Debug-iphoneos/siptrack.app/
