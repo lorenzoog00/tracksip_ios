@@ -97,3 +97,7 @@ macOS Version 26.3.1 (a) (Build 25D771280a)
 Xcode 26.4.1 (24909.0.3) (Build 17E202)
 Timestamp: 2026-04-25T04:37:48-06:00
 xcodebuild -project SipTrack.xcodeproj -scheme siptrack -destination 'generic/platform=iOS' -showBuildSettings | grep -E "EXECUTABLE_NAME|PRODUCT_NAME|INFOPLIST"
+lorenzo.orozco@ITGMACM4PJWNN7YV tracksip_ios % xcodebuild -project SipTrack.xcodeproj -scheme siptrack -destination 'generic/platform=iOS' -showBuildSettings | grep -E "EXECUTABLE_NAME|PRODUCT_NAME|INFOPLIST"
+2026-04-25 04:39:55.325 xcodebuild[82171:38808536] Writing error result bundle to /var/folders/2x/7sj1p5_92pjgmr79qv6sppbr0000gn/T/ResultBundle_2026-25-04_04-39-0055.xcresult
+xcodebuild: error: 'SipTrack.xcodeproj' does not exist.
+lorenzo.orozco@ITGMACM4PJWNN7YV tracksip_ios %
