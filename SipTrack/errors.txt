@@ -96,3 +96,4 @@ System Information
 macOS Version 26.3.1 (a) (Build 25D771280a)
 Xcode 26.4.1 (24909.0.3) (Build 17E202)
 Timestamp: 2026-04-25T04:37:48-06:00
+xcodebuild -project SipTrack.xcodeproj -scheme siptrack -destination 'generic/platform=iOS' -showBuildSettings | grep -E "EXECUTABLE_NAME|PRODUCT_NAME|INFOPLIST"
