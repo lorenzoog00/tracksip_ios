@@ -58,6 +58,7 @@ final class AppState: ObservableObject {
     func createEvent(name: String?, drivingMode: Bool, bacLimit: Double?) -> NightEvent {
         let event = DataStore.shared.createEvent(name: name, drivingMode: drivingMode, bacLimit: bacLimit)
         events.append(event)
+        Task { await SupabaseManager.shared.pushEvent(event) }
         return event
     }
 
@@ -74,12 +75,15 @@ final class AppState: ObservableObject {
         events.removeAll { $0.id == id }
         entries.removeAll { $0.eventId == id }
         waterEntries.removeAll { $0.eventId == id }
+        Task { await SupabaseManager.shared.deleteEvent(id) }
     }
 
     private func updateEvent(id: String, mutate: (inout NightEvent) -> Void) {
         guard let idx = events.firstIndex(where: { $0.id == id }) else { return }
         mutate(&events[idx])
         DataStore.shared.updateEvent(events[idx])
+        let updated = events[idx]
+        Task { await SupabaseManager.shared.pushEvent(updated) }
     }
 
     // MARK: - Entries
@@ -106,6 +110,7 @@ final class AppState: ObservableObject {
         entries.append(entry)
         scheduleUndo(entry)
         checkWarnings(after: entry, eventId: eventId)
+        Task { await SupabaseManager.shared.pushEntry(entry) }
     }
 
     func updateEntry(_ entry: DrinkEntry) {
@@ -113,11 +118,13 @@ final class AppState: ObservableObject {
         if let idx = entries.firstIndex(where: { $0.id == entry.id }) {
             entries[idx] = entry
         }
+        Task { await SupabaseManager.shared.pushEntry(entry) }
     }
 
     func deleteEntry(_ id: String) {
         DataStore.shared.deleteEntry(id)
         entries.removeAll { $0.id == id }
+        Task { await SupabaseManager.shared.deleteEntry(id) }
     }
 
     func undoLastEntry() {
@@ -162,16 +169,13 @@ final class AppState: ObservableObject {
         }
         customDrinkTypes = types
         DataStore.shared.saveCustomDrinkTypes(types)
+        Task { await SupabaseManager.shared.pushDrinkType(type) }
     }
 
     func deleteDrinkType(_ id: String) {
-        if DrinkType.presets.contains(where: { $0.id == id }) {
-            // Reset preset to default
-            customDrinkTypes.removeAll { $0.id == id }
-        } else {
-            customDrinkTypes.removeAll { $0.id == id }
-        }
+        customDrinkTypes.removeAll { $0.id == id }
         DataStore.shared.saveCustomDrinkTypes(customDrinkTypes)
+        Task { await SupabaseManager.shared.deleteDrinkType(id) }
     }
 
     // MARK: - Profile
@@ -179,6 +183,7 @@ final class AppState: ObservableObject {
     func updateUserProfile(_ profile: UserProfile) {
         userProfile = profile
         DataStore.shared.saveUserProfile(profile)
+        Task { await SupabaseManager.shared.pushProfile(profile) }
     }
 
     // MARK: - Challenges
@@ -264,6 +269,44 @@ final class AppState: ObservableObject {
             profile.subscriptionStartedAt = Date()
         }
         updateUserProfile(profile)
+    }
+
+    // MARK: - Cloud sync
+
+    // Called after sign-in: merges cloud data into local storage without wiping local records.
+    func applyCloudData(_ data: SupabaseManager.PulledData) {
+        let localEventIds = Set(events.map { $0.id })
+        let newEvents = data.events.filter { !localEventIds.contains($0.id) }
+        if !newEvents.isEmpty {
+            events.append(contentsOf: newEvents)
+            DataStore.shared.saveEvents(events)
+        }
+
+        let localEntryIds = Set(entries.map { $0.id })
+        let newEntries = data.entries.filter { !localEntryIds.contains($0.id) }
+        if !newEntries.isEmpty {
+            entries.append(contentsOf: newEntries)
+            DataStore.shared.saveEntries(entries)
+        }
+
+        let localTypeIds = Set(customDrinkTypes.map { $0.id })
+        let newTypes = data.drinkTypes.filter { !$0.isPreset && !localTypeIds.contains($0.id) }
+        if !newTypes.isEmpty {
+            customDrinkTypes.append(contentsOf: newTypes)
+            DataStore.shared.saveCustomDrinkTypes(customDrinkTypes)
+        }
+
+        if let cloud = data.profile {
+            var merged = userProfile
+            merged.sex            = cloud.sex
+            merged.subscriptionTier   = cloud.subscriptionTier
+            merged.subscriptionPeriod = cloud.subscriptionPeriod
+            if cloud.weightKg != 70    { merged.weightKg = cloud.weightKg }
+            if let h = cloud.heightCm  { merged.heightCm = h }
+            if let b = cloud.birthYear { merged.birthYear = b }
+            if cloud.onboardingComplete { merged.onboardingComplete = true }
+            updateUserProfile(merged)
+        }
     }
 
     // MARK: - BAC helpers (for active event view)

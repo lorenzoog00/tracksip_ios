@@ -9,4 +9,5 @@ enum Route: Hashable {
     case drinks
     case profile
     case subscription
+    case auth
 }

@@ -29,6 +29,8 @@ struct RootView: View {
                                 ProfileView()
                             case .subscription:
                                 SubscriptionView()
+                            case .auth:
+                                AuthView()
                             }
                         }
                 }

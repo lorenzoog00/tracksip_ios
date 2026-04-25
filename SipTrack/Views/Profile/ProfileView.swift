@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ProfileView: View {
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var supabase: SupabaseManager
     @Environment(\.dismiss) private var dismiss
 
     @State private var sex: Sex
@@ -118,6 +119,48 @@ struct ProfileView: View {
                         .background(AppColors.accent)
                         .foregroundStyle(.black)
                         .cornerRadius(14)
+                    }
+
+                    // Account / Cloud sync
+                    SectionCard(title: "Account") {
+                        if supabase.isSignedIn {
+                            HStack {
+                                Image(systemName: "icloud.fill")
+                                    .foregroundStyle(AppColors.accent)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Signed in")
+                                        .font(.system(size: 14, weight: .medium))
+                                        .foregroundStyle(AppColors.text)
+                                    if let email = supabase.userEmail {
+                                        Text(email)
+                                            .font(.system(size: 12))
+                                            .foregroundStyle(AppColors.textSecondary)
+                                    }
+                                }
+                                Spacer()
+                                Button {
+                                    Task { await supabase.signOut() }
+                                } label: {
+                                    Text("Sign Out")
+                                        .font(.system(size: 13, weight: .medium))
+                                        .foregroundStyle(AppColors.danger)
+                                }
+                            }
+                        } else {
+                            NavigationLink(value: Route.auth) {
+                                HStack {
+                                    Image(systemName: "icloud.slash.fill")
+                                        .foregroundStyle(AppColors.textSecondary)
+                                    Text("Sign in to sync across devices")
+                                        .font(.system(size: 14))
+                                        .foregroundStyle(AppColors.text)
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 12))
+                                        .foregroundStyle(AppColors.textTertiary)
+                                }
+                            }
+                        }
                     }
 
                     // Subscription link
