@@ -17,6 +17,9 @@ struct ProfileView: View {
     @State private var bacApproachWarning: Bool
     @State private var stageChangeWarning: Bool
     @State private var saved = false
+    @State private var showDeleteAccountConfirm = false
+    @State private var deletingAccount = false
+    @State private var deleteError: String? = nil
 
     init() {
         let p = DataStore.shared.loadUserProfile()
@@ -146,6 +149,35 @@ struct ProfileView: View {
                                         .foregroundStyle(AppColors.danger)
                                 }
                             }
+
+                            Divider().background(AppColors.border)
+
+                            Button(role: .destructive) {
+                                showDeleteAccountConfirm = true
+                            } label: {
+                                HStack {
+                                    if deletingAccount {
+                                        ProgressView().scaleEffect(0.8)
+                                    } else {
+                                        Image(systemName: "trash.fill")
+                                    }
+                                    Text(deletingAccount ? "Deleting…" : "Delete my account")
+                                        .font(.system(size: 14, weight: .medium))
+                                    Spacer()
+                                }
+                                .foregroundStyle(AppColors.danger)
+                            }
+                            .disabled(deletingAccount)
+
+                            if let err = deleteError {
+                                Text(err)
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(AppColors.danger)
+                            }
+
+                            Text("Permanently deletes your account and all cloud data (events, drinks, profile).")
+                                .font(.system(size: 11))
+                                .foregroundStyle(AppColors.textTertiary)
                         } else {
                             NavigationLink(value: Route.auth) {
                                 HStack {
@@ -188,6 +220,27 @@ struct ProfileView: View {
         }
         .navigationTitle("Profile")
         .navigationBarTitleDisplayMode(.inline)
+        .confirmationDialog(
+            "Delete account?",
+            isPresented: $showDeleteAccountConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Delete forever", role: .destructive) {
+                Task { await performDeleteAccount() }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This is permanent. Your cloud account, events, drinks, and profile will be erased.")
+        }
+    }
+
+    private func performDeleteAccount() async {
+        deletingAccount = true
+        deleteError = nil
+        if let err = await supabase.deleteAccount() {
+            deleteError = err
+        }
+        deletingAccount = false
     }
 
     private func saveProfile() {

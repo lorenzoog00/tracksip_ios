@@ -26,6 +26,7 @@ extension IntoxicationStage {
     }
 
     static func barPosition(for bac: Double) -> Double {
+        guard bac.isFinite else { return 0 }
         let clipped = max(0, min(bac, 0.50))
         return clipped / 0.50
     }

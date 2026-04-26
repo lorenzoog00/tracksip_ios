@@ -5,16 +5,20 @@ struct ActiveEventView: View {
     @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) private var dismiss
 
-    @State private var currentBAC: Double = 0
     @State private var showDrinkPicker    = false
     @State private var showEndConfirm     = false
     @State private var showEditEntry: DrinkEntry? = nil
     @State private var timer: Timer?      = nil
     @State private var now                = Date()
+    @State private var navigateToSummary  = false
 
     private var event: NightEvent? { appState.events.first { $0.id == eventId } }
     private var eventEntries: [DrinkEntry] { appState.entries.filter { $0.eventId == eventId }.sorted { $0.timestamp > $1.timestamp } }
     private var eventWater: [WaterEntry]  { appState.waterEntries.filter { $0.eventId == eventId }.sorted { $0.timestamp > $1.timestamp } }
+    private var currentBAC: Double {
+        _ = now
+        return appState.currentBAC(for: eventId)
+    }
     private var stage: IntoxicationStage  { IntoxicationStage.stage(for: currentBAC) }
     private var drinkCount: Int           { eventEntries.reduce(0) { $0 + $1.quantity } }
 
@@ -79,9 +83,12 @@ struct ActiveEventView: View {
         .confirmationDialog("End this night?", isPresented: $showEndConfirm, titleVisibility: .visible) {
             Button("End Night", role: .destructive) {
                 appState.endEvent(eventId)
-                dismiss()
+                navigateToSummary = true
             }
             Button("Cancel", role: .cancel) {}
+        }
+        .navigationDestination(isPresented: $navigateToSummary) {
+            SummaryView(eventId: eventId)
         }
         .alert("⚠️ Heads Up", isPresented: Binding(
             get: { !appState.activeWarnings.isEmpty },
@@ -102,14 +109,11 @@ struct ActiveEventView: View {
         }
     }
 
-    private func refreshBAC() {
-        now = Date()
-        currentBAC = appState.currentBAC(for: eventId)
-    }
-
     private func startTimer() {
-        refreshBAC()
-        timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { _ in refreshBAC() }
+        now = Date()
+        timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { _ in
+            now = Date()
+        }
     }
 
     private func stopTimer() {
