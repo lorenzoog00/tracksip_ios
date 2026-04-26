@@ -1,10 +1,56 @@
-ls -la ~/Library/Developer/Xcode/DerivedData/siptrack-dymzokqhkqxirjfjommyrbozvpey/Build/Products/Debug-iphoneos/siptrack.app/
-lorenzo.orozco@ITGMACM4PJWNN7YV siptrack % ls -la ~/Library/Developer/Xcode/DerivedData/siptrack-dymzokqhkqxirjfjommyrbozvpey/Build/Products/Debug-iphoneos/siptrack.app/
-total 48
-drwxr-xr-x  6 lorenzo.orozco  staff    192 25 abr 04:37 _CodeSignature
-drwxr-xr-x  6 lorenzo.orozco  staff    192 25 abr 04:37 .
-drwxr-xr-x@ 3 lorenzo.orozco  staff     96 25 abr 04:37 ..
--rw-r--r--  1 lorenzo.orozco  staff  14249 25 abr 04:37 embedded.mobileprovision
--rw-r--r--  1 lorenzo.orozco  staff   1249 25 abr 04:37 Info.plist
--rw-r--r--  1 lorenzo.orozco  staff      8 25 abr 04:37 PkgInfo
-lorenzo.orozco@ITGMACM4PJWNN7YV siptrack %
+Initial session emitted after attempting to refresh the local stored session.
+This is incorrect behavior and will be fixed in the next major release since it's a breaking change.
+To opt-in to the new behavior now, set `emitLocalSessionAsInitialSession: true` in your AuthClient configuration.
+The new behavior ensures that the locally stored session is always emitted, regardless of its validity or expiration.
+If you rely on the initial session to opt users in, you need to add an additional check for `session.isExpired` in the session.
+
+Check https://github.com/supabase/supabase-swift/pull/822 for more information.
+Error enumerating all current transactions: Error Domain=ASDErrorDomain Code=500 "(null)" UserInfo={NSUnderlyingError=0x108e14360 {Error Domain=AMSErrorDomain Code=301 "Invalid Status Code The response has an invalid status code" UserInfo={AMSURL=https://mzstorekit-sb.itunes.apple.com/inApps/v1/history?REDACTED, AMSDescription=Invalid Status Code, NSDebugDescription=Invalid Status Code The response has an invalid status code, AMSServerCorrelationKey=DSRZO43Q7NOCXO4AIE4FGB7Q4Q, AMSStatusCode=404, AMSServerPayload={
+    errorCode = 4040004;
+    errorMessage = "App not found. Please try again.";
+}, AMSFailureReason=The response has an invalid status code}}, storefront-country-code=USA, client-environment-type=Sandbox}
+container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
+container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
+<0x1045f92c0> Gesture: System gesture gate timed out.
+App is being debugged, do not track this hang
+Hang detected: 3.90s (debugger attached, not reporting)
+container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
+container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
+A NavigationLink is presenting a value of type “Route” but there is no matching navigationDestination declaration visible from the location of the link. The link cannot be activated.
+
+Note: Links search for destinations in any surrounding NavigationStack, then within the same column of a NavigationSplitView.
+A NavigationLink is presenting a value of type “Route” but there is no matching navigationDestination declaration visible from the location of the link. The link cannot be activated.
+
+Note: Links search for destinations in any surrounding NavigationStack, then within the same column of a NavigationSplitView.
+A NavigationLink is presenting a value of type “Route” but there is no matching navigationDestination declaration visible from the location of the link. The link cannot be activated.
+
+Note: Links search for destinations in any surrounding NavigationStack, then within the same column of a NavigationSplitView.
+A NavigationLink is presenting a value of type “Route” but there is no matching navigationDestination declaration visible from the location of the link. The link cannot be activated.
+
+Note: Links search for destinations in any surrounding NavigationStack, then within the same column of a NavigationSplitView.
+-[RTIInputSystemClient remoteTextInputSessionWithID:performInputOperation:]  perform input operation requires a valid sessionID. inputModality = Keyboard, inputOperation = <null selector>, customInfoType = UIEmojiSearchOperations
+Result accumulator timeout: 0.250000, exceeded.
+container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
+container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
+container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
+container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
+container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
+container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
+container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
+container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
+container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
+container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
+container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
+container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
+container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
+container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
+container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
+container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
+App is being debugged, do not track this hang
+Hang detected: 0.27s (debugger attached, not reporting)
+container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
+container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
+-[RTIInputSystemClient remoteTextInputSessionWithID:performInputOperation:]  perform input operation requires a valid sessionID. inputModality = Keyboard, inputOperation = dismissAutoFillPanel, customInfoType = UIUserInteractionRemoteInputOperations
+-[RTIInputSystemClient remoteTextInputSessionWithID:performInputOperation:]  perform input operation requires a valid sessionID. inputModality = Keyboard, inputOperation = dismissAutoFillPanel, customInfoType = UIUserInteractionRemoteInputOperations
+-[RTIInputSystemClient remoteTextInputSessionWithID:performInputOperation:]  perform input operation requires a valid sessionID. inputModality = Keyboard, inputOperation = dismissAutoFillPanel, customInfoType = UIUserInteractionRemoteInputOperations
+Snapshotting a view (0x108eb3b80, UIKeyboardImpl) that is not in a visible window requires afterScreenUpdates:YES.
