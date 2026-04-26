@@ -184,6 +184,18 @@ struct SummaryView: View {
         .background(AppColors.background)
         .navigationTitle("Summary")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
+                    appState.updateEventNotes(id: eventId, notes: notes)
+                    dismiss()
+                } label: {
+                    Text("Done")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(AppColors.accent)
+                }
+            }
+        }
         .onAppear { notes = event.notes ?? "" }
         .confirmationDialog("Delete this night?", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
             Button("Delete", role: .destructive) {
