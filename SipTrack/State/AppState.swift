@@ -16,6 +16,7 @@ final class AppState: ObservableObject {
     @Published var activeWarnings: [DrinkWarning] = []
     @Published var undoEntry: DrinkEntry?    = nil
     @Published var showWaterNudge: Bool      = false
+    @Published var currentUserId: String?    = nil
 
     /// Set by ActiveEventView right after End Night so RootView can pop the
     /// active event and push SummaryView cleanly.
@@ -25,16 +26,22 @@ final class AppState: ObservableObject {
 
     private var undoTask: Task<Void, Never>?
     private var refreshTask: Task<Void, Never>?
+    private var authCancellable: AnyCancellable?
 
     // MARK: - Computed
 
     var allDrinkTypes: [DrinkType] { DrinkType.mergedWith(custom: customDrinkTypes) }
     var isPro: Bool { store.isPro }
 
-    var activeEvent: NightEvent? { events.first { $0.isActive } }
+    var activeEvent: NightEvent? {
+        events.first { $0.isActive && $0.userId == currentUserId }
+    }
 
     var visibleEvents: [NightEvent] {
-        let finished = events.filter { $0.endTime != nil }.sorted { $0.startTime > $1.startTime }
+        guard let uid = currentUserId else { return [] }
+        let finished = events
+            .filter { $0.endTime != nil && $0.userId == uid }
+            .sorted { $0.startTime > $1.startTime }
         if isPro { return finished }
         let cutoff = Calendar.current.date(byAdding: .day, value: -30, to: Date())!
         return finished.filter { $0.startTime >= cutoff }
@@ -44,7 +51,13 @@ final class AppState: ObservableObject {
 
     init(store: StoreManager) {
         self.store = store
+        currentUserId = SupabaseManager.shared.currentUserId()
         loadAll()
+        authCancellable = SupabaseManager.shared.$isSignedIn
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.currentUserId = SupabaseManager.shared.currentUserId()
+            }
     }
 
     private func loadAll() {
@@ -60,7 +73,7 @@ final class AppState: ObservableObject {
     // MARK: - Events
 
     func createEvent(name: String?, drivingMode: Bool, bacLimit: Double?) -> NightEvent {
-        let event = DataStore.shared.createEvent(name: name, drivingMode: drivingMode, bacLimit: bacLimit)
+        let event = DataStore.shared.createEvent(name: name, drivingMode: drivingMode, bacLimit: bacLimit, userId: currentUserId)
         events.append(event)
         Task { await SupabaseManager.shared.pushEvent(event) }
         return event

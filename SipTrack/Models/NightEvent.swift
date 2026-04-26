@@ -2,6 +2,7 @@ import Foundation
 
 struct NightEvent: Codable, Identifiable, Hashable {
     var id: String
+    var userId: String?
     var name: String?
     var startTime: Date
     var endTime: Date?

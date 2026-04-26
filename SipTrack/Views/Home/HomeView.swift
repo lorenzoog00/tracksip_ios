@@ -40,84 +40,10 @@ struct HomeView: View {
                     }
                     .padding(.horizontal)
 
-                    // Sign-in CTA (only when not signed in)
-                    if !supabase.isSignedIn {
-                        NavigationLink(value: Route.auth) {
-                            HStack(spacing: 12) {
-                                Image(systemName: "icloud.and.arrow.up.fill")
-                                    .font(.system(size: 18))
-                                    .foregroundStyle(AppColors.accent)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("Sign in to sync")
-                                        .font(.system(size: 14, weight: .semibold))
-                                        .foregroundStyle(AppColors.text)
-                                    Text("Back up your nights to the cloud, free.")
-                                        .font(.system(size: 11))
-                                        .foregroundStyle(AppColors.textSecondary)
-                                }
-                                Spacer()
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 12))
-                                    .foregroundStyle(AppColors.textTertiary)
-                            }
-                            .padding(14)
-                            .background(AppColors.surface)
-                            .cornerRadius(14)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 14)
-                                    .stroke(AppColors.accent.opacity(0.4), lineWidth: 1)
-                            )
-                        }
-                        .buttonStyle(.plain)
-                        .padding(.horizontal)
-                    }
-
-                    // Active event card
-                    if let active = appState.activeEvent {
-                        NavigationLink(value: Route.event(active.id)) {
-                            ActiveEventCard(event: active)
-                        }
-                        .buttonStyle(.plain)
-                        .padding(.horizontal)
-                    }
-
-                    // Nav grid
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                        NavTile(title: "Calendar", icon: "calendar", locked: !appState.isPro, destination: .calendar)
-                        NavTile(title: "Stats",    icon: "chart.bar.fill", locked: !appState.isPro, destination: .dashboard)
-                        NavTile(title: "Challenges",icon: "trophy.fill",  locked: !appState.isPro, destination: .challenges)
-                        NavTile(title: "Drinks",   icon: "wineglass.fill", locked: !appState.isPro, destination: .drinks)
-                    }
-                    .padding(.horizontal)
-
-                    // Past events
-                    if !appState.visibleEvents.isEmpty {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("Past Nights")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(AppColors.text)
-                                .padding(.horizontal)
-
-                            ForEach(Array(appState.visibleEvents.enumerated()), id: \.element.id) { index, event in
-                                // Inject native ad after position 2 (3rd item) for free users
-                                if index == 2 && !appState.isPro {
-                                    NativeAdCardView()
-                                        .padding(.horizontal)
-                                }
-                                NavigationLink(value: Route.summary(event.id)) {
-                                    EventRow(event: event, drinkCount: appState.totalDrinks(for: event.id))
-                                }
-                                .buttonStyle(.plain)
-                                .padding(.horizontal)
-                                .contextMenu {
-                                    Button(role: .destructive) {
-                                        appState.deleteEvent(event.id)
-                                    } label: {
-                                        Label("Delete", systemImage: "trash")
-                                    }
-                                }
-                            }
-                        }
+                    if supabase.isSignedIn {
+                        signedInContent
+                    } else {
+                        noAccountContent
                     }
 
                     Color.clear.frame(height: 90)
@@ -126,32 +52,132 @@ struct HomeView: View {
             }
             .background(AppColors.background)
 
-            // FAB
-            Button {
-                if appState.activeEvent != nil {
-                    // Already active, do nothing (card shows it)
-                } else {
-                    showCreateEvent = true
+            if supabase.isSignedIn {
+                Button {
+                    if appState.activeEvent != nil {
+                        // Already active, card shows it
+                    } else {
+                        showCreateEvent = true
+                    }
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 16, weight: .semibold))
+                        Text(appState.activeEvent == nil ? "Start New Night" : "Night in Progress")
+                            .font(.system(size: 16, weight: .semibold))
+                    }
+                    .foregroundStyle(.black)
+                    .padding(.horizontal, 28)
+                    .padding(.vertical, 16)
+                    .background(AppColors.accent)
+                    .cornerRadius(30)
+                    .shadow(color: AppColors.accentGlow, radius: 12, y: 4)
                 }
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "plus")
-                        .font(.system(size: 16, weight: .semibold))
-                    Text(appState.activeEvent == nil ? "Start New Night" : "Night in Progress")
-                        .font(.system(size: 16, weight: .semibold))
-                }
-                .foregroundStyle(.black)
-                .padding(.horizontal, 28)
-                .padding(.vertical, 16)
-                .background(AppColors.accent)
-                .cornerRadius(30)
-                .shadow(color: AppColors.accentGlow, radius: 12, y: 4)
+                .padding(.bottom, 32)
             }
-            .padding(.bottom, 32)
         }
         .navigationBarHidden(true)
         .sheet(isPresented: $showCreateEvent) {
             CreateEventView()
+        }
+    }
+
+    @ViewBuilder
+    private var signedInContent: some View {
+        // Active event card
+        if let active = appState.activeEvent {
+            NavigationLink(value: Route.event(active.id)) {
+                ActiveEventCard(event: active)
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal)
+        }
+
+        // Nav grid
+        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+            NavTile(title: "Calendar",  icon: "calendar",       locked: !appState.isPro, destination: .calendar)
+            NavTile(title: "Stats",     icon: "chart.bar.fill", locked: !appState.isPro, destination: .dashboard)
+            NavTile(title: "Challenges",icon: "trophy.fill",    locked: !appState.isPro, destination: .challenges)
+            NavTile(title: "Drinks",    icon: "wineglass.fill", locked: !appState.isPro, destination: .drinks)
+        }
+        .padding(.horizontal)
+
+        // Past events
+        if !appState.visibleEvents.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Past Nights")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(AppColors.text)
+                    .padding(.horizontal)
+
+                ForEach(Array(appState.visibleEvents.enumerated()), id: \.element.id) { index, event in
+                    if index == 2 && !appState.isPro {
+                        NativeAdCardView()
+                            .padding(.horizontal)
+                    }
+                    NavigationLink(value: Route.summary(event.id)) {
+                        EventRow(event: event, drinkCount: appState.totalDrinks(for: event.id))
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal)
+                    .contextMenu {
+                        Button(role: .destructive) {
+                            appState.deleteEvent(event.id)
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var noAccountContent: some View {
+        VStack(spacing: 24) {
+            Spacer().frame(height: 24)
+
+            Image(systemName: "person.crop.circle.badge.exclamationmark")
+                .font(.system(size: 56))
+                .foregroundStyle(AppColors.accent)
+
+            VStack(spacing: 8) {
+                Text("Create an account to get started")
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(AppColors.text)
+                    .multilineTextAlignment(.center)
+                Text("Your nights are saved to your account and stay private to you.")
+                    .font(.system(size: 14))
+                    .foregroundStyle(AppColors.textSecondary)
+                    .multilineTextAlignment(.center)
+            }
+            .padding(.horizontal, 32)
+
+            VStack(spacing: 12) {
+                NavigationLink(value: Route.auth) {
+                    Text("Create Account")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.black)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(AppColors.accent)
+                        .cornerRadius(14)
+                }
+                .buttonStyle(.plain)
+
+                NavigationLink(value: Route.auth) {
+                    Text("Sign In")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(AppColors.accent)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(AppColors.surface)
+                        .cornerRadius(14)
+                        .overlay(RoundedRectangle(cornerRadius: 14).stroke(AppColors.accent.opacity(0.4), lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal)
         }
     }
 }

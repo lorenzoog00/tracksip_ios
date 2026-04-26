@@ -181,6 +181,7 @@ final class SupabaseManager: ObservableObject {
         let events = eRows.map { r in
             NightEvent(
                 id: r.id,
+                userId: userId,
                 name: r.name,
                 startTime: Date(timeIntervalSince1970: Double(r.started_at) / 1000.0),
                 endTime: r.ended_at.map { Date(timeIntervalSince1970: Double($0) / 1000.0) },
