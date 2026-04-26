@@ -4,6 +4,7 @@ struct SummaryView: View {
     let eventId: String
     @EnvironmentObject var appState: AppState
     @State private var notes = ""
+    @State private var notesSavedAt: Date? = nil
     @State private var showDeleteConfirm = false
     @Environment(\.dismiss) private var dismiss
 
@@ -135,9 +136,21 @@ struct SummaryView: View {
 
                 // Notes
                 VStack(alignment: .leading, spacing: 8) {
-                    Label("Notes", systemImage: "note.text")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(AppColors.textSecondary)
+                    HStack {
+                        Label("Notes", systemImage: "note.text")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(AppColors.textSecondary)
+                        Spacer()
+                        if notesSavedAt != nil {
+                            HStack(spacing: 4) {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.system(size: 11))
+                                Text("Saved")
+                                    .font(.system(size: 11))
+                            }
+                            .foregroundStyle(AppColors.success)
+                        }
+                    }
                     TextEditor(text: $notes)
                         .frame(minHeight: 80)
                         .padding(8)
@@ -147,6 +160,7 @@ struct SummaryView: View {
                         .foregroundStyle(AppColors.text)
                         .onChange(of: notes) { _, newVal in
                             appState.updateEventNotes(id: eventId, notes: newVal)
+                            notesSavedAt = Date()
                         }
                 }
                 .padding(.horizontal)

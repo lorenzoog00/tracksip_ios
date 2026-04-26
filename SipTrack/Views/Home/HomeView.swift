@@ -2,6 +2,7 @@ import SwiftUI
 
 struct HomeView: View {
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var supabase: SupabaseManager
     @State private var showCreateEvent  = false
     @State private var deletingEventId: String? = nil
 
@@ -38,6 +39,38 @@ struct HomeView: View {
                         .buttonStyle(.plain)
                     }
                     .padding(.horizontal)
+
+                    // Sign-in CTA (only when not signed in)
+                    if !supabase.isSignedIn {
+                        NavigationLink(value: Route.auth) {
+                            HStack(spacing: 12) {
+                                Image(systemName: "icloud.and.arrow.up.fill")
+                                    .font(.system(size: 18))
+                                    .foregroundStyle(AppColors.accent)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Sign in to sync")
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundStyle(AppColors.text)
+                                    Text("Back up your nights to the cloud, free.")
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(AppColors.textSecondary)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(AppColors.textTertiary)
+                            }
+                            .padding(14)
+                            .background(AppColors.surface)
+                            .cornerRadius(14)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 14)
+                                    .stroke(AppColors.accent.opacity(0.4), lineWidth: 1)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.horizontal)
+                    }
 
                     // Active event card
                     if let active = appState.activeEvent {

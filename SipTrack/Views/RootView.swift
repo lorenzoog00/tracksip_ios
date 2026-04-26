@@ -34,6 +34,12 @@ struct RootView: View {
                             }
                         }
                 }
+                .onChange(of: appState.pendingSummaryEventId) { _, newValue in
+                    guard let eventId = newValue else { return }
+                    if !path.isEmpty { path.removeLast() }
+                    path.append(Route.summary(eventId))
+                    appState.pendingSummaryEventId = nil
+                }
             }
         }
         .preferredColorScheme(.dark)

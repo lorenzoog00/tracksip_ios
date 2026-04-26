@@ -17,6 +17,10 @@ final class AppState: ObservableObject {
     @Published var undoEntry: DrinkEntry?    = nil
     @Published var showWaterNudge: Bool      = false
 
+    /// Set by ActiveEventView right after End Night so RootView can pop the
+    /// active event and push SummaryView cleanly.
+    @Published var pendingSummaryEventId: String? = nil
+
     let store: StoreManager
 
     private var undoTask: Task<Void, Never>?

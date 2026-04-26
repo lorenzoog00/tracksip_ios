@@ -10,7 +10,6 @@ struct ActiveEventView: View {
     @State private var showEditEntry: DrinkEntry? = nil
     @State private var timer: Timer?      = nil
     @State private var now                = Date()
-    @State private var navigateToSummary  = false
 
     private var event: NightEvent? { appState.events.first { $0.id == eventId } }
     private var eventEntries: [DrinkEntry] { appState.entries.filter { $0.eventId == eventId }.sorted { $0.timestamp > $1.timestamp } }
@@ -83,12 +82,10 @@ struct ActiveEventView: View {
         .confirmationDialog("End this night?", isPresented: $showEndConfirm, titleVisibility: .visible) {
             Button("End Night", role: .destructive) {
                 appState.endEvent(eventId)
-                navigateToSummary = true
+                // Hand off to RootView: pop self, push SummaryView.
+                appState.pendingSummaryEventId = eventId
             }
             Button("Cancel", role: .cancel) {}
-        }
-        .navigationDestination(isPresented: $navigateToSummary) {
-            SummaryView(eventId: eventId)
         }
         .alert("⚠️ Heads Up", isPresented: Binding(
             get: { !appState.activeWarnings.isEmpty },

@@ -41,11 +41,24 @@ final class SupabaseManager: ObservableObject {
     // MARK: - Auth
 
     func signIn(email: String, password: String) async throws {
-        try await client.auth.signIn(email: email, password: password)
+        let session = try await client.auth.signIn(email: email, password: password)
+        // Eagerly update so UI doesn't have to wait for the authStateChanges stream.
+        isSignedIn = true
+        userEmail = session.user.email
     }
 
-    func signUp(email: String, password: String) async throws {
-        try await client.auth.signUp(email: email, password: password)
+    /// Returns true if Supabase granted a session immediately (email
+    /// confirmation disabled). Returns false if the user must verify email
+    /// before signing in.
+    @discardableResult
+    func signUp(email: String, password: String) async throws -> Bool {
+        let response = try await client.auth.signUp(email: email, password: password)
+        if response.session != nil {
+            isSignedIn = true
+            userEmail = response.user.email
+            return true
+        }
+        return false
     }
 
     func signOut() async {

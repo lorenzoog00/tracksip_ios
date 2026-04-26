@@ -397,9 +397,15 @@ struct AuthView: View {
         isLoading = true; errorMsg = nil; successMsg = nil
         do {
             if isSignUp {
-                try await supabase.signUp(email: email, password: password)
-                successMsg = "Check your email to confirm, then sign in."
-                isSignUp = false
+                let signedInImmediately = try await supabase.signUp(email: email, password: password)
+                if signedInImmediately {
+                    let data = await supabase.pullUserData()
+                    appState.applyCloudData(data)
+                    dismiss()
+                } else {
+                    successMsg = "Account created. Check your email to confirm, then sign in."
+                    isSignUp = false
+                }
             } else {
                 try await supabase.signIn(email: email, password: password)
                 let data = await supabase.pullUserData()
