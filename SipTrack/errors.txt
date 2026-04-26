@@ -1,35 +1,47 @@
-Initial session emitted after attempting to refresh the local stored session.
-This is incorrect behavior and will be fixed in the next major release since it's a breaking change.
-To opt-in to the new behavior now, set `emitLocalSessionAsInitialSession: true` in your AuthClient configuration.
-The new behavior ensures that the locally stored session is always emitted, regardless of its validity or expiration.
-If you rely on the initial session to opt users in, you need to add an additional check for `session.isExpired` in the session.
-
-Check https://github.com/supabase/supabase-swift/pull/822 for more information.
-Error enumerating all current transactions: Error Domain=ASDErrorDomain Code=500 "(null)" UserInfo={NSUnderlyingError=0x108e14360 {Error Domain=AMSErrorDomain Code=301 "Invalid Status Code The response has an invalid status code" UserInfo={AMSURL=https://mzstorekit-sb.itunes.apple.com/inApps/v1/history?REDACTED, AMSDescription=Invalid Status Code, NSDebugDescription=Invalid Status Code The response has an invalid status code, AMSServerCorrelationKey=DSRZO43Q7NOCXO4AIE4FGB7Q4Q, AMSStatusCode=404, AMSServerPayload={
+container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
+container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
+container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
+container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
+container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
+container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
+Error enumerating all current transactions: Error Domain=ASDErrorDomain Code=500 "(null)" UserInfo={NSUnderlyingError=0x10a378990 {Error Domain=AMSErrorDomain Code=301 "Invalid Status Code The response has an invalid status code" UserInfo={AMSURL=https://mzstorekit-sb.itunes.apple.com/inApps/v1/history?REDACTED, AMSDescription=Invalid Status Code, NSDebugDescription=Invalid Status Code The response has an invalid status code, AMSServerCorrelationKey=CVGZCOSX5CB2SDTM3R5NHZ6MSM, AMSStatusCode=404, AMSServerPayload={
     errorCode = 4040004;
     errorMessage = "App not found. Please try again.";
 }, AMSFailureReason=The response has an invalid status code}}, storefront-country-code=USA, client-environment-type=Sandbox}
 container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
+Error enumerating unfinished transactions for first transaction listener: Error Domain=ASDErrorDomain Code=500 "(null)" UserInfo={client-environment-type=Sandbox, storefront-country-code=USA, NSUnderlyingError=0x10a379a40 {Error Domain=AMSErrorDomain Code=301 "Invalid Status Code The response has an invalid status code" UserInfo={AMSURL=https://mzstorekit-sb.itunes.apple.com/inApps/v1/history?REDACTED, AMSDescription=Invalid Status Code, NSDebugDescription=Invalid Status Code The response has an invalid status code, AMSServerCorrelationKey=TF2AEJVMO4SPQS47GZGUS2EXKI, AMSStatusCode=404, AMSServerPayload={
+    errorCode = 4040004;
+    errorMessage = "App not found. Please try again.";
+}, AMSFailureReason=The response has an invalid status code}}}
+Error enumerating all current transactions: Error Domain=ASDErrorDomain Code=500 "(null)" UserInfo={NSUnderlyingError=0x10a379a10 {Error Domain=AMSErrorDomain Code=301 "Invalid Status Code The response has an invalid status code" UserInfo={AMSURL=https://mzstorekit-sb.itunes.apple.com/inApps/v1/history?REDACTED, AMSDescription=Invalid Status Code, NSDebugDescription=Invalid Status Code The response has an invalid status code, AMSServerCorrelationKey=FQ6NIUMJG5ZP4N7FUSH7ESDICE, AMSStatusCode=404, AMSServerPayload={
+    errorCode = 4040004;
+    errorMessage = "App not found. Please try again.";
+}, AMSFailureReason=The response has an invalid status code}}, storefront-country-code=USA, client-environment-type=Sandbox}
 container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
-<0x1045f92c0> Gesture: System gesture gate timed out.
+A NavigationLink is presenting a value of type “Route” but there is no matching navigationDestination declaration visible from the location of the link. The link cannot be activated.
+
+Note: Links search for destinations in any surrounding NavigationStack, then within the same column of a NavigationSplitView.
+A NavigationLink is presenting a value of type “Route” but there is no matching navigationDestination declaration visible from the location of the link. The link cannot be activated.
+
+Note: Links search for destinations in any surrounding NavigationStack, then within the same column of a NavigationSplitView.
+A NavigationLink is presenting a value of type “Route” but there is no matching navigationDestination declaration visible from the location of the link. The link cannot be activated.
+
+Note: Links search for destinations in any surrounding NavigationStack, then within the same column of a NavigationSplitView.
+<0x105e01180> Gesture: System gesture gate timed out.
 App is being debugged, do not track this hang
-Hang detected: 3.90s (debugger attached, not reporting)
-container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
-container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
-A NavigationLink is presenting a value of type “Route” but there is no matching navigationDestination declaration visible from the location of the link. The link cannot be activated.
-
-Note: Links search for destinations in any surrounding NavigationStack, then within the same column of a NavigationSplitView.
-A NavigationLink is presenting a value of type “Route” but there is no matching navigationDestination declaration visible from the location of the link. The link cannot be activated.
-
-Note: Links search for destinations in any surrounding NavigationStack, then within the same column of a NavigationSplitView.
-A NavigationLink is presenting a value of type “Route” but there is no matching navigationDestination declaration visible from the location of the link. The link cannot be activated.
-
-Note: Links search for destinations in any surrounding NavigationStack, then within the same column of a NavigationSplitView.
-A NavigationLink is presenting a value of type “Route” but there is no matching navigationDestination declaration visible from the location of the link. The link cannot be activated.
-
-Note: Links search for destinations in any surrounding NavigationStack, then within the same column of a NavigationSplitView.
--[RTIInputSystemClient remoteTextInputSessionWithID:performInputOperation:]  perform input operation requires a valid sessionID. inputModality = Keyboard, inputOperation = <null selector>, customInfoType = UIEmojiSearchOperations
-Result accumulator timeout: 0.250000, exceeded.
+Hang detected: 1.42s (debugger attached, not reporting)
+Error: this application, or a library it uses, has passed an invalid numeric value (NaN, or not-a-number) to CoreGraphics API and this value is being ignored. Please fix this problem.
+If you want to see the backtrace, please set CG_NUMERICS_SHOW_BACKTRACE environmental variable.
+Error: this application, or a library it uses, has passed an invalid numeric value (NaN, or not-a-number) to CoreGraphics API and this value is being ignored. Please fix this problem.
+If you want to see the backtrace, please set CG_NUMERICS_SHOW_BACKTRACE environmental variable.
+Error: this application, or a library it uses, has passed an invalid numeric value (NaN, or not-a-number) to CoreGraphics API and this value is being ignored. Please fix this problem.
+If you want to see the backtrace, please set CG_NUMERICS_SHOW_BACKTRACE environmental variable.
+Error: this application, or a library it uses, has passed an invalid numeric value (NaN, or not-a-number) to CoreGraphics API and this value is being ignored. Please fix this problem.
+If you want to see the backtrace, please set CG_NUMERICS_SHOW_BACKTRACE environmental variable.
+Error: this application, or a library it uses, has passed an invalid numeric value (NaN, or not-a-number) to CoreGraphics API and this value is being ignored. Please fix this problem.
+If you want to see the backtrace, please set CG_NUMERICS_SHOW_BACKTRACE environmental variable.
+Error: this application, or a library it uses, has passed an invalid numeric value (NaN, or not-a-number) to CoreGraphics API and this value is being ignored. Please fix this problem.
+If you want to see the backtrace, please set CG_NUMERICS_SHOW_BACKTRACE environmental variable.
 container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
 container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
 container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
@@ -44,13 +56,3 @@ container_create_or_lookup_app_group_path_by_app_group_identifier: client is not
 container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
 container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
 container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
-container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
-container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
-App is being debugged, do not track this hang
-Hang detected: 0.27s (debugger attached, not reporting)
-container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
-container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
--[RTIInputSystemClient remoteTextInputSessionWithID:performInputOperation:]  perform input operation requires a valid sessionID. inputModality = Keyboard, inputOperation = dismissAutoFillPanel, customInfoType = UIUserInteractionRemoteInputOperations
--[RTIInputSystemClient remoteTextInputSessionWithID:performInputOperation:]  perform input operation requires a valid sessionID. inputModality = Keyboard, inputOperation = dismissAutoFillPanel, customInfoType = UIUserInteractionRemoteInputOperations
--[RTIInputSystemClient remoteTextInputSessionWithID:performInputOperation:]  perform input operation requires a valid sessionID. inputModality = Keyboard, inputOperation = dismissAutoFillPanel, customInfoType = UIUserInteractionRemoteInputOperations
-Snapshotting a view (0x108eb3b80, UIKeyboardImpl) that is not in a visible window requires afterScreenUpdates:YES.
