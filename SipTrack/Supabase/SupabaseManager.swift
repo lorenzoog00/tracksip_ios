@@ -8,7 +8,12 @@ final class SupabaseManager: ObservableObject {
 
     private let client = SupabaseClient(
         supabaseURL: URL(string: "https://zmepshcgxzpgyetahtcu.supabase.co")!,
-        supabaseKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InptZXBzaGNneHpwZ3lldGFodGN1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1MzM4NjIsImV4cCI6MjA5MjEwOTg2Mn0.kAJzvAaJFMle26o6-Jk_ePS-5cBTuhS0MhD9xGeUcKY"
+        supabaseKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InptZXBzaGNneHpwZ3lldGFodGN1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1MzM4NjIsImV4cCI6MjA5MjEwOTg2Mn0.kAJzvAaJFMle26o6-Jk_ePS-5cBTuhS0MhD9xGeUcKY",
+        options: SupabaseClientOptions(
+            auth: SupabaseClientOptions.AuthOptions(
+                emitLocalSessionAsInitialSession: true
+            )
+        )
     )
 
     @Published var isSignedIn = false

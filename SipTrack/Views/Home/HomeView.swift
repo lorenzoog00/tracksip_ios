@@ -3,9 +3,7 @@ import SwiftUI
 struct HomeView: View {
     @EnvironmentObject var appState: AppState
     @State private var showCreateEvent  = false
-    @State private var showProfile      = false
     @State private var deletingEventId: String? = nil
-    @State private var path = NavigationPath()
 
     private var greeting: String {
         let hour = Calendar.current.component(.hour, from: Date())
@@ -32,11 +30,12 @@ struct HomeView: View {
                                 .foregroundStyle(AppColors.textSecondary)
                         }
                         Spacer()
-                        Button { showProfile = true } label: {
+                        NavigationLink(value: Route.profile) {
                             Image(systemName: "person.circle.fill")
                                 .font(.system(size: 28))
                                 .foregroundStyle(AppColors.textSecondary)
                         }
+                        .buttonStyle(.plain)
                     }
                     .padding(.horizontal)
 
@@ -121,9 +120,6 @@ struct HomeView: View {
         .sheet(isPresented: $showCreateEvent) {
             CreateEventView()
         }
-        .sheet(isPresented: $showProfile) {
-            NavigationStack { ProfileView() }
-        }
     }
 }
 
@@ -177,15 +173,11 @@ private struct NavTile: View {
     @State private var showPaywall = false
 
     var body: some View {
-        Button {
-            if locked { showPaywall = true }
-        } label: {
+        Group {
             if locked {
-                tileContent
+                Button { showPaywall = true } label: { tileContent }
             } else {
-                NavigationLink(value: destination) {
-                    tileContent
-                }
+                NavigationLink(value: destination) { tileContent }
             }
         }
         .buttonStyle(.plain)
