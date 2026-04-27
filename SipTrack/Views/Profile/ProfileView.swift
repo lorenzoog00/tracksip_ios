@@ -416,6 +416,7 @@ struct AuthView: View {
                 if signedInImmediately {
                     let data = await supabase.pullUserData()
                     appState.applyCloudData(data)
+                    appState.shouldShowAuth = false
                     dismiss()
                 } else {
                     successMsg = "Account created. Check your email to confirm, then sign in."
@@ -425,6 +426,7 @@ struct AuthView: View {
                 try await supabase.signIn(email: email, password: password)
                 let data = await supabase.pullUserData()
                 appState.applyCloudData(data)
+                appState.shouldShowAuth = false
                 dismiss()
             }
         } catch { errorMsg = error.localizedDescription }

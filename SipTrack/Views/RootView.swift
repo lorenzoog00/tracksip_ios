@@ -6,7 +6,9 @@ struct RootView: View {
 
     var body: some View {
         Group {
-            if !appState.userProfile.onboardingComplete {
+            if appState.shouldShowAuth {
+                AuthView()
+            } else if !appState.userProfile.onboardingComplete {
                 OnboardingView()
             } else {
                 NavigationStack(path: $path) {

@@ -17,6 +17,7 @@ final class AppState: ObservableObject {
     @Published var undoEntry: DrinkEntry?    = nil
     @Published var showWaterNudge: Bool      = false
     @Published var currentUserId: String?    = nil
+    @Published var shouldShowAuth: Bool      = false
 
     /// Set by ActiveEventView right after End Night so RootView can pop the
     /// active event and push SummaryView cleanly.
@@ -68,6 +69,7 @@ final class AppState: ObservableObject {
         let fresh = UserProfile()
         userProfile = fresh
         DataStore.shared.saveUserProfile(fresh)
+        shouldShowAuth = true
     }
 
     private func loadAll() {
