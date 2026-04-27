@@ -1,38 +1,4 @@
-Error enumerating all current transactions: Error Domain=ASDErrorDomain Code=500 "(null)" UserInfo={NSUnderlyingError=0x1083c58c0 {Error Domain=AMSErrorDomain Code=301 "Invalid Status Code The response has an invalid status code" UserInfo={AMSURL=https://mzstorekit-sb.itunes.apple.com/inApps/v1/history?REDACTED, AMSDescription=Invalid Status Code, NSDebugDescription=Invalid Status Code The response has an invalid status code, AMSServerCorrelationKey=NEG73DYU3KIWJYZFRKNVBEIPQE, AMSStatusCode=404, AMSServerPayload={
+Error enumerating all current transactions: Error Domain=ASDErrorDomain Code=500 "(null)" UserInfo={client-environment-type=Sandbox, storefront-country-code=USA, NSUnderlyingError=0x116745d70 {Error Domain=AMSErrorDomain Code=301 "Invalid Status Code The response has an invalid status code" UserInfo={AMSURL=https://mzstorekit-sb.itunes.apple.com/inApps/v1/history?REDACTED, AMSDescription=Invalid Status Code, NSDebugDescription=Invalid Status Code The response has an invalid status code, AMSServerCorrelationKey=E4QTCQYDBNGM6XU5ZNLAOCHY6A, AMSStatusCode=404, AMSServerPayload={
     errorCode = 4040004;
     errorMessage = "App not found. Please try again.";
-}, AMSFailureReason=The response has an invalid status code}}, storefront-country-code=USA, client-environment-type=Sandbox}
-Error enumerating unfinished transactions for first transaction listener: Error Domain=ASDErrorDomain Code=500 "(null)" UserInfo={NSUnderlyingError=0x1083c58c0 {Error Domain=AMSErrorDomain Code=301 "Invalid Status Code The response has an invalid status code" UserInfo={AMSURL=https://mzstorekit-sb.itunes.apple.com/inApps/v1/history?REDACTED, AMSDescription=Invalid Status Code, NSDebugDescription=Invalid Status Code The response has an invalid status code, AMSServerCorrelationKey=SYAF4SROHTZ7FMGNEOU53PXLUU, AMSStatusCode=404, AMSServerPayload={
-    errorCode = 4040004;
-    errorMessage = "App not found. Please try again.";
-}, AMSFailureReason=The response has an invalid status code}}, storefront-country-code=USA, client-environment-type=Sandbox}
-container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
-container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
-container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
-App is being debugged, do not track this hang
--[RTIInputSystemClient remoteTextInputSessionWithID:performInputOperation:]  perform input operation requires a valid sessionID. inputModality = Keyboard, inputOperation = <null selector>, customInfoType = UIEmojiSearchOperations
-Unable to simultaneously satisfy constraints.
-    Probably at least one of the constraints in the following list is one you don't want.
-    Try this:
-        (1) look at each constraint and try to figure out which you don't expect;
-        (2) find the code that added the unwanted constraint or constraints and fix it.
-(
-    "<NSLayoutConstraint:0x111605b80 'accessoryView.bottom' _UIRemoteKeyboardPlaceholderView:0x112bdc8c0.bottom == _UIKBCompatInputView:0x1111be840.top   (active)>",
-    "<NSLayoutConstraint:0x113c090e0 'assistantHeight' SystemInputAssistantView.height == 45   (active, names: SystemInputAssistantView:0x1111caa80 )>",
-    "<NSLayoutConstraint:0x111683250 'assistantView.bottom' SystemInputAssistantView.bottom == _UIKBCompatInputView:0x1111be840.top   (active, names: SystemInputAssistantView:0x1111caa80 )>",
-    "<NSLayoutConstraint:0x111683b10 'assistantView.top' V:[_UIRemoteKeyboardPlaceholderView:0x112bdc8c0]-(0)-[SystemInputAssistantView]   (active, names: SystemInputAssistantView:0x1111caa80 )>"
-)
-
-Will attempt to recover by breaking constraint
-<NSLayoutConstraint:0x113c090e0 'assistantHeight' SystemInputAssistantView.height == 45   (active, names: SystemInputAssistantView:0x1111caa80 )>
-
-Make a symbolic breakpoint at UIViewAlertForUnsatisfiableConstraints to catch this in the debugger.
-The methods in the UIConstraintBasedLayoutDebugging category on UIView listed in <UIKitCore/UIView.h> may also be helpful.
-container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
-container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
-container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
-container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
-container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
-container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
-container_create_or_lookup_app_group_path_by_app_group_identifier: client is not entitled
-Snapshotting a view (0x1117d4700, UIKeyboardImpl) that is not in a visible window requires afterScreenUpdates:YES.
+}, AMSFailureReason=The response has an invalid status code}}}
