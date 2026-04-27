@@ -16,6 +16,7 @@ final class StoreManager: ObservableObject {
     @Published var isPro: Bool = false
     @Published var activePeriod: SubscriptionPeriod? = nil
     @Published var loadError: String? = nil
+    @Published var isLoadingProducts: Bool = false
 
     private var updatesTask: Task<Void, Never>?
 
@@ -34,17 +35,19 @@ final class StoreManager: ObservableObject {
     // MARK: - Products
 
     func loadProducts() async {
+        isLoadingProducts = true
         loadError = nil
         do {
             let loaded = try await Product.products(for: Self.productIDs)
-            if loaded.isEmpty {
-                loadError = "No products returned. Check App Store Connect and bundle ID."
-            }
             products = loaded.sorted { $0.price < $1.price }
+            if loaded.isEmpty {
+                loadError = "No products found. In Xcode: Edit Scheme → Run → Options → set StoreKit Configuration to SipTrack.storekit"
+            }
         } catch {
             loadError = error.localizedDescription
             print("StoreManager: failed to load products – \(error)")
         }
+        isLoadingProducts = false
     }
 
     func retryLoadProducts() {

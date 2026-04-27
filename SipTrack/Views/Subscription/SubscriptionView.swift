@@ -113,20 +113,23 @@ struct SubscriptionView: View {
 
                     if !appState.isPro {
                         // Period selector
-                        if store.products.isEmpty {
+                        if store.isLoadingProducts {
+                            ProgressView("Loading plans…")
+                                .tint(AppColors.accent)
+                                .padding()
+                        } else if store.products.isEmpty {
                             VStack(spacing: 12) {
-                                ProgressView("Loading plans…")
-                                    .tint(AppColors.accent)
-                                if let err = store.loadError {
-                                    Text(err)
-                                        .font(.system(size: 12))
-                                        .foregroundStyle(AppColors.danger)
-                                        .multilineTextAlignment(.center)
-                                        .padding(.horizontal)
-                                    Button("Retry") { store.retryLoadProducts() }
-                                        .font(.system(size: 14, weight: .semibold))
-                                        .foregroundStyle(AppColors.accent)
-                                }
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .font(.system(size: 28))
+                                    .foregroundStyle(AppColors.danger)
+                                Text(store.loadError ?? "Could not load plans")
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(AppColors.textSecondary)
+                                    .multilineTextAlignment(.center)
+                                    .padding(.horizontal)
+                                Button("Try Again") { store.retryLoadProducts() }
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(AppColors.accent)
                             }
                             .padding()
                         } else {
