@@ -1,5 +1,6 @@
 import SwiftUI
 import Combine
+import UIKit
 
 @MainActor
 final class AppState: ObservableObject {
@@ -22,6 +23,9 @@ final class AppState: ObservableObject {
     /// Set by ActiveEventView right after End Night so RootView can pop the
     /// active event and push SummaryView cleanly.
     @Published var pendingSummaryEventId: String? = nil
+
+    /// Set by CreateEventView so RootView pushes the new event immediately.
+    @Published var pendingEventRouteId: String? = nil
 
     let store: StoreManager
 
@@ -84,15 +88,17 @@ final class AppState: ObservableObject {
 
     // MARK: - Events
 
-    func createEvent(name: String?, drivingMode: Bool, bacLimit: Double?) -> NightEvent {
-        let event = DataStore.shared.createEvent(name: name, drivingMode: drivingMode, bacLimit: bacLimit, userId: currentUserId)
+    func createEvent(name: String?, drivingMode: Bool, bacLimit: Double?, startTime: Date = Date()) -> NightEvent {
+        let event = DataStore.shared.createEvent(name: name, drivingMode: drivingMode, bacLimit: bacLimit, userId: currentUserId, startTime: startTime)
         events.append(event)
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         Task { await SupabaseManager.shared.pushEvent(event) }
         return event
     }
 
     func endEvent(_ id: String) {
         updateEvent(id: id) { $0.endTime = Date() }
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
     }
 
     func updateEventNotes(id: String, notes: String) {
@@ -137,6 +143,7 @@ final class AppState: ObservableObject {
         )
         DataStore.shared.addEntry(entry)
         entries.append(entry)
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         scheduleUndo(entry)
         checkWarnings(after: entry, eventId: eventId)
         Task { await SupabaseManager.shared.pushEntry(entry) }
@@ -162,6 +169,7 @@ final class AppState: ObservableObject {
         if let e = undoEntry {
             deleteEntry(e.id)
             undoEntry = nil
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
         }
     }
 
@@ -220,6 +228,7 @@ final class AppState: ObservableObject {
     func addChallenge(_ challenge: Challenge) {
         challenges.append(challenge)
         DataStore.shared.saveChallenges(challenges)
+        Task { await SupabaseManager.shared.pushChallenge(challenge) }
     }
 
     func updateChallenge(_ challenge: Challenge) {
@@ -227,11 +236,13 @@ final class AppState: ObservableObject {
             challenges[idx] = challenge
         }
         DataStore.shared.saveChallenges(challenges)
+        Task { await SupabaseManager.shared.pushChallenge(challenge) }
     }
 
     func deleteChallenge(_ id: String) {
         challenges.removeAll { $0.id == id }
         DataStore.shared.saveChallenges(challenges)
+        Task { await SupabaseManager.shared.deleteChallenge(id) }
     }
 
     // MARK: - Warnings
@@ -328,6 +339,13 @@ final class AppState: ObservableObject {
         if !newTypes.isEmpty {
             customDrinkTypes.append(contentsOf: newTypes)
             DataStore.shared.saveCustomDrinkTypes(customDrinkTypes)
+        }
+
+        let localChallengeIds = Set(challenges.map { $0.id })
+        let newChallenges = data.challenges.filter { !localChallengeIds.contains($0.id) }
+        if !newChallenges.isEmpty {
+            challenges.append(contentsOf: newChallenges)
+            DataStore.shared.saveChallenges(challenges)
         }
 
         if let cloud = data.profile {

@@ -41,13 +41,13 @@ final class DataStore {
         save(events, key: "siptrack_events")
     }
 
-    func createEvent(name: String?, drivingMode: Bool, bacLimit: Double?, userId: String?) -> NightEvent {
+    func createEvent(name: String?, drivingMode: Bool, bacLimit: Double?, userId: String?, startTime: Date = Date()) -> NightEvent {
         var events = loadEvents()
         let event = NightEvent(
             id: generateId(),
             userId: userId,
             name: name,
-            startTime: Date(),
+            startTime: startTime,
             endTime: nil,
             drivingMode: drivingMode,
             bacLimit: bacLimit,

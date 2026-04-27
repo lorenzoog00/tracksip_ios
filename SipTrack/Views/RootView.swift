@@ -42,6 +42,11 @@ struct RootView: View {
                     path.append(Route.summary(eventId))
                     appState.pendingSummaryEventId = nil
                 }
+                .onChange(of: appState.pendingEventRouteId) { _, newValue in
+                    guard let eventId = newValue else { return }
+                    path.append(Route.event(eventId))
+                    appState.pendingEventRouteId = nil
+                }
             }
         }
         .preferredColorScheme(.dark)

@@ -4,18 +4,18 @@ struct CreateEventView: View {
     @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) private var dismiss
 
-    @State private var name          = ""
-    @State private var drivingMode   = false
-    @State private var bacLimit      = 0.08
-    @State private var customLimit   = false
-
-    private let bacOptions: [Double] = [0.05, 0.08]
+    @State private var name        = ""
+    @State private var drivingMode = false
+    @State private var bacLimit    = 0.08
+    @State private var startTime   = Date()
+    @State private var customStart = false
 
     var body: some View {
         NavigationStack {
             ZStack {
                 AppColors.background.ignoresSafeArea()
                 VStack(spacing: 24) {
+
                     // Event name
                     VStack(alignment: .leading, spacing: 8) {
                         Label("Event Name (optional)", systemImage: "pencil")
@@ -31,6 +31,45 @@ struct CreateEventView: View {
 
                     Divider().background(AppColors.border)
 
+                    // Start time
+                    VStack(spacing: 10) {
+                        Toggle(isOn: $customStart.animation(.easeInOut(duration: 0.2))) {
+                            HStack(spacing: 10) {
+                                Image(systemName: "clock")
+                                    .foregroundStyle(customStart ? AppColors.accent : AppColors.textSecondary)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Custom Start Time")
+                                        .font(.system(size: 15, weight: .medium))
+                                        .foregroundStyle(AppColors.text)
+                                    Text("Started drinking earlier tonight")
+                                        .font(.system(size: 12))
+                                        .foregroundStyle(AppColors.textSecondary)
+                                }
+                            }
+                        }
+                        .tint(AppColors.accent)
+
+                        if customStart {
+                            DatePicker(
+                                "",
+                                selection: $startTime,
+                                in: ...Date(),
+                                displayedComponents: [.date, .hourAndMinute]
+                            )
+                            .datePickerStyle(.compact)
+                            .labelsHidden()
+                            .padding(12)
+                            .background(AppColors.surface)
+                            .cornerRadius(10)
+                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(AppColors.border, lineWidth: 1))
+                            .tint(AppColors.accent)
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                        }
+                    }
+                    .animation(.easeInOut(duration: 0.2), value: customStart)
+
+                    Divider().background(AppColors.border)
+
                     // Driving mode
                     VStack(spacing: 12) {
                         Toggle(isOn: $drivingMode) {
@@ -41,7 +80,7 @@ struct CreateEventView: View {
                                     Text("Driving Mode")
                                         .font(.system(size: 15, weight: .medium))
                                         .foregroundStyle(AppColors.text)
-                                    Text("Get warnings when approaching your BAC limit")
+                                    Text("Warnings when approaching your BAC limit")
                                         .font(.system(size: 12))
                                         .foregroundStyle(AppColors.textSecondary)
                                 }
@@ -81,11 +120,13 @@ struct CreateEventView: View {
                     Spacer()
 
                     Button {
-                        _ = appState.createEvent(
+                        let event = appState.createEvent(
                             name: name.isEmpty ? nil : name,
                             drivingMode: drivingMode,
-                            bacLimit: drivingMode ? bacLimit : nil
+                            bacLimit: drivingMode ? bacLimit : nil,
+                            startTime: customStart ? startTime : Date()
                         )
+                        appState.pendingEventRouteId = event.id
                         dismiss()
                     } label: {
                         Text("Start Night")

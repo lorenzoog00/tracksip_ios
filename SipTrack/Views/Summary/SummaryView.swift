@@ -40,6 +40,9 @@ struct SummaryView: View {
         )
         let hoursToZero = BACCalculator.hoursToZeroBAC(peakBAC)
 
+        let prose = nightProse(event: event, drinkCount: drinkCount, calories: calories, alcoholG: alcoholG, peakBAC: peakBAC)
+        let shareText = "[\(event.displayName)] \(eventDateRange(event))\n\n\(prose)\n\nTracked with Tracksip"
+
         return ScrollView {
             VStack(spacing: 20) {
                 // Header
@@ -55,6 +58,22 @@ struct SummaryView: View {
                         .foregroundStyle(AppColors.textTertiary)
                 }
                 .padding(.top)
+
+                // "Your Night" prose
+                VStack(alignment: .leading, spacing: 6) {
+                    Label("Your Night", systemImage: "moon.stars.fill")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(AppColors.textSecondary)
+                    Text(prose)
+                        .font(.system(size: 14))
+                        .foregroundStyle(AppColors.text)
+                        .lineSpacing(3)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding()
+                .background(AppColors.surface)
+                .cornerRadius(14)
+                .padding(.horizontal)
 
                 // Stats grid
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
@@ -184,6 +203,12 @@ struct SummaryView: View {
         .navigationTitle("Summary")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                ShareLink(item: shareText) {
+                    Image(systemName: "square.and.arrow.up")
+                        .foregroundStyle(AppColors.accent)
+                }
+            }
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
                     appState.updateEventNotes(id: eventId, notes: notes)
@@ -203,6 +228,35 @@ struct SummaryView: View {
             }
             Button("Cancel", role: .cancel) {}
         }
+    }
+
+    private func nightProse(event: NightEvent, drinkCount: Int, calories: Double, alcoholG: Double, peakBAC: Double) -> String {
+        let duration = event.duration
+        let h = Int(duration / 3600)
+        let m = Int((duration.truncatingRemainder(dividingBy: 3600)) / 60)
+        let durationStr = h > 0 ? "\(h)h \(m)m" : "\(m)m"
+
+        var sentence = "You had \(drinkCount) drink\(drinkCount == 1 ? "" : "s") over \(durationStr)"
+
+        if peakBAC > 0 {
+            sentence += ", peaking at \(String(format: "%.3f%%", peakBAC)) BAC"
+        }
+
+        if calories > 50 {
+            let pizza = calories / 285.0
+            sentence += ". That's \(Int(calories)) calories — about \(String(format: "%.1f", pizza)) slice\(pizza < 1.5 ? "" : "s") of pizza"
+        }
+
+        if event.drivingMode {
+            let limit = event.bacLimit ?? 0.08
+            if peakBAC > limit {
+                sentence += ". Your peak BAC exceeded the driving limit — good call not getting behind the wheel"
+            } else if peakBAC > 0 {
+                sentence += ". You stayed under the driving limit all night"
+            }
+        }
+
+        return sentence + "."
     }
 
     private func drinkBreakdown(entries: [DrinkEntry]) -> [(String, Int)] {

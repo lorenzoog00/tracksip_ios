@@ -156,12 +156,13 @@ final class SupabaseManager: ObservableObject {
         var events: [NightEvent]
         var entries: [DrinkEntry]
         var drinkTypes: [DrinkType]
+        var challenges: [Challenge]
         var profile: UserProfile?
     }
 
     func pullUserData() async -> PulledData {
         guard let userId = currentUserId() else {
-            return PulledData(events: [], entries: [], drinkTypes: [], profile: nil)
+            return PulledData(events: [], entries: [], drinkTypes: [], challenges: [], profile: nil)
         }
 
         let eRows: [NightEventRow] = (try? await client
@@ -172,6 +173,9 @@ final class SupabaseManager: ObservableObject {
 
         let tRows: [DrinkTypeRow] = (try? await client
             .from("drink_types").select().eq("user_id", value: userId).execute().value) ?? []
+
+        let cRows: [ChallengeRow] = (try? await client
+            .from("challenges").select().eq("user_id", value: userId).execute().value) ?? []
 
         let pRow: ProfileRow? = try? await client
             .from("profiles").select().eq("id", value: userId).single().execute().value
@@ -238,7 +242,40 @@ final class SupabaseManager: ObservableObject {
             profile = up
         }
 
-        return PulledData(events: events, entries: entries, drinkTypes: drinkTypes, profile: profile)
+        let challenges = cRows.compactMap { r -> Challenge? in
+            guard let type = ChallengeType(rawValue: r.type) else { return nil }
+            return Challenge(
+                id: r.id,
+                type: type,
+                target: r.target,
+                startDate: Date(timeIntervalSince1970: Double(r.start_date) / 1000.0),
+                endDate: Date(timeIntervalSince1970: Double(r.end_date) / 1000.0),
+                createdAt: Date(timeIntervalSince1970: Double(r.created_at) / 1000.0),
+                completed: r.completed
+            )
+        }
+
+        return PulledData(events: events, entries: entries, drinkTypes: drinkTypes, challenges: challenges, profile: profile)
+    }
+
+    func pushChallenge(_ challenge: Challenge) async {
+        guard let userId = currentUserId() else { return }
+        let row = ChallengeInsert(
+            id: challenge.id,
+            user_id: userId,
+            type: challenge.type.rawValue,
+            target: challenge.target,
+            start_date: Int64(challenge.startDate.timeIntervalSince1970 * 1000),
+            end_date: Int64(challenge.endDate.timeIntervalSince1970 * 1000),
+            created_at: Int64(challenge.createdAt.timeIntervalSince1970 * 1000),
+            completed: challenge.completed
+        )
+        _ = try? await client.from("challenges").upsert(row).execute()
+    }
+
+    func deleteChallenge(_ id: String) async {
+        guard currentUserId() != nil else { return }
+        _ = try? await client.from("challenges").delete().eq("id", value: id).execute()
     }
 
     // MARK: - Account deletion
@@ -345,4 +382,25 @@ private struct ProfileRow: Decodable {
     let subscription_tier: String?
     let subscription_period: String?
     let subscription_started_at: Int64?
+}
+
+private struct ChallengeInsert: Encodable {
+    let id: String
+    let user_id: String
+    let type: String
+    let target: Double
+    let start_date: Int64
+    let end_date: Int64
+    let created_at: Int64
+    let completed: Bool
+}
+
+private struct ChallengeRow: Decodable {
+    let id: String
+    let type: String
+    let target: Double
+    let start_date: Int64
+    let end_date: Int64
+    let created_at: Int64
+    let completed: Bool
 }
