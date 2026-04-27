@@ -41,14 +41,25 @@ final class StoreManager: ObservableObject {
             let loaded = try await Product.products(for: Self.productIDs)
             products = loaded.sorted { $0.price < $1.price }
             if loaded.isEmpty {
-                loadError = "No products found. In Xcode: Edit Scheme → Run → Options → set StoreKit Configuration to SipTrack.storekit"
+                loadError = "No products found — check Xcode console for details."
+                print("StoreKit: Product.products(for:) returned empty. IDs requested: \(Self.productIDs)")
+                print("StoreKit: Make sure Edit Scheme → Run → Options → StoreKit Configuration points to your .storekit file.")
+            } else {
+                print("StoreKit: Loaded \(loaded.count) product(s): \(loaded.map { "\($0.id) \($0.displayPrice)" })")
             }
         } catch {
             loadError = error.localizedDescription
-            print("StoreManager: failed to load products – \(error)")
+            print("StoreKit: Product.products(for:) threw: \(error)")
         }
         isLoadingProducts = false
     }
+
+    #if DEBUG
+    func debugUnlockPro() {
+        isPro = true
+        activePeriod = .yearly
+    }
+    #endif
 
     func retryLoadProducts() {
         Task { await loadProducts() }

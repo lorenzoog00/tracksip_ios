@@ -100,6 +100,15 @@ struct PaywallView: View {
                                     .padding(.horizontal, 20)
                                     .background(AppColors.accentDim)
                                     .cornerRadius(8)
+                                #if DEBUG
+                                Button("DEBUG: Unlock Pro") {
+                                    store.debugUnlockPro()
+                                    appState.syncSubscriptionFromStore()
+                                    dismiss()
+                                }
+                                .font(.system(size: 12))
+                                .foregroundStyle(AppColors.textTertiary)
+                                #endif
                             }
                             .padding()
                         } else {
