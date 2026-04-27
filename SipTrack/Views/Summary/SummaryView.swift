@@ -38,7 +38,6 @@ struct SummaryView: View {
             eventStart: event.startTime,
             r: r
         )
-        let durationH = event.duration / 3600
         let hoursToZero = BACCalculator.hoursToZeroBAC(peakBAC)
 
         return ScrollView {

@@ -14,6 +14,8 @@ final class StoreManager: ObservableObject {
 
     @Published var products: [Product] = []
     @Published var isPro: Bool = false
+    @Published var activePeriod: SubscriptionPeriod? = nil
+    @Published var loadError: String? = nil
 
     private var updatesTask: Task<Void, Never>?
 
@@ -32,20 +34,29 @@ final class StoreManager: ObservableObject {
     // MARK: - Products
 
     func loadProducts() async {
+        loadError = nil
         do {
             let loaded = try await Product.products(for: Self.productIDs)
+            if loaded.isEmpty {
+                loadError = "No products returned. Check App Store Connect and bundle ID."
+            }
             products = loaded.sorted { $0.price < $1.price }
         } catch {
+            loadError = error.localizedDescription
             print("StoreManager: failed to load products – \(error)")
         }
+    }
+
+    func retryLoadProducts() {
+        Task { await loadProducts() }
     }
 
     func product(for period: SubscriptionPeriod) -> Product? {
         let id: String
         switch period {
-        case .monthly:  id = "com.siptrack.pro.monthly"
-        case .yearly:   id = "com.siptrack.pro.yearly"
-        case .lifetime: id = "com.siptrack.pro.lifetime"
+        case .monthly:  id = "com.lorenzoog.siptrack.pro.monthly"
+        case .yearly:   id = "com.lorenzoog.siptrack.pro.yearly"
+        case .lifetime: id = "com.lorenzoog.siptrack.pro.lifetime"
         }
         return products.first { $0.id == id }
     }
@@ -86,13 +97,37 @@ final class StoreManager: ObservableObject {
 
     func refreshStatus() async {
         var hasPro = false
-        for await result in Transaction.currentEntitlements {
-            if (try? checkVerified(result)) != nil {
-                hasPro = true
-                break
+        var detectedPeriod: SubscriptionPeriod? = nil
+
+        // Race StoreKit against an 8-second timeout. Without proper IAP
+        // entitlement on device, currentEntitlements can hang indefinitely.
+        let checker = Task {
+            for await result in Transaction.currentEntitlements {
+                if let transaction = try? checkVerified(result) {
+                    hasPro = true
+                    detectedPeriod = period(for: transaction.productID)
+                    break
+                }
             }
         }
+        let timer = Task {
+            try? await Task.sleep(nanoseconds: 8_000_000_000)
+            checker.cancel()
+        }
+        await checker.value  // returns immediately when StoreKit responds OR after 8s timeout
+        timer.cancel()       // stop the timer if StoreKit was fast
+
         isPro = hasPro
+        activePeriod = detectedPeriod
+    }
+
+    private func period(for productID: String) -> SubscriptionPeriod? {
+        switch productID {
+        case "com.lorenzoog.siptrack.pro.monthly":  return .monthly
+        case "com.lorenzoog.siptrack.pro.yearly":   return .yearly
+        case "com.lorenzoog.siptrack.pro.lifetime": return .lifetime
+        default: return nil
+        }
     }
 
     // MARK: - Transaction listener

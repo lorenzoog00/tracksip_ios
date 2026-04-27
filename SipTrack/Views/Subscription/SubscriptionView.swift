@@ -8,6 +8,23 @@ struct SubscriptionView: View {
     @State private var isPurchasing = false
     @State private var errorMessage: String? = nil
 
+    private var sinceLabel: String {
+        guard let date = appState.userProfile.subscriptionStartedAt else { return "" }
+        let f = DateFormatter()
+        f.dateStyle = .medium
+        f.timeStyle = .none
+        return "since \(f.string(from: date))"
+    }
+
+    private var periodLabel: String {
+        switch appState.userProfile.subscriptionPeriod {
+        case .monthly:  return "Monthly"
+        case .yearly:   return "Yearly"
+        case .lifetime: return "Lifetime"
+        case nil:       return "Pro"
+        }
+    }
+
     private let proFeatures: [(String, String)] = [
         ("calendar",       "Full calendar history"),
         ("chart.bar.fill", "Stats & trends"),
@@ -38,16 +55,41 @@ struct SubscriptionView: View {
 
                     // Active status
                     if appState.isPro {
-                        HStack(spacing: 8) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundStyle(AppColors.success)
-                            Text("You're on Pro")
-                                .font(.system(size: 15, weight: .semibold))
-                                .foregroundStyle(AppColors.success)
+                        VStack(spacing: 12) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(AppColors.success)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("You're on Pro")
+                                        .font(.system(size: 15, weight: .semibold))
+                                        .foregroundStyle(AppColors.success)
+                                    Text("\(periodLabel) · \(sinceLabel)")
+                                        .font(.system(size: 12))
+                                        .foregroundStyle(AppColors.textSecondary)
+                                }
+                                Spacer()
+                            }
+                            .padding(14)
+                            .background(AppColors.successDim)
+                            .cornerRadius(12)
+
+                            if appState.userProfile.subscriptionPeriod != .lifetime {
+                                Button {
+                                    if let url = URL(string: "itms-apps://apps.apple.com/account/subscriptions") {
+                                        UIApplication.shared.open(url)
+                                    }
+                                } label: {
+                                    Text("Manage Subscription")
+                                        .font(.system(size: 14))
+                                        .foregroundStyle(AppColors.textSecondary)
+                                        .frame(maxWidth: .infinity)
+                                        .frame(height: 44)
+                                        .background(AppColors.surface)
+                                        .cornerRadius(10)
+                                        .overlay(RoundedRectangle(cornerRadius: 10).stroke(AppColors.border, lineWidth: 1))
+                                }
+                            }
                         }
-                        .padding(12)
-                        .background(AppColors.successDim)
-                        .cornerRadius(10)
                     }
 
                     // Pro features
@@ -71,6 +113,23 @@ struct SubscriptionView: View {
 
                     if !appState.isPro {
                         // Period selector
+                        if store.products.isEmpty {
+                            VStack(spacing: 12) {
+                                ProgressView("Loading plans…")
+                                    .tint(AppColors.accent)
+                                if let err = store.loadError {
+                                    Text(err)
+                                        .font(.system(size: 12))
+                                        .foregroundStyle(AppColors.danger)
+                                        .multilineTextAlignment(.center)
+                                        .padding(.horizontal)
+                                    Button("Retry") { store.retryLoadProducts() }
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundStyle(AppColors.accent)
+                                }
+                            }
+                            .padding()
+                        } else {
                         VStack(spacing: 12) {
                             ForEach([SubscriptionPeriod.monthly, .yearly, .lifetime], id: \.self) { period in
                                 PeriodOption(
@@ -132,6 +191,7 @@ struct SubscriptionView: View {
                             .foregroundStyle(AppColors.textTertiary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal)
+                        }
                     }
 
                     Color.clear.frame(height: 32)

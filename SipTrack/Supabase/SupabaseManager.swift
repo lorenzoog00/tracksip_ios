@@ -83,12 +83,12 @@ final class SupabaseManager: ObservableObject {
             bac_limit: event.bacLimit,
             notes: event.notes
         )
-        try? await client.from("night_events").upsert(row).execute()
+        _ = try? await client.from("night_events").upsert(row).execute()
     }
 
     func deleteEvent(_ id: String) async {
         guard currentUserId() != nil else { return }
-        try? await client.from("night_events").delete().eq("id", value: id).execute()
+        _ = try? await client.from("night_events").delete().eq("id", value: id).execute()
     }
 
     func pushEntry(_ entry: DrinkEntry) async {
@@ -104,12 +104,12 @@ final class SupabaseManager: ObservableObject {
             volume_override_ml: entry.volumeOverrideMl,
             abv_override: entry.abvOverride
         )
-        try? await client.from("drink_entries").upsert(row).execute()
+        _ = try? await client.from("drink_entries").upsert(row).execute()
     }
 
     func deleteEntry(_ id: String) async {
         guard currentUserId() != nil else { return }
-        try? await client.from("drink_entries").delete().eq("id", value: id).execute()
+        _ = try? await client.from("drink_entries").delete().eq("id", value: id).execute()
     }
 
     func pushDrinkType(_ dt: DrinkType) async {
@@ -124,12 +124,12 @@ final class SupabaseManager: ObservableObject {
             icon: dt.icon,
             is_preset: dt.isPreset
         )
-        try? await client.from("drink_types").upsert(row).execute()
+        _ = try? await client.from("drink_types").upsert(row).execute()
     }
 
     func deleteDrinkType(_ id: String) async {
         guard currentUserId() != nil else { return }
-        try? await client.from("drink_types").delete().eq("id", value: id).execute()
+        _ = try? await client.from("drink_types").delete().eq("id", value: id).execute()
     }
 
     func pushProfile(_ profile: UserProfile) async {
@@ -144,9 +144,10 @@ final class SupabaseManager: ObservableObject {
             disclaimer_accepted_at: profile.disclaimerAcceptedAt.map { Int64($0.timeIntervalSince1970 * 1000) },
             onboarding_complete: profile.onboardingComplete,
             subscription_tier: profile.subscriptionTier.rawValue,
-            subscription_period: profile.subscriptionPeriod?.rawValue
+            subscription_period: profile.subscriptionPeriod?.rawValue,
+            subscription_started_at: profile.subscriptionStartedAt.map { Int64($0.timeIntervalSince1970 * 1000) }
         )
-        try? await client.from("profiles").upsert(row).execute()
+        _ = try? await client.from("profiles").upsert(row).execute()
     }
 
     // MARK: - Pull (called after sign-in to merge cloud data into local storage)
@@ -228,6 +229,9 @@ final class SupabaseManager: ObservableObject {
             up.onboardingComplete = p.onboarding_complete ?? false
             if let t = p.subscription_tier, let tier = SubscriptionTier(rawValue: t) { up.subscriptionTier = tier }
             if let per = p.subscription_period, let period = SubscriptionPeriod(rawValue: per) { up.subscriptionPeriod = period }
+            if let ts = p.subscription_started_at {
+                up.subscriptionStartedAt = Date(timeIntervalSince1970: Double(ts) / 1000.0)
+            }
             if let ts = p.disclaimer_accepted_at {
                 up.disclaimerAcceptedAt = Date(timeIntervalSince1970: Double(ts) / 1000.0)
             }
@@ -328,6 +332,7 @@ private struct ProfileInsert: Encodable {
     let onboarding_complete: Bool
     let subscription_tier: String
     let subscription_period: String?
+    let subscription_started_at: Int64?
 }
 
 private struct ProfileRow: Decodable {
@@ -339,4 +344,5 @@ private struct ProfileRow: Decodable {
     let onboarding_complete: Bool?
     let subscription_tier: String?
     let subscription_period: String?
+    let subscription_started_at: Int64?
 }

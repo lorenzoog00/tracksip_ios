@@ -81,7 +81,7 @@ struct CreateEventView: View {
                     Spacer()
 
                     Button {
-                        let event = appState.createEvent(
+                        _ = appState.createEvent(
                             name: name.isEmpty ? nil : name,
                             drivingMode: drivingMode,
                             bacLimit: drivingMode ? bacLimit : nil

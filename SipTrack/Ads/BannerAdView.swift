@@ -1,5 +1,5 @@
 import SwiftUI
-// import GoogleMobileAds
+import GoogleMobileAds
 
 /// Anchored adaptive banner — drops in at the bottom of any scroll view.
 /// Shows only for free users. Collapses silently on load failure.
@@ -16,7 +16,7 @@ struct BannerAdView: View {
     }
 }
 
-// UIViewRepresentable wrapper for GADBannerView
+// UIViewRepresentable wrapper for BannerView
 private struct BannerAdContainer: UIViewRepresentable {
     let adUnitID: String
     @Binding var height: CGFloat
@@ -25,37 +25,35 @@ private struct BannerAdContainer: UIViewRepresentable {
 
     func makeUIView(context: Context) -> UIView {
         let container = UIView()
-
-        // Uncomment when GoogleMobileAds package is added:
-        // let banner = GADBannerView()
-        // banner.adUnitID = adUnitID
-        // banner.delegate = context.coordinator
-        // banner.rootViewController = context.coordinator.findRootVC()
-        // let width = UIScreen.main.bounds.width
-        // banner.adSize = GADCurrentOrientationAnchoredAdaptiveBannerAdSizeWithWidth(width)
-        // banner.load(GADRequest())
-        // container.addSubview(banner)
-        // banner.translatesAutoresizingMaskIntoConstraints = false
-        // NSLayoutConstraint.activate([
-        //     banner.centerXAnchor.constraint(equalTo: container.centerXAnchor),
-        //     banner.topAnchor.constraint(equalTo: container.topAnchor),
-        // ])
-
+        let banner = BannerView()
+        banner.adUnitID = adUnitID
+        banner.delegate = context.coordinator
+        banner.rootViewController = context.coordinator.findRootVC()
+        let width = UIScreen.main.bounds.width
+        banner.adSize = currentOrientationAnchoredAdaptiveBanner(width: width)
+        banner.load(Request())
+        container.addSubview(banner)
+        banner.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            banner.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+            banner.topAnchor.constraint(equalTo: container.topAnchor),
+        ])
         return container
     }
 
     func updateUIView(_ uiView: UIView, context: Context) {}
 
-    class Coordinator: NSObject /* , GADBannerViewDelegate */ {
+    class Coordinator: NSObject, BannerViewDelegate {
         @Binding var height: CGFloat
         init(height: Binding<CGFloat>) { _height = height }
 
-        // func bannerViewDidReceiveAd(_ bannerView: GADBannerView) {
-        //     height = bannerView.adSize.size.height
-        // }
-        // func bannerView(_ bannerView: GADBannerView, didFailToReceiveAdWithError error: Error) {
-        //     height = 0
-        // }
+        func bannerViewDidReceiveAd(_ bannerView: BannerView) {
+            height = bannerView.adSize.size.height
+        }
+
+        func bannerView(_ bannerView: BannerView, didFailToReceiveAdWithError error: Error) {
+            height = 0
+        }
 
         func findRootVC() -> UIViewController? {
             UIApplication.shared

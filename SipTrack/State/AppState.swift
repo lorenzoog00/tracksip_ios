@@ -282,8 +282,13 @@ final class AppState: ObservableObject {
         var profile = userProfile
         let wasPro = profile.isPro
         profile.subscriptionTier = store.isPro ? .pro : .free
-        if store.isPro && !wasPro {
-            profile.subscriptionStartedAt = Date()
+        if store.isPro {
+            if let period = store.activePeriod {
+                profile.subscriptionPeriod = period
+            }
+            if !wasPro {
+                profile.subscriptionStartedAt = Date()
+            }
         }
         updateUserProfile(profile)
     }

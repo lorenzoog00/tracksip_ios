@@ -1,15 +1,14 @@
 import SwiftUI
 import Combine
-// import GoogleMobileAds   ← uncomment after adding the SDK package
+import GoogleMobileAds
 
-/// Central ad coordinator — initialize once on app launch, call showAppOpenAd() on foreground.
 @MainActor
 final class AdManager: ObservableObject {
     static let shared = AdManager()
 
     @Published var appOpenAdReady = false
 
-    private var appOpenAd: AnyObject? = nil   // GADAppOpenAd when SDK is active
+    private var appOpenAd: AppOpenAd? = nil
     private var shownThisSession = false
 
     private init() {}
@@ -17,24 +16,22 @@ final class AdManager: ObservableObject {
     // MARK: - SDK init (call from SipTrackApp)
 
     func initialize() {
-        // GADMobileAds.sharedInstance().start(completionHandler: nil)
-        // After the SDK starts, preload the app open ad:
-        // Task { await loadAppOpenAd() }
+        MobileAds.shared.start(completionHandler: nil)
     }
 
     // MARK: - App Open Ad
 
     func loadAppOpenAd() async {
         guard !appOpenAdReady else { return }
-        // do {
-        //     appOpenAd = try await GADAppOpenAd.load(
-        //         withAdUnitID: AdConfig.activeAppOpen,
-        //         request: GADRequest()
-        //     )
-        //     appOpenAdReady = true
-        // } catch {
-        //     appOpenAdReady = false
-        // }
+        do {
+            appOpenAd = try await AppOpenAd.load(
+                with: AdConfig.activeAppOpen,
+                request: Request()
+            )
+            appOpenAdReady = true
+        } catch {
+            appOpenAdReady = false
+        }
     }
 
     func showAppOpenAdIfReady(isPro: Bool) {
@@ -45,9 +42,8 @@ final class AdManager: ObservableObject {
                 .flatMap(\.windows)
                 .first(where: \.isKeyWindow)?
                 .rootViewController else { return }
-        // (appOpenAd as? GADAppOpenAd)?.present(fromRootViewController: root)
+        appOpenAd?.present(from: root)
         shownThisSession = true
         appOpenAdReady = false
-        _ = root
     }
 }

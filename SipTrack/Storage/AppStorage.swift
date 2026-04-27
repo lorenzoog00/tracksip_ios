@@ -14,9 +14,7 @@ final class DataStore {
     }
 
     private var containerURL: URL {
-        FileManager.default
-            .containerURL(forSecurityApplicationGroupIdentifier: "group.com.siptrack.shared")
-            ?? FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
     }
 
     private func url(key: String) -> URL {
@@ -167,7 +165,7 @@ final class DataStore {
     // MARK: - Data Management
 
     func pruneOldEvents(olderThan cutoff: Date) {
-        var events = loadEvents()
+        let events = loadEvents()
         let toDelete = events.filter { $0.endTime != nil && $0.endTime! < cutoff }
         for event in toDelete { deleteEvent(event.id) }
     }

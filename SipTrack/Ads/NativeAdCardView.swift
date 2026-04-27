@@ -1,6 +1,6 @@
 import SwiftUI
 import Combine
-// import GoogleMobileAds
+import GoogleMobileAds
 
 /// Native ad card injected into the past-events list at position 3 (free users only).
 struct NativeAdCardView: View {
@@ -29,7 +29,6 @@ private struct NativeAdContent: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            // Icon
             if let icon = loader.iconURL {
                 AsyncImage(url: icon) { img in
                     img.resizable().scaledToFill()
@@ -82,49 +81,49 @@ private struct NativeAdContent: View {
     }
 }
 
-// MARK: - Loader (wraps GADNativeAd lifecycle)
+// MARK: - Loader (wraps NativeAd lifecycle)
 
 @MainActor
-final class NativeAdLoader: NSObject, ObservableObject /* , GADNativeAdLoaderDelegate */ {
+final class NativeAdLoader: NSObject, ObservableObject, NativeAdLoaderDelegate {
     @Published var isLoaded = false
     @Published var headline = ""
     @Published var body = ""
     @Published var callToAction = ""
     @Published var iconURL: URL? = nil
 
-    private var adLoader: AnyObject? = nil   // GADAdLoader
-    private var nativeAd: AnyObject? = nil   // GADNativeAd
+    private var adLoader: AdLoader? = nil
+    private var nativeAd: NativeAd? = nil
 
     func load(adUnitID: String) {
         guard !isLoaded else { return }
-
-        // Uncomment when GoogleMobileAds package is added:
-        // let loader = GADAdLoader(
-        //     adUnitID: adUnitID,
-        //     rootViewController: nil,
-        //     adTypes: [.native],
-        //     options: nil
-        // )
-        // loader.delegate = self
-        // loader.load(GADRequest())
-        // adLoader = loader
+        let loader = AdLoader(
+            adUnitID: adUnitID,
+            rootViewController: nil,
+            adTypes: [.native],
+            options: nil
+        )
+        loader.delegate = self
+        loader.load(Request())
+        adLoader = loader
     }
 
     func destroy() {
-        // (nativeAd as? GADNativeAd)?.unregisterAdView()
         nativeAd = nil
         isLoaded = false
     }
 
-    // func adLoader(_ adLoader: GADAdLoader, didReceive nativeAd: GADNativeAd) {
-    //     self.nativeAd = nativeAd
-    //     headline       = nativeAd.headline ?? ""
-    //     body           = nativeAd.body ?? ""
-    //     callToAction   = nativeAd.callToAction ?? ""
-    //     iconURL        = nativeAd.icon?.imageURL
-    //     isLoaded       = true
-    // }
-    // func adLoader(_ adLoader: GADAdLoader, didFailToReceiveAdWithError error: Error) {
-    //     isLoaded = false
-    // }
+    nonisolated func adLoader(_ adLoader: AdLoader, didReceive nativeAd: NativeAd) {
+        Task { @MainActor in
+            self.nativeAd = nativeAd
+            self.headline = nativeAd.headline ?? ""
+            self.body = nativeAd.body ?? ""
+            self.callToAction = nativeAd.callToAction ?? ""
+            self.iconURL = nativeAd.icon?.imageURL
+            self.isLoaded = true
+        }
+    }
+
+    nonisolated func adLoader(_ adLoader: AdLoader, didFailToReceiveAdWithError error: Error) {
+        Task { @MainActor in self.isLoaded = false }
+    }
 }
