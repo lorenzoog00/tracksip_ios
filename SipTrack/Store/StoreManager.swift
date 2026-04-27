@@ -114,7 +114,7 @@ final class StoreManager: ObservableObject {
             }
         }
         let timer = Task {
-            try? await Task.sleep(nanoseconds: 8_000_000_000)
+            try? await Task.sleep(nanoseconds: 3_000_000_000)
             checker.cancel()
         }
         await checker.value  // returns immediately when StoreKit responds OR after 8s timeout
