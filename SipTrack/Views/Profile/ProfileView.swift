@@ -220,6 +220,7 @@ struct ProfileView: View {
         }
         .navigationTitle("Profile")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear { loadFromProfile(appState.userProfile) }
         .confirmationDialog(
             "Delete account?",
             isPresented: $showDeleteAccountConfirm,
@@ -241,6 +242,20 @@ struct ProfileView: View {
             deleteError = err
         }
         deletingAccount = false
+    }
+
+    private func loadFromProfile(_ p: UserProfile) {
+        sex                  = p.sex
+        weightStr            = "\(Int(p.weightKg))"
+        heightStr            = p.heightCm.map { "\(Int($0))" } ?? ""
+        birthYearStr         = p.birthYear.map { "\($0)" } ?? ""
+        bacLimit             = p.bacLimit
+        waterSuggestions     = p.waterSuggestions
+        notificationsEnabled = p.notifications.enabled
+        drinksPerHour        = p.notifications.drinksPerHour
+        caloriesPerNight     = p.notifications.caloriesPerNight
+        bacApproachWarning   = p.notifications.bacApproachWarning
+        stageChangeWarning   = p.notifications.stageChangeWarning
     }
 
     private func saveProfile() {

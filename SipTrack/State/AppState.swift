@@ -55,9 +55,19 @@ final class AppState: ObservableObject {
         loadAll()
         authCancellable = SupabaseManager.shared.$isSignedIn
             .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
+            .sink { [weak self] isSignedIn in
+                let wasSignedIn = self?.currentUserId != nil
                 self?.currentUserId = SupabaseManager.shared.currentUserId()
+                if wasSignedIn && !isSignedIn {
+                    self?.resetProfile()
+                }
             }
+    }
+
+    private func resetProfile() {
+        let fresh = UserProfile()
+        userProfile = fresh
+        DataStore.shared.saveUserProfile(fresh)
     }
 
     private func loadAll() {
@@ -319,15 +329,9 @@ final class AppState: ObservableObject {
         }
 
         if let cloud = data.profile {
-            var merged = userProfile
-            merged.sex            = cloud.sex
-            merged.subscriptionTier   = cloud.subscriptionTier
-            merged.subscriptionPeriod = cloud.subscriptionPeriod
-            if cloud.weightKg != 70    { merged.weightKg = cloud.weightKg }
-            if let h = cloud.heightCm  { merged.heightCm = h }
-            if let b = cloud.birthYear { merged.birthYear = b }
-            if cloud.onboardingComplete { merged.onboardingComplete = true }
-            updateUserProfile(merged)
+            updateUserProfile(cloud)
+        } else {
+            Task { await SupabaseManager.shared.pushProfile(userProfile) }
         }
     }
 
