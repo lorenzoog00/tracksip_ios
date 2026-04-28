@@ -119,13 +119,23 @@ struct HomeView: View {
             .padding(.horizontal)
         }
 
-        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-            NavTile(title: "Calendar",   icon: "calendar",       locked: !appState.isPro, destination: .calendar)
-            NavTile(title: "Stats",      icon: "chart.bar.fill", locked: !appState.isPro, destination: .dashboard)
-            NavTile(title: "Challenges", icon: "trophy.fill",    locked: !appState.isPro, destination: .challenges)
-            NavTile(title: "Drinks",     icon: "wineglass.fill", locked: !appState.isPro, destination: .drinks)
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 12) {
+                FeatureCard(title: "Calendar", icon: "calendar", locked: !appState.isPro, destination: .calendar) {
+                    CalendarDotsPreview()
+                }
+                FeatureCard(title: "Stats", icon: "chart.bar.fill", locked: !appState.isPro, destination: .dashboard) {
+                    StatsCardPreview()
+                }
+                FeatureCard(title: "Challenges", icon: "trophy.fill", locked: !appState.isPro, destination: .challenges) {
+                    ChallengesCardPreview()
+                }
+                FeatureCard(title: "Drinks", icon: "wineglass.fill", locked: !appState.isPro, destination: .drinks) {
+                    DrinksCardPreview()
+                }
+            }
+            .padding(.horizontal)
         }
-        .padding(.horizontal)
 
         if !appState.visibleEvents.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
@@ -329,22 +339,22 @@ private struct EmptyNightsState: View {
     }
 }
 
-// MARK: - Nav tile
+// MARK: - Feature card
 
-private struct NavTile: View {
-    @EnvironmentObject var appState: AppState
+private struct FeatureCard<Content: View>: View {
     let title: String
     let icon: String
     let locked: Bool
     let destination: Route
+    @ViewBuilder let previewContent: () -> Content
     @State private var showPaywall = false
 
     var body: some View {
         Group {
             if locked {
-                Button { showPaywall = true } label: { tileContent }
+                Button { showPaywall = true } label: { card }
             } else {
-                NavigationLink(value: destination) { tileContent }
+                NavigationLink(value: destination) { card }
             }
         }
         .buttonStyle(.plain)
@@ -353,28 +363,115 @@ private struct NavTile: View {
         }
     }
 
-    private var tileContent: some View {
-        VStack(spacing: 10) {
-            ZStack(alignment: .topTrailing) {
+    private var card: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top) {
                 Image(systemName: icon)
-                    .font(.system(size: 22))
+                    .font(.system(size: 18, weight: .medium))
                     .foregroundStyle(locked ? AppColors.textTertiary : AppColors.accent)
+                Spacer()
                 if locked {
-                    Image(systemName: "lock.fill")
-                        .font(.system(size: 10))
-                        .foregroundStyle(AppColors.textTertiary)
-                        .offset(x: 6, y: -6)
+                    Text("PRO")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(AppColors.accent)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(AppColors.accent.opacity(0.15))
+                        .cornerRadius(6)
                 }
             }
+
+            Spacer(minLength: 10)
+
+            previewContent()
+                .opacity(locked ? 0.5 : 1.0)
+
+            Spacer(minLength: 10)
+
             Text(title)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(locked ? AppColors.textTertiary : AppColors.text)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(locked ? AppColors.textTertiary : AppColors.textSecondary)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 20)
+        .padding(14)
+        .frame(width: 150, height: 140)
         .background(AppColors.surface)
-        .cornerRadius(14)
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(AppColors.border, lineWidth: 1))
+        .cornerRadius(16)
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(AppColors.border, lineWidth: 1))
+    }
+}
+
+// MARK: - Feature card previews
+
+private struct CalendarDotsPreview: View {
+    @EnvironmentObject var appState: AppState
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(spacing: 4) {
+                ForEach(0..<7, id: \.self) { offset in
+                    let date = Calendar.current.date(byAdding: .day, value: -(6 - offset), to: Date())!
+                    let hasEvent = appState.visibleEvents.contains {
+                        Calendar.current.isDate($0.startTime, inSameDayAs: date)
+                    }
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(hasEvent ? AppColors.accent : AppColors.border)
+                        .frame(width: 13, height: 26)
+                }
+            }
+            Text("last 7 days")
+                .font(.system(size: 10))
+                .foregroundStyle(AppColors.textTertiary)
+        }
+    }
+}
+
+private struct StatsCardPreview: View {
+    @EnvironmentObject var appState: AppState
+
+    private var lastNightDrinks: Int? {
+        guard let last = appState.visibleEvents.first else { return nil }
+        return appState.totalDrinks(for: last.id)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(lastNightDrinks.map { "\($0)" } ?? "—")
+                .font(.system(size: 24, weight: .bold, design: .monospaced))
+                .foregroundStyle(AppColors.text)
+            Text(lastNightDrinks != nil ? "last night" : "no data yet")
+                .font(.system(size: 10))
+                .foregroundStyle(AppColors.textTertiary)
+        }
+    }
+}
+
+private struct ChallengesCardPreview: View {
+    @EnvironmentObject var appState: AppState
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("\(appState.challenges.count)")
+                .font(.system(size: 24, weight: .bold, design: .monospaced))
+                .foregroundStyle(AppColors.text)
+            Text("active")
+                .font(.system(size: 10))
+                .foregroundStyle(AppColors.textTertiary)
+        }
+    }
+}
+
+private struct DrinksCardPreview: View {
+    @EnvironmentObject var appState: AppState
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("\(appState.allDrinkTypes.count)")
+                .font(.system(size: 24, weight: .bold, design: .monospaced))
+                .foregroundStyle(AppColors.text)
+            Text("drink types")
+                .font(.system(size: 10))
+                .foregroundStyle(AppColors.textTertiary)
+        }
     }
 }
 
