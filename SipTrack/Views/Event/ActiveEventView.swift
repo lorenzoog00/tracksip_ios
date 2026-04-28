@@ -207,24 +207,47 @@ private struct BACHero: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            Text(String(format: "%.3f%%", bac))
-                .font(.system(size: 56, weight: .bold, design: .monospaced))
-                .foregroundStyle(stage.color)
+            // Ambient glow orb behind the number
+            ZStack {
+                Ellipse()
+                    .fill(
+                        RadialGradient(
+                            colors: [stage.color.opacity(0.22), .clear],
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: 80
+                        )
+                    )
+                    .frame(width: 200, height: 100)
+                    .blur(radius: 12)
+
+                Text(String(format: "%.3f%%", bac))
+                    .font(.system(size: 56, weight: .bold, design: .monospaced))
+                    .foregroundStyle(stage.color)
+                    .shadow(color: stage.color.opacity(0.45), radius: 14, y: 0)
+            }
 
             Text(stage.name)
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(stage.color)
+                .font(.system(size: 13, weight: .semibold))
+                .tracking(1.2)
+                .foregroundStyle(stage.color.opacity(0.85))
 
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 4)
+                    RoundedRectangle(cornerRadius: 5)
                         .fill(AppColors.border)
-                        .frame(height: 6)
+                        .frame(height: 7)
                         .frame(maxHeight: .infinity, alignment: .center)
 
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(stage.color)
-                        .frame(width: geo.size.width * IntoxicationStage.barPosition(for: bac), height: 6)
+                    RoundedRectangle(cornerRadius: 5)
+                        .fill(
+                            LinearGradient(
+                                colors: [stage.color.opacity(0.7), stage.color],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .frame(width: geo.size.width * IntoxicationStage.barPosition(for: bac), height: 7)
                         .frame(maxHeight: .infinity, alignment: .center)
                         .animation(.spring(response: 0.5, dampingFraction: 0.8), value: bac)
 
@@ -232,12 +255,12 @@ private struct BACHero: View {
                         let tickX = geo.size.width * IntoxicationStage.barPosition(for: bacLimit)
                         Capsule()
                             .fill(AppColors.danger)
-                            .frame(width: 2.5, height: 18)
+                            .frame(width: 2.5, height: 20)
                             .offset(x: max(0, tickX - 1.25))
                     }
                 }
             }
-            .frame(height: 18)
+            .frame(height: 20)
             .padding(.horizontal)
 
             if drivingMode {
@@ -268,16 +291,12 @@ private struct BACHero: View {
         }
         .padding()
         .frame(maxWidth: .infinity)
-        .background(
-            ZStack {
-                AppColors.surface
-                stage.color.opacity(0.06)
-            }
-        )
-        .cornerRadius(16)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(stage.color.opacity(0.2), lineWidth: 1)
+        .premiumCard(
+            radius: 20,
+            tint: stage.color,
+            tintOpacity: 0.05,
+            borderTop: stage.color.opacity(0.4),
+            borderBottom: stage.color.opacity(0.06)
         )
         .padding(.horizontal)
         .animation(.easeInOut(duration: 0.4), value: stage.name)
@@ -330,8 +349,7 @@ private struct StatsRow: View {
                 .padding(.vertical, 8)
             }
         }
-        .background(AppColors.surface)
-        .cornerRadius(14)
+        .premiumCard(radius: 14)
         .padding(.horizontal)
     }
 
@@ -429,9 +447,10 @@ private struct QuickAddGrid: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Quick Add")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(AppColors.textSecondary)
+            Text("QUICK ADD")
+                .font(.system(size: 10, weight: .semibold))
+                .tracking(1.4)
+                .foregroundStyle(AppColors.textTertiary)
                 .padding(.horizontal)
 
             LazyVGrid(columns: columns, spacing: 10) {
@@ -469,9 +488,7 @@ private struct DrinkTile: View {
             }
             .frame(maxWidth: .infinity)
             .frame(height: 88)
-            .background(AppColors.surface)
-            .cornerRadius(12)
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(AppColors.border, lineWidth: 1))
+            .premiumCard(radius: 14)
             .scaleEffect(pressed ? 0.93 : 1.0)
         }
         .buttonStyle(.plain)
@@ -532,9 +549,10 @@ private struct TimelineSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Timeline")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(AppColors.textSecondary)
+            Text("TIMELINE")
+                .font(.system(size: 10, weight: .semibold))
+                .tracking(1.4)
+                .foregroundStyle(AppColors.textTertiary)
                 .padding(.horizontal)
 
             ForEach(items) { item in
@@ -583,8 +601,7 @@ private struct DrinkRow: View {
                 .foregroundStyle(AppColors.textTertiary)
         }
         .padding(12)
-        .background(AppColors.surface)
-        .cornerRadius(10)
+        .premiumCard(radius: 12)
         .contextMenu {
             Button { onEdit() } label: { Label("Edit", systemImage: "pencil") }
             Button(role: .destructive) { onDelete() } label: { Label("Delete", systemImage: "trash") }
@@ -612,8 +629,7 @@ private struct WaterRow: View {
                 .foregroundStyle(AppColors.textTertiary)
         }
         .padding(12)
-        .background(AppColors.surface)
-        .cornerRadius(10)
+        .premiumCard(radius: 12)
         .contextMenu {
             Button(role: .destructive) { onDelete() } label: { Label("Delete", systemImage: "trash") }
         }

@@ -25,14 +25,40 @@ struct PaywallView: View {
                 ScrollView {
                     VStack(spacing: 24) {
                         // Hero
-                        VStack(spacing: 10) {
-                            Image(systemName: "crown.fill")
-                                .font(.system(size: 56))
-                                .foregroundStyle(AppColors.accent)
-                                .shadow(color: AppColors.accentGlow, radius: 16)
+                        VStack(spacing: 12) {
+                            ZStack {
+                                Ellipse()
+                                    .fill(
+                                        RadialGradient(
+                                            colors: [AppColors.accent.opacity(0.28), .clear],
+                                            center: .center,
+                                            startRadius: 0,
+                                            endRadius: 70
+                                        )
+                                    )
+                                    .frame(width: 160, height: 120)
+                                    .blur(radius: 14)
+
+                                Image(systemName: "crown.fill")
+                                    .font(.system(size: 58))
+                                    .foregroundStyle(
+                                        LinearGradient(
+                                            colors: [AppColors.accentWarm, AppColors.accent],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
+                                    )
+                                    .shadow(color: AppColors.accent.opacity(0.55), radius: 20, y: 4)
+                            }
                             Text("SipTrack Pro")
                                 .font(.system(size: 30, weight: .bold))
-                                .foregroundStyle(AppColors.text)
+                                .foregroundStyle(
+                                    LinearGradient(
+                                        colors: [AppColors.text, AppColors.textWarm],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
                             Text("Track smarter. Drink smarter.")
                                 .font(.system(size: 15))
                                 .foregroundStyle(AppColors.textSecondary)
@@ -62,8 +88,7 @@ struct PaywallView: View {
                             }
                         }
                         .padding(16)
-                        .background(AppColors.surface)
-                        .cornerRadius(16)
+                        .premiumCard(radius: 16)
                         .padding(.horizontal)
 
                         if appState.isPro {
@@ -140,10 +165,17 @@ struct PaywallView: View {
                                 }
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 54)
-                                .background(AppColors.accent)
+                                .background(
+                                    LinearGradient(
+                                        colors: [AppColors.accentWarm, AppColors.accent],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
                                 .foregroundStyle(.black)
                                 .cornerRadius(14)
-                                .shadow(color: AppColors.accentGlow, radius: 12, y: 4)
+                                .shadow(color: AppColors.accent.opacity(0.55), radius: 16, y: 6)
+                                .shadow(color: AppColors.accent.opacity(0.18), radius: 32, y: 10)
                             }
                             .disabled(isPurchasing || store.product(for: selectedPeriod) == nil)
                             .padding(.horizontal)
@@ -278,11 +310,12 @@ private struct PeriodOption: View {
                     .foregroundStyle(isSelected ? AppColors.accent : AppColors.text)
             }
             .padding(14)
-            .background(isSelected ? AppColors.accentDim : AppColors.surface)
-            .cornerRadius(12)
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(isSelected ? AppColors.accent : AppColors.border, lineWidth: isSelected ? 2 : 1)
+            .premiumCard(
+                radius: 14,
+                tint: AppColors.accent,
+                tintOpacity: isSelected ? 0.08 : 0,
+                borderTop: isSelected ? AppColors.accent.opacity(0.7) : AppColors.rimLight,
+                borderBottom: isSelected ? AppColors.accent.opacity(0.2) : AppColors.border
             )
         }
     }

@@ -16,41 +16,35 @@ struct HomeView: View {
         }
     }
 
+    private var todayString: String {
+        let df = DateFormatter()
+        df.dateFormat = "EEEE, MMM d"
+        return df.string(from: Date())
+    }
+
     var body: some View {
         ZStack(alignment: .bottom) {
-            ScrollView {
-                VStack(spacing: 20) {
-                    // Header
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(greeting)
-                                .font(.system(size: 26, weight: .bold))
-                                .foregroundStyle(AppColors.text)
-                            Text("Track your night")
-                                .font(.system(size: 14))
-                                .foregroundStyle(AppColors.textSecondary)
-                        }
-                        Spacer()
-                        NavigationLink(value: Route.profile) {
-                            Image(systemName: "person.circle.fill")
-                                .font(.system(size: 28))
-                                .foregroundStyle(AppColors.textSecondary)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .padding(.horizontal)
+            // Background with top ambient glow
+            AppColors.background.ignoresSafeArea()
+            LinearGradient(
+                colors: [AppColors.accent.opacity(0.08), .clear],
+                startPoint: .top,
+                endPoint: UnitPoint(x: 0.5, y: 0.28)
+            )
+            .ignoresSafeArea()
 
+            ScrollView {
+                VStack(spacing: 24) {
+                    header
                     if supabase.isSignedIn {
                         signedInContent
                     } else {
                         noAccountContent
                     }
-
                     Color.clear.frame(height: 90)
                 }
                 .padding(.top, 16)
             }
-            .background(AppColors.background)
 
             if supabase.isSignedIn {
                 fab
@@ -72,6 +66,41 @@ struct HomeView: View {
             }
             Button("Cancel", role: .cancel) { deletingEventId = nil }
         }
+    }
+
+    // MARK: - Header
+
+    private var header: some View {
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(greeting)
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [AppColors.text, AppColors.textWarm],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                Text(todayString)
+                    .font(.system(size: 13))
+                    .foregroundStyle(AppColors.textTertiary)
+            }
+            Spacer()
+            NavigationLink(value: Route.profile) {
+                ZStack {
+                    Circle()
+                        .fill(AppColors.surfaceTop)
+                        .frame(width: 40, height: 40)
+                        .overlay(Circle().stroke(AppColors.border, lineWidth: 1))
+                    Image(systemName: "person.fill")
+                        .font(.system(size: 17))
+                        .foregroundStyle(AppColors.textSecondary)
+                }
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal)
     }
 
     // MARK: - FAB
@@ -102,9 +131,16 @@ struct HomeView: View {
         .foregroundStyle(.black)
         .padding(.horizontal, 28)
         .padding(.vertical, 16)
-        .background(AppColors.accent)
+        .background(
+            LinearGradient(
+                colors: [AppColors.accentWarm, AppColors.accent],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
         .cornerRadius(30)
-        .shadow(color: AppColors.accentGlow, radius: 12, y: 4)
+        .shadow(color: AppColors.accent.opacity(0.55), radius: 16, y: 6)
+        .shadow(color: AppColors.accent.opacity(0.18), radius: 36, y: 10)
     }
 
     // MARK: - Signed-in content
@@ -119,30 +155,66 @@ struct HomeView: View {
             .padding(.horizontal)
         }
 
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 12) {
-                FeatureCard(title: "Calendar", icon: "calendar", locked: !appState.isPro, destination: .calendar) {
-                    CalendarDotsPreview()
-                }
-                FeatureCard(title: "Stats", icon: "chart.bar.fill", locked: !appState.isPro, destination: .dashboard) {
-                    StatsCardPreview()
-                }
-                FeatureCard(title: "Challenges", icon: "trophy.fill", locked: !appState.isPro, destination: .challenges) {
-                    ChallengesCardPreview()
-                }
-                FeatureCard(title: "Drinks", icon: "wineglass.fill", locked: !appState.isPro, destination: .drinks) {
-                    DrinksCardPreview()
-                }
+        // Feature cards section
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("EXPLORE")
+                    .font(.system(size: 11, weight: .semibold))
+                    .tracking(1.4)
+                    .foregroundStyle(AppColors.textTertiary)
+                Spacer()
             }
             .padding(.horizontal)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    FeatureCard(
+                        title: "Calendar",
+                        icon: "calendar",
+                        accent: Color(hex: "#6B99FF"),
+                        locked: !appState.isPro,
+                        destination: .calendar
+                    ) { CalendarDotsPreview() }
+
+                    FeatureCard(
+                        title: "Stats",
+                        icon: "chart.bar.fill",
+                        accent: AppColors.accent,
+                        locked: !appState.isPro,
+                        destination: .dashboard
+                    ) { StatsCardPreview() }
+
+                    FeatureCard(
+                        title: "Challenges",
+                        icon: "trophy.fill",
+                        accent: Color(hex: "#E8834A"),
+                        locked: !appState.isPro,
+                        destination: .challenges
+                    ) { ChallengesCardPreview() }
+
+                    FeatureCard(
+                        title: "Drinks",
+                        icon: "wineglass.fill",
+                        accent: Color(hex: "#3DBDA7"),
+                        locked: !appState.isPro,
+                        destination: .drinks
+                    ) { DrinksCardPreview() }
+                }
+                .padding(.horizontal)
+            }
         }
 
+        // Past nights section
         if !appState.visibleEvents.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
-                Text("Past Nights")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(AppColors.text)
-                    .padding(.horizontal)
+                HStack {
+                    Text("PAST NIGHTS")
+                        .font(.system(size: 11, weight: .semibold))
+                        .tracking(1.4)
+                        .foregroundStyle(AppColors.textTertiary)
+                    Spacer()
+                }
+                .padding(.horizontal)
 
                 ForEach(Array(appState.visibleEvents.enumerated()), id: \.element.id) { index, event in
                     if index == 2 && !appState.isPro {
@@ -198,8 +270,15 @@ struct HomeView: View {
                         .foregroundStyle(.black)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
-                        .background(AppColors.accent)
+                        .background(
+                            LinearGradient(
+                                colors: [AppColors.accentWarm, AppColors.accent],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
                         .cornerRadius(14)
+                        .shadow(color: AppColors.accent.opacity(0.4), radius: 12, y: 4)
                 }
                 .buttonStyle(.plain)
 
@@ -209,9 +288,11 @@ struct HomeView: View {
                         .foregroundStyle(AppColors.accent)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
-                        .background(AppColors.surface)
-                        .cornerRadius(14)
-                        .overlay(RoundedRectangle(cornerRadius: 14).stroke(AppColors.accent.opacity(0.4), lineWidth: 1))
+                        .premiumCard(
+                            radius: 14,
+                            borderTop: AppColors.accent.opacity(0.4),
+                            borderBottom: AppColors.border
+                        )
                 }
                 .buttonStyle(.plain)
             }
@@ -239,7 +320,7 @@ private struct ActiveEventCard: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Top row: name + elapsed
+            // Top row
             HStack {
                 HStack(spacing: 8) {
                     Circle()
@@ -252,46 +333,57 @@ private struct ActiveEventCard: View {
                         .foregroundStyle(AppColors.text)
                 }
                 Spacer()
-                Text(elapsed)
-                    .font(.system(size: 12))
-                    .foregroundStyle(AppColors.textSecondary)
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(AppColors.textTertiary)
-                    .padding(.leading, 4)
+                HStack(spacing: 4) {
+                    Text(elapsed)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(AppColors.textSecondary)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(AppColors.textTertiary)
+                }
             }
 
-            Divider()
-                .background(AppColors.border)
-                .padding(.vertical, 12)
+            Rectangle()
+                .fill(
+                    LinearGradient(
+                        colors: [stage.color.opacity(0.3), AppColors.border],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .frame(height: 1)
+                .padding(.vertical, 14)
 
-            // Bottom row: BAC + stage + drinks
+            // Bottom row: BAC + drinks
             HStack(alignment: .bottom) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(String(format: "%.3f%%", bac))
-                        .font(.system(size: 28, weight: .bold, design: .monospaced))
+                        .font(.system(size: 32, weight: .bold, design: .monospaced))
                         .foregroundStyle(stage.color)
+                        .shadow(color: stage.color.opacity(0.4), radius: 8, y: 0)
                     Text(stage.name)
-                        .font(.system(size: 12))
-                        .foregroundStyle(stage.color.opacity(0.7))
+                        .font(.system(size: 11, weight: .semibold))
+                        .tracking(0.8)
+                        .foregroundStyle(stage.color.opacity(0.65))
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 2) {
                     Text("\(drinkCount)")
-                        .font(.system(size: 28, weight: .bold))
+                        .font(.system(size: 32, weight: .bold, design: .rounded))
                         .foregroundStyle(AppColors.text)
                     Text("drink\(drinkCount == 1 ? "" : "s")")
-                        .font(.system(size: 12))
+                        .font(.system(size: 11))
                         .foregroundStyle(AppColors.textTertiary)
                 }
             }
         }
-        .padding(16)
-        .background(AppColors.surface)
-        .cornerRadius(16)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(stage.color.opacity(0.35), lineWidth: 1)
+        .padding(18)
+        .premiumCard(
+            radius: 20,
+            tint: stage.color,
+            tintOpacity: 0.07,
+            borderTop: stage.color.opacity(0.4),
+            borderBottom: stage.color.opacity(0.06)
         )
         .onAppear { pulse = true }
     }
@@ -344,6 +436,7 @@ private struct EmptyNightsState: View {
 private struct FeatureCard<Content: View>: View {
     let title: String
     let icon: String
+    let accent: Color
     let locked: Bool
     let destination: Route
     @ViewBuilder let previewContent: () -> Content
@@ -368,7 +461,7 @@ private struct FeatureCard<Content: View>: View {
             HStack(alignment: .top) {
                 Image(systemName: icon)
                     .font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(locked ? AppColors.textTertiary : AppColors.accent)
+                    .foregroundStyle(locked ? AppColors.textTertiary : accent)
                 Spacer()
                 if locked {
                     Text("PRO")
@@ -376,7 +469,7 @@ private struct FeatureCard<Content: View>: View {
                         .foregroundStyle(AppColors.accent)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 3)
-                        .background(AppColors.accent.opacity(0.15))
+                        .background(AppColors.accentDim)
                         .cornerRadius(6)
                 }
             }
@@ -384,7 +477,7 @@ private struct FeatureCard<Content: View>: View {
             Spacer(minLength: 10)
 
             previewContent()
-                .opacity(locked ? 0.5 : 1.0)
+                .opacity(locked ? 0.45 : 1.0)
 
             Spacer(minLength: 10)
 
@@ -393,10 +486,14 @@ private struct FeatureCard<Content: View>: View {
                 .foregroundStyle(locked ? AppColors.textTertiary : AppColors.textSecondary)
         }
         .padding(14)
-        .frame(width: 150, height: 140)
-        .background(AppColors.surface)
-        .cornerRadius(16)
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(AppColors.border, lineWidth: 1))
+        .frame(width: 152, height: 144)
+        .premiumCard(
+            radius: 18,
+            tint: locked ? .clear : accent,
+            tintOpacity: locked ? 0 : 0.06,
+            borderTop: locked ? AppColors.rimLight : accent.opacity(0.45),
+            borderBottom: AppColors.border
+        )
     }
 }
 
@@ -414,7 +511,7 @@ private struct CalendarDotsPreview: View {
                         Calendar.current.isDate($0.startTime, inSameDayAs: date)
                     }
                     RoundedRectangle(cornerRadius: 3)
-                        .fill(hasEvent ? AppColors.accent : AppColors.border)
+                        .fill(hasEvent ? Color(hex: "#6B99FF") : AppColors.border)
                         .frame(width: 13, height: 26)
                 }
             }
@@ -481,55 +578,98 @@ private struct EventRow: View {
     let event: NightEvent
     let drinkCount: Int
 
-    private var dateString: String {
-        let cal = Calendar.current
-        if cal.isDateInToday(event.startTime) { return "Today" }
-        if cal.isDateInYesterday(event.startTime) { return "Yesterday" }
-        let df = DateFormatter()
-        df.dateFormat = "MMM d"
-        return df.string(from: event.startTime)
+    private var dayNumber: String {
+        DateFormatter().then { $0.dateFormat = "d" }.string(from: event.startTime)
+    }
+
+    private var monthAbbr: String {
+        DateFormatter().then { $0.dateFormat = "MMM" }.string(from: event.startTime).uppercased()
     }
 
     private var timeString: String {
-        let tf = DateFormatter()
-        tf.dateFormat = "h:mm a"
-        return tf.string(from: event.startTime)
+        DateFormatter().then { $0.dateFormat = "h:mm a" }.string(from: event.startTime)
     }
 
+    private var isToday: Bool    { Calendar.current.isDateInToday(event.startTime) }
+    private var isYesterday: Bool { Calendar.current.isDateInYesterday(event.startTime) }
+
     var body: some View {
-        HStack(spacing: 14) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(event.displayName)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(AppColors.text)
-                HStack(spacing: 4) {
-                    Text(dateString)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(AppColors.textSecondary)
-                    Text("·")
-                        .font(.system(size: 12))
+        HStack(spacing: 0) {
+            // Date column
+            VStack(spacing: 1) {
+                if isToday {
+                    Text("NOW")
+                        .font(.system(size: 8, weight: .bold))
+                        .tracking(0.5)
+                        .foregroundStyle(AppColors.accent)
+                    Text(dayNumber)
+                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                        .foregroundStyle(AppColors.accent)
+                } else if isYesterday {
+                    Text("YEST")
+                        .font(.system(size: 8, weight: .bold))
+                        .tracking(0.5)
                         .foregroundStyle(AppColors.textTertiary)
-                    Text(timeString)
-                        .font(.system(size: 12))
+                    Text(dayNumber)
+                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                        .foregroundStyle(AppColors.text)
+                } else {
+                    Text(dayNumber)
+                        .font(.system(size: 22, weight: .bold, design: .rounded))
+                        .foregroundStyle(AppColors.text)
+                    Text(monthAbbr)
+                        .font(.system(size: 9, weight: .semibold))
+                        .tracking(0.5)
                         .foregroundStyle(AppColors.textTertiary)
                 }
             }
-            Spacer()
-            VStack(alignment: .trailing, spacing: 2) {
-                Text("\(drinkCount)")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundStyle(AppColors.accent)
-                Text("drink\(drinkCount == 1 ? "" : "s")")
-                    .font(.system(size: 11))
+            .frame(width: 44)
+
+            // Separator
+            Rectangle()
+                .fill(AppColors.border)
+                .frame(width: 1, height: 32)
+                .padding(.horizontal, 14)
+
+            // Event info
+            VStack(alignment: .leading, spacing: 3) {
+                Text(event.displayName)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(AppColors.text)
+                    .lineLimit(1)
+                Text(timeString)
+                    .font(.system(size: 12))
                     .foregroundStyle(AppColors.textTertiary)
             }
-            Image(systemName: "chevron.right")
-                .font(.system(size: 12))
-                .foregroundStyle(AppColors.textTertiary)
+
+            Spacer()
+
+            // Drink count + chevron
+            HStack(alignment: .center, spacing: 10) {
+                VStack(spacing: 1) {
+                    Text("\(drinkCount)")
+                        .font(.system(size: 17, weight: .bold, design: .rounded))
+                        .foregroundStyle(AppColors.accent)
+                    Text("drinks")
+                        .font(.system(size: 9))
+                        .foregroundStyle(AppColors.textTertiary)
+                }
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(AppColors.textTertiary)
+            }
         }
-        .padding(14)
-        .background(AppColors.surface)
-        .cornerRadius(12)
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(AppColors.border, lineWidth: 1))
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .premiumCard(radius: 16)
+    }
+}
+
+// MARK: - DateFormatter convenience
+
+private extension DateFormatter {
+    func then(_ configure: (DateFormatter) -> Void) -> DateFormatter {
+        configure(self)
+        return self
     }
 }
