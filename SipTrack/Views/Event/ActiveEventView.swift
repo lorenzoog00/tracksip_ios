@@ -20,10 +20,12 @@ struct ActiveEventView: View {
     private var stage: IntoxicationStage  { IntoxicationStage.stage(for: currentBAC) }
 
     var body: some View {
-        guard let event = event else {
-            return AnyView(Text("Event not found").foregroundStyle(AppColors.textSecondary))
+        if let event = event {
+            content(event: event)
+        } else {
+            Text("Event not found")
+                .foregroundStyle(AppColors.textSecondary)
         }
-        return AnyView(content(event: event))
     }
 
     private func content(event: NightEvent) -> some View {
@@ -617,6 +619,7 @@ private struct WaterRow: View {
         }
     }
 }
+
 
 // MARK: - Bottom Bar
 

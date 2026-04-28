@@ -4,6 +4,7 @@ struct HomeView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var supabase: SupabaseManager
     @State private var showCreateEvent = false
+    @State private var deletingEventId: String? = nil
 
     private var greeting: String {
         let hour = Calendar.current.component(.hour, from: Date())
@@ -58,6 +59,18 @@ struct HomeView: View {
         .navigationBarHidden(true)
         .sheet(isPresented: $showCreateEvent) {
             CreateEventView()
+        }
+        .confirmationDialog("Delete this night?", isPresented: Binding(
+            get: { deletingEventId != nil },
+            set: { if !$0 { deletingEventId = nil } }
+        ), titleVisibility: .visible) {
+            Button("Delete", role: .destructive) {
+                if let id = deletingEventId {
+                    appState.deleteEvent(id)
+                    deletingEventId = nil
+                }
+            }
+            Button("Cancel", role: .cancel) { deletingEventId = nil }
         }
     }
 
@@ -133,13 +146,15 @@ struct HomeView: View {
                     .padding(.horizontal)
                     .contextMenu {
                         Button(role: .destructive) {
-                            appState.deleteEvent(event.id)
+                            deletingEventId = event.id
                         } label: {
                             Label("Delete", systemImage: "trash")
                         }
                     }
                 }
             }
+        } else if appState.activeEvent == nil {
+            EmptyNightsState()
         }
     }
 
@@ -269,6 +284,48 @@ private struct ActiveEventCard: View {
                 .stroke(stage.color.opacity(0.35), lineWidth: 1)
         )
         .onAppear { pulse = true }
+    }
+}
+
+// MARK: - Empty state
+
+private struct EmptyNightsState: View {
+    @State private var glow = false
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Spacer().frame(height: 8)
+
+            ZStack {
+                Circle()
+                    .fill(AppColors.accent.opacity(glow ? 0.18 : 0.10))
+                    .frame(width: 100, height: 100)
+                    .animation(.easeInOut(duration: 2).repeatForever(autoreverses: true), value: glow)
+                Circle()
+                    .fill(AppColors.accentDim)
+                    .frame(width: 76, height: 76)
+                Image(systemName: "moon.stars.fill")
+                    .font(.system(size: 34))
+                    .foregroundStyle(AppColors.accent)
+            }
+            .onAppear { glow = true }
+
+            VStack(spacing: 8) {
+                Text("No nights tracked yet")
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(AppColors.text)
+                Text("Tap \"Start New Night\" to begin\ntracking your first evening.")
+                    .font(.system(size: 14))
+                    .foregroundStyle(AppColors.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(3)
+            }
+
+            Spacer().frame(height: 8)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal)
+        .padding(.vertical, 12)
     }
 }
 
