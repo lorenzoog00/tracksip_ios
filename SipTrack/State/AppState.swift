@@ -1,6 +1,7 @@
 import SwiftUI
 import Combine
 import UIKit
+import SipTrackActivityKit
 
 @MainActor
 final class AppState: ObservableObject {
@@ -36,7 +37,7 @@ final class AppState: ObservableObject {
     // MARK: - Computed
 
     var allDrinkTypes: [DrinkType] { DrinkType.mergedWith(custom: customDrinkTypes) }
-    var isPro: Bool { store.isPro }
+    var isPro: Bool { store.isPro || userProfile.isPro }
 
     var activeEvent: NightEvent? {
         events.first { $0.isActive && $0.userId == currentUserId }
@@ -93,12 +94,48 @@ final class AppState: ObservableObject {
         events.append(event)
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         Task { await SupabaseManager.shared.pushEvent(event) }
+        startLiveActivity(for: event)
         return event
+    }
+
+    private func startLiveActivity(for event: NightEvent) {
+        print("🟡 startLiveActivity called for event: \(event.id)")
+        if #available(iOS 16.2, *) {
+            let ids = userProfile.liveActivityDrinkIds.isEmpty
+                ? ["beer", "red-wine", "tequila", "gin-tonic"]
+                : userProfile.liveActivityDrinkIds
+            let quickDrinks = allDrinkTypes
+                .filter { ids.contains($0.id) }
+                .prefix(4)
+                .map { SipTrackActivityAttributes.QuickDrink(id: $0.id, name: $0.name, symbol: $0.sfSymbol) }
+            LiveActivityManager.shared.start(
+                eventName: event.displayName,
+                eventId: event.id,
+                quickDrinks: Array(quickDrinks)
+            )
+        }
+    }
+
+    private func updateLiveActivity(for eventId: String) {
+        if #available(iOS 16.2, *) {
+            guard let event = events.first(where: { $0.id == eventId }) else { return }
+            let bac = currentBAC(for: eventId)
+            let stage = IntoxicationStage.stage(for: bac)
+            let elapsed = Int(max(0, -event.startTime.timeIntervalSinceNow) / 60)
+            LiveActivityManager.shared.update(
+                bac: bac,
+                drinkCount: totalDrinks(for: eventId),
+                stageName: stage.name,
+                stageColorHex: stage.colorHex,
+                elapsedMinutes: elapsed
+            )
+        }
     }
 
     func endEvent(_ id: String) {
         updateEvent(id: id) { $0.endTime = Date() }
         UINotificationFeedbackGenerator().notificationOccurred(.success)
+        if #available(iOS 16.2, *) { LiveActivityManager.shared.end() }
     }
 
     func updateEventNotes(id: String, notes: String) {
@@ -146,6 +183,7 @@ final class AppState: ObservableObject {
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         scheduleUndo(entry)
         checkWarnings(after: entry, eventId: eventId)
+        updateLiveActivity(for: eventId)
         Task { await SupabaseManager.shared.pushEntry(entry) }
     }
 
@@ -302,16 +340,18 @@ final class AppState: ObservableObject {
     // MARK: - Subscription sync
 
     func syncSubscriptionFromStore() {
+        // Only upgrade the profile when StoreKit confirms pro. Never downgrade from a
+        // StoreKit timeout — userProfile.isPro acts as the persistent cache so pro status
+        // survives cold launches where currentEntitlements is slow.
+        guard store.isPro else { return }
         var profile = userProfile
         let wasPro = profile.isPro
-        profile.subscriptionTier = store.isPro ? .pro : .free
-        if store.isPro {
-            if let period = store.activePeriod {
-                profile.subscriptionPeriod = period
-            }
-            if !wasPro {
-                profile.subscriptionStartedAt = Date()
-            }
+        profile.subscriptionTier = .pro
+        if let period = store.activePeriod {
+            profile.subscriptionPeriod = period
+        }
+        if !wasPro {
+            profile.subscriptionStartedAt = Date()
         }
         updateUserProfile(profile)
     }

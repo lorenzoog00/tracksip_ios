@@ -38,6 +38,7 @@ struct UserProfile: Codable {
     var subscriptionTier: SubscriptionTier     = .free
     var subscriptionPeriod: SubscriptionPeriod?
     var subscriptionStartedAt: Date?
+    var liveActivityDrinkIds: [String]         = ["beer", "red-wine", "tequila", "gin-tonic"]
 
     var isPro: Bool { subscriptionTier == .pro }
 

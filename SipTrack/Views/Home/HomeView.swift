@@ -3,8 +3,7 @@ import SwiftUI
 struct HomeView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var supabase: SupabaseManager
-    @State private var showCreateEvent  = false
-    @State private var deletingEventId: String? = nil
+    @State private var showCreateEvent = false
 
     private var greeting: String {
         let hour = Calendar.current.component(.hour, from: Date())
@@ -53,27 +52,7 @@ struct HomeView: View {
             .background(AppColors.background)
 
             if supabase.isSignedIn {
-                Button {
-                    if appState.activeEvent != nil {
-                        // Already active, card shows it
-                    } else {
-                        showCreateEvent = true
-                    }
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 16, weight: .semibold))
-                        Text(appState.activeEvent == nil ? "Start New Night" : "Night in Progress")
-                            .font(.system(size: 16, weight: .semibold))
-                    }
-                    .foregroundStyle(.black)
-                    .padding(.horizontal, 28)
-                    .padding(.vertical, 16)
-                    .background(AppColors.accent)
-                    .cornerRadius(30)
-                    .shadow(color: AppColors.accentGlow, radius: 12, y: 4)
-                }
-                .padding(.bottom, 32)
+                fab
             }
         }
         .navigationBarHidden(true)
@@ -82,9 +61,43 @@ struct HomeView: View {
         }
     }
 
+    // MARK: - FAB
+
+    @ViewBuilder
+    private var fab: some View {
+        if let active = appState.activeEvent {
+            NavigationLink(value: Route.event(active.id)) {
+                fabLabel(title: "View Active Night", icon: "arrow.up.right")
+            }
+            .buttonStyle(.plain)
+            .padding(.bottom, 32)
+        } else {
+            Button { showCreateEvent = true } label: {
+                fabLabel(title: "Start New Night", icon: "plus")
+            }
+            .padding(.bottom, 32)
+        }
+    }
+
+    private func fabLabel(title: String, icon: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 15, weight: .semibold))
+            Text(title)
+                .font(.system(size: 16, weight: .semibold))
+        }
+        .foregroundStyle(.black)
+        .padding(.horizontal, 28)
+        .padding(.vertical, 16)
+        .background(AppColors.accent)
+        .cornerRadius(30)
+        .shadow(color: AppColors.accentGlow, radius: 12, y: 4)
+    }
+
+    // MARK: - Signed-in content
+
     @ViewBuilder
     private var signedInContent: some View {
-        // Active event card
         if let active = appState.activeEvent {
             NavigationLink(value: Route.event(active.id)) {
                 ActiveEventCard(event: active)
@@ -93,16 +106,14 @@ struct HomeView: View {
             .padding(.horizontal)
         }
 
-        // Nav grid
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-            NavTile(title: "Calendar",  icon: "calendar",       locked: !appState.isPro, destination: .calendar)
-            NavTile(title: "Stats",     icon: "chart.bar.fill", locked: !appState.isPro, destination: .dashboard)
-            NavTile(title: "Challenges",icon: "trophy.fill",    locked: !appState.isPro, destination: .challenges)
-            NavTile(title: "Drinks",    icon: "wineglass.fill", locked: !appState.isPro, destination: .drinks)
+            NavTile(title: "Calendar",   icon: "calendar",       locked: !appState.isPro, destination: .calendar)
+            NavTile(title: "Stats",      icon: "chart.bar.fill", locked: !appState.isPro, destination: .dashboard)
+            NavTile(title: "Challenges", icon: "trophy.fill",    locked: !appState.isPro, destination: .challenges)
+            NavTile(title: "Drinks",     icon: "wineglass.fill", locked: !appState.isPro, destination: .drinks)
         }
         .padding(.horizontal)
 
-        // Past events
         if !appState.visibleEvents.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Past Nights")
@@ -131,6 +142,8 @@ struct HomeView: View {
             }
         }
     }
+
+    // MARK: - Signed-out content
 
     @ViewBuilder
     private var noAccountContent: some View {
@@ -182,46 +195,84 @@ struct HomeView: View {
     }
 }
 
-// MARK: - Sub-components
+// MARK: - Active event card
 
 private struct ActiveEventCard: View {
     @EnvironmentObject var appState: AppState
     let event: NightEvent
 
+    private var bac: Double { appState.currentBAC(for: event.id) }
+    private var stage: IntoxicationStage { IntoxicationStage.stage(for: bac) }
+    private var drinkCount: Int { appState.totalDrinks(for: event.id) }
+    private var elapsed: String {
+        let mins = Int(max(0, -event.startTime.timeIntervalSinceNow) / 60)
+        let h = mins / 60; let m = mins % 60
+        return h > 0 ? "\(h)h \(m)m" : "\(m)m"
+    }
+
+    @State private var pulse = false
+
     var body: some View {
-        HStack(spacing: 14) {
-            ZStack {
-                Circle()
-                    .fill(AppColors.accentDim)
-                    .frame(width: 44, height: 44)
-                Circle()
-                    .fill(AppColors.accent)
-                    .frame(width: 12, height: 12)
-                    .scaleEffect(1.0)
-                    .animation(.easeInOut(duration: 1).repeatForever(), value: true)
-            }
-            VStack(alignment: .leading, spacing: 3) {
-                Text(event.displayName)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(AppColors.text)
-                Text("Active • Tap to open")
+        VStack(spacing: 0) {
+            // Top row: name + elapsed
+            HStack {
+                HStack(spacing: 8) {
+                    Circle()
+                        .fill(stage.color)
+                        .frame(width: 8, height: 8)
+                        .scaleEffect(pulse ? 1.5 : 1.0)
+                        .animation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true), value: pulse)
+                    Text(event.displayName)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(AppColors.text)
+                }
+                Spacer()
+                Text(elapsed)
                     .font(.system(size: 12))
                     .foregroundStyle(AppColors.textSecondary)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(AppColors.textTertiary)
+                    .padding(.leading, 4)
             }
-            Spacer()
-            Image(systemName: "chevron.right")
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(AppColors.textTertiary)
+
+            Divider()
+                .background(AppColors.border)
+                .padding(.vertical, 12)
+
+            // Bottom row: BAC + stage + drinks
+            HStack(alignment: .bottom) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(String(format: "%.3f%%", bac))
+                        .font(.system(size: 28, weight: .bold, design: .monospaced))
+                        .foregroundStyle(stage.color)
+                    Text(stage.name)
+                        .font(.system(size: 12))
+                        .foregroundStyle(stage.color.opacity(0.7))
+                }
+                Spacer()
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("\(drinkCount)")
+                        .font(.system(size: 28, weight: .bold))
+                        .foregroundStyle(AppColors.text)
+                    Text("drink\(drinkCount == 1 ? "" : "s")")
+                        .font(.system(size: 12))
+                        .foregroundStyle(AppColors.textTertiary)
+                }
+            }
         }
         .padding(16)
         .background(AppColors.surface)
-        .cornerRadius(14)
+        .cornerRadius(16)
         .overlay(
-            RoundedRectangle(cornerRadius: 14)
-                .stroke(AppColors.accent.opacity(0.4), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(stage.color.opacity(0.35), lineWidth: 1)
         )
+        .onAppear { pulse = true }
     }
 }
+
+// MARK: - Nav tile
 
 private struct NavTile: View {
     @EnvironmentObject var appState: AppState
@@ -270,16 +321,26 @@ private struct NavTile: View {
     }
 }
 
+// MARK: - Event row
+
 private struct EventRow: View {
     let event: NightEvent
     let drinkCount: Int
 
-    private static let dateFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateStyle = .medium
-        f.timeStyle = .short
-        return f
-    }()
+    private var dateString: String {
+        let cal = Calendar.current
+        if cal.isDateInToday(event.startTime) { return "Today" }
+        if cal.isDateInYesterday(event.startTime) { return "Yesterday" }
+        let df = DateFormatter()
+        df.dateFormat = "MMM d"
+        return df.string(from: event.startTime)
+    }
+
+    private var timeString: String {
+        let tf = DateFormatter()
+        tf.dateFormat = "h:mm a"
+        return tf.string(from: event.startTime)
+    }
 
     var body: some View {
         HStack(spacing: 14) {
@@ -287,9 +348,17 @@ private struct EventRow: View {
                 Text(event.displayName)
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(AppColors.text)
-                Text(Self.dateFormatter.string(from: event.startTime))
-                    .font(.system(size: 12))
-                    .foregroundStyle(AppColors.textSecondary)
+                HStack(spacing: 4) {
+                    Text(dateString)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(AppColors.textSecondary)
+                    Text("·")
+                        .font(.system(size: 12))
+                        .foregroundStyle(AppColors.textTertiary)
+                    Text(timeString)
+                        .font(.system(size: 12))
+                        .foregroundStyle(AppColors.textTertiary)
+                }
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {

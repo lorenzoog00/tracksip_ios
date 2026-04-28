@@ -52,13 +52,13 @@ struct ActiveEventView: View {
                     // Stats row
                     StatsRow(eventId: eventId, waterEntries: eventWater)
 
-                    // Drink breakdown chips
+                    // Quick Add — inline, always visible
+                    QuickAddGrid(eventId: eventId, drinkTypes: appState.allDrinkTypes)
+
+                    // Drink breakdown chips (summary of what was had)
                     if !eventEntries.isEmpty {
                         DrinkChips(entries: eventEntries, drinkTypes: appState.allDrinkTypes)
                     }
-
-                    // Quick Add — inline, always visible
-                    QuickAddGrid(eventId: eventId, drinkTypes: appState.allDrinkTypes)
 
                     // Undo banner
                     if let undoEntry = appState.undoEntry, undoEntry.eventId == eventId {
@@ -224,6 +224,7 @@ private struct BACHero: View {
                         .fill(stage.color)
                         .frame(width: geo.size.width * IntoxicationStage.barPosition(for: bac), height: 6)
                         .frame(maxHeight: .infinity, alignment: .center)
+                        .animation(.spring(response: 0.5, dampingFraction: 0.8), value: bac)
 
                     if drivingMode {
                         let tickX = geo.size.width * IntoxicationStage.barPosition(for: bacLimit)
@@ -265,9 +266,19 @@ private struct BACHero: View {
         }
         .padding()
         .frame(maxWidth: .infinity)
-        .background(AppColors.surface)
+        .background(
+            ZStack {
+                AppColors.surface
+                stage.color.opacity(0.06)
+            }
+        )
         .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(stage.color.opacity(0.2), lineWidth: 1)
+        )
         .padding(.horizontal)
+        .animation(.easeInOut(duration: 0.4), value: stage.name)
     }
 }
 
@@ -411,7 +422,6 @@ private struct QuickAddGrid: View {
     let columns = [
         GridItem(.flexible(), spacing: 10),
         GridItem(.flexible(), spacing: 10),
-        GridItem(.flexible(), spacing: 10),
         GridItem(.flexible(), spacing: 10)
     ]
 
@@ -456,7 +466,7 @@ private struct DrinkTile: View {
                     .minimumScaleFactor(0.8)
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 76)
+            .frame(height: 88)
             .background(AppColors.surface)
             .cornerRadius(12)
             .overlay(RoundedRectangle(cornerRadius: 12).stroke(AppColors.border, lineWidth: 1))

@@ -16,6 +16,7 @@ struct ProfileView: View {
     @State private var caloriesPerNight: Int
     @State private var bacApproachWarning: Bool
     @State private var stageChangeWarning: Bool
+    @State private var liveActivityDrinkIds: [String]
     @State private var saved = false
     @State private var showDeleteAccountConfirm = false
     @State private var deletingAccount = false
@@ -34,6 +35,7 @@ struct ProfileView: View {
         _caloriesPerNight    = State(initialValue: p.notifications.caloriesPerNight)
         _bacApproachWarning  = State(initialValue: p.notifications.bacApproachWarning)
         _stageChangeWarning  = State(initialValue: p.notifications.stageChangeWarning)
+        _liveActivityDrinkIds = State(initialValue: p.liveActivityDrinkIds)
     }
 
     var body: some View {
@@ -105,6 +107,54 @@ struct ProfileView: View {
                                     .foregroundStyle(AppColors.text)
                             }
                             .tint(AppColors.accent)
+                        }
+                    }
+
+                    // Live Activity drink picker
+                    if #available(iOS 16.2, *) {
+                        SectionCard(title: "Lock Screen Drinks") {
+                            Text("Pick up to 4 drinks shown as quick-add buttons on the lock screen and Dynamic Island.")
+                                .font(.system(size: 12))
+                                .foregroundStyle(AppColors.textSecondary)
+                                .padding(.bottom, 4)
+
+                            ForEach(appState.allDrinkTypes) { dt in
+                                Button {
+                                    if liveActivityDrinkIds.contains(dt.id) {
+                                        liveActivityDrinkIds.removeAll { $0 == dt.id }
+                                    } else if liveActivityDrinkIds.count < 4 {
+                                        liveActivityDrinkIds.append(dt.id)
+                                    }
+                                } label: {
+                                    HStack(spacing: 12) {
+                                        Image(systemName: dt.sfSymbol)
+                                            .font(.system(size: 15))
+                                            .foregroundStyle(AppColors.accent)
+                                            .frame(width: 24)
+                                        Text(dt.name)
+                                            .font(.system(size: 14))
+                                            .foregroundStyle(AppColors.text)
+                                        Spacer()
+                                        if liveActivityDrinkIds.contains(dt.id) {
+                                            let pos = (liveActivityDrinkIds.firstIndex(of: dt.id) ?? 0) + 1
+                                            Text("\(pos)")
+                                                .font(.system(size: 11, weight: .bold))
+                                                .foregroundStyle(.black)
+                                                .frame(width: 20, height: 20)
+                                                .background(AppColors.accent)
+                                                .clipShape(Circle())
+                                        } else if liveActivityDrinkIds.count >= 4 {
+                                            Circle()
+                                                .stroke(AppColors.border, lineWidth: 1)
+                                                .frame(width: 20, height: 20)
+                                        } else {
+                                            Image(systemName: "plus.circle")
+                                                .font(.system(size: 18))
+                                                .foregroundStyle(AppColors.textTertiary)
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
 
@@ -256,6 +306,7 @@ struct ProfileView: View {
         caloriesPerNight     = p.notifications.caloriesPerNight
         bacApproachWarning   = p.notifications.bacApproachWarning
         stageChangeWarning   = p.notifications.stageChangeWarning
+        liveActivityDrinkIds = p.liveActivityDrinkIds
     }
 
     private func saveProfile() {
@@ -273,6 +324,7 @@ struct ProfileView: View {
             bacApproachWarning: bacApproachWarning,
             stageChangeWarning: stageChangeWarning
         )
+        profile.liveActivityDrinkIds = liveActivityDrinkIds
         appState.updateUserProfile(profile)
         withAnimation { saved = true }
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {

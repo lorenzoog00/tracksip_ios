@@ -38,6 +38,15 @@ struct SipTrackApp: App {
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
                     AdManager.shared.showAppOpenAdIfReady(isPro: appState.isPro)
                 }
+                .onOpenURL { url in
+                    guard url.scheme == "siptrack",
+                          url.host == "drink",
+                          let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+                          let typeId = components.queryItems?.first(where: { $0.name == "type" })?.value,
+                          let eventId = components.queryItems?.first(where: { $0.name == "event" })?.value
+                    else { return }
+                    appState.addDrink(eventId: eventId, drinkTypeId: typeId)
+                }
         }
     }
 }
