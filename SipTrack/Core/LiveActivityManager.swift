@@ -44,7 +44,7 @@ final class LiveActivityManager {
         }
     }
 
-    func update(bac: Double, drinkCount: Int, stageName: String, stageColorHex: String, elapsedMinutes: Int) {
+    func update(bac: Double, drinkCount: Int, stageName: String, stageColorHex: String, elapsedMinutes: Int, safeToDriveAt: Date?) {
         guard let activity else { return }
         let state = SipTrackActivityAttributes.ContentState(
             bac: bac,
@@ -53,7 +53,8 @@ final class LiveActivityManager {
             stageColorHex: stageColorHex,
             elapsedMinutes: elapsedMinutes,
             eventId: activity.content.state.eventId,
-            quickDrinks: activity.content.state.quickDrinks
+            quickDrinks: activity.content.state.quickDrinks,
+            safeToDriveAt: safeToDriveAt
         )
         let content = ActivityContent(state: state, staleDate: Date().addingTimeInterval(300))
         Task { await activity.update(content) }

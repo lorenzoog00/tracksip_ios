@@ -113,7 +113,7 @@ struct ProfileView: View {
                     // Live Activity drink picker
                     if #available(iOS 16.2, *) {
                         SectionCard(title: "Lock Screen Drinks") {
-                            Text("Pick up to 4 drinks shown as quick-add buttons on the lock screen and Dynamic Island.")
+                            Text("Pick up to 3 drinks shown as quick-add buttons on the lock screen and Dynamic Island. Water is always shown.")
                                 .font(.system(size: 12))
                                 .foregroundStyle(AppColors.textSecondary)
                                 .padding(.bottom, 4)
@@ -122,7 +122,7 @@ struct ProfileView: View {
                                 Button {
                                     if liveActivityDrinkIds.contains(dt.id) {
                                         liveActivityDrinkIds.removeAll { $0 == dt.id }
-                                    } else if liveActivityDrinkIds.count < 4 {
+                                    } else if liveActivityDrinkIds.count < 3 {
                                         liveActivityDrinkIds.append(dt.id)
                                     }
                                 } label: {
@@ -143,7 +143,7 @@ struct ProfileView: View {
                                                 .frame(width: 20, height: 20)
                                                 .background(AppColors.accent)
                                                 .clipShape(Circle())
-                                        } else if liveActivityDrinkIds.count >= 4 {
+                                        } else if liveActivityDrinkIds.count >= 3 {
                                             Circle()
                                                 .stroke(AppColors.border, lineWidth: 1)
                                                 .frame(width: 20, height: 20)

@@ -40,12 +40,20 @@ struct SipTrackApp: App {
                 }
                 .onOpenURL { url in
                     guard url.scheme == "siptrack",
-                          url.host == "drink",
                           let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
-                          let typeId = components.queryItems?.first(where: { $0.name == "type" })?.value,
                           let eventId = components.queryItems?.first(where: { $0.name == "event" })?.value
                     else { return }
-                    appState.addDrink(eventId: eventId, drinkTypeId: typeId)
+
+                    switch url.host {
+                    case "drink":
+                        if let typeId = components.queryItems?.first(where: { $0.name == "type" })?.value {
+                            appState.addDrink(eventId: eventId, drinkTypeId: typeId)
+                        }
+                    case "water":
+                        appState.addWater(eventId: eventId)
+                    default:
+                        break
+                    }
                 }
         }
     }

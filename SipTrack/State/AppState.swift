@@ -106,7 +106,7 @@ final class AppState: ObservableObject {
                 : userProfile.liveActivityDrinkIds
             let quickDrinks = allDrinkTypes
                 .filter { ids.contains($0.id) }
-                .prefix(4)
+                .prefix(3)
                 .map { SipTrackActivityAttributes.QuickDrink(id: $0.id, name: $0.name, symbol: $0.sfSymbol) }
             LiveActivityManager.shared.start(
                 eventName: event.displayName,
@@ -122,12 +122,23 @@ final class AppState: ObservableObject {
             let bac = currentBAC(for: eventId)
             let stage = IntoxicationStage.stage(for: bac)
             let elapsed = Int(max(0, -event.startTime.timeIntervalSinceNow) / 60)
+
+            var safeToDriveAt: Date? = nil
+            if event.drivingMode {
+                let limit = event.bacLimit ?? userProfile.bacLimit
+                if bac > limit {
+                    let hoursUntilSafe = (bac - limit) / 0.015
+                    safeToDriveAt = Date().addingTimeInterval(hoursUntilSafe * 3600)
+                }
+            }
+
             LiveActivityManager.shared.update(
                 bac: bac,
                 drinkCount: totalDrinks(for: eventId),
                 stageName: stage.name,
                 stageColorHex: stage.colorHex,
-                elapsedMinutes: elapsed
+                elapsedMinutes: elapsed,
+                safeToDriveAt: safeToDriveAt
             )
         }
     }
