@@ -2,6 +2,12 @@ import Foundation
 
 enum BACStatus { case green, amber, red }
 
+struct BACDataPoint: Identifiable {
+    let id = UUID()
+    let date: Date
+    let bac: Double
+}
+
 struct BACCalculator {
 
     // MARK: - Widmark r factor
@@ -85,6 +91,45 @@ struct BACCalculator {
             checkpoint = checkpoint.addingTimeInterval(300)
         }
         return peak
+    }
+
+    static func bacTimeline(
+        entries: [DrinkEntry],
+        drinkTypes: [DrinkType],
+        profile: UserProfile,
+        eventStart: Date
+    ) -> [BACDataPoint] {
+        guard !entries.isEmpty else { return [] }
+        let r = profileR(profile: profile)
+        let totalAlcohol = entries.reduce(0.0) { sum, entry in
+            let dt = drinkTypes.first { $0.id == entry.drinkTypeId }
+            let vol = entry.volumeOverrideMl ?? dt?.defaultVolumeMl ?? 0
+            let abv = entry.abvOverride ?? dt?.defaultAbv ?? 0
+            return sum + calculateAlcohol(volumeMl: vol, abv: abv, quantity: entry.quantity)
+        }
+        let rawBAC = (totalAlcohol / (profile.weightKg * 1000 * r)) * 100
+        let hoursToZero = rawBAC / 0.015
+        let endDate = eventStart.addingTimeInterval((hoursToZero + 0.5) * 3600)
+        let lastDrink = entries.map(\.timestamp).max() ?? eventStart
+
+        var points: [BACDataPoint] = []
+        var checkpoint = eventStart
+        while checkpoint <= endDate {
+            let hours = checkpoint.timeIntervalSince(eventStart) / 3600
+            let consumed = entries
+                .filter { $0.timestamp <= checkpoint }
+                .reduce(0.0) { sum, entry in
+                    let dt = drinkTypes.first { $0.id == entry.drinkTypeId }
+                    let vol = entry.volumeOverrideMl ?? dt?.defaultVolumeMl ?? 0
+                    let abv = entry.abvOverride ?? dt?.defaultAbv ?? 0
+                    return sum + calculateAlcohol(volumeMl: vol, abv: abv, quantity: entry.quantity)
+                }
+            let bac = estimateBAC(alcoholGrams: consumed, weightKg: profile.weightKg, sex: profile.sex, durationHours: hours, r: r)
+            points.append(BACDataPoint(date: checkpoint, bac: bac))
+            if bac == 0 && checkpoint > lastDrink { break }
+            checkpoint = checkpoint.addingTimeInterval(300)
+        }
+        return points
     }
 
     // MARK: - Alcohol content

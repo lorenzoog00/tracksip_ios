@@ -1,4 +1,5 @@
 import SwiftUI
+import Charts
 
 struct SummaryView: View {
     let eventId: String
@@ -42,6 +43,13 @@ struct SummaryView: View {
 
         let prose = nightProse(event: event, drinkCount: drinkCount, calories: calories, alcoholG: alcoholG, peakBAC: peakBAC)
         let shareText = "[\(event.displayName)] \(eventDateRange(event))\n\n\(prose)\n\nTracked with Tracksip"
+        let timeline = BACCalculator.bacTimeline(
+            entries: eventEntries,
+            drinkTypes: appState.allDrinkTypes,
+            profile: appState.userProfile,
+            eventStart: event.startTime
+        )
+        let drivingLimit: Double? = event.drivingMode ? (event.bacLimit ?? appState.userProfile.bacLimit) : nil
 
         return ScrollView {
             VStack(spacing: 20) {
@@ -58,6 +66,16 @@ struct SummaryView: View {
                         .foregroundStyle(AppColors.textTertiary)
                 }
                 .padding(.top)
+
+                // BAC timeline chart
+                if !timeline.isEmpty {
+                    BACChartView(
+                        points: timeline,
+                        drinkTimestamps: eventEntries.map(\.timestamp),
+                        peakBAC: peakBAC,
+                        drivingLimit: drivingLimit
+                    )
+                }
 
                 // "Your Night" prose
                 VStack(alignment: .leading, spacing: 6) {
@@ -310,6 +328,117 @@ private struct SummaryStatCard: View {
         .background(AppColors.surface)
         .cornerRadius(12)
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(AppColors.border, lineWidth: 1))
+    }
+}
+
+private struct BACChartView: View {
+    let points: [BACDataPoint]
+    let drinkTimestamps: [Date]
+    let peakBAC: Double
+    let drivingLimit: Double?
+
+    private var yMax: Double {
+        let dataMax = points.map(\.bac).max() ?? 0
+        let limitMax = (drivingLimit ?? 0) * 1.15
+        return max(dataMax * 1.18, limitMax, 0.04)
+    }
+
+    private var peakPoint: BACDataPoint? {
+        points.max(by: { $0.bac < $1.bac }).flatMap { $0.bac > 0.001 ? $0 : nil }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("BAC Timeline", systemImage: "waveform.path.ecg")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(AppColors.textSecondary)
+
+            Chart {
+                ForEach(points) { p in
+                    AreaMark(
+                        x: .value("Time", p.date),
+                        yStart: .value("Zero", 0),
+                        yEnd: .value("BAC", p.bac)
+                    )
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [AppColors.accent.opacity(0.22), .clear],
+                            startPoint: .top, endPoint: .bottom
+                        )
+                    )
+                    .interpolationMethod(.monotone)
+                }
+                ForEach(points) { p in
+                    LineMark(
+                        x: .value("Time", p.date),
+                        y: .value("BAC", p.bac)
+                    )
+                    .foregroundStyle(AppColors.accent)
+                    .lineStyle(StrokeStyle(lineWidth: 2))
+                    .interpolationMethod(.monotone)
+                }
+                ForEach(drinkTimestamps.indices, id: \.self) { i in
+                    RuleMark(x: .value("Drink", drinkTimestamps[i]))
+                        .foregroundStyle(AppColors.accent.opacity(0.25))
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [2, 3]))
+                }
+                if let limit = drivingLimit {
+                    RuleMark(y: .value("Limit", limit))
+                        .foregroundStyle(AppColors.danger.opacity(0.75))
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                        .annotation(position: .top, alignment: .trailing) {
+                            Text(String(format: "%.2f%%", limit))
+                                .font(.system(size: 9, weight: .medium))
+                                .foregroundStyle(AppColors.danger)
+                                .padding(.horizontal, 3)
+                        }
+                }
+                if let peak = peakPoint {
+                    PointMark(
+                        x: .value("Time", peak.date),
+                        y: .value("BAC", peak.bac)
+                    )
+                    .foregroundStyle(IntoxicationStage.stage(for: peak.bac).color)
+                    .symbolSize(44)
+                    .annotation(position: .top, alignment: .center) {
+                        Text(String(format: "%.3f%%", peak.bac))
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(IntoxicationStage.stage(for: peak.bac).color)
+                    }
+                }
+            }
+            .chartXAxis {
+                AxisMarks(values: .automatic(desiredCount: 4)) { value in
+                    AxisGridLine().foregroundStyle(AppColors.border.opacity(0.4))
+                    AxisValueLabel {
+                        if let date = value.as(Date.self) {
+                            Text(date, format: .dateTime.hour().minute())
+                                .font(.system(size: 10))
+                                .foregroundStyle(AppColors.textTertiary)
+                        }
+                    }
+                }
+            }
+            .chartYAxis {
+                AxisMarks(position: .leading, values: .automatic(desiredCount: 4)) { value in
+                    AxisGridLine().foregroundStyle(AppColors.border.opacity(0.4))
+                    AxisValueLabel {
+                        if let bac = value.as(Double.self) {
+                            Text(String(format: "%.2f", bac))
+                                .font(.system(size: 10))
+                                .foregroundStyle(AppColors.textTertiary)
+                        }
+                    }
+                }
+            }
+            .chartYScale(domain: 0...yMax)
+            .frame(height: 180)
+        }
+        .padding()
+        .background(AppColors.surface)
+        .cornerRadius(14)
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(AppColors.border, lineWidth: 1))
+        .padding(.horizontal)
     }
 }
 
