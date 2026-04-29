@@ -1,5 +1,6 @@
 import SwiftUI
 import Charts
+import UIKit
 
 struct SummaryView: View {
     let eventId: String
@@ -241,7 +242,28 @@ struct SummaryView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
-                ShareLink(item: shareText) {
+                Button {
+                    let card = SummaryShareCard(
+                        event: event,
+                        peakBAC: peakBAC,
+                        drinkCount: drinkCount,
+                        standardDrinks: standardDrinks,
+                        timeline: timeline,
+                        calories: calories,
+                        waterCount: eventWater.count
+                    ).environment(\.colorScheme, .dark)
+
+                    let renderer = ImageRenderer(content: card)
+                    renderer.proposedSize = .init(width: 390, height: 693)
+                    renderer.scale = 3.0
+
+                    guard let image = renderer.uiImage else { return }
+                    let av = UIActivityViewController(activityItems: [image], applicationActivities: nil)
+                    if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                       let root = scene.windows.first?.rootViewController {
+                        root.present(av, animated: true)
+                    }
+                } label: {
                     Image(systemName: "square.and.arrow.up")
                         .foregroundStyle(AppColors.accent)
                 }
@@ -817,5 +839,286 @@ private struct RecoveryProjectionCard: View {
         .cornerRadius(14)
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(AppColors.border, lineWidth: 1))
         .padding(.horizontal)
+    }
+}
+
+// MARK: - Share Card
+
+private struct SummaryShareCard: View {
+    let event: NightEvent
+    let peakBAC: Double
+    let drinkCount: Int
+    let standardDrinks: Double
+    let timeline: [BACDataPoint]
+    let calories: Double
+    let waterCount: Int
+
+    private let cardW: CGFloat = 390
+    private let cardH: CGFloat = 693
+
+    private var stage: IntoxicationStage { IntoxicationStage.stage(for: peakBAC) }
+
+    private var formattedDate: String {
+        let f = DateFormatter()
+        f.dateFormat = "MMM d, yyyy"
+        return f.string(from: event.startTime)
+    }
+
+    private var durationStr: String {
+        let d = event.duration
+        let h = Int(d / 3600)
+        let m = Int(d.truncatingRemainder(dividingBy: 3600) / 60)
+        return h > 0 ? "\(h)h \(m)m" : "\(m)m"
+    }
+
+    private var hourlyData: [(label: String, bac: Double)] {
+        guard !timeline.isEmpty else { return [] }
+        let sorted = timeline.sorted { $0.date < $1.date }
+        let start = event.startTime
+        let end = event.endTime ?? sorted.last!.date
+        let totalHours = max(Int(ceil(end.timeIntervalSince(start) / 3600)), 1)
+        let fmt = DateFormatter()
+        fmt.dateFormat = "ha"
+        return (0...totalHours).map { h in
+            let t = start.addingTimeInterval(Double(h) * 3600)
+            let bac = interpolatedBAC(at: t, sorted: sorted)
+            return (label: fmt.string(from: t).lowercased(), bac: max(0, bac))
+        }
+    }
+
+    private func interpolatedBAC(at time: Date, sorted: [BACDataPoint]) -> Double {
+        guard !sorted.isEmpty else { return 0 }
+        if time <= sorted.first!.date { return sorted.first!.bac }
+        if time >= sorted.last!.date { return sorted.last!.bac }
+        for i in 0..<(sorted.count - 1) {
+            if sorted[i].date <= time && time <= sorted[i + 1].date {
+                let span = sorted[i + 1].date.timeIntervalSince(sorted[i].date)
+                guard span > 0 else { return sorted[i].bac }
+                let frac = time.timeIntervalSince(sorted[i].date) / span
+                return sorted[i].bac + (sorted[i + 1].bac - sorted[i].bac) * frac
+            }
+        }
+        return 0
+    }
+
+    var body: some View {
+        ZStack(alignment: .top) {
+            Color(red: 0.04, green: 0.04, blue: 0.07)
+                .ignoresSafeArea()
+
+            // Top stage-color sunrise wash
+            LinearGradient(
+                colors: [stage.color.opacity(0.40), stage.color.opacity(0.08), .clear],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(height: 260)
+
+            VStack(spacing: 0) {
+                // Branding row
+                HStack {
+                    HStack(spacing: 5) {
+                        Image(systemName: "wineglass.fill")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(AppColors.accent)
+                        Text("TRACKSIP")
+                            .font(.system(size: 10, weight: .bold))
+                            .tracking(2.5)
+                            .foregroundStyle(.white.opacity(0.45))
+                    }
+                    Spacer()
+                    Text(formattedDate)
+                        .font(.system(size: 10))
+                        .foregroundStyle(.white.opacity(0.3))
+                }
+                .padding(.horizontal, 28)
+                .padding(.top, 54)
+
+                Spacer().frame(height: 22)
+
+                // Event name
+                Text(event.displayName)
+                    .font(.system(size: 30, weight: .bold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 28)
+
+                Text("\(durationStr) night out")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.white.opacity(0.35))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 28)
+                    .padding(.top, 3)
+
+                Spacer().frame(height: 26)
+
+                // Hero BAC
+                ZStack {
+                    Ellipse()
+                        .fill(RadialGradient(
+                            colors: [stage.color.opacity(0.55), .clear],
+                            center: .center, startRadius: 0, endRadius: 88
+                        ))
+                        .frame(width: 210, height: 105)
+                        .blur(radius: 28)
+
+                    VStack(spacing: 5) {
+                        Text(String(format: "%.3f%%", peakBAC))
+                            .font(.system(size: 60, weight: .black, design: .monospaced))
+                            .foregroundStyle(stage.color)
+                            .shadow(color: stage.color.opacity(0.8), radius: 24, x: 0, y: 0)
+
+                        Text("PEAK BAC  ·  " + stage.name.uppercased())
+                            .font(.system(size: 10, weight: .semibold))
+                            .tracking(2)
+                            .foregroundStyle(stage.color.opacity(0.65))
+                    }
+                }
+
+                Spacer().frame(height: 28)
+
+                // Hourly BAC chart section
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("YOUR NIGHT, HOUR BY HOUR")
+                        .font(.system(size: 9, weight: .semibold))
+                        .tracking(1.8)
+                        .foregroundStyle(.white.opacity(0.28))
+                        .padding(.leading, 2)
+
+                    ShareHourlyChart(data: hourlyData, peakBAC: peakBAC)
+                        .frame(height: 144)
+                }
+                .padding(.horizontal, 28)
+
+                Spacer().frame(height: 22)
+
+                // Stats pill
+                HStack(spacing: 0) {
+                    ShareMiniStat(emoji: "🍹", value: "\(drinkCount)", label: "drinks")
+                    Rectangle().fill(.white.opacity(0.08)).frame(width: 1, height: 36)
+                    ShareMiniStat(emoji: "🔥", value: "\(Int(calories))", label: "cal")
+                    Rectangle().fill(.white.opacity(0.08)).frame(width: 1, height: 36)
+                    ShareMiniStat(emoji: "💧", value: "\(waterCount)", label: "water")
+                    Rectangle().fill(.white.opacity(0.08)).frame(width: 1, height: 36)
+                    ShareMiniStat(emoji: "🥃", value: String(format: "%.1f", standardDrinks), label: "std")
+                }
+                .padding(.vertical, 16)
+                .background(.white.opacity(0.05))
+                .overlay(RoundedRectangle(cornerRadius: 20).stroke(.white.opacity(0.1), lineWidth: 1))
+                .clipShape(RoundedRectangle(cornerRadius: 20))
+                .padding(.horizontal, 24)
+
+                Spacer()
+
+                Text("tracked with TrackSip")
+                    .font(.system(size: 9))
+                    .foregroundStyle(.white.opacity(0.15))
+                    .padding(.bottom, 46)
+            }
+        }
+        .frame(width: cardW, height: cardH)
+    }
+}
+
+private struct ShareHourlyChart: View {
+    let data: [(label: String, bac: Double)]
+    let peakBAC: Double
+
+    private var peakIdx: Int? {
+        data.indices.max(by: { data[$0].bac < data[$1].bac })
+    }
+
+    var body: some View {
+        VStack(spacing: 5) {
+            GeometryReader { geo in
+                let n = max(data.count, 1)
+                let gap: CGFloat = 4
+                let barW = (geo.size.width - gap * CGFloat(n - 1)) / CGFloat(n)
+                let yMax = max(peakBAC * 1.15, 0.01)
+                let chartH = geo.size.height
+
+                ZStack(alignment: .bottomLeading) {
+                    // Grid lines
+                    Canvas { ctx, size in
+                        for frac in [CGFloat(0.25), 0.50, 0.75] {
+                            let y = size.height * (1 - frac)
+                            var path = Path()
+                            path.move(to: CGPoint(x: 0, y: y))
+                            path.addLine(to: CGPoint(x: size.width, y: y))
+                            ctx.stroke(path, with: .color(.white.opacity(0.07)), lineWidth: 0.5)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                    // Bars
+                    HStack(alignment: .bottom, spacing: gap) {
+                        ForEach(0..<n, id: \.self) { i in
+                            let item = data[i]
+                            let stg = IntoxicationStage.stage(for: item.bac)
+                            let barH = max(CGFloat(item.bac / yMax) * chartH, item.bac > 0 ? 3 : 0)
+
+                            ZStack(alignment: .top) {
+                                RoundedRectangle(cornerRadius: min(barW * 0.35, 5))
+                                    .fill(LinearGradient(
+                                        colors: [stg.color, stg.color.opacity(0.45)],
+                                        startPoint: .top,
+                                        endPoint: .bottom
+                                    ))
+                                    .frame(width: barW, height: barH)
+
+                                if barH > 10 {
+                                    RoundedRectangle(cornerRadius: min(barW * 0.35, 5))
+                                        .fill(.white.opacity(0.12))
+                                        .frame(width: barW, height: min(barH * 0.35, 14))
+                                }
+                            }
+                            .frame(width: barW, height: barH)
+                            .overlay(alignment: .top) {
+                                if i == peakIdx && item.bac > 0 {
+                                    Text(String(format: "%.3f", item.bac))
+                                        .font(.system(size: 7.5, weight: .bold))
+                                        .foregroundStyle(stg.color)
+                                        .offset(y: -13)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Hour labels
+            HStack(spacing: 4) {
+                ForEach(0..<data.count, id: \.self) { i in
+                    Text(data[i].label)
+                        .font(.system(size: 7))
+                        .foregroundStyle(.white.opacity(0.28))
+                        .frame(maxWidth: .infinity)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
+                }
+            }
+        }
+    }
+}
+
+private struct ShareMiniStat: View {
+    let emoji: String
+    let value: String
+    let label: String
+
+    var body: some View {
+        VStack(spacing: 3) {
+            Text(emoji)
+                .font(.system(size: 16))
+            Text(value)
+                .font(.system(size: 17, weight: .bold))
+                .foregroundStyle(.white)
+            Text(label)
+                .font(.system(size: 9))
+                .foregroundStyle(.white.opacity(0.38))
+        }
+        .frame(maxWidth: .infinity)
     }
 }

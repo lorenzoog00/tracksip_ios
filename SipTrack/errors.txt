@@ -10,3 +10,6 @@
   );
   ALTER TABLE challenges ENABLE ROW LEVEL SECURITY;
   CREATE POLICY "Users manage own challenges" ON challenges FOR ALL USING (user_id = auth.uid()::text);
+
+
+I need to increment the things we offer in the premium package
