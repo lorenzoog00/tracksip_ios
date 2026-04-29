@@ -21,56 +21,54 @@ struct ChallengesView: View {
     var body: some View {
         ZStack {
             AppColors.background.ignoresSafeArea()
-            Group {
-                if progresses.isEmpty {
-                    VStack(spacing: 16) {
-                        Image(systemName: "trophy.fill")
-                            .font(.system(size: 48))
-                            .foregroundStyle(AppColors.textTertiary)
-                        Text("No challenges yet")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundStyle(AppColors.text)
-                        Text("Set a personal goal to track your progress.")
-                            .font(.system(size: 14))
-                            .foregroundStyle(AppColors.textSecondary)
-                            .multilineTextAlignment(.center)
-                    }
-                    .padding()
-                } else {
-                    List {
-                        if !active.isEmpty {
-                            Section("Active") {
-                                ForEach(active, id: \.challenge.id) { prog in
-                                    ChallengeCard(progress: prog)
-                                        .listRowBackground(Color.clear)
-                                        .listRowSeparator(.hidden)
-                                }
-                                .onDelete { idx in
-                                    let ids = idx.map { active[$0].challenge.id }
-                                    ids.forEach { appState.deleteChallenge($0) }
-                                }
+
+            if progresses.isEmpty {
+                EmptyGoalsView { showCreate = true }
+            } else {
+                List {
+                    if !active.isEmpty {
+                        Section {
+                            ForEach(active, id: \.challenge.id) { prog in
+                                ChallengeCard(progress: prog)
+                                    .listRowBackground(Color.clear)
+                                    .listRowSeparator(.hidden)
+                                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
                             }
-                        }
-                        if !history.isEmpty {
-                            Section("History") {
-                                ForEach(history, id: \.challenge.id) { prog in
-                                    ChallengeCard(progress: prog)
-                                        .listRowBackground(Color.clear)
-                                        .listRowSeparator(.hidden)
-                                }
-                                .onDelete { idx in
-                                    let ids = idx.map { history[$0].challenge.id }
-                                    ids.forEach { appState.deleteChallenge($0) }
-                                }
+                            .onDelete { idx in
+                                idx.map { active[$0].challenge.id }.forEach { appState.deleteChallenge($0) }
                             }
+                        } header: {
+                            Text("Active Goals")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(AppColors.textSecondary)
+                                .textCase(nil)
                         }
                     }
-                    .listStyle(.plain)
-                    .scrollContentBackground(.hidden)
+
+                    if !history.isEmpty {
+                        Section {
+                            ForEach(history, id: \.challenge.id) { prog in
+                                ChallengeCard(progress: prog)
+                                    .listRowBackground(Color.clear)
+                                    .listRowSeparator(.hidden)
+                                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                            }
+                            .onDelete { idx in
+                                idx.map { history[$0].challenge.id }.forEach { appState.deleteChallenge($0) }
+                            }
+                        } header: {
+                            Text("History")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(AppColors.textSecondary)
+                                .textCase(nil)
+                        }
+                    }
                 }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
             }
         }
-        .navigationTitle("Challenges")
+        .navigationTitle("Goals")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
@@ -81,10 +79,90 @@ struct ChallengesView: View {
             }
         }
         .sheet(isPresented: $showCreate) {
-            CreateChallengeSheet()
+            CreateGoalSheet()
         }
     }
 }
+
+// MARK: - Empty State
+
+private struct EmptyGoalsView: View {
+    let onTap: () -> Void
+
+    private let suggestions: [(icon: String, title: String, desc: String)] = [
+        ("wineglass",  "10 drinks / week",  "A solid start for most people"),
+        ("moon.fill",  "3 nights / month",  "Keep nights out intentional"),
+        ("flame.fill", "1,200 cal / week",  "Mind what you drink"),
+    ]
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 28) {
+                VStack(spacing: 10) {
+                    Image(systemName: "trophy.fill")
+                        .font(.system(size: 44))
+                        .foregroundStyle(AppColors.textTertiary)
+                    Text("Set your first goal")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundStyle(AppColors.text)
+                    Text("Track limits that matter to you.")
+                        .font(.system(size: 14))
+                        .foregroundStyle(AppColors.textSecondary)
+                }
+                .padding(.top, 40)
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("POPULAR GOALS")
+                        .font(.system(size: 11, weight: .semibold))
+                        .tracking(1.4)
+                        .foregroundStyle(AppColors.textTertiary)
+                        .padding(.horizontal)
+
+                    ForEach(suggestions, id: \.title) { s in
+                        HStack(spacing: 14) {
+                            ZStack {
+                                Circle()
+                                    .fill(AppColors.accentDim)
+                                    .frame(width: 40, height: 40)
+                                Image(systemName: s.icon)
+                                    .font(.system(size: 16))
+                                    .foregroundStyle(AppColors.accent)
+                            }
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(s.title)
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(AppColors.text)
+                                Text(s.desc)
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(AppColors.textSecondary)
+                            }
+                            Spacer()
+                        }
+                        .padding(12)
+                        .background(AppColors.surface)
+                        .cornerRadius(12)
+                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(AppColors.border, lineWidth: 1))
+                        .padding(.horizontal)
+                    }
+                }
+
+                Button(action: onTap) {
+                    Text("Create a Goal")
+                        .font(.system(size: 16, weight: .semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(AppColors.accent)
+                        .foregroundStyle(.black)
+                        .cornerRadius(14)
+                }
+                .padding(.horizontal)
+                .padding(.bottom, 32)
+            }
+        }
+    }
+}
+
+// MARK: - Challenge Card
 
 private struct ChallengeCard: View {
     let progress: ChallengeProgress
@@ -107,125 +185,301 @@ private struct ChallengeCard: View {
         }
     }
 
-    var body: some View {
-        HStack(spacing: 14) {
-            // Ring
-            ZStack {
-                Circle()
-                    .stroke(AppColors.border, lineWidth: 4)
-                    .frame(width: 52, height: 52)
-                Circle()
-                    .trim(from: 0, to: min(progress.percentage, 1.0))
-                    .stroke(statusColor, style: StrokeStyle(lineWidth: 4, lineCap: .round))
-                    .frame(width: 52, height: 52)
-                    .rotationEffect(.degrees(-90))
-                Text(progress.percentage >= 1.0 ? "✓" : "\(Int(progress.percentage * 100))%")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(statusColor)
-            }
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(progress.challenge.type.label)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(AppColors.text)
-                Text(progress.label)
-                    .font(.system(size: 12))
-                    .foregroundStyle(AppColors.textSecondary)
-            }
-            Spacer()
-            Text(statusLabel)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(statusColor)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(statusColor.opacity(0.15))
-                .cornerRadius(8)
+    private var icon: String {
+        switch progress.challenge.type {
+        case .maxDrinksPerWeek:   return "wineglass.fill"
+        case .maxNightsPerMonth:  return "calendar"
+        case .dryWeek:            return "drop.slash.fill"
+        case .maxDrinksPerNight:  return "moon.fill"
+        case .maxCaloriesPerWeek: return "flame.fill"
         }
-        .padding()
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 14) {
+                // Icon circle
+                ZStack {
+                    Circle()
+                        .fill(statusColor.opacity(0.12))
+                        .frame(width: 46, height: 46)
+                    Image(systemName: icon)
+                        .font(.system(size: 18))
+                        .foregroundStyle(statusColor)
+                }
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(progress.challenge.type.label)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(AppColors.text)
+                    Text(progress.label)
+                        .font(.system(size: 12))
+                        .foregroundStyle(AppColors.textSecondary)
+                }
+
+                Spacer()
+
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text(statusLabel)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(statusColor)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(statusColor.opacity(0.13))
+                        .cornerRadius(8)
+
+                    if progress.status == .active {
+                        Text("\(Int(progress.percentage * 100))%")
+                            .font(.system(size: 11))
+                            .foregroundStyle(AppColors.textSecondary)
+                    }
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.top, 14)
+            .padding(.bottom, 10)
+
+            // Progress bar
+            GeometryReader { geo in
+                let fraction = min(progress.percentage, 1.0)
+                let isOver   = progress.percentage > 1.0
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(AppColors.border.opacity(0.4))
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(isOver ? AppColors.danger : statusColor)
+                        .frame(width: geo.size.width * fraction)
+                }
+                .frame(height: 4)
+            }
+            .frame(height: 4)
+            .padding(.horizontal, 14)
+            .padding(.bottom, 14)
+        }
         .background(AppColors.surface)
         .cornerRadius(14)
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(AppColors.border, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(
+            progress.percentage > 1.0 ? AppColors.danger.opacity(0.4) : AppColors.border,
+            lineWidth: 1
+        ))
     }
 }
 
-private struct CreateChallengeSheet: View {
+// MARK: - Create Goal Sheet
+
+private struct CreateGoalSheet: View {
     @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) private var dismiss
+
     @State private var selectedType: ChallengeType = .maxDrinksPerWeek
-    @State private var targetString = ""
+    @State private var target: Double = ChallengeType.maxDrinksPerWeek.defaultTarget
+
+    private var isDryWeek: Bool { selectedType == .dryWeek }
+
+    private var typeDescription: String {
+        switch selectedType {
+        case .maxDrinksPerWeek:   return "Stay under \(Int(target)) drinks total across the week."
+        case .maxNightsPerMonth:  return "Go out \(Int(target)) times or fewer this month."
+        case .dryWeek:            return "Zero alcohol for 7 days. A reset for body and mind."
+        case .maxDrinksPerNight:  return "Cap any single night at \(Int(target)) drinks."
+        case .maxCaloriesPerWeek: return "Keep drink calories under \(Int(target)) this week."
+        }
+    }
+
+    private var stepAmount: Double {
+        selectedType == .maxCaloriesPerWeek ? 50 : 1
+    }
+
+    private var targetRange: ClosedRange<Double> {
+        switch selectedType {
+        case .maxDrinksPerWeek:   return 1...50
+        case .maxNightsPerMonth:  return 1...15
+        case .dryWeek:            return 0...0
+        case .maxDrinksPerNight:  return 1...20
+        case .maxCaloriesPerWeek: return 100...5000
+        }
+    }
+
+    private var presets: [(label: String, value: Double)] {
+        switch selectedType {
+        case .maxDrinksPerWeek:   return [("Easy", 14), ("Moderate", 10), ("Strict", 6)]
+        case .maxNightsPerMonth:  return [("Easy", 6),  ("Moderate", 4),  ("Strict", 2)]
+        case .dryWeek:            return []
+        case .maxDrinksPerNight:  return [("Easy", 6),  ("Moderate", 4),  ("Strict", 2)]
+        case .maxCaloriesPerWeek: return [("Easy", 2000), ("Moderate", 1500), ("Strict", 800)]
+        }
+    }
 
     var body: some View {
         NavigationStack {
             ZStack {
                 AppColors.background.ignoresSafeArea()
-                VStack(spacing: 24) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Challenge Type")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(AppColors.textSecondary)
-                        ForEach(ChallengeType.allCases, id: \.self) { type in
-                            Button { selectedType = type } label: {
-                                HStack {
-                                    Text(type.label)
-                                        .font(.system(size: 14))
-                                        .foregroundStyle(AppColors.text)
-                                    Spacer()
-                                    if selectedType == type {
-                                        Image(systemName: "checkmark")
-                                            .foregroundStyle(AppColors.accent)
+                ScrollView {
+                    VStack(spacing: 24) {
+                        // Type picker
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("GOAL TYPE")
+                                .font(.system(size: 11, weight: .semibold))
+                                .tracking(1.4)
+                                .foregroundStyle(AppColors.textTertiary)
+
+                            VStack(spacing: 6) {
+                                ForEach(ChallengeType.allCases, id: \.self) { type in
+                                    Button {
+                                        selectedType = type
+                                        target = type.defaultTarget
+                                    } label: {
+                                        HStack(spacing: 12) {
+                                            Image(systemName: iconFor(type))
+                                                .font(.system(size: 15))
+                                                .foregroundStyle(selectedType == type ? AppColors.accent : AppColors.textSecondary)
+                                                .frame(width: 22)
+                                            Text(type.label)
+                                                .font(.system(size: 14, weight: selectedType == type ? .semibold : .regular))
+                                                .foregroundStyle(AppColors.text)
+                                            Spacer()
+                                            if selectedType == type {
+                                                Image(systemName: "checkmark")
+                                                    .font(.system(size: 12, weight: .semibold))
+                                                    .foregroundStyle(AppColors.accent)
+                                            }
+                                        }
+                                        .padding(12)
+                                        .background(selectedType == type ? AppColors.accentDim : AppColors.surface)
+                                        .cornerRadius(10)
+                                        .overlay(RoundedRectangle(cornerRadius: 10).stroke(
+                                            selectedType == type ? AppColors.accent.opacity(0.4) : AppColors.border,
+                                            lineWidth: 1
+                                        ))
                                     }
                                 }
-                                .padding(12)
-                                .background(selectedType == type ? AppColors.accentDim : AppColors.surface)
-                                .cornerRadius(10)
                             }
                         }
-                    }
 
-                    if selectedType != .dryWeek {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Target")
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundStyle(AppColors.textSecondary)
-                            TextField("e.g. \(Int(selectedType.defaultTarget))", text: $targetString)
-                                .keyboardType(.numberPad)
-                                .padding(12)
+                        // Target
+                        if !isDryWeek {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("TARGET")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .tracking(1.4)
+                                    .foregroundStyle(AppColors.textTertiary)
+
+                                // Presets
+                                if !presets.isEmpty {
+                                    HStack(spacing: 8) {
+                                        ForEach(presets, id: \.label) { preset in
+                                            Button {
+                                                target = preset.value
+                                            } label: {
+                                                VStack(spacing: 2) {
+                                                    Text(preset.label)
+                                                        .font(.system(size: 12, weight: .semibold))
+                                                    Text(targetDisplayValue(preset.value))
+                                                        .font(.system(size: 10))
+                                                        .foregroundStyle(.secondary)
+                                                }
+                                                .frame(maxWidth: .infinity)
+                                                .padding(.vertical, 10)
+                                                .background(target == preset.value ? AppColors.accentDim : AppColors.surface)
+                                                .foregroundStyle(target == preset.value ? AppColors.accent : AppColors.textSecondary)
+                                                .cornerRadius(10)
+                                                .overlay(RoundedRectangle(cornerRadius: 10).stroke(
+                                                    target == preset.value ? AppColors.accent.opacity(0.4) : AppColors.border,
+                                                    lineWidth: 1
+                                                ))
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Stepper
+                                HStack {
+                                    Button {
+                                        if target - stepAmount >= targetRange.lowerBound {
+                                            target -= stepAmount
+                                        }
+                                    } label: {
+                                        Image(systemName: "minus")
+                                            .font(.system(size: 18, weight: .semibold))
+                                            .foregroundStyle(AppColors.accent)
+                                            .frame(width: 44, height: 44)
+                                            .background(AppColors.surface)
+                                            .cornerRadius(10)
+                                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(AppColors.border, lineWidth: 1))
+                                    }
+
+                                    Spacer()
+
+                                    Text(targetDisplayValue(target))
+                                        .font(.system(size: 26, weight: .bold))
+                                        .foregroundStyle(AppColors.text)
+
+                                    Spacer()
+
+                                    Button {
+                                        if target + stepAmount <= targetRange.upperBound {
+                                            target += stepAmount
+                                        }
+                                    } label: {
+                                        Image(systemName: "plus")
+                                            .font(.system(size: 18, weight: .semibold))
+                                            .foregroundStyle(AppColors.accent)
+                                            .frame(width: 44, height: 44)
+                                            .background(AppColors.surface)
+                                            .cornerRadius(10)
+                                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(AppColors.border, lineWidth: 1))
+                                    }
+                                }
+                                .padding()
                                 .background(AppColors.surface)
-                                .cornerRadius(10)
-                                .overlay(RoundedRectangle(cornerRadius: 10).stroke(AppColors.border, lineWidth: 1))
-                                .foregroundStyle(AppColors.text)
+                                .cornerRadius(12)
+                                .overlay(RoundedRectangle(cornerRadius: 12).stroke(AppColors.border, lineWidth: 1))
+                            }
                         }
-                    }
 
-                    Spacer()
+                        // Description
+                        HStack(spacing: 10) {
+                            Image(systemName: "info.circle.fill")
+                                .foregroundStyle(AppColors.textTertiary)
+                            Text(typeDescription)
+                                .font(.system(size: 13))
+                                .foregroundStyle(AppColors.textSecondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .padding(12)
+                        .background(AppColors.surface)
+                        .cornerRadius(10)
 
-                    Button {
-                        let target = Double(targetString) ?? selectedType.defaultTarget
-                        let now    = Date()
-                        let challenge = Challenge(
-                            id: generateId(),
-                            type: selectedType,
-                            target: target,
-                            startDate: now,
-                            endDate: ChallengeUtils.defaultEndDate(for: selectedType, from: now),
-                            createdAt: now,
-                            completed: false
-                        )
-                        appState.addChallenge(challenge)
-                        dismiss()
-                    } label: {
-                        Text("Create Challenge")
-                            .font(.system(size: 16, weight: .semibold))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 16)
-                            .background(AppColors.accent)
-                            .foregroundStyle(.black)
-                            .cornerRadius(14)
+                        // Create button
+                        Button {
+                            let finalTarget = isDryWeek ? 0 : target
+                            let now = Date()
+                            let challenge = Challenge(
+                                id: generateId(),
+                                type: selectedType,
+                                target: finalTarget,
+                                startDate: now,
+                                endDate: ChallengeUtils.defaultEndDate(for: selectedType, from: now),
+                                createdAt: now,
+                                completed: false
+                            )
+                            appState.addChallenge(challenge)
+                            dismiss()
+                        } label: {
+                            Text("Start Goal")
+                                .font(.system(size: 16, weight: .semibold))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                                .background(AppColors.accent)
+                                .foregroundStyle(.black)
+                                .cornerRadius(14)
+                        }
+                        .padding(.bottom, 8)
                     }
+                    .padding()
                 }
-                .padding()
             }
-            .navigationTitle("New Challenge")
+            .navigationTitle("New Goal")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -233,6 +487,20 @@ private struct CreateChallengeSheet: View {
                         .foregroundStyle(AppColors.textSecondary)
                 }
             }
+        }
+    }
+
+    private func targetDisplayValue(_ val: Double) -> String {
+        selectedType == .maxCaloriesPerWeek ? "\(Int(val)) cal" : "\(Int(val))"
+    }
+
+    private func iconFor(_ type: ChallengeType) -> String {
+        switch type {
+        case .maxDrinksPerWeek:   return "wineglass.fill"
+        case .maxNightsPerMonth:  return "calendar"
+        case .dryWeek:            return "drop.slash.fill"
+        case .maxDrinksPerNight:  return "moon.fill"
+        case .maxCaloriesPerWeek: return "flame.fill"
         }
     }
 }

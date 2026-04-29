@@ -1,5 +1,18 @@
 import Foundation
 
+struct PeriodStats {
+    var label: String
+    var from: Date
+    var to: Date
+    var totalEvents: Int          = 0
+    var totalDrinks: Int          = 0
+    var avgDrinksPerNight: Double = 0
+    var totalCalories: Double     = 0
+    var totalAlcoholG: Double     = 0
+    var drinksByType: [(name: String, count: Int)] = []
+    var dayOfWeekAvg: [String: Double]             = [:]
+}
+
 struct AllTimeStats {
     var totalEvents: Int       = 0
     var totalDrinks: Int       = 0
@@ -92,6 +105,50 @@ struct AnalyticsEngine {
         stats.quietestNight = quietestNight(events: finished, entries: relevant)
         stats.drinksByType = drinksByType(entries: relevant, drinkTypes: drinkTypes)
         stats.drinksByWeek = drinksByWeek(entries: relevant)
+        return stats
+    }
+
+    static func period(
+        from: Date,
+        to: Date,
+        label: String,
+        events: [NightEvent],
+        entries: [DrinkEntry],
+        drinkTypes: [DrinkType]
+    ) -> PeriodStats {
+        let finished = events.filter { $0.endTime != nil && $0.startTime >= from && $0.startTime < to }
+        let eventIds = Set(finished.map(\.id))
+        let relevant = entries.filter { eventIds.contains($0.eventId) }
+
+        var stats = PeriodStats(label: label, from: from, to: to)
+        stats.totalEvents = finished.count
+        stats.totalDrinks = relevant.reduce(0) { $0 + $1.quantity }
+        stats.avgDrinksPerNight = finished.isEmpty ? 0 : Double(stats.totalDrinks) / Double(finished.count)
+        stats.totalAlcoholG = relevant.reduce(0.0) { sum, e in
+            let dt = drinkTypes.first { $0.id == e.drinkTypeId }
+            let vol = e.volumeOverrideMl ?? dt?.defaultVolumeMl ?? 0
+            let abv = e.abvOverride ?? dt?.defaultAbv ?? 0
+            return sum + BACCalculator.calculateAlcohol(volumeMl: vol, abv: abv, quantity: e.quantity)
+        }
+        stats.totalCalories = relevant.reduce(0.0) { sum, e in
+            let dt = drinkTypes.first { $0.id == e.drinkTypeId }
+            return sum + (dt?.caloriesPerServing ?? 0) * Double(e.quantity)
+        }
+        stats.drinksByType = drinksByType(entries: relevant, drinkTypes: drinkTypes)
+
+        let dayMap: [(String, Int)] = [
+            ("Mon", 2), ("Tue", 3), ("Wed", 4), ("Thu", 5),
+            ("Fri", 6), ("Sat", 7), ("Sun", 1)
+        ]
+        for (dayLabel, weekday) in dayMap {
+            let dayEvents = finished.filter {
+                Calendar.current.component(.weekday, from: $0.startTime) == weekday
+            }
+            let total = dayEvents.reduce(0) { count, event in
+                count + relevant.filter { $0.eventId == event.id }.reduce(0) { $0 + $1.quantity }
+            }
+            stats.dayOfWeekAvg[dayLabel] = dayEvents.isEmpty ? 0 : Double(total) / Double(dayEvents.count)
+        }
         return stats
     }
 
