@@ -133,6 +133,32 @@ struct BACCalculator {
         return points
     }
 
+    // MARK: - Mean BAC
+
+    // Mean BAC = average of BAC sampled across [eventStart, eventEnd].
+    // Interval scales with duration so short events still get ~20 samples.
+    static func meanBACForEvent(
+        entries: [DrinkEntry],
+        drinkTypes: [DrinkType],
+        profile: UserProfile,
+        eventStart: Date,
+        eventEnd: Date
+    ) -> Double {
+        guard !entries.isEmpty, eventEnd > eventStart else { return 0 }
+        let r = profileR(profile: profile)
+        let duration = eventEnd.timeIntervalSince(eventStart)
+        let interval = max(1.0, min(300.0, duration / 20.0))
+        var sum = 0.0
+        var count = 0
+        var t = eventStart
+        while t <= eventEnd {
+            sum += bacAt(t, entries: entries, drinkTypes: drinkTypes, weightKg: profile.weightKg, r: r)
+            count += 1
+            t = t.addingTimeInterval(interval)
+        }
+        return count > 0 ? sum / Double(count) : 0
+    }
+
     // MARK: - Alcohol content
 
     static func calculateAlcohol(volumeMl: Double, abv: Double, quantity: Int) -> Double {

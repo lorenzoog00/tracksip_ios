@@ -6,6 +6,7 @@ enum ChallengeType: String, Codable, CaseIterable {
     case dryWeek             = "dry_week"
     case maxDrinksPerNight   = "max_drinks_per_night"
     case maxCaloriesPerWeek  = "max_calories_per_week"
+    case maxMonthlyAvgBAC    = "max_monthly_avg_bac"
 
     var defaultTarget: Double {
         switch self {
@@ -14,6 +15,7 @@ enum ChallengeType: String, Codable, CaseIterable {
         case .dryWeek:            return 0
         case .maxDrinksPerNight:  return 4
         case .maxCaloriesPerWeek: return 1500
+        case .maxMonthlyAvgBAC:   return 0.050
         }
     }
 
@@ -24,6 +26,7 @@ enum ChallengeType: String, Codable, CaseIterable {
         case .dryWeek:            return "Dry week"
         case .maxDrinksPerNight:  return "Max drinks per night"
         case .maxCaloriesPerWeek: return "Max calories per week"
+        case .maxMonthlyAvgBAC:   return "Monthly avg BAC limit"
         }
     }
 }

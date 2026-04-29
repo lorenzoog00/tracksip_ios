@@ -9,6 +9,7 @@ struct PeriodStats {
     var avgDrinksPerNight: Double = 0
     var totalCalories: Double     = 0
     var totalAlcoholG: Double     = 0
+    var avgMeanBAC: Double        = 0
     var drinksByType: [(name: String, count: Int)] = []
     var dayOfWeekAvg: [String: Double]             = [:]
 }
@@ -20,6 +21,7 @@ struct AllTimeStats {
     var avgMinutesPerDrink: Double = 0
     var totalCalories: Double  = 0
     var totalAlcoholG: Double  = 0
+    var avgMeanBAC: Double     = 0
     var favoriteDrink: String? = nil
     var busiestDay: String?    = nil
     var recordNight: (name: String, date: Date, total: Int)? = nil
@@ -34,6 +36,7 @@ struct MonthlyStats {
     var avgDrinksPerNight: Double = 0
     var totalCalories: Double  = 0
     var totalAlcoholG: Double  = 0
+    var avgMeanBAC: Double     = 0
     var favoriteDrink: String? = nil
     var recordNight: (name: String, date: Date, total: Int)? = nil
     var quietestNight: (name: String, date: Date, total: Int)? = nil
@@ -43,7 +46,7 @@ struct MonthlyStats {
 
 struct AnalyticsEngine {
 
-    static func allTime(events: [NightEvent], entries: [DrinkEntry], drinkTypes: [DrinkType]) -> AllTimeStats {
+    static func allTime(events: [NightEvent], entries: [DrinkEntry], drinkTypes: [DrinkType], profile: UserProfile) -> AllTimeStats {
         let finished = events.filter { $0.endTime != nil }
         guard !finished.isEmpty else { return AllTimeStats() }
 
@@ -64,6 +67,7 @@ struct AnalyticsEngine {
             let dt = drinkTypes.first { $0.id == e.drinkTypeId }
             return sum + (dt?.caloriesPerServing ?? 0) * Double(e.quantity)
         }
+        stats.avgMeanBAC = computeAvgMeanBAC(events: finished, entries: relevant, drinkTypes: drinkTypes, profile: profile)
         stats.favoriteDrink = favoriteDrink(entries: relevant, drinkTypes: drinkTypes)
         stats.busiestDay = busiestDay(events: finished, entries: relevant)
         stats.avgMinutesPerDrink = avgMinutesPerDrink(events: finished, entries: relevant)
@@ -74,7 +78,7 @@ struct AnalyticsEngine {
         return stats
     }
 
-    static func monthly(year: Int, month: Int, events: [NightEvent], entries: [DrinkEntry], drinkTypes: [DrinkType]) -> MonthlyStats {
+    static func monthly(year: Int, month: Int, events: [NightEvent], entries: [DrinkEntry], drinkTypes: [DrinkType], profile: UserProfile) -> MonthlyStats {
         let cal = Calendar.current
         let finished = events.filter { event in
             guard let _ = event.endTime else { return false }
@@ -100,6 +104,7 @@ struct AnalyticsEngine {
             let dt = drinkTypes.first { $0.id == e.drinkTypeId }
             return sum + (dt?.caloriesPerServing ?? 0) * Double(e.quantity)
         }
+        stats.avgMeanBAC = computeAvgMeanBAC(events: finished, entries: relevant, drinkTypes: drinkTypes, profile: profile)
         stats.favoriteDrink = favoriteDrink(entries: relevant, drinkTypes: drinkTypes)
         stats.recordNight = recordNight(events: finished, entries: relevant)
         stats.quietestNight = quietestNight(events: finished, entries: relevant)
@@ -114,7 +119,8 @@ struct AnalyticsEngine {
         label: String,
         events: [NightEvent],
         entries: [DrinkEntry],
-        drinkTypes: [DrinkType]
+        drinkTypes: [DrinkType],
+        profile: UserProfile
     ) -> PeriodStats {
         let finished = events.filter { $0.endTime != nil && $0.startTime >= from && $0.startTime < to }
         let eventIds = Set(finished.map(\.id))
@@ -135,6 +141,7 @@ struct AnalyticsEngine {
             return sum + (dt?.caloriesPerServing ?? 0) * Double(e.quantity)
         }
         stats.drinksByType = drinksByType(entries: relevant, drinkTypes: drinkTypes)
+        stats.avgMeanBAC = computeAvgMeanBAC(events: finished, entries: relevant, drinkTypes: drinkTypes, profile: profile)
 
         let dayMap: [(String, Int)] = [
             ("Mon", 2), ("Tue", 3), ("Wed", 4), ("Thu", 5),
@@ -153,6 +160,18 @@ struct AnalyticsEngine {
     }
 
     // MARK: - Helpers
+
+    static func computeAvgMeanBAC(events: [NightEvent], entries: [DrinkEntry], drinkTypes: [DrinkType], profile: UserProfile) -> Double {
+        let means: [Double] = events.compactMap { event in
+            guard let endTime = event.endTime else { return nil }
+            let eventEntries = entries.filter { $0.eventId == event.id }
+            guard !eventEntries.isEmpty else { return nil }
+            let m = BACCalculator.meanBACForEvent(entries: eventEntries, drinkTypes: drinkTypes, profile: profile, eventStart: event.startTime, eventEnd: endTime)
+            return m > 0 ? m : nil
+        }
+        guard !means.isEmpty else { return 0 }
+        return means.reduce(0, +) / Double(means.count)
+    }
 
     private static func favoriteDrink(entries: [DrinkEntry], drinkTypes: [DrinkType]) -> String? {
         var counts: [String: Int] = [:]

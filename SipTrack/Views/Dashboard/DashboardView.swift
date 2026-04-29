@@ -10,7 +10,8 @@ struct DashboardView: View {
         AnalyticsEngine.allTime(
             events: appState.events,
             entries: appState.entries,
-            drinkTypes: appState.allDrinkTypes
+            drinkTypes: appState.allDrinkTypes,
+            profile: appState.userProfile
         )
     }
 
@@ -24,7 +25,8 @@ struct DashboardView: View {
             month: comps.month!,
             events: appState.events,
             entries: appState.entries,
-            drinkTypes: appState.allDrinkTypes
+            drinkTypes: appState.allDrinkTypes,
+            profile: appState.userProfile
         )
     }
 
@@ -130,6 +132,10 @@ private struct AllTimeView: View {
                 StatCard(value: "\(Int(stats.totalCalories))",      label: "Total Calories", icon: "flame.fill")
             }
             .padding(.horizontal)
+
+            if stats.avgMeanBAC > 0 {
+                MeanBACCard(avgMeanBAC: stats.avgMeanBAC, totalEvents: stats.totalEvents)
+            }
 
             if let record = stats.recordNight {
                 RecordCard(title: "Record Night", name: record.name, date: record.date, count: record.total)
@@ -367,6 +373,10 @@ private struct MonthlyView: View {
                 }
                 .padding(.horizontal)
 
+                if stats.avgMeanBAC > 0 {
+                    MeanBACCard(avgMeanBAC: stats.avgMeanBAC, totalEvents: stats.totalEvents)
+                }
+
                 if let record = stats.recordNight {
                     RecordCard(title: "Best Night", name: record.name, date: record.date, count: record.total)
                 }
@@ -379,6 +389,62 @@ private struct MonthlyView: View {
             Color.clear.frame(height: 32)
         }
         .padding(.top)
+    }
+}
+
+// MARK: - Mean BAC Card
+
+private struct MeanBACCard: View {
+    let avgMeanBAC: Double
+    let totalEvents: Int
+
+    private var stage: IntoxicationStage { IntoxicationStage.stage(for: avgMeanBAC) }
+
+    var body: some View {
+        HStack(spacing: 16) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("AVG MEAN BAC")
+                    .font(.system(size: 10, weight: .semibold))
+                    .tracking(1.2)
+                    .foregroundStyle(AppColors.textTertiary)
+                Text(String(format: "%.3f%%", avgMeanBAC))
+                    .font(.system(size: 30, weight: .black, design: .monospaced))
+                    .foregroundStyle(stage.color)
+                Text("across \(totalEvents) events")
+                    .font(.system(size: 12))
+                    .foregroundStyle(AppColors.textSecondary)
+            }
+            Spacer()
+            VStack(spacing: 6) {
+                ZStack {
+                    Circle()
+                        .fill(stage.color.opacity(0.12))
+                        .frame(width: 52, height: 52)
+                    Image(systemName: "waveform.path.ecg")
+                        .font(.system(size: 20))
+                        .foregroundStyle(stage.color)
+                }
+                Text(stage.name)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(stage.color)
+            }
+        }
+        .padding(16)
+        .background(
+            ZStack {
+                LinearGradient(colors: [AppColors.surfaceTop, AppColors.surfaceBottom], startPoint: .top, endPoint: .bottom)
+                stage.color.opacity(0.06)
+            }
+        )
+        .cornerRadius(14)
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(
+                    LinearGradient(colors: [stage.color.opacity(0.35), AppColors.border.opacity(0.7)], startPoint: .top, endPoint: .bottom),
+                    lineWidth: 1
+                )
+        )
+        .padding(.horizontal)
     }
 }
 

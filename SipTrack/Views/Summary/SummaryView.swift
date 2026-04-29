@@ -51,6 +51,10 @@ struct SummaryView: View {
             eventStart: event.startTime
         )
         let drivingLimit: Double? = event.drivingMode ? (event.bacLimit ?? appState.userProfile.bacLimit) : nil
+        let meanBACValue = event.endTime.map {
+            BACCalculator.meanBACForEvent(entries: eventEntries, drinkTypes: appState.allDrinkTypes, profile: appState.userProfile, eventStart: event.startTime, eventEnd: $0)
+        } ?? 0
+        let meanBACStage = IntoxicationStage.stage(for: meanBACValue)
 
         return ScrollView {
             VStack(spacing: 20) {
@@ -113,6 +117,44 @@ struct SummaryView: View {
                     SummaryStatCard(value: String(format: "%.1fg", alcoholG),label: "Alcohol",         icon: "flask.fill",       color: AppColors.textSecondary)
                 }
                 .padding(.horizontal)
+
+                // Mean BAC card
+                if meanBACValue > 0 {
+                    VStack(spacing: 10) {
+                        HStack {
+                            Label("Mean BAC", systemImage: "waveform.path.ecg")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(AppColors.textSecondary)
+                            Spacer()
+                            Text(meanBACStage.name)
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(meanBACStage.color)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(meanBACStage.color.opacity(0.12))
+                                .cornerRadius(8)
+                        }
+                        HStack(alignment: .firstTextBaseline, spacing: 10) {
+                            Text(String(format: "%.3f%%", meanBACValue))
+                                .font(.system(size: 34, weight: .black, design: .monospaced))
+                                .foregroundStyle(meanBACStage.color)
+                            Spacer()
+                            VStack(alignment: .trailing, spacing: 3) {
+                                Text("avg BAC during event")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(AppColors.textSecondary)
+                                Text("not peak · not lowest")
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(AppColors.textTertiary)
+                            }
+                        }
+                    }
+                    .padding()
+                    .background(meanBACStage.color.opacity(0.07))
+                    .cornerRadius(14)
+                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(meanBACStage.color.opacity(0.22), lineWidth: 1))
+                    .padding(.horizontal)
+                }
 
                 // Recovery projection
                 if peakBAC > 0 {
@@ -245,7 +287,7 @@ struct SummaryView: View {
                 Button {
                     let card = SummaryShareCard(
                         event: event,
-                        peakBAC: peakBAC,
+                        meanBAC: meanBACValue,
                         drinkCount: drinkCount,
                         standardDrinks: standardDrinks,
                         timeline: timeline,
@@ -846,7 +888,7 @@ private struct RecoveryProjectionCard: View {
 
 private struct SummaryShareCard: View {
     let event: NightEvent
-    let peakBAC: Double
+    let meanBAC: Double
     let drinkCount: Int
     let standardDrinks: Double
     let timeline: [BACDataPoint]
@@ -856,7 +898,7 @@ private struct SummaryShareCard: View {
     private let cardW: CGFloat = 390
     private let cardH: CGFloat = 693
 
-    private var stage: IntoxicationStage { IntoxicationStage.stage(for: peakBAC) }
+    private var stage: IntoxicationStage { IntoxicationStage.stage(for: meanBAC) }
 
     private var formattedDate: String {
         let f = DateFormatter()
@@ -965,12 +1007,12 @@ private struct SummaryShareCard: View {
                         .blur(radius: 28)
 
                     VStack(spacing: 5) {
-                        Text(String(format: "%.3f%%", peakBAC))
+                        Text(String(format: "%.3f%%", meanBAC))
                             .font(.system(size: 60, weight: .black, design: .monospaced))
                             .foregroundStyle(stage.color)
                             .shadow(color: stage.color.opacity(0.8), radius: 24, x: 0, y: 0)
 
-                        Text("PEAK BAC  ·  " + stage.name.uppercased())
+                        Text("MEAN BAC  ·  " + stage.name.uppercased())
                             .font(.system(size: 10, weight: .semibold))
                             .tracking(2)
                             .foregroundStyle(stage.color.opacity(0.65))

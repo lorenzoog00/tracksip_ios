@@ -10,7 +10,8 @@ struct ChallengesView: View {
                 challenge: $0,
                 events: appState.events,
                 entries: appState.entries,
-                drinkTypes: appState.allDrinkTypes
+                drinkTypes: appState.allDrinkTypes,
+                profile: appState.userProfile
             )
         }
     }
@@ -90,9 +91,10 @@ private struct EmptyGoalsView: View {
     let onTap: () -> Void
 
     private let suggestions: [(icon: String, title: String, desc: String)] = [
-        ("wineglass",  "10 drinks / week",  "A solid start for most people"),
-        ("moon.fill",  "3 nights / month",  "Keep nights out intentional"),
-        ("flame.fill", "1,200 cal / week",  "Mind what you drink"),
+        ("wineglass",         "10 drinks / week",    "A solid start for most people"),
+        ("moon.fill",         "3 nights / month",    "Keep nights out intentional"),
+        ("flame.fill",        "1,200 cal / week",    "Mind what you drink"),
+        ("waveform.path.ecg", "Avg BAC under 0.05%", "A measured night, every night."),
     ]
 
     var body: some View {
@@ -192,6 +194,7 @@ private struct ChallengeCard: View {
         case .dryWeek:            return "drop.slash.fill"
         case .maxDrinksPerNight:  return "moon.fill"
         case .maxCaloriesPerWeek: return "flame.fill"
+        case .maxMonthlyAvgBAC:   return "waveform.path.ecg"
         }
     }
 
@@ -283,11 +286,16 @@ private struct CreateGoalSheet: View {
         case .dryWeek:            return "Zero alcohol for 7 days. A reset for body and mind."
         case .maxDrinksPerNight:  return "Cap any single night at \(Int(target)) drinks."
         case .maxCaloriesPerWeek: return "Keep drink calories under \(Int(target)) this week."
+        case .maxMonthlyAvgBAC:   return String(format: "Your avg BAC across all events this month stays under %.3f%%.", target)
         }
     }
 
     private var stepAmount: Double {
-        selectedType == .maxCaloriesPerWeek ? 50 : 1
+        switch selectedType {
+        case .maxCaloriesPerWeek: return 50
+        case .maxMonthlyAvgBAC:   return 0.005
+        default:                  return 1
+        }
     }
 
     private var targetRange: ClosedRange<Double> {
@@ -297,16 +305,18 @@ private struct CreateGoalSheet: View {
         case .dryWeek:            return 0...0
         case .maxDrinksPerNight:  return 1...20
         case .maxCaloriesPerWeek: return 100...5000
+        case .maxMonthlyAvgBAC:   return 0.005...0.150
         }
     }
 
     private var presets: [(label: String, value: Double)] {
         switch selectedType {
-        case .maxDrinksPerWeek:   return [("Easy", 14), ("Moderate", 10), ("Strict", 6)]
-        case .maxNightsPerMonth:  return [("Easy", 6),  ("Moderate", 4),  ("Strict", 2)]
+        case .maxDrinksPerWeek:   return [("Easy", 14),    ("Moderate", 10),    ("Strict", 6)]
+        case .maxNightsPerMonth:  return [("Easy", 6),     ("Moderate", 4),     ("Strict", 2)]
         case .dryWeek:            return []
-        case .maxDrinksPerNight:  return [("Easy", 6),  ("Moderate", 4),  ("Strict", 2)]
-        case .maxCaloriesPerWeek: return [("Easy", 2000), ("Moderate", 1500), ("Strict", 800)]
+        case .maxDrinksPerNight:  return [("Easy", 6),     ("Moderate", 4),     ("Strict", 2)]
+        case .maxCaloriesPerWeek: return [("Easy", 2000),  ("Moderate", 1500),  ("Strict", 800)]
+        case .maxMonthlyAvgBAC:   return [("Relaxed", 0.080), ("Moderate", 0.050), ("Strict", 0.030)]
         }
     }
 
@@ -491,7 +501,11 @@ private struct CreateGoalSheet: View {
     }
 
     private func targetDisplayValue(_ val: Double) -> String {
-        selectedType == .maxCaloriesPerWeek ? "\(Int(val)) cal" : "\(Int(val))"
+        switch selectedType {
+        case .maxCaloriesPerWeek: return "\(Int(val)) cal"
+        case .maxMonthlyAvgBAC:   return String(format: "%.3f%%", val)
+        default:                  return "\(Int(val))"
+        }
     }
 
     private func iconFor(_ type: ChallengeType) -> String {
@@ -501,6 +515,7 @@ private struct CreateGoalSheet: View {
         case .dryWeek:            return "drop.slash.fill"
         case .maxDrinksPerNight:  return "moon.fill"
         case .maxCaloriesPerWeek: return "flame.fill"
+        case .maxMonthlyAvgBAC:   return "waveform.path.ecg"
         }
     }
 }

@@ -19,10 +19,11 @@ struct ChallengeUtils {
         challenge: Challenge,
         events: [NightEvent],
         entries: [DrinkEntry],
-        drinkTypes: [DrinkType]
+        drinkTypes: [DrinkType],
+        profile: UserProfile
     ) -> ChallengeProgress {
         let now = Date()
-        let current = computeCurrent(challenge: challenge, events: events, entries: entries, drinkTypes: drinkTypes)
+        let current = computeCurrent(challenge: challenge, events: events, entries: entries, drinkTypes: drinkTypes, profile: profile)
         let pct = challenge.target > 0 ? min(current / challenge.target, 2.0) : (current > 0 ? 1.0 : 0.0)
         let isOver = current > challenge.target
         let daysLeft = max(0, Calendar.current.dateComponents([.day], from: now, to: challenge.endDate).day ?? 0)
@@ -40,6 +41,10 @@ struct ChallengeUtils {
         switch challenge.type {
         case .dryWeek:
             label = current == 0 ? "No drinks this week" : "\(Int(current)) drink\(current > 1 ? "s" : "") so far"
+        case .maxMonthlyAvgBAC:
+            label = current == 0
+                ? "No events tracked yet"
+                : String(format: "avg %.3f%% / target %.3f%%", current, challenge.target)
         default:
             label = "\(Int(current)) / \(Int(challenge.target)) \(challenge.type.label)"
         }
@@ -60,7 +65,8 @@ struct ChallengeUtils {
         challenge: Challenge,
         events: [NightEvent],
         entries: [DrinkEntry],
-        drinkTypes: [DrinkType]
+        drinkTypes: [DrinkType],
+        profile: UserProfile
     ) -> Double {
         let start = challenge.startDate
         let end = challenge.endDate
@@ -92,6 +98,12 @@ struct ChallengeUtils {
                 return sum + (dt?.caloriesPerServing ?? 0) * Double(e.quantity)
             }
             return cal
+
+        case .maxMonthlyAvgBAC:
+            let relevant = events.filter { $0.startTime >= start && $0.startTime <= end && $0.endTime != nil }
+            let relevantIds = Set(relevant.map(\.id))
+            let relevantEntries = entries.filter { relevantIds.contains($0.eventId) }
+            return AnalyticsEngine.computeAvgMeanBAC(events: relevant, entries: relevantEntries, drinkTypes: drinkTypes, profile: profile)
         }
     }
 
@@ -114,7 +126,7 @@ struct ChallengeUtils {
         switch type {
         case .maxDrinksPerWeek, .dryWeek, .maxDrinksPerNight:
             return weekBounds(for: start).end
-        case .maxNightsPerMonth, .maxCaloriesPerWeek:
+        case .maxNightsPerMonth, .maxCaloriesPerWeek, .maxMonthlyAvgBAC:
             return monthBounds(for: start).end
         }
     }

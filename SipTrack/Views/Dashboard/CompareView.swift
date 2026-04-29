@@ -48,7 +48,7 @@ struct CompareView: View {
         return AnalyticsEngine.period(
             from: r.from, to: r.to, label: periodA.rawValue,
             events: appState.events, entries: appState.entries,
-            drinkTypes: appState.allDrinkTypes
+            drinkTypes: appState.allDrinkTypes, profile: appState.userProfile
         )
     }
 
@@ -57,7 +57,7 @@ struct CompareView: View {
         return AnalyticsEngine.period(
             from: r.from, to: r.to, label: periodB.rawValue,
             events: appState.events, entries: appState.entries,
-            drinkTypes: appState.allDrinkTypes
+            drinkTypes: appState.allDrinkTypes, profile: appState.userProfile
         )
     }
 
@@ -352,6 +352,14 @@ private struct CompareStatsCard: View {
                 icon: "flask.fill", label: "Alcohol",
                 aVal: "\(Int(a.totalAlcoholG))g", bVal: "\(Int(b.totalAlcoholG))g",
                 delta: b.totalAlcoholG - a.totalAlcoholG, lessIsBetter: true
+            )
+            Rectangle().fill(AppColors.border.opacity(0.25)).frame(height: 1).padding(.leading, 48)
+
+            CompareRow(
+                icon: "waveform.path.ecg", label: "Avg Mean BAC",
+                aVal: a.avgMeanBAC > 0 ? String(format: "%.3f%%", a.avgMeanBAC) : "—",
+                bVal: b.avgMeanBAC > 0 ? String(format: "%.3f%%", b.avgMeanBAC) : "—",
+                delta: b.avgMeanBAC - a.avgMeanBAC, lessIsBetter: true
             )
         }
         .background(AppColors.surface)
