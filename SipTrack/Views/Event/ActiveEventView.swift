@@ -246,36 +246,8 @@ private struct BACHero: View {
                 .tracking(1.2)
                 .foregroundStyle(stage.color.opacity(0.85))
 
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 5)
-                        .fill(AppColors.border)
-                        .frame(height: 7)
-                        .frame(maxHeight: .infinity, alignment: .center)
-
-                    RoundedRectangle(cornerRadius: 5)
-                        .fill(
-                            LinearGradient(
-                                colors: [stage.color.opacity(0.7), stage.color],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .frame(width: geo.size.width * IntoxicationStage.barPosition(for: bac), height: 7)
-                        .frame(maxHeight: .infinity, alignment: .center)
-                        .animation(.spring(response: 0.5, dampingFraction: 0.8), value: bac)
-
-                    if drivingMode {
-                        let tickX = geo.size.width * IntoxicationStage.barPosition(for: bacLimit)
-                        Capsule()
-                            .fill(AppColors.danger)
-                            .frame(width: 2.5, height: 20)
-                            .offset(x: max(0, tickX - 1.25))
-                    }
-                }
-            }
-            .frame(height: 20)
-            .padding(.horizontal)
+            BACGaugeArc(bac: bac, stage: stage, drivingMode: drivingMode, bacLimit: bacLimit)
+                .padding(.horizontal)
 
             if drivingMode {
                 HStack(spacing: 4) {
@@ -314,6 +286,81 @@ private struct BACHero: View {
         )
         .padding(.horizontal)
         .animation(.easeInOut(duration: 0.4), value: stage.name)
+    }
+}
+
+// MARK: - BAC Gauge Arc
+
+private struct BACGaugeArc: View {
+    let bac: Double
+    let stage: IntoxicationStage
+    let drivingMode: Bool
+    let bacLimit: Double
+
+    private var fillFraction: Double { IntoxicationStage.barPosition(for: bac) }
+
+    var body: some View {
+        ZStack {
+            // Stage-colored zone track + limit needle via Canvas (no animation needed)
+            Canvas { ctx, size in
+                let center = CGPoint(x: size.width / 2, y: size.height)
+                let radius = min(size.width / 2 - 4, size.height - 6)
+                let lw: CGFloat = 12
+
+                for s in IntoxicationStage.all {
+                    let sf = IntoxicationStage.barPosition(for: s.minBAC)
+                    let ef = IntoxicationStage.barPosition(for: s.maxBAC)
+                    var p = Path()
+                    p.addArc(center: center, radius: radius,
+                             startAngle: .degrees(180 + sf * 180),
+                             endAngle: .degrees(180 + ef * 180),
+                             clockwise: false)
+                    ctx.stroke(p, with: .color(s.color.opacity(0.22)),
+                               style: StrokeStyle(lineWidth: lw, lineCap: .butt))
+                }
+
+                if drivingMode {
+                    let lf = IntoxicationStage.barPosition(for: bacLimit)
+                    let la = (180.0 + lf * 180.0) * .pi / 180.0
+                    let inner = radius - lw / 2 - 2
+                    let outer = radius + lw / 2 + 2
+                    var tick = Path()
+                    tick.move(to: CGPoint(x: center.x + cos(la) * inner,
+                                         y: center.y + sin(la) * inner))
+                    tick.addLine(to: CGPoint(x: center.x + cos(la) * outer,
+                                            y: center.y + sin(la) * outer))
+                    ctx.stroke(tick, with: .color(AppColors.danger),
+                               style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                }
+            }
+
+            // Animated fill arc (Shape gives animatableData support)
+            GaugeFillArc(fraction: fillFraction)
+                .stroke(stage.color, style: StrokeStyle(lineWidth: 12, lineCap: .round))
+                .animation(.spring(response: 0.5, dampingFraction: 0.8), value: fillFraction)
+        }
+        .frame(height: 100)
+    }
+}
+
+private struct GaugeFillArc: Shape {
+    var fraction: Double
+
+    var animatableData: Double {
+        get { fraction }
+        set { fraction = newValue }
+    }
+
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        guard fraction > 0.005 else { return p }
+        let center = CGPoint(x: rect.midX, y: rect.maxY)
+        let radius = min(rect.width / 2 - 4, rect.height - 6)
+        p.addArc(center: center, radius: radius,
+                 startAngle: .degrees(180),
+                 endAngle: .degrees(180 + fraction * 180),
+                 clockwise: false)
+        return p
     }
 }
 

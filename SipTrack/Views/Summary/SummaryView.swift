@@ -72,7 +72,19 @@ struct SummaryView: View {
                     BACChartView(
                         points: timeline,
                         peakBAC: peakBAC,
-                        drivingLimit: drivingLimit
+                        drivingLimit: drivingLimit,
+                        eventEndTime: event.endTime
+                    )
+                }
+
+                // Drinking pace
+                if !eventEntries.isEmpty || !eventWater.isEmpty {
+                    DrinkingPaceCard(
+                        entries: eventEntries,
+                        waterEntries: eventWater,
+                        timeline: timeline,
+                        eventStart: event.startTime,
+                        eventEnd: event.endTime
                     )
                 }
 
@@ -100,6 +112,14 @@ struct SummaryView: View {
                     SummaryStatCard(value: String(format: "%.1fg", alcoholG),label: "Alcohol",         icon: "flask.fill",       color: AppColors.textSecondary)
                 }
                 .padding(.horizontal)
+
+                // Recovery projection
+                if peakBAC > 0 {
+                    RecoveryProjectionCard(
+                        peakBAC: peakBAC,
+                        peakTime: timeline.max(by: { $0.bac < $1.bac })?.date ?? event.startTime
+                    )
+                }
 
                 if event.drivingMode {
                     VStack(spacing: 8) {
@@ -334,6 +354,7 @@ private struct BACChartView: View {
     let points: [BACDataPoint]
     let peakBAC: Double
     let drivingLimit: Double?
+    let eventEndTime: Date?
 
     private var yMax: Double {
         let dataMax = points.map(\.bac).max() ?? 0
@@ -386,6 +407,11 @@ private struct BACChartView: View {
                                 .padding(.horizontal, 3)
                         }
                 }
+                if let endTime = eventEndTime {
+                    RuleMark(x: .value("Ended", endTime))
+                        .foregroundStyle(AppColors.textSecondary.opacity(0.5))
+                        .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [4, 4]))
+                }
                 if let peak = peakPoint {
                     PointMark(
                         x: .value("Time", peak.date),
@@ -426,6 +452,23 @@ private struct BACChartView: View {
             }
             .chartYScale(domain: 0...yMax)
             .frame(height: 180)
+            .overlay(alignment: .topTrailing) {
+                if let endTime = eventEndTime {
+                    VStack(alignment: .trailing, spacing: 1) {
+                        Text("Finished")
+                            .font(.system(size: 8, weight: .semibold))
+                            .tracking(0.2)
+                        Text(endTime, format: .dateTime.hour().minute())
+                            .font(.system(size: 9, weight: .bold))
+                    }
+                    .foregroundStyle(AppColors.textSecondary)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 3)
+                    .background(AppColors.surface.opacity(0.9))
+                    .clipShape(RoundedRectangle(cornerRadius: 5))
+                    .padding(6)
+                }
+            }
         }
         .padding()
         .background(AppColors.surface)
@@ -438,32 +481,341 @@ private struct BACChartView: View {
 private struct CalorieEquivalenciesCard: View {
     let calories: Double
 
-    private var equivalencies: [(String, String)] {
-        [
-            ("🍕", "\(String(format: "%.1f", calories / 285)) slices of pizza"),
-            ("🍺", "\(Int(calories / 153)) beers worth of calories"),
-            ("🚶", "\(Int(calories / 4.5)) minutes of walking"),
-            ("🏃", "\(Int(calories / 10)) minutes of running"),
-        ]
+    private func duration(_ calPerMin: Double) -> String {
+        let minutes = calories / calPerMin
+        let h = Int(minutes / 60)
+        let m = Int(minutes.truncatingRemainder(dividingBy: 60))
+        return h > 0 ? "\(h)h \(m)m" : "\(Int(minutes))m"
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label("Calorie Equivalencies", systemImage: "chart.bar.fill")
+        VStack(alignment: .leading, spacing: 14) {
+            Label("Calorie Breakdown", systemImage: "flame.fill")
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(AppColors.textSecondary)
-            ForEach(equivalencies, id: \.0) { emoji, text in
-                HStack(spacing: 8) {
-                    Text(emoji)
-                    Text(text)
-                        .font(.system(size: 13))
-                        .foregroundStyle(AppColors.text)
+
+            // Sports section
+            VStack(alignment: .leading, spacing: 8) {
+                Text("BURN IT OFF")
+                    .font(.system(size: 10, weight: .semibold))
+                    .tracking(1.2)
+                    .foregroundStyle(AppColors.textTertiary)
+
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                    CalSportCell(icon: "figure.run",          label: "Running",  value: duration(10))
+                    CalSportCell(icon: "figure.outdoor.cycle", label: "Cycling",  value: duration(8))
+                    CalSportCell(icon: "figure.pool.swim",    label: "Swimming", value: duration(7))
+                    CalSportCell(icon: "figure.walk",         label: "Walking",  value: duration(4.5))
+                }
+            }
+
+            Divider().background(AppColors.border)
+
+            // Food section
+            VStack(alignment: .leading, spacing: 8) {
+                Text("FOOD EQUIVALENT")
+                    .font(.system(size: 10, weight: .semibold))
+                    .tracking(1.2)
+                    .foregroundStyle(AppColors.textTertiary)
+
+                HStack(spacing: 0) {
+                    CalFoodCell(emoji: "🍕", value: String(format: "%.1f", calories / 285), label: "pizza\nslices")
+                    CalFoodCell(emoji: "🍔", value: String(format: "%.1f", calories / 354), label: "big\nburgers")
+                    CalFoodCell(emoji: "🍟", value: String(format: "%.1f", calories / 150), label: "chips\nbags")
                 }
             }
         }
         .padding()
         .background(AppColors.surface)
         .cornerRadius(14)
+        .padding(.horizontal)
+    }
+}
+
+private struct CalSportCell: View {
+    let icon: String
+    let label: String
+    let value: String
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 17))
+                .foregroundStyle(AppColors.accent)
+                .frame(width: 24)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(value)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(AppColors.text)
+                Text(label)
+                    .font(.system(size: 10))
+                    .foregroundStyle(AppColors.textTertiary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 8)
+        .padding(.horizontal, 10)
+        .background(AppColors.background)
+        .cornerRadius(10)
+    }
+}
+
+private struct CalFoodCell: View {
+    let emoji: String
+    let value: String
+    let label: String
+
+    var body: some View {
+        VStack(spacing: 4) {
+            Text(emoji)
+                .font(.system(size: 26))
+            Text(value)
+                .font(.system(size: 17, weight: .bold))
+                .foregroundStyle(AppColors.text)
+            Text(label)
+                .font(.system(size: 10))
+                .foregroundStyle(AppColors.textTertiary)
+                .multilineTextAlignment(.center)
+                .lineSpacing(1)
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+private struct DrinkingPaceCard: View {
+    let entries: [DrinkEntry]
+    let waterEntries: [WaterEntry]
+    let timeline: [BACDataPoint]
+    let eventStart: Date
+    let eventEnd: Date?
+
+    private struct BarItem: Identifiable {
+        let id = UUID()
+        let hourStart: Date
+        let category: String
+        let count: Double
+    }
+
+    private struct BACDot: Identifiable {
+        let id: Int
+        let hourStart: Date
+        let scaled: Double
+    }
+
+    private var chartData: ([BarItem], [BACDot]) {
+        let end = eventEnd ?? timeline.last?.date ?? eventStart.addingTimeInterval(3600)
+        let totalHours = max(1, Int(ceil(end.timeIntervalSince(eventStart) / 3600)))
+        let peakBAC = max(timeline.map(\.bac).max() ?? 0, 0.001)
+
+        var bars: [BarItem] = []
+        var maxCount: Double = 1
+
+        for h in 0..<totalHours {
+            let hStart = eventStart.addingTimeInterval(Double(h) * 3600)
+            let hEnd = hStart.addingTimeInterval(3600)
+
+            let drinkCount = Double(entries
+                .filter { $0.timestamp >= hStart && $0.timestamp < hEnd }
+                .reduce(0) { $0 + $1.quantity })
+            let waterCount = Double(waterEntries
+                .filter { $0.timestamp >= hStart && $0.timestamp < hEnd }
+                .count)
+
+            if drinkCount > 0 { bars.append(BarItem(hourStart: hStart, category: "Drinks", count: drinkCount)) }
+            if waterCount > 0 { bars.append(BarItem(hourStart: hStart, category: "Water", count: waterCount)) }
+            maxCount = max(maxCount, drinkCount + waterCount)
+        }
+
+        let dots: [BACDot] = (0..<totalHours).map { h in
+            let hStart = eventStart.addingTimeInterval(Double(h) * 3600)
+            let mid = hStart.addingTimeInterval(1800)
+            let bac = timeline.min(by: {
+                abs($0.date.timeIntervalSince(mid)) < abs($1.date.timeIntervalSince(mid))
+            })?.bac ?? 0
+            return BACDot(id: h, hourStart: hStart, scaled: bac / peakBAC * maxCount)
+        }
+
+        return (bars, dots)
+    }
+
+    var body: some View {
+        let (bars, bacDots) = chartData
+        VStack(alignment: .leading, spacing: 10) {
+            Label("Drinking Pace", systemImage: "chart.bar.fill")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(AppColors.textSecondary)
+
+            Chart {
+                ForEach(bars) { item in
+                    BarMark(
+                        x: .value("Hour", item.hourStart, unit: .hour),
+                        y: .value("Count", item.count)
+                    )
+                    .foregroundStyle(by: .value("Type", item.category))
+                    .cornerRadius(3)
+                }
+                ForEach(bacDots) { dot in
+                    LineMark(
+                        x: .value("Hour", dot.hourStart, unit: .hour),
+                        y: .value("BAC", dot.scaled)
+                    )
+                    .foregroundStyle(AppColors.textSecondary.opacity(0.5))
+                    .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [3, 2]))
+                    .interpolationMethod(.monotone)
+                }
+            }
+            .chartForegroundStyleScale(["Drinks": AppColors.accent, "Water": AppColors.water])
+            .chartLegend(.hidden)
+            .chartYAxis {
+                AxisMarks(position: .leading, values: .automatic(desiredCount: 4)) { val in
+                    AxisGridLine().foregroundStyle(AppColors.border.opacity(0.4))
+                    AxisValueLabel {
+                        if let n = val.as(Double.self) {
+                            Text("\(Int(n))")
+                                .font(.system(size: 10))
+                                .foregroundStyle(AppColors.textTertiary)
+                        }
+                    }
+                }
+            }
+            .chartXAxis {
+                AxisMarks(values: .automatic(desiredCount: 5)) { val in
+                    AxisGridLine().foregroundStyle(AppColors.border.opacity(0.4))
+                    AxisValueLabel {
+                        if let date = val.as(Date.self) {
+                            Text(date, format: .dateTime.hour())
+                                .font(.system(size: 9))
+                                .foregroundStyle(AppColors.textTertiary)
+                        }
+                    }
+                }
+            }
+            .frame(height: 130)
+
+            HStack(spacing: 12) {
+                HStack(spacing: 4) {
+                    RoundedRectangle(cornerRadius: 2).fill(AppColors.accent).frame(width: 10, height: 10)
+                    Text("Drinks").font(.system(size: 10)).foregroundStyle(AppColors.textTertiary)
+                }
+                HStack(spacing: 4) {
+                    RoundedRectangle(cornerRadius: 2).fill(AppColors.water).frame(width: 10, height: 10)
+                    Text("Water").font(.system(size: 10)).foregroundStyle(AppColors.textTertiary)
+                }
+                HStack(spacing: 4) {
+                    Capsule().fill(AppColors.textSecondary.opacity(0.5)).frame(width: 14, height: 2)
+                    Text("BAC curve").font(.system(size: 10)).foregroundStyle(AppColors.textTertiary)
+                }
+            }
+        }
+        .padding()
+        .background(AppColors.surface)
+        .cornerRadius(14)
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(AppColors.border, lineWidth: 1))
+        .padding(.horizontal)
+    }
+}
+
+private struct RecoveryProjectionCard: View {
+    let peakBAC: Double
+    let peakTime: Date
+
+    private struct Milestone: Identifiable {
+        let id: Int
+        let name: String
+        let bac: Double
+        let time: Date
+        let color: Color
+        var isPast: Bool { Date() > time }
+    }
+
+    private var milestones: [Milestone] {
+        var raw: [(name: String, bac: Double, color: Color)] = []
+
+        let peakStage = IntoxicationStage.stage(for: peakBAC)
+        raw.append((name: peakStage.name, bac: peakBAC, color: peakStage.color))
+
+        IntoxicationStage.all
+            .filter { $0.maxBAC < peakBAC }
+            .sorted { $0.maxBAC > $1.maxBAC }
+            .forEach { raw.append((name: $0.name, bac: $0.maxBAC, color: $0.color)) }
+
+        raw.append((name: "Zero", bac: 0, color: IntoxicationStage.all[0].color))
+
+        return raw.enumerated().map { i, m in
+            let hours = (peakBAC - m.bac) / 0.015
+            return Milestone(id: i, name: m.name, bac: m.bac,
+                             time: peakTime.addingTimeInterval(hours * 3600), color: m.color)
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Label("Recovery Timeline", systemImage: "arrow.counterclockwise.circle.fill")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(AppColors.textSecondary)
+                .padding(.bottom, 14)
+
+            ForEach(milestones.indices, id: \.self) { idx in
+                let m = milestones[idx]
+                let isLast = idx == milestones.count - 1
+
+                HStack(alignment: .top, spacing: 12) {
+                    VStack(spacing: 0) {
+                        Circle()
+                            .fill(m.isPast ? m.color.opacity(0.35) : m.color)
+                            .frame(width: 9, height: 9)
+                            .padding(.top, 3)
+                        if !isLast {
+                            let gap = milestones[idx + 1].time.timeIntervalSince(m.time)
+                            let h = Int(gap / 3600)
+                            let mn = Int((gap.truncatingRemainder(dividingBy: 3600)) / 60)
+                            VStack(spacing: 2) {
+                                Rectangle()
+                                    .fill(AppColors.border.opacity(0.5))
+                                    .frame(width: 1.5, height: 8)
+                                Text(h > 0 ? "\(h)h \(mn)m" : "\(mn)m")
+                                    .font(.system(size: 9))
+                                    .foregroundStyle(AppColors.textTertiary)
+                                Rectangle()
+                                    .fill(AppColors.border.opacity(0.5))
+                                    .frame(width: 1.5, height: 8)
+                            }
+                        }
+                    }
+                    .frame(width: 32, alignment: .center)
+
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack(spacing: 5) {
+                                Text(m.name)
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundStyle(m.isPast ? AppColors.textSecondary : m.color)
+                                if m.isPast {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(AppColors.success)
+                                }
+                            }
+                            if m.bac > 0 {
+                                Text(String(format: "%.3f%%", m.bac))
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(AppColors.textTertiary)
+                            }
+                        }
+                        Spacer()
+                        Text(m.time, format: .dateTime.hour().minute())
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(m.isPast ? AppColors.textTertiary : AppColors.text)
+                    }
+                    .padding(.top, 1)
+                    .padding(.bottom, isLast ? 0 : 14)
+                }
+            }
+        }
+        .padding()
+        .background(AppColors.surface)
+        .cornerRadius(14)
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(AppColors.border, lineWidth: 1))
         .padding(.horizontal)
     }
 }
