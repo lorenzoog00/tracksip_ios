@@ -59,11 +59,11 @@ struct SipTrackLiveActivity: Widget {
                     Text("\(context.state.drinkCount)")
                         .font(.system(size: 12, weight: .semibold))
                 }
-                .foregroundStyle(.white.opacity(0.8))
+                .foregroundStyle(Color(hex: context.state.stageColorHex))
             } minimal: {
-                Text(String(format: "%.2f", context.state.bac))
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-                    .foregroundStyle(Color(hex: context.state.stageColorHex))
+                Circle()
+                    .fill(Color(hex: context.state.stageColorHex))
+                    .frame(width: 10, height: 10)
             }
             .contentMargins(.horizontal, 12, for: .expanded)
             .contentMargins(.top, 10, for: .expanded)
