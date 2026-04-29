@@ -97,6 +97,7 @@ final class AppState: ObservableObject {
         events.append(event)
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         Task { await SupabaseManager.shared.pushEvent(event) }
+        WatchBridge.shared.pushState()
         startLiveActivity(for: event)
         return event
     }
@@ -164,6 +165,7 @@ final class AppState: ObservableObject {
         updateEvent(id: id) { $0.endTime = Date() }
         UINotificationFeedbackGenerator().notificationOccurred(.success)
         if #available(iOS 16.2, *) { LiveActivityManager.shared.end() }
+        WatchBridge.shared.pushState()
     }
 
     func updateEventNotes(id: String, notes: String) {
@@ -213,6 +215,7 @@ final class AppState: ObservableObject {
         checkWarnings(after: entry, eventId: eventId)
         updateLiveActivity(for: eventId)
         Task { await SupabaseManager.shared.pushEntry(entry) }
+        WatchBridge.shared.pushState()
     }
 
     func updateEntry(_ entry: DrinkEntry) {

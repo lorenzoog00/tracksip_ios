@@ -10,9 +10,11 @@ struct SipTrackApp: App {
 
     init() {
         let s = StoreManager()
+        let state = AppState(store: s)
         _store    = StateObject(wrappedValue: s)
-        _appState = StateObject(wrappedValue: AppState(store: s))
+        _appState = StateObject(wrappedValue: state)
         AdManager.shared.initialize()
+        WatchBridge.shared.appState = state
     }
 
     var body: some Scene {

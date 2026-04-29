@@ -899,6 +899,7 @@ private struct SummaryShareCard: View {
     private let cardH: CGFloat = 693
 
     private var stage: IntoxicationStage { IntoxicationStage.stage(for: meanBAC) }
+    private var peakBAC: Double { timeline.map(\.bac).max() ?? meanBAC }
 
     private var formattedDate: String {
         let f = DateFormatter()
