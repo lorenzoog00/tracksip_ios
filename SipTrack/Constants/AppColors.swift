@@ -21,6 +21,8 @@ enum AppColors {
     static let dangerDim       = Color(hex: "#FF4757").opacity(0.15)
     static let success         = Color(hex: "#2ED573")
     static let successDim      = Color(hex: "#2ED573").opacity(0.15)
+    static let water           = Color(hex: "#40AAFF")
+    static let waterDim        = Color(hex: "#40AAFF").opacity(0.15)
     static let overlay         = Color.black.opacity(0.6)
 }
 

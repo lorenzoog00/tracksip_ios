@@ -71,7 +71,6 @@ struct SummaryView: View {
                 if !timeline.isEmpty {
                     BACChartView(
                         points: timeline,
-                        drinkTimestamps: eventEntries.map(\.timestamp),
                         peakBAC: peakBAC,
                         drivingLimit: drivingLimit
                     )
@@ -333,7 +332,6 @@ private struct SummaryStatCard: View {
 
 private struct BACChartView: View {
     let points: [BACDataPoint]
-    let drinkTimestamps: [Date]
     let peakBAC: Double
     let drivingLimit: Double?
 
@@ -376,11 +374,6 @@ private struct BACChartView: View {
                     .foregroundStyle(AppColors.accent)
                     .lineStyle(StrokeStyle(lineWidth: 2))
                     .interpolationMethod(.monotone)
-                }
-                ForEach(drinkTimestamps.indices, id: \.self) { i in
-                    RuleMark(x: .value("Drink", drinkTimestamps[i]))
-                        .foregroundStyle(AppColors.accent.opacity(0.25))
-                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [2, 3]))
                 }
                 if let limit = drivingLimit {
                     RuleMark(y: .value("Limit", limit))

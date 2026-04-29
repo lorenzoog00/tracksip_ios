@@ -62,11 +62,6 @@ struct ActiveEventView: View {
                         DrinkChips(entries: eventEntries, drinkTypes: appState.allDrinkTypes)
                     }
 
-                    // Undo banner
-                    if let undoEntry = appState.undoEntry, undoEntry.eventId == eventId {
-                        UndoBanner { appState.undoLastEntry() }
-                    }
-
                     // Timeline
                     if !eventEntries.isEmpty || !eventWater.isEmpty {
                         TimelineSection(
@@ -90,6 +85,25 @@ struct ActiveEventView: View {
                 onAddWater: { appState.addWater(eventId: eventId) },
                 onEnd:      { showEndConfirm = true }
             )
+
+            // Top toast — slides in from above when a drink or water is added
+            VStack {
+                if let undoEntry = appState.undoEntry, undoEntry.eventId == eventId {
+                    let dt = appState.allDrinkTypes.first { $0.id == undoEntry.drinkTypeId }
+                    DrinkToast(
+                        drinkName: dt?.name ?? "Drink",
+                        symbol: dt?.sfSymbol ?? "cup.and.saucer.fill",
+                        onUndo: { appState.undoLastEntry() }
+                    )
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                } else if let waterEntry = appState.undoWaterEntry, waterEntry.eventId == eventId {
+                    WaterToast(volumeMl: Int(waterEntry.volumeMl), onUndo: { appState.undoLastWaterEntry() })
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
+                Spacer()
+            }
+            .animation(.spring(response: 0.45, dampingFraction: 0.72), value: appState.undoEntry?.id ?? appState.undoWaterEntry?.id)
+            .zIndex(10)
         }
         .navigationTitle(event.displayName)
         .navigationBarTitleDisplayMode(.inline)
@@ -499,25 +513,116 @@ private struct DrinkTile: View {
     }
 }
 
-// MARK: - Undo
+// MARK: - Drink toast
 
-private struct UndoBanner: View {
+private struct DrinkToast: View {
+    let drinkName: String
+    let symbol: String
     let onUndo: () -> Void
 
     var body: some View {
-        HStack {
-            Text("Drink added")
-                .font(.system(size: 14))
-                .foregroundStyle(AppColors.text)
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(AppColors.accent.opacity(0.18))
+                    .frame(width: 40, height: 40)
+                Image(systemName: symbol)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(AppColors.accent)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(drinkName)
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(.white)
+                Text("added to your night")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.white.opacity(0.55))
+            }
+
             Spacer()
+
             Button("Undo", action: onUndo)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(AppColors.accent)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(AppColors.accent.opacity(0.15), in: Capsule())
         }
-        .padding(12)
-        .background(AppColors.surfaceElevated)
-        .cornerRadius(10)
-        .padding(.horizontal)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background {
+            RoundedRectangle(cornerRadius: 22)
+                .fill(.ultraThinMaterial)
+            RoundedRectangle(cornerRadius: 22)
+                .fill(
+                    LinearGradient(
+                        colors: [AppColors.accent.opacity(0.22), AppColors.accent.opacity(0.04)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+            RoundedRectangle(cornerRadius: 22)
+                .strokeBorder(AppColors.accent.opacity(0.35), lineWidth: 1)
+        }
+        .shadow(color: AppColors.accent.opacity(0.35), radius: 16, x: 0, y: 6)
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+    }
+}
+
+private struct WaterToast: View {
+    let volumeMl: Int
+    let onUndo: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(AppColors.water.opacity(0.18))
+                    .frame(width: 40, height: 40)
+                Image(systemName: "drop.fill")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(AppColors.water)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Water (\(volumeMl)ml)")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(.white)
+                Text("stay hydrated 💧")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.white.opacity(0.55))
+            }
+
+            Spacer()
+
+            Button("Undo", action: onUndo)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(AppColors.water)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(AppColors.water.opacity(0.15), in: Capsule())
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background {
+            RoundedRectangle(cornerRadius: 22)
+                .fill(.ultraThinMaterial)
+            RoundedRectangle(cornerRadius: 22)
+                .fill(
+                    LinearGradient(
+                        colors: [AppColors.water.opacity(0.22), AppColors.water.opacity(0.04)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+            RoundedRectangle(cornerRadius: 22)
+                .strokeBorder(AppColors.water.opacity(0.35), lineWidth: 1)
+        }
+        .shadow(color: AppColors.water.opacity(0.35), radius: 16, x: 0, y: 6)
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
     }
 }
 
@@ -618,7 +723,7 @@ private struct WaterRow: View {
         HStack(spacing: 12) {
             Image(systemName: "drop.fill")
                 .font(.system(size: 16))
-                .foregroundStyle(AppColors.success)
+                .foregroundStyle(AppColors.water)
                 .frame(width: 32)
             Text("Water (\(Int(entry.volumeMl))ml)")
                 .font(.system(size: 14))
@@ -652,9 +757,9 @@ private struct BottomBar: View {
                     Text("Water")
                         .font(.system(size: 14, weight: .semibold))
                 }
-                .foregroundStyle(AppColors.success)
+                .foregroundStyle(AppColors.water)
                 .frame(width: 110, height: 50)
-                .background(AppColors.successDim)
+                .background(AppColors.waterDim)
                 .cornerRadius(12)
             }
 

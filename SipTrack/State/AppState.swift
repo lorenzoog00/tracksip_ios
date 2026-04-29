@@ -17,6 +17,7 @@ final class AppState: ObservableObject {
 
     @Published var activeWarnings: [DrinkWarning] = []
     @Published var undoEntry: DrinkEntry?    = nil
+    @Published var undoWaterEntry: WaterEntry? = nil
     @Published var showWaterNudge: Bool      = false
     @Published var currentUserId: String?    = nil
     @Published var shouldShowAuth: Bool      = false
@@ -31,7 +32,9 @@ final class AppState: ObservableObject {
     let store: StoreManager
 
     private var undoTask: Task<Void, Never>?
+    private var undoWaterTask: Task<Void, Never>?
     private var refreshTask: Task<Void, Never>?
+    private var bacTimerTask: Task<Void, Never>?
     private var authCancellable: AnyCancellable?
 
     // MARK: - Computed
@@ -98,6 +101,17 @@ final class AppState: ObservableObject {
         return event
     }
 
+    private func startBACRefreshTimer(for eventId: String) {
+        bacTimerTask?.cancel()
+        bacTimerTask = Task {
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 60_000_000_000)
+                guard !Task.isCancelled else { break }
+                updateLiveActivity(for: eventId)
+            }
+        }
+    }
+
     private func startLiveActivity(for event: NightEvent) {
         print("🟡 startLiveActivity called for event: \(event.id)")
         if #available(iOS 16.2, *) {
@@ -113,6 +127,7 @@ final class AppState: ObservableObject {
                 eventId: event.id,
                 quickDrinks: Array(quickDrinks)
             )
+            startBACRefreshTimer(for: event.id)
         }
     }
 
@@ -144,6 +159,8 @@ final class AppState: ObservableObject {
     }
 
     func endEvent(_ id: String) {
+        bacTimerTask?.cancel()
+        bacTimerTask = nil
         updateEvent(id: id) { $0.endTime = Date() }
         UINotificationFeedbackGenerator().notificationOccurred(.success)
         if #available(iOS 16.2, *) { LiveActivityManager.shared.end() }
@@ -237,6 +254,27 @@ final class AppState: ObservableObject {
         let entry = WaterEntry(id: generateId(), eventId: eventId, timestamp: Date(), volumeMl: volumeMl)
         DataStore.shared.addWaterEntry(entry)
         waterEntries.append(entry)
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        scheduleUndoWater(entry)
+    }
+
+    func undoLastWaterEntry() {
+        undoWaterTask?.cancel()
+        undoWaterTask = nil
+        if let e = undoWaterEntry {
+            deleteWaterEntry(e.id)
+            undoWaterEntry = nil
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        }
+    }
+
+    private func scheduleUndoWater(_ entry: WaterEntry) {
+        undoWaterTask?.cancel()
+        undoWaterEntry = entry
+        undoWaterTask = Task {
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            undoWaterEntry = nil
+        }
     }
 
     func deleteWaterEntry(_ id: String) {

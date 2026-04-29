@@ -63,6 +63,25 @@ struct BACCalculator {
         return max(0, bac - metabolized)
     }
 
+    // Per-drink BAC at a given moment: each drink metabolizes from when it was consumed.
+    private static func bacAt(
+        _ time: Date,
+        entries: [DrinkEntry],
+        drinkTypes: [DrinkType],
+        weightKg: Double,
+        r: Double
+    ) -> Double {
+        entries.filter { $0.timestamp <= time }.reduce(0.0) { sum, entry in
+            let dt = drinkTypes.first { $0.id == entry.drinkTypeId }
+            let vol = entry.volumeOverrideMl ?? dt?.defaultVolumeMl ?? 0
+            let abv = entry.abvOverride ?? dt?.defaultAbv ?? 0
+            let alcohol = calculateAlcohol(volumeMl: vol, abv: abv, quantity: entry.quantity)
+            let hours = time.timeIntervalSince(entry.timestamp) / 3600
+            let raw = (alcohol / (weightKg * 1000 * r)) * 100
+            return sum + max(0, raw - 0.015 * hours)
+        }
+    }
+
     static func estimatePeakBAC(
         entries: [DrinkEntry],
         drinkTypes: [DrinkType],
@@ -72,22 +91,13 @@ struct BACCalculator {
         r: Double? = nil
     ) -> Double {
         guard !entries.isEmpty else { return 0 }
+        let rFactor = r ?? widmarkR(sex: sex)
         let lastTimestamp = entries.map(\.timestamp).max() ?? eventStart
         let endCheck = lastTimestamp.addingTimeInterval(3600)
         var peak = 0.0
         var checkpoint = eventStart
         while checkpoint <= endCheck {
-            let hours = checkpoint.timeIntervalSince(eventStart) / 3600
-            let alcohol = entries
-                .filter { $0.timestamp <= checkpoint }
-                .reduce(0.0) { sum, entry in
-                    let dt = drinkTypes.first { $0.id == entry.drinkTypeId }
-                    let vol = entry.volumeOverrideMl ?? dt?.defaultVolumeMl ?? 0
-                    let abv = entry.abvOverride ?? dt?.defaultAbv ?? 0
-                    return sum + calculateAlcohol(volumeMl: vol, abv: abv, quantity: entry.quantity)
-                }
-            let bac = estimateBAC(alcoholGrams: alcohol, weightKg: weightKg, sex: sex, durationHours: hours, r: r)
-            peak = max(peak, bac)
+            peak = max(peak, bacAt(checkpoint, entries: entries, drinkTypes: drinkTypes, weightKg: weightKg, r: rFactor))
             checkpoint = checkpoint.addingTimeInterval(300)
         }
         return peak
@@ -115,16 +125,7 @@ struct BACCalculator {
         var points: [BACDataPoint] = []
         var checkpoint = eventStart
         while checkpoint <= endDate {
-            let hours = checkpoint.timeIntervalSince(eventStart) / 3600
-            let consumed = entries
-                .filter { $0.timestamp <= checkpoint }
-                .reduce(0.0) { sum, entry in
-                    let dt = drinkTypes.first { $0.id == entry.drinkTypeId }
-                    let vol = entry.volumeOverrideMl ?? dt?.defaultVolumeMl ?? 0
-                    let abv = entry.abvOverride ?? dt?.defaultAbv ?? 0
-                    return sum + calculateAlcohol(volumeMl: vol, abv: abv, quantity: entry.quantity)
-                }
-            let bac = estimateBAC(alcoholGrams: consumed, weightKg: profile.weightKg, sex: profile.sex, durationHours: hours, r: r)
+            let bac = bacAt(checkpoint, entries: entries, drinkTypes: drinkTypes, weightKg: profile.weightKg, r: r)
             points.append(BACDataPoint(date: checkpoint, bac: bac))
             if bac == 0 && checkpoint > lastDrink { break }
             checkpoint = checkpoint.addingTimeInterval(300)
@@ -189,15 +190,8 @@ struct BACCalculator {
         profile: UserProfile,
         eventStart: Date
     ) -> Double {
-        let hours = Date().timeIntervalSince(eventStart) / 3600
         let r = profileR(profile: profile)
-        let alcohol = entries.reduce(0.0) { sum, entry in
-            let dt = drinkTypes.first { $0.id == entry.drinkTypeId }
-            let vol = entry.volumeOverrideMl ?? dt?.defaultVolumeMl ?? 0
-            let abv = entry.abvOverride ?? dt?.defaultAbv ?? 0
-            return sum + calculateAlcohol(volumeMl: vol, abv: abv, quantity: entry.quantity)
-        }
-        let rawBAC = estimateBAC(alcoholGrams: alcohol, weightKg: profile.weightKg, sex: profile.sex, durationHours: hours, r: r)
+        let rawBAC = bacAt(Date(), entries: entries, drinkTypes: drinkTypes, weightKg: profile.weightKg, r: r)
         let ratio = computeHydrationRatio(waterEntries: waterEntries, drinkCount: entries.count)
         return applyHydration(bac: rawBAC, ratio: ratio)
     }
