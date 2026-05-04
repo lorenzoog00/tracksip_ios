@@ -21,7 +21,7 @@
 	<key>NSPrivacyPolicyURL</key>
 	<string>https://looqs.online/siptrack/policy</string>
 	<key>NSUserTrackingUsageDescription</key>
-	<string>We use this to show you relevant ads that help keep SipTrack free.</string>
+	<string>We use this to show you relevant ads that help keep Tracksip free.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

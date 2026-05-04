@@ -277,7 +277,7 @@ struct ProfileView: View {
                         HStack {
                             Image(systemName: appState.isPro ? "crown.fill" : "star.fill")
                                 .foregroundStyle(AppColors.accent)
-                            Text(appState.isPro ? "SipTrack Pro — Active" : "Upgrade to Pro")
+                            Text(appState.isPro ? "Tracksip Pro — Active" : "Upgrade to Pro")
                                 .font(.system(size: 14, weight: .medium))
                                 .foregroundStyle(AppColors.text)
                             Spacer()

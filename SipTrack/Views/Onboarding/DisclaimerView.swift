@@ -56,7 +56,7 @@ struct DisclaimerView: View {
 
     private var disclaimerText: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("SipTrack is a tool for informational purposes only. BAC (Blood Alcohol Content) estimates are approximations based on the Widmark formula and are NOT a substitute for professional medical advice or law enforcement testing.")
+            Text("Tracksip is a tool for informational purposes only. BAC (Blood Alcohol Content) estimates are approximations based on the Widmark formula and are NOT a substitute for professional medical advice or law enforcement testing.")
             Text("Do NOT use this app to determine whether you are safe to drive. Impairment can occur at BAC levels below legal limits. Always arrange safe transportation if you have consumed alcohol.")
             Text("Individual BAC is influenced by many factors including food intake, medications, metabolism, and health conditions that this app cannot account for.")
             Text("By continuing, you agree that you use this app at your own risk and that the developers are not liable for any consequences arising from its use.")

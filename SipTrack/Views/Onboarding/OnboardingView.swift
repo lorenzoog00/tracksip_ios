@@ -15,7 +15,7 @@ struct OnboardingView: View {
                 VStack(spacing: 8) {
                     Text("🍹")
                         .font(.system(size: 60))
-                    Text("Welcome to SipTrack")
+                    Text("Welcome to Tracksip")
                         .font(.system(size: 28, weight: .bold))
                         .foregroundStyle(AppColors.text)
                     Text("Set up your profile for accurate BAC estimates.")

@@ -50,7 +50,7 @@ struct PaywallView: View {
                                     )
                                     .shadow(color: AppColors.accent.opacity(0.55), radius: 20, y: 4)
                             }
-                            Text("SipTrack Pro")
+                            Text("Tracksip Pro")
                                 .font(.system(size: 30, weight: .bold))
                                 .foregroundStyle(
                                     LinearGradient(
