@@ -36,6 +36,7 @@ struct BACCalculator {
     }
 
     static func watsonR(weightKg: Double, heightCm: Double, age: Int, sex: Sex) -> Double {
+        guard weightKg > 0 else { return widmarkR(sex: sex) }
         let tbw = watsonTBW(weightKg: weightKg, heightCm: heightCm, age: age, sex: sex)
         return max(0.3, min(0.9, tbw / weightKg))
     }
@@ -57,6 +58,7 @@ struct BACCalculator {
         durationHours: Double,
         r: Double? = nil
     ) -> Double {
+        guard weightKg > 0 else { return 0 }
         let rFactor = r ?? widmarkR(sex: sex)
         let bac = (alcoholGrams / (weightKg * 1000 * rFactor)) * 100
         let metabolized = 0.015 * durationHours
@@ -71,7 +73,8 @@ struct BACCalculator {
         weightKg: Double,
         r: Double
     ) -> Double {
-        entries.filter { $0.timestamp <= time }.reduce(0.0) { sum, entry in
+        guard weightKg > 0, r > 0 else { return 0 }
+        return entries.filter { $0.timestamp <= time }.reduce(0.0) { sum, entry in
             let dt = drinkTypes.first { $0.id == entry.drinkTypeId }
             let vol = entry.volumeOverrideMl ?? dt?.defaultVolumeMl ?? 0
             let abv = entry.abvOverride ?? dt?.defaultAbv ?? 0
@@ -109,7 +112,7 @@ struct BACCalculator {
         profile: UserProfile,
         eventStart: Date
     ) -> [BACDataPoint] {
-        guard !entries.isEmpty else { return [] }
+        guard !entries.isEmpty, profile.weightKg > 0 else { return [] }
         let r = profileR(profile: profile)
         let totalAlcohol = entries.reduce(0.0) { sum, entry in
             let dt = drinkTypes.first { $0.id == entry.drinkTypeId }
@@ -117,6 +120,7 @@ struct BACCalculator {
             let abv = entry.abvOverride ?? dt?.defaultAbv ?? 0
             return sum + calculateAlcohol(volumeMl: vol, abv: abv, quantity: entry.quantity)
         }
+        guard totalAlcohol > 0 else { return [] }
         let rawBAC = (totalAlcohol / (profile.weightKg * 1000 * r)) * 100
         let hoursToZero = rawBAC / 0.015
         let endDate = eventStart.addingTimeInterval((hoursToZero + 0.5) * 3600)

@@ -83,16 +83,18 @@ final class SupabaseManager: ObservableObject {
             bac_limit: event.bacLimit,
             notes: event.notes
         )
-        _ = try? await client.from("night_events").upsert(row).execute()
+        do { _ = try await client.from("night_events").upsert(row).execute() }
+        catch { print("Supabase pushEvent error:", error) }
     }
 
     func deleteEvent(_ id: String) async {
         guard currentUserId() != nil else { return }
-        _ = try? await client.from("night_events").delete().eq("id", value: id).execute()
+        do { _ = try await client.from("night_events").delete().eq("id", value: id).execute() }
+        catch { print("Supabase deleteEvent error:", error) }
     }
 
     func pushEntry(_ entry: DrinkEntry) async {
-        guard let userId = currentUserId() else { return }
+        guard let userId = currentUserId() else { print("Supabase pushEntry: not signed in"); return }
         let row = DrinkEntryInsert(
             id: entry.id,
             event_id: entry.eventId,
@@ -104,12 +106,14 @@ final class SupabaseManager: ObservableObject {
             volume_override_ml: entry.volumeOverrideMl,
             abv_override: entry.abvOverride
         )
-        _ = try? await client.from("drink_entries").upsert(row).execute()
+        do { _ = try await client.from("drink_entries").upsert(row).execute() }
+        catch { print("Supabase pushEntry error:", error) }
     }
 
     func deleteEntry(_ id: String) async {
-        guard currentUserId() != nil else { return }
-        _ = try? await client.from("drink_entries").delete().eq("id", value: id).execute()
+        guard currentUserId() != nil else { print("Supabase deleteEntry: not signed in"); return }
+        do { _ = try await client.from("drink_entries").delete().eq("id", value: id).execute() }
+        catch { print("Supabase deleteEntry error:", error) }
     }
 
     func pushDrinkType(_ dt: DrinkType) async {
@@ -133,7 +137,7 @@ final class SupabaseManager: ObservableObject {
     }
 
     func pushProfile(_ profile: UserProfile) async {
-        guard let userId = currentUserId() else { return }
+        guard let userId = currentUserId() else { print("Supabase pushProfile: not signed in"); return }
         let currentYear = Calendar.current.component(.year, from: Date())
         let row = ProfileInsert(
             id: userId,
@@ -145,9 +149,10 @@ final class SupabaseManager: ObservableObject {
             onboarding_complete: profile.onboardingComplete,
             subscription_tier: profile.subscriptionTier.rawValue,
             subscription_period: profile.subscriptionPeriod?.rawValue,
-            subscription_started_at: profile.subscriptionStartedAt.map { Int64($0.timeIntervalSince1970 * 1000) }
+            subscription_started_at: profile.subscriptionStartedAt.map { ISO8601DateFormatter().string(from: $0) }
         )
-        _ = try? await client.from("profiles").upsert(row).execute()
+        do { _ = try await client.from("profiles").upsert(row).execute() }
+        catch { print("Supabase pushProfile error:", error) }
     }
 
     // MARK: - Pull (called after sign-in to merge cloud data into local storage)
@@ -233,12 +238,8 @@ final class SupabaseManager: ObservableObject {
             up.onboardingComplete = p.onboarding_complete ?? false
             if let t = p.subscription_tier, let tier = SubscriptionTier(rawValue: t) { up.subscriptionTier = tier }
             if let per = p.subscription_period, let period = SubscriptionPeriod(rawValue: per) { up.subscriptionPeriod = period }
-            if let ts = p.subscription_started_at {
-                up.subscriptionStartedAt = Date(timeIntervalSince1970: Double(ts) / 1000.0)
-            }
-            if let ts = p.disclaimer_accepted_at {
-                up.disclaimerAcceptedAt = Date(timeIntervalSince1970: Double(ts) / 1000.0)
-            }
+            if let s = p.subscription_started_at { up.subscriptionStartedAt = ISO8601DateFormatter().date(from: s) }
+            if let ts = p.disclaimer_accepted_at { up.disclaimerAcceptedAt = Date(timeIntervalSince1970: Double(ts) / 1000.0) }
             profile = up
         }
 
@@ -369,7 +370,7 @@ private struct ProfileInsert: Encodable {
     let onboarding_complete: Bool
     let subscription_tier: String
     let subscription_period: String?
-    let subscription_started_at: Int64?
+    let subscription_started_at: String?
 }
 
 private struct ProfileRow: Decodable {
@@ -381,7 +382,7 @@ private struct ProfileRow: Decodable {
     let onboarding_complete: Bool?
     let subscription_tier: String?
     let subscription_period: String?
-    let subscription_started_at: Int64?
+    let subscription_started_at: String?
 }
 
 private struct ChallengeInsert: Encodable {

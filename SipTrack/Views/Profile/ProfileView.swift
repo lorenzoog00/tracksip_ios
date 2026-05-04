@@ -17,108 +17,190 @@ struct ProfileView: View {
     @State private var bacApproachWarning: Bool
     @State private var stageChangeWarning: Bool
     @State private var liveActivityDrinkIds: [String]
-    @State private var saved = false
+
+    @State private var saveState: SaveState = .idle
+    @State private var showDiscardAlert = false
     @State private var showDeleteAccountConfirm = false
     @State private var deletingAccount = false
     @State private var deleteError: String? = nil
 
+    enum SaveState { case idle, saving, saved }
+
     init() {
         let p = DataStore.shared.loadUserProfile()
-        _sex                 = State(initialValue: p.sex)
-        _weightStr           = State(initialValue: "\(Int(p.weightKg))")
-        _heightStr           = State(initialValue: p.heightCm.map { "\(Int($0))" } ?? "")
-        _birthYearStr        = State(initialValue: p.birthYear.map { "\($0)" } ?? "")
-        _bacLimit            = State(initialValue: p.bacLimit)
-        _waterSuggestions    = State(initialValue: p.waterSuggestions)
+        _sex                  = State(initialValue: p.sex)
+        _weightStr            = State(initialValue: "\(Int(p.weightKg))")
+        _heightStr            = State(initialValue: p.heightCm.map { "\(Int($0))" } ?? "")
+        _birthYearStr         = State(initialValue: p.birthYear.map { "\($0)" } ?? "")
+        _bacLimit             = State(initialValue: p.bacLimit)
+        _waterSuggestions     = State(initialValue: p.waterSuggestions)
         _notificationsEnabled = State(initialValue: p.notifications.enabled)
-        _drinksPerHour       = State(initialValue: p.notifications.drinksPerHour)
-        _caloriesPerNight    = State(initialValue: p.notifications.caloriesPerNight)
-        _bacApproachWarning  = State(initialValue: p.notifications.bacApproachWarning)
-        _stageChangeWarning  = State(initialValue: p.notifications.stageChangeWarning)
+        _drinksPerHour        = State(initialValue: p.notifications.drinksPerHour)
+        _caloriesPerNight     = State(initialValue: p.notifications.caloriesPerNight)
+        _bacApproachWarning   = State(initialValue: p.notifications.bacApproachWarning)
+        _stageChangeWarning   = State(initialValue: p.notifications.stageChangeWarning)
         _liveActivityDrinkIds = State(initialValue: p.liveActivityDrinkIds)
     }
 
-    var body: some View {
-        ZStack {
-            AppColors.background.ignoresSafeArea()
-            ScrollView {
-                VStack(spacing: 20) {
+    // MARK: - Dirty detection
 
-                    // Body metrics
-                    SectionCard(title: "Body Metrics") {
-                        pickerField(label: "Biological Sex") {
+    private var hasChanges: Bool {
+        let p = appState.userProfile
+        return sex != p.sex
+            || (Double(weightStr) ?? p.weightKg) != p.weightKg
+            || Double(heightStr) != p.heightCm
+            || Int(birthYearStr) != p.birthYear
+            || bacLimit != p.bacLimit
+            || waterSuggestions != p.waterSuggestions
+            || notificationsEnabled != p.notifications.enabled
+            || drinksPerHour != p.notifications.drinksPerHour
+            || caloriesPerNight != p.notifications.caloriesPerNight
+            || bacApproachWarning != p.notifications.bacApproachWarning
+            || stageChangeWarning != p.notifications.stageChangeWarning
+            || liveActivityDrinkIds != p.liveActivityDrinkIds
+    }
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            AppColors.background.ignoresSafeArea()
+
+            ScrollView {
+                VStack(spacing: 6) {
+
+                    // MARK: Avatar header
+
+                    avatarHeader
+                        .padding(.bottom, 12)
+
+                    // MARK: Subscription banner
+                    NavigationLink(value: Route.subscription) {
+                        HStack(spacing: 12) {
+                            ZStack {
+                                Circle()
+                                    .fill(AppColors.accentDim)
+                                    .frame(width: 36, height: 36)
+                                Image(systemName: appState.isPro ? "crown.fill" : "crown")
+                                    .font(.system(size: 15))
+                                    .foregroundStyle(AppColors.accent)
+                            }
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(appState.isPro ? "Tracksip Pro" : "Upgrade to Pro")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(AppColors.accent)
+                                Text(appState.isPro ? "All features unlocked" : "Unlock all features")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(AppColors.textSecondary)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(AppColors.textTertiary)
+                        }
+                        .padding(14)
+                        .background(
+                            LinearGradient(
+                                colors: [AppColors.accentDim, AppColors.accentDim.opacity(0.5)],
+                                startPoint: .leading, endPoint: .trailing
+                            )
+                        )
+                        .cornerRadius(14)
+                        .overlay(RoundedRectangle(cornerRadius: 14).stroke(AppColors.accent.opacity(0.3), lineWidth: 1))
+                    }
+                    .padding(.horizontal)
+                    .padding(.bottom, 8)
+
+                    // MARK: Body Metrics
+                    ProfileSection(title: "Body Metrics", icon: "person.fill") {
+                        pickerRow(label: "Biological Sex") {
                             Picker("Sex", selection: $sex) {
                                 ForEach(Sex.allCases, id: \.self) { Text($0.rawValue).tag($0) }
                             }
                             .pickerStyle(.segmented)
                         }
-                        numField(label: "Weight (kg)", text: $weightStr, placeholder: "70")
-                        numField(label: "Height (cm, optional)", text: $heightStr, placeholder: "175")
-                        numField(label: "Birth Year (optional)", text: $birthYearStr, placeholder: "1995")
+                        ProfileDivider()
+                        numRow(label: "Weight", unit: "kg", text: $weightStr, placeholder: "70")
+                        ProfileDivider()
+                        numRow(label: "Height", unit: "cm", text: $heightStr, placeholder: "175", optional: true)
+                        ProfileDivider()
+                        numRow(label: "Birth Year", unit: nil, text: $birthYearStr, placeholder: "1995", optional: true)
                     }
 
-                    // Driving mode defaults
-                    SectionCard(title: "BAC Settings") {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Default BAC Limit")
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundStyle(AppColors.textSecondary)
+                    // MARK: BAC Settings
+                    ProfileSection(title: "Driving", icon: "car.fill") {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text("Default BAC limit")
+                                    .font(.system(size: 14))
+                                    .foregroundStyle(AppColors.text)
+                                Spacer()
+                            }
                             Picker("BAC Limit", selection: $bacLimit) {
-                                Text("0.05%").tag(0.05)
-                                Text("0.08%").tag(0.08)
+                                Text("0.05% — Conservative").tag(0.05)
+                                Text("0.08% — Standard").tag(0.08)
                             }
                             .pickerStyle(.segmented)
+                            Text("Used when driving mode is on during an event.")
+                                .font(.system(size: 11))
+                                .foregroundStyle(AppColors.textTertiary)
                         }
                     }
 
-                    // Hydration
-                    SectionCard(title: "Hydration") {
+                    // MARK: Hydration
+                    ProfileSection(title: "Hydration", icon: "drop.fill") {
                         Toggle(isOn: $waterSuggestions) {
-                            Text("Water suggestions")
-                                .font(.system(size: 14))
-                                .foregroundStyle(AppColors.text)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Water reminders")
+                                    .font(.system(size: 14))
+                                    .foregroundStyle(AppColors.text)
+                                Text("Nudges to drink water between alcoholic drinks")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(AppColors.textSecondary)
+                            }
                         }
                         .tint(AppColors.accent)
                     }
 
-                    // Notifications
-                    SectionCard(title: "Warnings") {
+                    // MARK: Warnings
+                    ProfileSection(title: "Warnings", icon: "bell.fill") {
                         Toggle(isOn: $notificationsEnabled) {
-                            Text("Enable warnings")
+                            Text("Enable in-app warnings")
                                 .font(.system(size: 14))
                                 .foregroundStyle(AppColors.text)
                         }
                         .tint(AppColors.accent)
 
                         if notificationsEnabled {
-                            Divider().background(AppColors.border)
-
-                            stepperField(label: "Drinks per hour limit", value: $drinksPerHour, range: 1...10)
-                            stepperField(label: "Calories per night limit", value: $caloriesPerNight, range: 200...2000)
+                            ProfileDivider()
+                            stepperRow(label: "Drinks per hour limit", value: $drinksPerHour, range: 1...10)
+                            ProfileDivider()
+                            stepperRow(label: "Calories per night limit", value: $caloriesPerNight, range: 200...2000)
+                            ProfileDivider()
                             Toggle(isOn: $bacApproachWarning) {
                                 Text("BAC approach warning")
-                                    .font(.system(size: 13))
+                                    .font(.system(size: 14))
                                     .foregroundStyle(AppColors.text)
                             }
                             .tint(AppColors.accent)
+                            ProfileDivider()
                             Toggle(isOn: $stageChangeWarning) {
                                 Text("Stage change warning")
-                                    .font(.system(size: 13))
+                                    .font(.system(size: 14))
                                     .foregroundStyle(AppColors.text)
                             }
                             .tint(AppColors.accent)
                         }
                     }
 
-                    // Live Activity drink picker
+                    // MARK: Lock Screen
                     if #available(iOS 16.2, *) {
-                        SectionCard(title: "Lock Screen Drinks") {
-                            Text("Pick up to 3 drinks shown as quick-add buttons on the lock screen and Dynamic Island. Water is always shown.")
+                        ProfileSection(title: "Lock Screen Drinks", icon: "lock.fill") {
+                            Text("Up to 3 quick-add buttons on your Lock Screen and Dynamic Island.")
                                 .font(.system(size: 12))
                                 .foregroundStyle(AppColors.textSecondary)
                                 .padding(.bottom, 4)
 
-                            ForEach(appState.allDrinkTypes) { dt in
+                            ForEach(Array(appState.allDrinkTypes.enumerated()), id: \.element.id) { idx, dt in
+                                if idx > 0 { ProfileDivider() }
                                 Button {
                                     if liveActivityDrinkIds.contains(dt.id) {
                                         liveActivityDrinkIds.removeAll { $0 == dt.id }
@@ -128,9 +210,9 @@ struct ProfileView: View {
                                 } label: {
                                     HStack(spacing: 12) {
                                         Image(systemName: dt.sfSymbol)
-                                            .font(.system(size: 15))
+                                            .font(.system(size: 14))
                                             .foregroundStyle(AppColors.accent)
-                                            .frame(width: 24)
+                                            .frame(width: 20)
                                         Text(dt.name)
                                             .font(.system(size: 14))
                                             .foregroundStyle(AppColors.text)
@@ -140,13 +222,13 @@ struct ProfileView: View {
                                             Text("\(pos)")
                                                 .font(.system(size: 11, weight: .bold))
                                                 .foregroundStyle(.black)
-                                                .frame(width: 20, height: 20)
+                                                .frame(width: 22, height: 22)
                                                 .background(AppColors.accent)
                                                 .clipShape(Circle())
                                         } else if liveActivityDrinkIds.count >= 3 {
-                                            Circle()
-                                                .stroke(AppColors.border, lineWidth: 1)
-                                                .frame(width: 20, height: 20)
+                                            Image(systemName: "circle")
+                                                .font(.system(size: 18))
+                                                .foregroundStyle(AppColors.border)
                                         } else {
                                             Image(systemName: "plus.circle")
                                                 .font(.system(size: 18))
@@ -158,30 +240,18 @@ struct ProfileView: View {
                         }
                     }
 
-                    // Save button
-                    Button { saveProfile() } label: {
-                        HStack {
-                            if saved {
-                                Image(systemName: "checkmark")
-                            }
-                            Text(saved ? "Saved!" : "Save Profile")
-                        }
-                        .font(.system(size: 16, weight: .semibold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(AppColors.accent)
-                        .foregroundStyle(.black)
-                        .cornerRadius(14)
-                    }
-
-                    // Account / Cloud sync
-                    SectionCard(title: "Account") {
+                    // MARK: Account
+                    ProfileSection(title: "Account", icon: "person.circle.fill") {
                         if supabase.isSignedIn {
-                            HStack {
-                                Image(systemName: "icloud.fill")
-                                    .foregroundStyle(AppColors.accent)
+                            HStack(spacing: 12) {
+                                ZStack {
+                                    Circle().fill(AppColors.accentDim).frame(width: 36, height: 36)
+                                    Image(systemName: "icloud.fill")
+                                        .font(.system(size: 14))
+                                        .foregroundStyle(AppColors.accent)
+                                }
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text("Signed in")
+                                    Text("Cloud sync active")
                                         .font(.system(size: 14, weight: .medium))
                                         .foregroundStyle(AppColors.text)
                                     if let email = supabase.userEmail {
@@ -197,22 +267,27 @@ struct ProfileView: View {
                                     Text("Sign Out")
                                         .font(.system(size: 13, weight: .medium))
                                         .foregroundStyle(AppColors.danger)
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 6)
+                                        .background(AppColors.dangerDim)
+                                        .cornerRadius(8)
                                 }
                             }
 
-                            Divider().background(AppColors.border)
+                            ProfileDivider()
 
                             Button(role: .destructive) {
                                 showDeleteAccountConfirm = true
                             } label: {
-                                HStack {
+                                HStack(spacing: 10) {
                                     if deletingAccount {
                                         ProgressView().scaleEffect(0.8)
                                     } else {
                                         Image(systemName: "trash.fill")
+                                            .font(.system(size: 13))
                                     }
-                                    Text(deletingAccount ? "Deleting…" : "Delete my account")
-                                        .font(.system(size: 14, weight: .medium))
+                                    Text(deletingAccount ? "Deleting…" : "Delete Account")
+                                        .font(.system(size: 14))
                                     Spacer()
                                 }
                                 .foregroundStyle(AppColors.danger)
@@ -225,17 +300,26 @@ struct ProfileView: View {
                                     .foregroundStyle(AppColors.danger)
                             }
 
-                            Text("Permanently deletes your account and all cloud data (events, drinks, profile).")
+                            Text("Permanently removes your account and all cloud data.")
                                 .font(.system(size: 11))
                                 .foregroundStyle(AppColors.textTertiary)
                         } else {
                             NavigationLink(value: Route.auth) {
-                                HStack {
-                                    Image(systemName: "icloud.slash.fill")
-                                        .foregroundStyle(AppColors.textSecondary)
-                                    Text("Sign in to sync across devices")
-                                        .font(.system(size: 14))
-                                        .foregroundStyle(AppColors.text)
+                                HStack(spacing: 12) {
+                                    ZStack {
+                                        Circle().fill(AppColors.surface).frame(width: 36, height: 36)
+                                        Image(systemName: "icloud.slash.fill")
+                                            .font(.system(size: 14))
+                                            .foregroundStyle(AppColors.textSecondary)
+                                    }
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("Sign in to sync")
+                                            .font(.system(size: 14, weight: .medium))
+                                            .foregroundStyle(AppColors.text)
+                                        Text("Back up your data across devices")
+                                            .font(.system(size: 12))
+                                            .foregroundStyle(AppColors.textSecondary)
+                                    }
                                     Spacer()
                                     Image(systemName: "chevron.right")
                                         .font(.system(size: 12))
@@ -245,64 +329,67 @@ struct ProfileView: View {
                         }
                     }
 
-                    // Legal
-                    SectionCard(title: "Legal") {
+                    // MARK: Legal
+                    ProfileSection(title: "Legal", icon: "doc.text.fill") {
                         Link(destination: URL(string: "https://looqs.online/siptrack/policy")!) {
-                            HStack {
-                                Text("Privacy Policy")
-                                    .font(.system(size: 14))
-                                    .foregroundStyle(AppColors.text)
-                                Spacer()
-                                Image(systemName: "arrow.up.right")
-                                    .font(.system(size: 12))
-                                    .foregroundStyle(AppColors.textTertiary)
-                            }
+                            legalRow(label: "Privacy Policy")
                         }
-                        Divider().background(AppColors.border)
+                        ProfileDivider()
                         Link(destination: URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!) {
-                            HStack {
-                                Text("Terms of Use")
-                                    .font(.system(size: 14))
-                                    .foregroundStyle(AppColors.text)
-                                Spacer()
-                                Image(systemName: "arrow.up.right")
-                                    .font(.system(size: 12))
-                                    .foregroundStyle(AppColors.textTertiary)
-                            }
+                            legalRow(label: "Terms of Use")
                         }
                     }
 
-                    // Subscription link
-                    NavigationLink(value: Route.subscription) {
-                        HStack {
-                            Image(systemName: appState.isPro ? "crown.fill" : "star.fill")
-                                .foregroundStyle(AppColors.accent)
-                            Text(appState.isPro ? "Tracksip Pro — Active" : "Upgrade to Pro")
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundStyle(AppColors.text)
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 12))
-                                .foregroundStyle(AppColors.textTertiary)
-                        }
-                        .padding(14)
-                        .background(AppColors.surface)
-                        .cornerRadius(12)
-                    }
-
-                    Color.clear.frame(height: 32)
+                    Color.clear.frame(height: hasChanges ? 100 : 32)
                 }
-                .padding()
+                .padding(.vertical, 12)
+            }
+            .scrollDismissesKeyboard(.immediately)
+
+            // MARK: Sticky save bar
+            if hasChanges {
+                saveBar
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
+        .animation(.spring(duration: 0.3), value: hasChanges)
         .navigationTitle("Profile")
         .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(hasChanges)
+        .toolbar {
+            if hasChanges {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button {
+                        showDiscardAlert = true
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 14, weight: .medium))
+                            Text("Back")
+                        }
+                        .foregroundStyle(AppColors.textSecondary)
+                    }
+                }
+            }
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") {
+                    UIApplication.shared.sendAction(
+                        #selector(UIResponder.resignFirstResponder),
+                        to: nil, from: nil, for: nil
+                    )
+                }
+                .foregroundStyle(AppColors.accent)
+            }
+        }
         .onAppear { loadFromProfile(appState.userProfile) }
-        .confirmationDialog(
-            "Delete account?",
-            isPresented: $showDeleteAccountConfirm,
-            titleVisibility: .visible
-        ) {
+        .alert("Discard changes?", isPresented: $showDiscardAlert) {
+            Button("Discard", role: .destructive) { dismiss() }
+            Button("Keep editing", role: .cancel) {}
+        } message: {
+            Text("Your unsaved changes will be lost.")
+        }
+        .confirmationDialog("Delete account?", isPresented: $showDeleteAccountConfirm, titleVisibility: .visible) {
             Button("Delete forever", role: .destructive) {
                 Task { await performDeleteAccount() }
             }
@@ -312,14 +399,143 @@ struct ProfileView: View {
         }
     }
 
-    private func performDeleteAccount() async {
-        deletingAccount = true
-        deleteError = nil
-        if let err = await supabase.deleteAccount() {
-            deleteError = err
+    // MARK: - Sub-views
+
+    private var avatarHeader: some View {
+        VStack(spacing: 10) {
+            ZStack {
+                Circle()
+                    .fill(AppColors.accentDim)
+                    .frame(width: 72, height: 72)
+                Image(systemName: "person.fill")
+                    .font(.system(size: 30))
+                    .foregroundStyle(AppColors.accent)
+            }
+            if let email = supabase.userEmail {
+                Text(email)
+                    .font(.system(size: 13))
+                    .foregroundStyle(AppColors.textSecondary)
+            }
         }
-        deletingAccount = false
+        .padding(.top, 8)
     }
+
+    private var saveBar: some View {
+        VStack(spacing: 0) {
+            Divider().background(AppColors.border)
+            HStack(spacing: 12) {
+                Button {
+                    withAnimation { loadFromProfile(appState.userProfile) }
+                } label: {
+                    Text("Discard")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(AppColors.textSecondary)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 50)
+                        .background(AppColors.surface)
+                        .cornerRadius(14)
+                        .overlay(RoundedRectangle(cornerRadius: 14).stroke(AppColors.border, lineWidth: 1))
+                }
+
+                Button { saveProfile() } label: {
+                    Group {
+                        switch saveState {
+                        case .saving:
+                            ProgressView().tint(.black)
+                        case .saved:
+                            HStack(spacing: 6) {
+                                Image(systemName: "checkmark")
+                                Text("Saved!")
+                            }
+                            .font(.system(size: 15, weight: .bold))
+                        case .idle:
+                            Text("Save Changes")
+                                .font(.system(size: 15, weight: .bold))
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 50)
+                    .background(
+                        LinearGradient(
+                            colors: [AppColors.accentWarm, AppColors.accent],
+                            startPoint: .leading, endPoint: .trailing
+                        )
+                    )
+                    .foregroundStyle(.black)
+                    .cornerRadius(14)
+                    .shadow(color: AppColors.accentGlow, radius: 10, y: 3)
+                }
+                .disabled(saveState == .saving)
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 12)
+            .background(AppColors.background)
+        }
+    }
+
+    @ViewBuilder
+    private func legalRow(label: String) -> some View {
+        HStack {
+            Text(label)
+                .font(.system(size: 14))
+                .foregroundStyle(AppColors.text)
+            Spacer()
+            Image(systemName: "arrow.up.right")
+                .font(.system(size: 12))
+                .foregroundStyle(AppColors.textTertiary)
+        }
+    }
+
+    // MARK: - Field helpers
+
+    @ViewBuilder
+    private func pickerRow<Content: View>(label: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(label)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(AppColors.textSecondary)
+                .textCase(.uppercase)
+                .kerning(0.5)
+            content()
+        }
+    }
+
+    @ViewBuilder
+    private func numRow(label: String, unit: String?, text: Binding<String>, placeholder: String, optional: Bool = false) -> some View {
+        HStack {
+            Text(label + (optional ? " (optional)" : ""))
+                .font(.system(size: 14))
+                .foregroundStyle(optional ? AppColors.textSecondary : AppColors.text)
+            Spacer()
+            HStack(spacing: 4) {
+                TextField(placeholder, text: text)
+                    .keyboardType(.numberPad)
+                    .multilineTextAlignment(.trailing)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(AppColors.text)
+                    .frame(width: 60)
+                if let unit {
+                    Text(unit)
+                        .font(.system(size: 13))
+                        .foregroundStyle(AppColors.textTertiary)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func stepperRow(label: String, value: Binding<Int>, range: ClosedRange<Int>) -> some View {
+        HStack {
+            Text(label)
+                .font(.system(size: 14))
+                .foregroundStyle(AppColors.text)
+            Spacer()
+            Stepper("\(value.wrappedValue)", value: value, in: range)
+                .foregroundStyle(AppColors.text)
+        }
+    }
+
+    // MARK: - Logic
 
     private func loadFromProfile(_ p: UserProfile) {
         sex                  = p.sex
@@ -337,6 +553,7 @@ struct ProfileView: View {
     }
 
     private func saveProfile() {
+        saveState = .saving
         var profile = appState.userProfile
         profile.sex              = sex
         profile.weightKg         = Double(weightStr) ?? profile.weightKg
@@ -353,48 +570,61 @@ struct ProfileView: View {
         )
         profile.liveActivityDrinkIds = liveActivityDrinkIds
         appState.updateUserProfile(profile)
-        withAnimation { saved = true }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-            withAnimation { saved = false }
+        withAnimation { saveState = .saved }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            withAnimation { saveState = .idle }
         }
     }
 
-    @ViewBuilder
-    private func numField(label: String, text: Binding<String>, placeholder: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(label)
-                .font(.system(size: 12))
-                .foregroundStyle(AppColors.textSecondary)
-            TextField(placeholder, text: text)
-                .keyboardType(.numberPad)
-                .padding(10)
-                .background(AppColors.background)
-                .cornerRadius(8)
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(AppColors.border, lineWidth: 1))
-                .foregroundStyle(AppColors.text)
+    private func performDeleteAccount() async {
+        deletingAccount = true
+        deleteError = nil
+        if let err = await supabase.deleteAccount() {
+            deleteError = err
         }
+        deletingAccount = false
     }
+}
 
-    @ViewBuilder
-    private func pickerField<Content: View>(label: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(label)
-                .font(.system(size: 12))
-                .foregroundStyle(AppColors.textSecondary)
-            content()
+// MARK: - Supporting Views
+
+private struct ProfileSection<Content: View>: View {
+    let title: String
+    let icon: String
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(AppColors.accent)
+                Text(title.uppercased())
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(AppColors.textTertiary)
+                    .kerning(0.8)
+            }
+            .padding(.horizontal, 4)
+            .padding(.bottom, 6)
+
+            VStack(alignment: .leading, spacing: 14) {
+                content()
+            }
+            .padding(16)
+            .background(AppColors.surface)
+            .cornerRadius(16)
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(AppColors.border, lineWidth: 1))
         }
+        .padding(.horizontal)
+        .padding(.vertical, 4)
     }
+}
 
-    @ViewBuilder
-    private func stepperField(label: String, value: Binding<Int>, range: ClosedRange<Int>) -> some View {
-        HStack {
-            Text(label)
-                .font(.system(size: 13))
-                .foregroundStyle(AppColors.text)
-            Spacer()
-            Stepper("\(value.wrappedValue)", value: value, in: range)
-                .foregroundStyle(AppColors.text)
-        }
+private struct ProfileDivider: View {
+    var body: some View {
+        Divider()
+            .background(AppColors.border)
+            .padding(.vertical, 2)
     }
 }
 
@@ -405,10 +635,10 @@ struct AuthView: View {
     @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) private var dismiss
 
-    @State private var email       = ""
-    @State private var password    = ""
-    @State private var isSignUp    = false
-    @State private var isLoading   = false
+    @State private var email     = ""
+    @State private var password  = ""
+    @State private var isSignUp  = false
+    @State private var isLoading = false
     @State private var errorMsg: String?   = nil
     @State private var successMsg: String? = nil
 
@@ -442,16 +672,10 @@ struct AuthView: View {
                     }
 
                     if let err = errorMsg {
-                        Text(err)
-                            .font(.system(size: 13))
-                            .foregroundStyle(AppColors.danger)
-                            .multilineTextAlignment(.center)
+                        Text(err).font(.system(size: 13)).foregroundStyle(AppColors.danger).multilineTextAlignment(.center)
                     }
                     if let ok = successMsg {
-                        Text(ok)
-                            .font(.system(size: 13))
-                            .foregroundStyle(AppColors.success)
-                            .multilineTextAlignment(.center)
+                        Text(ok).font(.system(size: 13)).foregroundStyle(AppColors.success).multilineTextAlignment(.center)
                     }
 
                     Button { Task { await submit() } } label: {
@@ -523,23 +747,3 @@ private extension View {
             .foregroundStyle(AppColors.text)
     }
 }
-
-private struct SectionCard<Content: View>: View {
-    let title: String
-    @ViewBuilder let content: () -> Content
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(title)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(AppColors.textSecondary)
-                .padding(.bottom, 2)
-            content()
-        }
-        .padding()
-        .background(AppColors.surface)
-        .cornerRadius(14)
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(AppColors.border, lineWidth: 1))
-    }
-}
-
