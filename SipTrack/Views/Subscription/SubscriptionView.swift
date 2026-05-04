@@ -194,6 +194,13 @@ struct SubscriptionView: View {
                             .foregroundStyle(AppColors.textTertiary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal)
+
+                        HStack(spacing: 16) {
+                            Link("Privacy Policy", destination: URL(string: "https://looqs.online/siptrack/policy")!)
+                            Link("Terms of Use", destination: URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!)
+                        }
+                        .font(.system(size: 11))
+                        .foregroundStyle(AppColors.textTertiary)
                         }
                     }
 

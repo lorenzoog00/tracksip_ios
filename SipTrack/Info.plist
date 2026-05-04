@@ -18,6 +18,8 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>GADApplicationIdentifier</key>
 	<string>ca-app-pub-9583249699000184~7133030963</string>
+	<key>NSPrivacyPolicyURL</key>
+	<string>https://looqs.online/siptrack/policy</string>
 	<key>NSUserTrackingUsageDescription</key>
 	<string>We use this to show you relevant ads that help keep SipTrack free.</string>
 	<key>UIApplicationSceneManifest</key>

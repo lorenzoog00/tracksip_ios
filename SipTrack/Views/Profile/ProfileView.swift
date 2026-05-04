@@ -245,6 +245,33 @@ struct ProfileView: View {
                         }
                     }
 
+                    // Legal
+                    SectionCard(title: "Legal") {
+                        Link(destination: URL(string: "https://looqs.online/siptrack/policy")!) {
+                            HStack {
+                                Text("Privacy Policy")
+                                    .font(.system(size: 14))
+                                    .foregroundStyle(AppColors.text)
+                                Spacer()
+                                Image(systemName: "arrow.up.right")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(AppColors.textTertiary)
+                            }
+                        }
+                        Divider().background(AppColors.border)
+                        Link(destination: URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!) {
+                            HStack {
+                                Text("Terms of Use")
+                                    .font(.system(size: 14))
+                                    .foregroundStyle(AppColors.text)
+                                Spacer()
+                                Image(systemName: "arrow.up.right")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(AppColors.textTertiary)
+                            }
+                        }
+                    }
+
                     // Subscription link
                     NavigationLink(value: Route.subscription) {
                         HStack {

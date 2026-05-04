@@ -1,4 +1,5 @@
 import SwiftUI
+import AppTrackingTransparency
 
 @main
 struct SipTrackApp: App {
@@ -13,7 +14,6 @@ struct SipTrackApp: App {
         let state = AppState(store: s)
         _store    = StateObject(wrappedValue: s)
         _appState = StateObject(wrappedValue: state)
-        AdManager.shared.initialize()
         WatchBridge.shared.appState = state
     }
 
@@ -34,6 +34,8 @@ struct SipTrackApp: App {
                         appState.syncSubscriptionFromStore()
                     }
                     Task {
+                        await ATTrackingManager.requestTrackingAuthorization()
+                        AdManager.shared.initialize()
                         await AdManager.shared.loadAppOpenAd()
                     }
                 }
