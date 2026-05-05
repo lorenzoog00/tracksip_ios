@@ -238,7 +238,7 @@ final class SupabaseManager: ObservableObject {
             up.onboardingComplete = p.onboarding_complete ?? false
             if let t = p.subscription_tier, let tier = SubscriptionTier(rawValue: t) { up.subscriptionTier = tier }
             if let per = p.subscription_period, let period = SubscriptionPeriod(rawValue: per) { up.subscriptionPeriod = period }
-            if let s = p.subscription_started_at { up.subscriptionStartedAt = ISO8601DateFormatter().date(from: s) }
+            if let s = p.subscription_started_at { up.subscriptionStartedAt = isoFormatter.date(from: s) }
             if let ts = p.disclaimer_accepted_at { up.disclaimerAcceptedAt = Date(timeIntervalSince1970: Double(ts) / 1000.0) }
             profile = up
         }
