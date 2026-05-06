@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 import FirebaseAuth
 import FirebaseFirestore
 import AuthenticationServices
@@ -45,8 +46,13 @@ final class FirebaseManager: ObservableObject {
     }
 
     @discardableResult
-    func signUp(email: String, password: String) async throws -> Bool {
+    func signUp(email: String, password: String, displayName: String = "") async throws -> Bool {
         let result = try await auth.createUser(withEmail: email, password: password)
+        if !displayName.isEmpty {
+            let request = result.user.createProfileChangeRequest()
+            request.displayName = displayName
+            try? await request.commitChanges()
+        }
         isSignedIn = true
         userEmail = result.user.email
         return true
@@ -58,6 +64,14 @@ final class FirebaseManager: ObservableObject {
 
     func refreshSession() async {
         try? await auth.currentUser?.reload()
+    }
+
+    // MARK: - OAuth (Google, Apple)
+
+    func signInWithCredential(_ credential: AuthCredential) async throws {
+        let result = try await auth.signIn(with: credential)
+        isSignedIn = true
+        userEmail = result.user.email
     }
 
     // MARK: - Apple Sign In

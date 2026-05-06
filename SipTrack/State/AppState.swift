@@ -60,23 +60,23 @@ final class AppState: ObservableObject {
 
     init(store: StoreManager) {
         self.store = store
-        currentUserId = SupabaseManager.shared.currentUserId()
+        currentUserId = FirebaseManager.shared.currentUserId()
         loadAll()
         if activeEvent != nil {
             WaterReminderManager.shared.schedule(intervalMinutes: userProfile.waterReminderIntervalMinutes)
         }
-        authCancellable = SupabaseManager.shared.$isSignedIn
+        authCancellable = FirebaseManager.shared.$isSignedIn
             .receive(on: RunLoop.main)
             .sink { [weak self] isSignedIn in
                 let wasSignedIn = self?.currentUserId != nil
-                self?.currentUserId = SupabaseManager.shared.currentUserId()
+                self?.currentUserId = FirebaseManager.shared.currentUserId()
                 if wasSignedIn && !isSignedIn {
                     self?.resetProfile()
                 } else if isSignedIn {
-                    self?.refreshFromSupabase()
+                    self?.refreshFromFirebase()
                 }
             }
-        refreshFromSupabase()
+        refreshFromFirebase()
     }
 
     private func resetProfile() {
@@ -96,10 +96,10 @@ final class AppState: ObservableObject {
         challenges      = ds.loadChallenges()
     }
 
-    func refreshFromSupabase() {
+    func refreshFromFirebase() {
         guard currentUserId != nil else { return }
         Task {
-            let data = await SupabaseManager.shared.pullUserData()
+            let data = await FirebaseManager.shared.pullUserData()
             applyCloudData(data)
         }
     }
@@ -110,7 +110,7 @@ final class AppState: ObservableObject {
         let event = DataStore.shared.createEvent(name: name, drivingMode: drivingMode, bacLimit: bacLimit, userId: currentUserId, startTime: startTime)
         events.append(event)
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-        Task { await SupabaseManager.shared.pushEvent(event) }
+        Task { await FirebaseManager.shared.pushEvent(event) }
         WatchBridge.shared.pushState()
         startLiveActivity(for: event)
         WaterReminderManager.shared.schedule(intervalMinutes: userProfile.waterReminderIntervalMinutes)
@@ -193,7 +193,7 @@ final class AppState: ObservableObject {
         events.removeAll { $0.id == id }
         entries.removeAll { $0.eventId == id }
         waterEntries.removeAll { $0.eventId == id }
-        Task { await SupabaseManager.shared.deleteEvent(id) }
+        Task { await FirebaseManager.shared.deleteEvent(id) }
     }
 
     private func updateEvent(id: String, mutate: (inout NightEvent) -> Void) {
@@ -201,7 +201,7 @@ final class AppState: ObservableObject {
         mutate(&events[idx])
         DataStore.shared.updateEvent(events[idx])
         let updated = events[idx]
-        Task { await SupabaseManager.shared.pushEvent(updated) }
+        Task { await FirebaseManager.shared.pushEvent(updated) }
     }
 
     // MARK: - Entries
@@ -230,7 +230,7 @@ final class AppState: ObservableObject {
         scheduleUndo(entry)
         checkWarnings(after: entry, eventId: eventId)
         updateLiveActivity(for: eventId)
-        Task { await SupabaseManager.shared.pushEntry(entry) }
+        Task { await FirebaseManager.shared.pushEntry(entry) }
         WatchBridge.shared.pushState()
     }
 
@@ -239,13 +239,13 @@ final class AppState: ObservableObject {
         if let idx = entries.firstIndex(where: { $0.id == entry.id }) {
             entries[idx] = entry
         }
-        Task { await SupabaseManager.shared.pushEntry(entry) }
+        Task { await FirebaseManager.shared.pushEntry(entry) }
     }
 
     func deleteEntry(_ id: String) {
         DataStore.shared.deleteEntry(id)
         entries.removeAll { $0.id == id }
-        Task { await SupabaseManager.shared.deleteEntry(id) }
+        Task { await FirebaseManager.shared.deleteEntry(id) }
     }
 
     func undoLastEntry() {
@@ -315,13 +315,13 @@ final class AppState: ObservableObject {
         }
         customDrinkTypes = types
         DataStore.shared.saveCustomDrinkTypes(types)
-        Task { await SupabaseManager.shared.pushDrinkType(type) }
+        Task { await FirebaseManager.shared.pushDrinkType(type) }
     }
 
     func deleteDrinkType(_ id: String) {
         customDrinkTypes.removeAll { $0.id == id }
         DataStore.shared.saveCustomDrinkTypes(customDrinkTypes)
-        Task { await SupabaseManager.shared.deleteDrinkType(id) }
+        Task { await FirebaseManager.shared.deleteDrinkType(id) }
     }
 
     // MARK: - Profile
@@ -329,7 +329,7 @@ final class AppState: ObservableObject {
     func updateUserProfile(_ profile: UserProfile) {
         userProfile = profile
         DataStore.shared.saveUserProfile(profile)
-        Task { await SupabaseManager.shared.pushProfile(profile) }
+        Task { await FirebaseManager.shared.pushProfile(profile) }
         if activeEvent != nil {
             WaterReminderManager.shared.schedule(intervalMinutes: profile.waterReminderIntervalMinutes)
         }
@@ -340,7 +340,7 @@ final class AppState: ObservableObject {
     func addChallenge(_ challenge: Challenge) {
         challenges.append(challenge)
         DataStore.shared.saveChallenges(challenges)
-        Task { await SupabaseManager.shared.pushChallenge(challenge) }
+        Task { await FirebaseManager.shared.pushChallenge(challenge) }
     }
 
     func updateChallenge(_ challenge: Challenge) {
@@ -348,13 +348,13 @@ final class AppState: ObservableObject {
             challenges[idx] = challenge
         }
         DataStore.shared.saveChallenges(challenges)
-        Task { await SupabaseManager.shared.pushChallenge(challenge) }
+        Task { await FirebaseManager.shared.pushChallenge(challenge) }
     }
 
     func deleteChallenge(_ id: String) {
         challenges.removeAll { $0.id == id }
         DataStore.shared.saveChallenges(challenges)
-        Task { await SupabaseManager.shared.deleteChallenge(id) }
+        Task { await FirebaseManager.shared.deleteChallenge(id) }
     }
 
     // MARK: - Warnings
@@ -433,7 +433,7 @@ final class AppState: ObservableObject {
     // MARK: - Cloud sync
 
     // Called after sign-in: merges cloud data into local storage without wiping local records.
-    func applyCloudData(_ data: SupabaseManager.PulledData) {
+    func applyCloudData(_ data: FirebaseManager.PulledData) {
         let localEventIds = Set(events.map { $0.id })
         let newEvents = data.events.filter { !localEventIds.contains($0.id) }
         if !newEvents.isEmpty {
@@ -465,7 +465,7 @@ final class AppState: ObservableObject {
         if let cloud = data.profile {
             updateUserProfile(cloud)
         } else {
-            Task { await SupabaseManager.shared.pushProfile(userProfile) }
+            Task { await FirebaseManager.shared.pushProfile(userProfile) }
         }
     }
 

@@ -8,6 +8,8 @@
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
+	<key>CFBundleDisplayName</key>
+	<string>Tracksip</string>
 	<key>CFBundleName</key>
 	<string>$(PRODUCT_NAME)</string>
 	<key>CFBundlePackageType</key>
@@ -37,6 +39,12 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>siptrack</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.438688245872-jmvp0r68qc9r5hq7sn1unhejd49oi49o</string>
 			</array>
 		</dict>
 	</array>

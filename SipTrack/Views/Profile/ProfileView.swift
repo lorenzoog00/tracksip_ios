@@ -1,8 +1,11 @@
 import SwiftUI
+import AuthenticationServices
+import GoogleSignIn
+import FirebaseAuth
 
 struct ProfileView: View {
     @EnvironmentObject var appState: AppState
-    @EnvironmentObject var supabase: SupabaseManager
+    @EnvironmentObject var firebase: FirebaseManager
     @Environment(\.dismiss) private var dismiss
 
     @State private var sex: Sex
@@ -267,7 +270,7 @@ struct ProfileView: View {
 
                     // MARK: Account
                     ProfileSection(title: "Account", icon: "person.circle.fill") {
-                        if supabase.isSignedIn {
+                        if firebase.isSignedIn {
                             HStack(spacing: 12) {
                                 ZStack {
                                     Circle().fill(AppColors.accentDim).frame(width: 36, height: 36)
@@ -279,7 +282,7 @@ struct ProfileView: View {
                                     Text("Cloud sync active")
                                         .font(.system(size: 14, weight: .medium))
                                         .foregroundStyle(AppColors.text)
-                                    if let email = supabase.userEmail {
+                                    if let email = firebase.userEmail {
                                         Text(email)
                                             .font(.system(size: 12))
                                             .foregroundStyle(AppColors.textSecondary)
@@ -287,7 +290,7 @@ struct ProfileView: View {
                                 }
                                 Spacer()
                                 Button {
-                                    Task { await supabase.signOut() }
+                                    Task { await firebase.signOut() }
                                 } label: {
                                     Text("Sign Out")
                                         .font(.system(size: 13, weight: .medium))
@@ -436,7 +439,7 @@ struct ProfileView: View {
                     .font(.system(size: 30))
                     .foregroundStyle(AppColors.accent)
             }
-            if let email = supabase.userEmail {
+            if let email = firebase.userEmail {
                 Text(email)
                     .font(.system(size: 13))
                     .foregroundStyle(AppColors.textSecondary)
@@ -605,7 +608,7 @@ struct ProfileView: View {
     private func performDeleteAccount() async {
         deletingAccount = true
         deleteError = nil
-        if let err = await supabase.deleteAccount() {
+        if let err = await firebase.deleteAccount() {
             deleteError = err
         }
         deletingAccount = false
@@ -799,16 +802,16 @@ private struct SlotPreview: View {
 // MARK: - Auth View
 
 struct AuthView: View {
-    @EnvironmentObject var supabase: SupabaseManager
+    @EnvironmentObject var firebase: FirebaseManager
     @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) private var dismiss
 
+    @State private var name      = ""
     @State private var email     = ""
     @State private var password  = ""
     @State private var isSignUp  = false
     @State private var isLoading = false
-    @State private var errorMsg: String?   = nil
-    @State private var successMsg: String? = nil
+    @State private var errorMsg: String? = nil
 
     var body: some View {
         ZStack {
@@ -828,7 +831,97 @@ struct AuthView: View {
                     }
                     .padding(.top, 40)
 
+                    // MARK: Google Sign In
+                    Button {
+                        Task {
+                            isLoading = true
+                            do {
+                                let plistPath = Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist")
+                                let plistDict = plistPath.flatMap { NSDictionary(contentsOfFile: $0) }
+                                guard let clientID = plistDict?["CLIENT_ID"] as? String else {
+                                    errorMsg = "CLIENT_ID not found in GoogleService-Info.plist — make sure the plist is added to the app target."
+                                    isLoading = false; return
+                                }
+                                GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientID)
+                                guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                                      let rootVC = windowScene.windows.first?.rootViewController else {
+                                    errorMsg = "Could not find root view controller."
+                                    isLoading = false; return
+                                }
+                                let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: rootVC)
+                                guard let idToken = result.user.idToken?.tokenString else { return }
+                                let credential = GoogleAuthProvider.credential(
+                                    withIDToken: idToken,
+                                    accessToken: result.user.accessToken.tokenString
+                                )
+                                try await firebase.signInWithCredential(credential)
+                                let data = await firebase.pullUserData()
+                                appState.applyCloudData(data)
+                                appState.shouldShowAuth = false
+                                dismiss()
+                            } catch {
+                                errorMsg = error.localizedDescription
+                            }
+                            isLoading = false
+                        }
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: "globe")
+                                .font(.system(size: 16, weight: .medium))
+                            Text("Continue with Google")
+                                .font(.system(size: 16, weight: .semibold))
+                        }
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 50)
+                        .background(Color.white)
+                        .foregroundStyle(Color.black)
+                        .cornerRadius(14)
+                    }
+                    .disabled(isLoading)
+
+                    // MARK: Apple Sign In
+                    SignInWithAppleButton(.continue) { request in
+                        request.requestedScopes = [.fullName, .email]
+                        request.nonce = firebase.prepareAppleSignIn()
+                    } onCompletion: { result in
+                        switch result {
+                        case .success(let auth):
+                            guard let cred = auth.credential as? ASAuthorizationAppleIDCredential else { return }
+                            Task {
+                                isLoading = true
+                                do {
+                                    try await firebase.handleAppleCredential(cred)
+                                    let data = await firebase.pullUserData()
+                                    appState.applyCloudData(data)
+                                    appState.shouldShowAuth = false
+                                    dismiss()
+                                } catch {
+                                    errorMsg = error.localizedDescription
+                                }
+                                isLoading = false
+                            }
+                        case .failure(let error):
+                            errorMsg = error.localizedDescription
+                        }
+                    }
+                    .signInWithAppleButtonStyle(.white)
+                    .frame(height: 50)
+                    .cornerRadius(14)
+
+                    HStack {
+                        Rectangle().fill(AppColors.border).frame(height: 1)
+                        Text("or").font(.system(size: 12)).foregroundStyle(AppColors.textTertiary)
+                        Rectangle().fill(AppColors.border).frame(height: 1)
+                    }
+
+                    // MARK: Email / Password
                     VStack(spacing: 12) {
+                        if isSignUp {
+                            TextField("Name", text: $name)
+                                .textContentType(.name)
+                                .autocapitalization(.words)
+                                .authInput()
+                        }
                         TextField("Email", text: $email)
                             .textContentType(.emailAddress)
                             .keyboardType(.emailAddress)
@@ -841,9 +934,6 @@ struct AuthView: View {
 
                     if let err = errorMsg {
                         Text(err).font(.system(size: 13)).foregroundStyle(AppColors.danger).multilineTextAlignment(.center)
-                    }
-                    if let ok = successMsg {
-                        Text(ok).font(.system(size: 13)).foregroundStyle(AppColors.success).multilineTextAlignment(.center)
                     }
 
                     Button { Task { await submit() } } label: {
@@ -861,7 +951,7 @@ struct AuthView: View {
                     .disabled(!canSubmit)
 
                     Button {
-                        withAnimation { isSignUp.toggle(); errorMsg = nil; successMsg = nil }
+                        withAnimation { isSignUp.toggle(); errorMsg = nil; name = "" }
                     } label: {
                         Text(isSignUp ? "Already have an account? Sign In" : "No account? Create one")
                             .font(.system(size: 14))
@@ -877,29 +967,22 @@ struct AuthView: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 
-    private var canSubmit: Bool { !isLoading && !email.isEmpty && password.count >= 6 }
+    private var canSubmit: Bool {
+        !isLoading && !email.isEmpty && password.count >= 6 && (!isSignUp || !name.isEmpty)
+    }
 
     private func submit() async {
-        isLoading = true; errorMsg = nil; successMsg = nil
+        isLoading = true; errorMsg = nil
         do {
             if isSignUp {
-                let signedInImmediately = try await supabase.signUp(email: email, password: password)
-                if signedInImmediately {
-                    let data = await supabase.pullUserData()
-                    appState.applyCloudData(data)
-                    appState.shouldShowAuth = false
-                    dismiss()
-                } else {
-                    successMsg = "Account created. Check your email to confirm, then sign in."
-                    isSignUp = false
-                }
+                try await firebase.signUp(email: email, password: password, displayName: name)
             } else {
-                try await supabase.signIn(email: email, password: password)
-                let data = await supabase.pullUserData()
-                appState.applyCloudData(data)
-                appState.shouldShowAuth = false
-                dismiss()
+                try await firebase.signIn(email: email, password: password)
             }
+            let data = await firebase.pullUserData()
+            appState.applyCloudData(data)
+            appState.shouldShowAuth = false
+            dismiss()
         } catch { errorMsg = error.localizedDescription }
         isLoading = false
     }

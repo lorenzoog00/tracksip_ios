@@ -2,7 +2,7 @@ import SwiftUI
 
 struct HomeView: View {
     @EnvironmentObject var appState: AppState
-    @EnvironmentObject var supabase: SupabaseManager
+    @EnvironmentObject var firebase: FirebaseManager
     @State private var showCreateEvent = false
     @State private var deletingEventId: String? = nil
 
@@ -33,7 +33,7 @@ struct HomeView: View {
             ScrollView {
                 VStack(spacing: 24) {
                     header
-                    if supabase.isSignedIn {
+                    if firebase.isSignedIn {
                         signedInContent
                     } else {
                         noAccountContent
@@ -43,7 +43,7 @@ struct HomeView: View {
                 .padding(.top, 16)
             }
 
-            if supabase.isSignedIn {
+            if firebase.isSignedIn {
                 fab
             }
         }

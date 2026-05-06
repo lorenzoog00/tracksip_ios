@@ -1,4 +1,6 @@
 import SwiftUI
+import FirebaseCore
+import GoogleSignIn
 
 @main
 struct SipTrackApp: App {
@@ -6,9 +8,10 @@ struct SipTrackApp: App {
     @StateObject private var store: StoreManager
     @StateObject private var appState: AppState
     @StateObject private var adManager = AdManager.shared
-    @StateObject private var supabase  = SupabaseManager.shared
+    @StateObject private var firebase  = FirebaseManager.shared
 
     init() {
+        FirebaseApp.configure()
         let s = StoreManager()
         let state = AppState(store: s)
         _store    = StateObject(wrappedValue: s)
@@ -22,12 +25,10 @@ struct SipTrackApp: App {
                 .environmentObject(appState)
                 .environmentObject(store)
                 .environmentObject(adManager)
-                .environmentObject(supabase)
+                .environmentObject(firebase)
                 .preferredColorScheme(.dark)
                 .task {
-                    // Start Supabase immediately — never block on StoreKit
-                    supabase.startListening()
-                    // Run store + ads in parallel, independently
+                    firebase.startListening()
                     Task {
                         await store.refreshStatus()
                         appState.syncSubscriptionFromStore()
@@ -40,6 +41,7 @@ struct SipTrackApp: App {
                     AdManager.shared.showAppOpenAdIfReady(isPro: appState.isPro)
                 }
                 .onOpenURL { url in
+                    if GIDSignIn.sharedInstance.handle(url) { return }
                     guard url.scheme == "siptrack",
                           let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
                           let eventId = components.queryItems?.first(where: { $0.name == "event" })?.value
