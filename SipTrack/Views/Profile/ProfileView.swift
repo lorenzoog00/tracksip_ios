@@ -18,7 +18,6 @@ struct ProfileView: View {
     @State private var caloriesPerNight: Int
     @State private var bacApproachWarning: Bool
     @State private var stageChangeWarning: Bool
-    @State private var liveActivityDrinkIds: [String]
 
     @State private var saveState: SaveState = .idle
     @State private var showDiscardAlert = false
@@ -43,7 +42,6 @@ struct ProfileView: View {
         _caloriesPerNight     = State(initialValue: p.notifications.caloriesPerNight)
         _bacApproachWarning   = State(initialValue: p.notifications.bacApproachWarning)
         _stageChangeWarning   = State(initialValue: p.notifications.stageChangeWarning)
-        _liveActivityDrinkIds = State(initialValue: p.liveActivityDrinkIds)
     }
 
     // MARK: - Dirty detection
@@ -63,7 +61,6 @@ struct ProfileView: View {
             || caloriesPerNight != p.notifications.caloriesPerNight
             || bacApproachWarning != p.notifications.bacApproachWarning
             || stageChangeWarning != p.notifications.stageChangeWarning
-            || liveActivityDrinkIds != p.liveActivityDrinkIds
     }
 
     var body: some View {
@@ -241,48 +238,28 @@ struct ProfileView: View {
 
                     // MARK: Lock Screen
                     if #available(iOS 16.2, *) {
-                        ProfileSection(title: "Lock Screen Drinks", icon: "lock.fill") {
-                            Text("Up to 3 quick-add buttons on your Lock Screen and Dynamic Island.")
-                                .font(.system(size: 12))
-                                .foregroundStyle(AppColors.textSecondary)
-                                .padding(.bottom, 4)
-
-                            ForEach(Array(appState.allDrinkTypes.enumerated()), id: \.element.id) { idx, dt in
-                                if idx > 0 { ProfileDivider() }
-                                Button {
-                                    if liveActivityDrinkIds.contains(dt.id) {
-                                        liveActivityDrinkIds.removeAll { $0 == dt.id }
-                                    } else if liveActivityDrinkIds.count < 3 {
-                                        liveActivityDrinkIds.append(dt.id)
-                                    }
-                                } label: {
-                                    HStack(spacing: 12) {
-                                        Image(systemName: dt.sfSymbol)
-                                            .font(.system(size: 14))
-                                            .foregroundStyle(AppColors.accent)
-                                            .frame(width: 20)
-                                        Text(dt.name)
+                        ProfileSection(title: "Lock Screen", icon: "lock.fill") {
+                            NavigationLink {
+                                LockScreenPickerView()
+                                    .environmentObject(appState)
+                            } label: {
+                                HStack(spacing: 12) {
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text("Lock Screen Drinks")
                                             .font(.system(size: 14))
                                             .foregroundStyle(AppColors.text)
-                                        Spacer()
-                                        if liveActivityDrinkIds.contains(dt.id) {
-                                            let pos = (liveActivityDrinkIds.firstIndex(of: dt.id) ?? 0) + 1
-                                            Text("\(pos)")
-                                                .font(.system(size: 11, weight: .bold))
-                                                .foregroundStyle(.black)
-                                                .frame(width: 22, height: 22)
-                                                .background(AppColors.accent)
-                                                .clipShape(Circle())
-                                        } else if liveActivityDrinkIds.count >= 3 {
-                                            Image(systemName: "circle")
-                                                .font(.system(size: 18))
-                                                .foregroundStyle(AppColors.border)
-                                        } else {
-                                            Image(systemName: "plus.circle")
-                                                .font(.system(size: 18))
-                                                .foregroundStyle(AppColors.textTertiary)
+                                        let names = appState.userProfile.liveActivityDrinkIds.compactMap { id in
+                                            appState.allDrinkTypes.first { $0.id == id }?.name
                                         }
+                                        Text(names.isEmpty ? "None selected" : names.joined(separator: ", "))
+                                            .font(.system(size: 12))
+                                            .foregroundStyle(AppColors.textSecondary)
+                                            .lineLimit(1)
                                     }
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 12, weight: .medium))
+                                        .foregroundStyle(AppColors.textTertiary)
                                 }
                             }
                         }
@@ -599,7 +576,6 @@ struct ProfileView: View {
         caloriesPerNight     = p.notifications.caloriesPerNight
         bacApproachWarning   = p.notifications.bacApproachWarning
         stageChangeWarning   = p.notifications.stageChangeWarning
-        liveActivityDrinkIds = p.liveActivityDrinkIds
     }
 
     private func saveProfile() {
@@ -619,7 +595,6 @@ struct ProfileView: View {
             bacApproachWarning: bacApproachWarning,
             stageChangeWarning: stageChangeWarning
         )
-        profile.liveActivityDrinkIds = liveActivityDrinkIds
         appState.updateUserProfile(profile)
         withAnimation { saveState = .saved }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
@@ -676,6 +651,148 @@ private struct ProfileDivider: View {
         Divider()
             .background(AppColors.border)
             .padding(.vertical, 2)
+    }
+}
+
+// MARK: - Lock Screen Picker
+
+struct LockScreenPickerView: View {
+    @EnvironmentObject var appState: AppState
+    @State private var selectedIds: [String] = []
+
+    var body: some View {
+        ZStack {
+            AppColors.background.ignoresSafeArea()
+            ScrollView {
+                VStack(spacing: 6) {
+                    Text("Choose up to 3 drinks shown as quick-add buttons on your Lock Screen and Dynamic Island while a night is active.")
+                        .font(.system(size: 13))
+                        .foregroundStyle(AppColors.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 24)
+                        .padding(.top, 16)
+                        .padding(.bottom, 8)
+
+                    // Selected slots preview
+                    HStack(spacing: 0) {
+                        ForEach(0..<3, id: \.self) { slot in
+                            let id = slot < selectedIds.count ? selectedIds[slot] : nil
+                            let dt = id.flatMap { i in appState.allDrinkTypes.first { $0.id == i } }
+                            SlotPreview(drinkType: dt, position: slot + 1)
+                                .frame(maxWidth: .infinity)
+                            if slot < 2 {
+                                Rectangle()
+                                    .fill(AppColors.border)
+                                    .frame(width: 1, height: 60)
+                            }
+                        }
+                    }
+                    .padding(.vertical, 16)
+                    .premiumCard(radius: 16)
+                    .padding(.horizontal)
+                    .padding(.bottom, 8)
+
+                    // All drinks list
+                    ProfileSection(title: "All Drinks", icon: "wineglass.fill") {
+                        ForEach(Array(appState.allDrinkTypes.enumerated()), id: \.element.id) { idx, dt in
+                            if idx > 0 { ProfileDivider() }
+                            Button {
+                                if selectedIds.contains(dt.id) {
+                                    selectedIds.removeAll { $0 == dt.id }
+                                } else if selectedIds.count < 3 {
+                                    selectedIds.append(dt.id)
+                                }
+                            } label: {
+                                HStack(spacing: 12) {
+                                    ZStack {
+                                        Circle()
+                                            .fill(AppColors.accentDim)
+                                            .frame(width: 34, height: 34)
+                                        Image(systemName: dt.sfSymbol)
+                                            .font(.system(size: 14))
+                                            .foregroundStyle(AppColors.accent)
+                                    }
+                                    Text(dt.name)
+                                        .font(.system(size: 14))
+                                        .foregroundStyle(AppColors.text)
+                                    Spacer()
+                                    if selectedIds.contains(dt.id) {
+                                        let pos = (selectedIds.firstIndex(of: dt.id) ?? 0) + 1
+                                        Text("\(pos)")
+                                            .font(.system(size: 11, weight: .bold))
+                                            .foregroundStyle(.black)
+                                            .frame(width: 24, height: 24)
+                                            .background(AppColors.accent)
+                                            .clipShape(Circle())
+                                    } else if selectedIds.count >= 3 {
+                                        Image(systemName: "circle")
+                                            .font(.system(size: 20))
+                                            .foregroundStyle(AppColors.border)
+                                    } else {
+                                        Image(systemName: "plus.circle")
+                                            .font(.system(size: 20))
+                                            .foregroundStyle(AppColors.textTertiary)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Color.clear.frame(height: 24)
+                }
+                .padding(.vertical, 4)
+            }
+        }
+        .navigationTitle("Lock Screen Drinks")
+        .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            selectedIds = Array(appState.userProfile.liveActivityDrinkIds.prefix(3))
+        }
+        .onChange(of: selectedIds) { _, newValue in
+            var profile = appState.userProfile
+            profile.liveActivityDrinkIds = newValue
+            appState.updateUserProfile(profile)
+        }
+    }
+}
+
+private struct SlotPreview: View {
+    let drinkType: DrinkType?
+    let position: Int
+
+    var body: some View {
+        VStack(spacing: 6) {
+            ZStack {
+                Circle()
+                    .fill(drinkType != nil ? AppColors.accent.opacity(0.15) : AppColors.border.opacity(0.3))
+                    .frame(width: 44, height: 44)
+                if let dt = drinkType {
+                    Image(systemName: dt.sfSymbol)
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundStyle(AppColors.accent)
+                } else {
+                    Image(systemName: "plus")
+                        .font(.system(size: 16))
+                        .foregroundStyle(AppColors.textTertiary)
+                }
+            }
+            if let dt = drinkType {
+                Text(dt.name)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(AppColors.text)
+                    .lineLimit(1)
+            } else {
+                Text("Empty")
+                    .font(.system(size: 10))
+                    .foregroundStyle(AppColors.textTertiary)
+            }
+            Text("\(position)")
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(drinkType != nil ? .black : AppColors.textTertiary)
+                .frame(width: 15, height: 15)
+                .background(drinkType != nil ? AppColors.accent : AppColors.border)
+                .clipShape(Circle())
+        }
     }
 }
 

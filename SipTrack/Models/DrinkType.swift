@@ -8,6 +8,7 @@ struct DrinkType: Codable, Identifiable, Hashable {
     var caloriesPerServing: Double
     var isPreset: Bool
     var icon: String
+    var colorHex: String?
 
     var sfSymbol: String {
         switch icon {
@@ -27,11 +28,12 @@ struct DrinkType: Codable, Identifiable, Hashable {
 
     #if !os(watchOS)
     var color: Color {
+        if let hex = colorHex { return Color(hex: hex) }
         switch icon {
-        case "beer-outline", "beer":  return Color("#F0A830")
-        case "wine":                  return Color("#C0392B")
-        case "wine-sharp":            return Color("#ECF0F1")
-        case "champagne", "sparkles": return Color("#F1C40F")
+        case "beer-outline", "beer":  return Color(hex: "#F0A830")
+        case "wine":                  return Color(hex: "#C0392B")
+        case "wine-sharp":            return Color(hex: "#ECF0F1")
+        case "champagne", "sparkles": return Color(hex: "#F1C40F")
         default:                      return AppColors.accent
         }
     }

@@ -72,8 +72,11 @@ final class AppState: ObservableObject {
                 self?.currentUserId = SupabaseManager.shared.currentUserId()
                 if wasSignedIn && !isSignedIn {
                     self?.resetProfile()
+                } else if isSignedIn {
+                    self?.refreshFromSupabase()
                 }
             }
+        refreshFromSupabase()
     }
 
     private func resetProfile() {
@@ -91,6 +94,14 @@ final class AppState: ObservableObject {
         customDrinkTypes = ds.loadCustomDrinkTypes()
         userProfile     = ds.loadUserProfile()
         challenges      = ds.loadChallenges()
+    }
+
+    func refreshFromSupabase() {
+        guard currentUserId != nil else { return }
+        Task {
+            let data = await SupabaseManager.shared.pullUserData()
+            applyCloudData(data)
+        }
     }
 
     // MARK: - Events
@@ -437,10 +448,10 @@ final class AppState: ObservableObject {
             DataStore.shared.saveEntries(entries)
         }
 
-        let localTypeIds = Set(customDrinkTypes.map { $0.id })
-        let newTypes = data.drinkTypes.filter { !$0.isPreset && !localTypeIds.contains($0.id) }
-        if !newTypes.isEmpty {
-            customDrinkTypes.append(contentsOf: newTypes)
+        // Full replace: presets first so user-specific entries override them in mergedWith
+        let cloudTypes = data.drinkTypes.sorted { $0.isPreset && !$1.isPreset }
+        if !cloudTypes.isEmpty {
+            customDrinkTypes = cloudTypes
             DataStore.shared.saveCustomDrinkTypes(customDrinkTypes)
         }
 

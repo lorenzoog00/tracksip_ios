@@ -540,34 +540,24 @@ private struct DrinkTile: View {
 
     var body: some View {
         Button(action: onTap) {
-            ZStack(alignment: .topTrailing) {
-                VStack(alignment: .leading, spacing: 0) {
-                    Image(systemName: drinkType.sfSymbol)
-                        .font(.system(size: 17, weight: .medium))
-                        .foregroundStyle(AppColors.accent.opacity(0.65))
+            VStack(alignment: .leading, spacing: 0) {
+                Image(systemName: drinkType.sfSymbol)
+                    .font(.system(size: 17, weight: .medium))
+                    .foregroundStyle(drinkType.color.opacity(0.8))
 
-                    Spacer()
+                Spacer()
 
-                    Text(drinkType.name)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(AppColors.text)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.8)
-                        .multilineTextAlignment(.leading)
-                }
-                .padding(11)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .frame(height: 92)
-                .premiumCard(radius: 14)
-
-                if drinkType.defaultAbv > 0 {
-                    Text(String(format: "%.0f%%", drinkType.defaultAbv * 100))
-                        .font(.system(size: 9, weight: .medium))
-                        .foregroundStyle(AppColors.textTertiary)
-                        .padding(.top, 9)
-                        .padding(.trailing, 9)
-                }
+                Text(drinkType.name)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(AppColors.text)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.8)
+                    .multilineTextAlignment(.leading)
             }
+            .padding(11)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(height: 92)
+            .premiumCard(radius: 14, tint: drinkType.color, tintOpacity: 0.06)
             .scaleEffect(pressed ? 0.91 : 1.0)
             .animation(.spring(response: 0.2, dampingFraction: 0.65), value: pressed)
         }
@@ -713,7 +703,6 @@ private enum TLItem: Identifiable {
     var isDrink: Bool {
         if case .drink = self { return true }; return false
     }
-    var nodeColor: Color { isDrink ? AppColors.accent : AppColors.water }
 }
 
 private struct TimelineSection: View {
@@ -771,6 +760,13 @@ private struct TLRow: View {
 
     @State private var appeared = false
 
+    private var nodeColor: Color {
+        switch item {
+        case .drink(let e): return drinkTypes.first { $0.id == e.drinkTypeId }?.color ?? AppColors.accent
+        case .water:        return AppColors.water
+        }
+    }
+
     private static let tf: DateFormatter = {
         let f = DateFormatter(); f.timeStyle = .short; return f
     }()
@@ -784,15 +780,15 @@ private struct TLRow: View {
                     .frame(width: 1.5, height: 18)
                 ZStack {
                     Circle()
-                        .fill(item.nodeColor.opacity(0.18))
+                        .fill(nodeColor.opacity(0.18))
                         .frame(width: item.isDrink ? 18 : 13,
                                height: item.isDrink ? 18 : 13)
                     Circle()
-                        .fill(item.nodeColor)
+                        .fill(nodeColor)
                         .frame(width: item.isDrink ? 8 : 5,
                                height: item.isDrink ? 8 : 5)
                 }
-                .shadow(color: item.nodeColor.opacity(0.7),
+                .shadow(color: nodeColor.opacity(0.7),
                         radius: item.isDrink ? 8 : 5, x: 0, y: 0)
                 Rectangle()
                     .fill(isLast ? Color.clear : AppColors.border.opacity(0.55))
@@ -847,13 +843,15 @@ private struct TLDrinkCard: View {
         entry.volumeOverrideMl ?? drinkType?.defaultVolumeMl ?? 0
     }
 
+    private var tint: Color { drinkType?.color ?? AppColors.accent }
+
     var body: some View {
         HStack(spacing: 0) {
             // Left accent bar
             RoundedRectangle(cornerRadius: 2)
                 .fill(
                     LinearGradient(
-                        colors: [AppColors.accent, AppColors.accent.opacity(0.25)],
+                        colors: [tint, tint.opacity(0.25)],
                         startPoint: .top, endPoint: .bottom
                     )
                 )
@@ -863,7 +861,7 @@ private struct TLDrinkCard: View {
             HStack(spacing: 10) {
                 Image(systemName: drinkType?.sfSymbol ?? "cup.and.saucer.fill")
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(AppColors.accent)
+                    .foregroundStyle(tint)
                     .frame(width: 20)
 
                 VStack(alignment: .leading, spacing: 4) {
@@ -871,10 +869,10 @@ private struct TLDrinkCard: View {
                         if entry.quantity > 1 {
                             Text("×\(entry.quantity)")
                                 .font(.system(size: 10, weight: .bold))
-                                .foregroundStyle(AppColors.accent)
+                                .foregroundStyle(tint)
                                 .padding(.horizontal, 5)
                                 .padding(.vertical, 2)
-                                .background(AppColors.accent.opacity(0.15))
+                                .background(tint.opacity(0.15))
                                 .cornerRadius(4)
                         }
                         Text(drinkType?.name ?? "Drink")
@@ -917,10 +915,10 @@ private struct TLDrinkCard: View {
         }
         .background(
             RoundedRectangle(cornerRadius: 10)
-                .fill(AppColors.accent.opacity(0.05))
+                .fill(tint.opacity(0.05))
                 .overlay(
                     RoundedRectangle(cornerRadius: 10)
-                        .stroke(AppColors.accent.opacity(0.15), lineWidth: 1)
+                        .stroke(tint.opacity(0.15), lineWidth: 1)
                 )
         )
         .contextMenu {

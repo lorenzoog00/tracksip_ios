@@ -126,7 +126,8 @@ final class SupabaseManager: ObservableObject {
             volume_ml: dt.defaultVolumeMl,
             calories_per_serving: dt.caloriesPerServing,
             icon: dt.icon,
-            is_preset: dt.isPreset
+            is_preset: dt.isPreset,
+            color_hex: dt.colorHex
         )
         _ = try? await client.from("drink_types").upsert(row).execute()
     }
@@ -177,7 +178,9 @@ final class SupabaseManager: ObservableObject {
             .from("drink_entries").select().eq("user_id", value: userId).execute().value) ?? []
 
         let tRows: [DrinkTypeRow] = (try? await client
-            .from("drink_types").select().eq("user_id", value: userId).execute().value) ?? []
+            .from("drink_types").select()
+            .eq("user_id", value: userId)
+            .execute().value) ?? []
 
         let cRows: [ChallengeRow] = (try? await client
             .from("challenges").select().eq("user_id", value: userId).execute().value) ?? []
@@ -224,7 +227,8 @@ final class SupabaseManager: ObservableObject {
                 defaultAbv: r.alcohol_percent,
                 caloriesPerServing: r.calories_per_serving ?? 0,
                 isPreset: r.is_preset ?? false,
-                icon: r.icon ?? ""
+                icon: r.icon ?? "",
+                colorHex: r.color_hex
             )
         }
 
@@ -348,6 +352,7 @@ private struct DrinkTypeInsert: Encodable {
     let calories_per_serving: Double?
     let icon: String?
     let is_preset: Bool?
+    let color_hex: String?
 }
 
 private struct DrinkTypeRow: Decodable {
@@ -358,6 +363,7 @@ private struct DrinkTypeRow: Decodable {
     let calories_per_serving: Double?
     let icon: String?
     let is_preset: Bool?
+    let color_hex: String?
 }
 
 private struct ProfileInsert: Encodable {

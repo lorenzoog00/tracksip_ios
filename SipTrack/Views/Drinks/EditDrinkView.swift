@@ -10,11 +10,19 @@ struct EditDrinkView: View {
     @State private var abvStr: String
     @State private var caloriesStr: String
     @State private var icon: String
+    @State private var colorHex: String?
 
     private let iconOptions = [
         "mug.fill", "wineglass.fill", "wineglass", "sparkles",
         "flask.fill", "flask", "drop.fill", "leaf.fill",
         "snowflake", "sun.max.fill", "cup.and.saucer.fill", "fork.knife"
+    ]
+
+    private let colorPalette: [(hex: String, label: String)] = [
+        ("#F0A830", "Amber"),   ("#C0392B", "Red"),    ("#F1C40F", "Yellow"),
+        ("#2ED573", "Lime"),    ("#40AAFF", "Blue"),   ("#9B59B6", "Violet"),
+        ("#FF6348", "Orange"),  ("#FF6B81", "Pink"),   ("#ECF0F1", "Silver"),
+        ("#1ABC9C", "Teal"),    ("#E67E22", "Copper"), ("#8E44AD", "Purple"),
     ]
 
     init(existing: DrinkType?) {
@@ -24,6 +32,7 @@ struct EditDrinkView: View {
         _abvStr       = State(initialValue: existing.map { String(format: "%.1f", $0.defaultAbv) } ?? "5.0")
         _caloriesStr  = State(initialValue: existing.map { "\(Int($0.caloriesPerServing))" } ?? "150")
         _icon         = State(initialValue: existing?.sfSymbol ?? "cup.and.saucer.fill")
+        _colorHex     = State(initialValue: existing?.colorHex)
     }
 
     private var isValid: Bool {
@@ -55,6 +64,41 @@ struct EditDrinkView: View {
                                             .frame(width: 44, height: 44)
                                             .background(icon == sym ? AppColors.accent : AppColors.surface)
                                             .cornerRadius(10)
+                                    }
+                                }
+                            }
+                        }
+
+                        // Color palette
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(spacing: 6) {
+                                Text("Color")
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundStyle(AppColors.textSecondary)
+                                if colorHex != nil {
+                                    Button("Clear") { colorHex = nil }
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(AppColors.textTertiary)
+                                }
+                            }
+                            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: 8) {
+                                ForEach(colorPalette, id: \.hex) { swatch in
+                                    Button {
+                                        colorHex = colorHex == swatch.hex ? nil : swatch.hex
+                                    } label: {
+                                        ZStack {
+                                            Circle()
+                                                .fill(Color(hex: swatch.hex))
+                                                .frame(width: 38, height: 38)
+                                            if colorHex == swatch.hex {
+                                                Circle()
+                                                    .strokeBorder(.white.opacity(0.9), lineWidth: 2.5)
+                                                    .frame(width: 38, height: 38)
+                                                Image(systemName: "checkmark")
+                                                    .font(.system(size: 11, weight: .bold))
+                                                    .foregroundStyle(.white)
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -132,7 +176,8 @@ struct EditDrinkView: View {
             defaultAbv: Double(abvStr) ?? 5.0,
             caloriesPerServing: Double(caloriesStr) ?? 150,
             isPreset: existing?.isPreset ?? false,
-            icon: icon
+            icon: icon,
+            colorHex: colorHex
         )
         appState.saveDrinkType(type)
         dismiss()
