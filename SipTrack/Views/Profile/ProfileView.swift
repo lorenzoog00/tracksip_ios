@@ -11,6 +11,8 @@ struct ProfileView: View {
     @State private var birthYearStr: String
     @State private var bacLimit: Double
     @State private var waterSuggestions: Bool
+    @State private var waterReminderEnabled: Bool
+    @State private var waterReminderInterval: Int
     @State private var notificationsEnabled: Bool
     @State private var drinksPerHour: Int
     @State private var caloriesPerNight: Int
@@ -34,6 +36,8 @@ struct ProfileView: View {
         _birthYearStr         = State(initialValue: p.birthYear.map { "\($0)" } ?? "")
         _bacLimit             = State(initialValue: p.bacLimit)
         _waterSuggestions     = State(initialValue: p.waterSuggestions)
+        _waterReminderEnabled  = State(initialValue: p.waterReminderIntervalMinutes != nil)
+        _waterReminderInterval = State(initialValue: min(p.waterReminderIntervalMinutes ?? 25, 60))
         _notificationsEnabled = State(initialValue: p.notifications.enabled)
         _drinksPerHour        = State(initialValue: p.notifications.drinksPerHour)
         _caloriesPerNight     = State(initialValue: p.notifications.caloriesPerNight)
@@ -52,6 +56,8 @@ struct ProfileView: View {
             || Int(birthYearStr) != p.birthYear
             || bacLimit != p.bacLimit
             || waterSuggestions != p.waterSuggestions
+            || waterReminderEnabled != (p.waterReminderIntervalMinutes != nil)
+            || (waterReminderEnabled && waterReminderInterval != (p.waterReminderIntervalMinutes ?? 25))
             || notificationsEnabled != p.notifications.enabled
             || drinksPerHour != p.notifications.drinksPerHour
             || caloriesPerNight != p.notifications.caloriesPerNight
@@ -158,6 +164,48 @@ struct ProfileView: View {
                             }
                         }
                         .tint(AppColors.accent)
+
+                        ProfileDivider()
+
+                        Toggle(isOn: $waterReminderEnabled) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Push water reminders")
+                                    .font(.system(size: 14))
+                                    .foregroundStyle(AppColors.text)
+                                Text("Notify you if you haven't logged water during a night")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(AppColors.textSecondary)
+                            }
+                        }
+                        .tint(AppColors.accent)
+                        .onChange(of: waterReminderEnabled) { enabled in
+                            if enabled {
+                                Task {
+                                    let granted = await WaterReminderManager.shared.requestPermissionIfNeeded()
+                                    if !granted { waterReminderEnabled = false }
+                                }
+                            }
+                        }
+
+                        if waterReminderEnabled {
+                            ProfileDivider()
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack {
+                                    Text("Remind every")
+                                        .font(.system(size: 14))
+                                        .foregroundStyle(AppColors.text)
+                                    Spacer()
+                                    Text("\(waterReminderInterval) min")
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundStyle(AppColors.accent)
+                                }
+                                Slider(value: Binding(
+                                    get: { Double(waterReminderInterval) },
+                                    set: { waterReminderInterval = Int($0) }
+                                ), in: 10...60, step: 1)
+                                .tint(AppColors.accent)
+                            }
+                        }
                     }
 
                     // MARK: Warnings
@@ -543,8 +591,10 @@ struct ProfileView: View {
         heightStr            = p.heightCm.map { "\(Int($0))" } ?? ""
         birthYearStr         = p.birthYear.map { "\($0)" } ?? ""
         bacLimit             = p.bacLimit
-        waterSuggestions     = p.waterSuggestions
-        notificationsEnabled = p.notifications.enabled
+        waterSuggestions      = p.waterSuggestions
+        waterReminderEnabled  = p.waterReminderIntervalMinutes != nil
+        waterReminderInterval = min(p.waterReminderIntervalMinutes ?? 25, 60)
+        notificationsEnabled  = p.notifications.enabled
         drinksPerHour        = p.notifications.drinksPerHour
         caloriesPerNight     = p.notifications.caloriesPerNight
         bacApproachWarning   = p.notifications.bacApproachWarning
@@ -561,6 +611,7 @@ struct ProfileView: View {
         profile.birthYear        = Int(birthYearStr)
         profile.bacLimit         = bacLimit
         profile.waterSuggestions = waterSuggestions
+        profile.waterReminderIntervalMinutes = waterReminderEnabled ? waterReminderInterval : nil
         profile.notifications = NotificationPreferences(
             enabled: notificationsEnabled,
             drinksPerHour: drinksPerHour,

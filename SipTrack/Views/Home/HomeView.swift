@@ -6,19 +6,16 @@ struct HomeView: View {
     @State private var showCreateEvent = false
     @State private var deletingEventId: String? = nil
 
-    private var greeting: String {
-        let hour = Calendar.current.component(.hour, from: Date())
-        switch hour {
-        case 5..<12:  return "Good morning"
-        case 12..<17: return "Good afternoon"
-        case 17..<21: return "Good evening"
-        default:      return "Good night"
-        }
+    private var dayString: String {
+        let df = DateFormatter(); df.dateFormat = "EEEE"
+        return df.string(from: Date()).uppercased()
     }
-
-    private var todayString: String {
-        let df = DateFormatter()
-        df.dateFormat = "EEEE, MMM d"
+    private var dateNumberString: String {
+        let df = DateFormatter(); df.dateFormat = "d"
+        return df.string(from: Date())
+    }
+    private var monthYearString: String {
+        let df = DateFormatter(); df.dateFormat = "MMMM yyyy"
         return df.string(from: Date())
     }
 
@@ -72,19 +69,19 @@ struct HomeView: View {
 
     private var header: some View {
         HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(greeting)
-                    .font(.system(size: 28, weight: .bold))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [AppColors.text, AppColors.textWarm],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                Text(todayString)
-                    .font(.system(size: 13))
+            VStack(alignment: .leading, spacing: 0) {
+                Text(dayString)
+                    .font(.system(size: 11, weight: .semibold))
+                    .tracking(2.5)
                     .foregroundStyle(AppColors.textTertiary)
+                Text(dateNumberString)
+                    .font(.system(size: 54, weight: .bold, design: .serif))
+                    .foregroundStyle(AppColors.text)
+                    .padding(.top, -2)
+                Text(monthYearString)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(AppColors.textSecondary)
+                    .padding(.top, -6)
             }
             Spacer()
             NavigationLink(value: Route.profile) {
@@ -99,6 +96,7 @@ struct HomeView: View {
                 }
             }
             .buttonStyle(.plain)
+            .padding(.top, 4)
         }
         .padding(.horizontal)
     }
@@ -157,12 +155,14 @@ struct HomeView: View {
 
         // Feature cards section
         VStack(alignment: .leading, spacing: 10) {
-            HStack {
+            HStack(spacing: 10) {
                 Text("EXPLORE")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: 10, weight: .semibold))
                     .tracking(1.4)
                     .foregroundStyle(AppColors.textTertiary)
-                Spacer()
+                Rectangle()
+                    .fill(AppColors.border)
+                    .frame(height: 0.5)
             }
             .padding(.horizontal)
 
@@ -207,12 +207,14 @@ struct HomeView: View {
         // Past nights section
         if !appState.visibleEvents.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
-                HStack {
+                HStack(spacing: 10) {
                     Text("PAST NIGHTS")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.system(size: 10, weight: .semibold))
                         .tracking(1.4)
                         .foregroundStyle(AppColors.textTertiary)
-                    Spacer()
+                    Rectangle()
+                        .fill(AppColors.border)
+                        .frame(height: 0.5)
                 }
                 .padding(.horizontal)
 
@@ -319,71 +321,74 @@ private struct ActiveEventCard: View {
     @State private var pulse = false
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Top row
+        VStack(alignment: .leading, spacing: 0) {
+            // Stage badge + elapsed
             HStack {
-                HStack(spacing: 8) {
+                Text(stage.name.uppercased())
+                    .font(.system(size: 9, weight: .bold))
+                    .tracking(2.2)
+                    .foregroundStyle(stage.color)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(stage.color.opacity(0.14))
+                    .cornerRadius(4)
+                Spacer()
+                HStack(spacing: 5) {
                     Circle()
                         .fill(stage.color)
-                        .frame(width: 8, height: 8)
-                        .scaleEffect(pulse ? 1.5 : 1.0)
-                        .animation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true), value: pulse)
-                    Text(event.displayName)
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(AppColors.text)
-                }
-                Spacer()
-                HStack(spacing: 4) {
+                        .frame(width: 5, height: 5)
+                        .scaleEffect(pulse ? 1.6 : 1.0)
+                        .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: pulse)
                     Text(elapsed)
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(AppColors.textSecondary)
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(AppColors.textTertiary)
                 }
             }
+            .padding(.horizontal, 18)
+            .padding(.top, 16)
 
-            Rectangle()
-                .fill(
-                    LinearGradient(
-                        colors: [stage.color.opacity(0.3), AppColors.border],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
-                .frame(height: 1)
-                .padding(.vertical, 14)
+            // BAC — serif, large, no glow orb
+            HStack(alignment: .lastTextBaseline, spacing: 2) {
+                Text(String(format: "%.3f", bac))
+                    .font(.system(size: 58, weight: .bold, design: .serif))
+                    .foregroundStyle(stage.color)
+                Text("%")
+                    .font(.system(size: 22, weight: .medium, design: .serif))
+                    .foregroundStyle(stage.color.opacity(0.55))
+                    .padding(.bottom, 6)
+            }
+            .padding(.horizontal, 18)
+            .padding(.top, 6)
 
-            // Bottom row: BAC + drinks
-            HStack(alignment: .bottom) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(String(format: "%.3f%%", bac))
-                        .font(.system(size: 32, weight: .bold, design: .monospaced))
-                        .foregroundStyle(stage.color)
-                        .shadow(color: stage.color.opacity(0.4), radius: 8, y: 0)
-                    Text(stage.name)
-                        .font(.system(size: 11, weight: .semibold))
-                        .tracking(0.8)
-                        .foregroundStyle(stage.color.opacity(0.65))
-                }
+            // Footer: event name + drink count
+            HStack {
+                Text(event.displayName)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(AppColors.textSecondary)
+                    .lineLimit(1)
                 Spacer()
-                VStack(alignment: .trailing, spacing: 2) {
+                HStack(spacing: 4) {
                     Text("\(drinkCount)")
-                        .font(.system(size: 32, weight: .bold, design: .rounded))
+                        .font(.system(size: 12, weight: .bold))
                         .foregroundStyle(AppColors.text)
-                    Text("drink\(drinkCount == 1 ? "" : "s")")
-                        .font(.system(size: 11))
+                    Text(drinkCount == 1 ? "drink" : "drinks")
+                        .font(.system(size: 12))
+                        .foregroundStyle(AppColors.textTertiary)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(AppColors.textTertiary)
                 }
             }
+            .padding(.horizontal, 18)
+            .padding(.top, 6)
+            .padding(.bottom, 16)
         }
-        .padding(18)
         .premiumCard(
             radius: 20,
             tint: stage.color,
-            tintOpacity: 0.07,
-            borderTop: stage.color.opacity(0.4),
-            borderBottom: stage.color.opacity(0.06)
+            tintOpacity: 0.05,
+            borderTop: stage.color.opacity(0.35),
+            borderBottom: stage.color.opacity(0.05)
         )
         .onAppear { pulse = true }
     }
@@ -594,42 +599,36 @@ private struct EventRow: View {
     private var isYesterday: Bool { Calendar.current.isDateInYesterday(event.startTime) }
 
     var body: some View {
-        HStack(spacing: 0) {
-            // Date column
-            VStack(spacing: 1) {
+        HStack(spacing: 14) {
+            // Date column — serif, no separator line
+            VStack(spacing: 0) {
                 if isToday {
                     Text("NOW")
                         .font(.system(size: 8, weight: .bold))
-                        .tracking(0.5)
+                        .tracking(1.5)
                         .foregroundStyle(AppColors.accent)
                     Text(dayNumber)
-                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                        .font(.system(size: 26, weight: .bold, design: .serif))
                         .foregroundStyle(AppColors.accent)
                 } else if isYesterday {
                     Text("YEST")
                         .font(.system(size: 8, weight: .bold))
-                        .tracking(0.5)
+                        .tracking(1.5)
                         .foregroundStyle(AppColors.textTertiary)
                     Text(dayNumber)
-                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                        .font(.system(size: 26, weight: .bold, design: .serif))
                         .foregroundStyle(AppColors.text)
                 } else {
                     Text(dayNumber)
-                        .font(.system(size: 22, weight: .bold, design: .rounded))
+                        .font(.system(size: 26, weight: .bold, design: .serif))
                         .foregroundStyle(AppColors.text)
                     Text(monthAbbr)
-                        .font(.system(size: 9, weight: .semibold))
-                        .tracking(0.5)
+                        .font(.system(size: 8, weight: .semibold))
+                        .tracking(1)
                         .foregroundStyle(AppColors.textTertiary)
                 }
             }
-            .frame(width: 44)
-
-            // Separator
-            Rectangle()
-                .fill(AppColors.border)
-                .frame(width: 1, height: 32)
-                .padding(.horizontal, 14)
+            .frame(width: 38)
 
             // Event info
             VStack(alignment: .leading, spacing: 3) {
@@ -638,29 +637,28 @@ private struct EventRow: View {
                     .foregroundStyle(AppColors.text)
                     .lineLimit(1)
                 Text(timeString)
-                    .font(.system(size: 12))
+                    .font(.system(size: 11))
                     .foregroundStyle(AppColors.textTertiary)
             }
 
             Spacer()
 
-            // Drink count + chevron
-            HStack(alignment: .center, spacing: 10) {
-                VStack(spacing: 1) {
-                    Text("\(drinkCount)")
-                        .font(.system(size: 17, weight: .bold, design: .rounded))
-                        .foregroundStyle(AppColors.accent)
-                    Text("drinks")
-                        .font(.system(size: 9))
-                        .foregroundStyle(AppColors.textTertiary)
-                }
+            // Drink count pill + chevron
+            HStack(spacing: 8) {
+                Text("\(drinkCount)")
+                    .font(.system(size: 12, weight: .bold, design: .serif))
+                    .foregroundStyle(AppColors.accent)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 4)
+                    .background(AppColors.accentDim)
+                    .cornerRadius(20)
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(AppColors.textTertiary)
             }
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 14)
+        .padding(.vertical, 13)
         .premiumCard(radius: 16)
     }
 }

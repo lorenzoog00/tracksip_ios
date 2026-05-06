@@ -62,6 +62,9 @@ final class AppState: ObservableObject {
         self.store = store
         currentUserId = SupabaseManager.shared.currentUserId()
         loadAll()
+        if activeEvent != nil {
+            WaterReminderManager.shared.schedule(intervalMinutes: userProfile.waterReminderIntervalMinutes)
+        }
         authCancellable = SupabaseManager.shared.$isSignedIn
             .receive(on: RunLoop.main)
             .sink { [weak self] isSignedIn in
@@ -99,6 +102,7 @@ final class AppState: ObservableObject {
         Task { await SupabaseManager.shared.pushEvent(event) }
         WatchBridge.shared.pushState()
         startLiveActivity(for: event)
+        WaterReminderManager.shared.schedule(intervalMinutes: userProfile.waterReminderIntervalMinutes)
         return event
     }
 
@@ -165,6 +169,7 @@ final class AppState: ObservableObject {
         updateEvent(id: id) { $0.endTime = Date() }
         UINotificationFeedbackGenerator().notificationOccurred(.success)
         if #available(iOS 16.2, *) { LiveActivityManager.shared.end() }
+        WaterReminderManager.shared.cancel()
         WatchBridge.shared.pushState()
     }
 
@@ -259,6 +264,9 @@ final class AppState: ObservableObject {
         waterEntries.append(entry)
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         scheduleUndoWater(entry)
+        if activeEvent?.id == eventId {
+            WaterReminderManager.shared.schedule(intervalMinutes: userProfile.waterReminderIntervalMinutes)
+        }
     }
 
     func undoLastWaterEntry() {
@@ -311,6 +319,9 @@ final class AppState: ObservableObject {
         userProfile = profile
         DataStore.shared.saveUserProfile(profile)
         Task { await SupabaseManager.shared.pushProfile(profile) }
+        if activeEvent != nil {
+            WaterReminderManager.shared.schedule(intervalMinutes: profile.waterReminderIntervalMinutes)
+        }
     }
 
     // MARK: - Challenges

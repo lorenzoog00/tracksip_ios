@@ -32,6 +32,7 @@ struct UserProfile: Codable {
     var birthYear: Int?
     var bacLimit: Double                       = 0.08
     var waterSuggestions: Bool                 = true
+    var waterReminderIntervalMinutes: Int?     = nil
     var notifications: NotificationPreferences = NotificationPreferences()
     var disclaimerAcceptedAt: Date?
     var onboardingComplete: Bool               = false

@@ -220,69 +220,72 @@ private struct BACHero: View {
     let bacLimit: Double
 
     var body: some View {
-        VStack(spacing: 12) {
-            // Ambient glow orb behind the number
-            ZStack {
-                Ellipse()
-                    .fill(
-                        RadialGradient(
-                            colors: [stage.color.opacity(0.22), .clear],
-                            center: .center,
-                            startRadius: 0,
-                            endRadius: 80
-                        )
-                    )
-                    .frame(width: 200, height: 100)
-                    .blur(radius: 12)
+        VStack(spacing: 0) {
+            // Stage badge — no glow, just a precise label
+            Text(stage.name.uppercased())
+                .font(.system(size: 9, weight: .bold))
+                .tracking(2.8)
+                .foregroundStyle(stage.color)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(stage.color.opacity(0.12))
+                .cornerRadius(4)
+                .padding(.top, 20)
 
-                Text(String(format: "%.3f%%", bac))
-                    .font(.system(size: 56, weight: .bold, design: .monospaced))
+            // BAC — massive serif, no orb, no shadow
+            HStack(alignment: .lastTextBaseline, spacing: 2) {
+                Text(String(format: "%.3f", bac))
+                    .font(.system(size: 76, weight: .bold, design: .serif))
                     .foregroundStyle(stage.color)
-                    .shadow(color: stage.color.opacity(0.45), radius: 14, y: 0)
+                Text("%")
+                    .font(.system(size: 26, weight: .medium, design: .serif))
+                    .foregroundStyle(stage.color.opacity(0.5))
+                    .padding(.bottom, 10)
             }
+            .padding(.top, 4)
 
-            Text(stage.name)
-                .font(.system(size: 13, weight: .semibold))
-                .tracking(1.2)
-                .foregroundStyle(stage.color.opacity(0.85))
+            Text(stage.blurb)
+                .font(.system(size: 12))
+                .foregroundStyle(AppColors.textSecondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 28)
 
             BACGaugeArc(bac: bac, stage: stage, drivingMode: drivingMode, bacLimit: bacLimit)
-                .padding(.horizontal)
+                .padding(.horizontal, 20)
+                .padding(.top, 10)
 
             if drivingMode {
-                HStack(spacing: 4) {
-                    Capsule()
+                HStack(spacing: 6) {
+                    Rectangle()
                         .fill(AppColors.danger)
-                        .frame(width: 8, height: 2)
+                        .frame(width: 14, height: 1.5)
                     Text(String(format: "limit %.2f%%", bacLimit))
                         .font(.system(size: 11))
                         .foregroundStyle(AppColors.danger.opacity(0.7))
                 }
+                .padding(.top, 6)
             }
-
-            Text(stage.blurb)
-                .font(.system(size: 13))
-                .foregroundStyle(AppColors.textSecondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal)
 
             if bac > 0 {
                 let hours = BACCalculator.hoursToZeroBAC(bac)
                 let h = Int(hours)
                 let m = Int((hours - Double(h)) * 60)
-                Text("~\(h)h \(m)m to zero")
-                    .font(.system(size: 12))
+                Text("~\(h)h \(m)m to sober")
+                    .font(.system(size: 11))
+                    .tracking(0.3)
                     .foregroundStyle(AppColors.textTertiary)
+                    .padding(.top, 8)
             }
+
+            Spacer().frame(height: 20)
         }
-        .padding()
         .frame(maxWidth: .infinity)
         .premiumCard(
             radius: 20,
             tint: stage.color,
-            tintOpacity: 0.05,
-            borderTop: stage.color.opacity(0.4),
-            borderBottom: stage.color.opacity(0.06)
+            tintOpacity: 0.04,
+            borderTop: stage.color.opacity(0.3),
+            borderBottom: stage.color.opacity(0.05)
         )
         .padding(.horizontal)
         .animation(.easeInOut(duration: 0.4), value: stage.name)
@@ -439,15 +442,13 @@ private struct StatCell: View {
     let color: Color
 
     var body: some View {
-        VStack(spacing: 4) {
-            Image(systemName: icon)
-                .font(.system(size: 14))
-                .foregroundStyle(color)
+        VStack(spacing: 3) {
             Text(value)
-                .font(.system(size: 18, weight: .bold))
-                .foregroundStyle(AppColors.text)
-            Text(label)
-                .font(.system(size: 11))
+                .font(.system(size: 22, weight: .bold, design: .serif))
+                .foregroundStyle(color == AppColors.accent ? AppColors.text : color)
+            Text(label.uppercased())
+                .font(.system(size: 9, weight: .semibold))
+                .tracking(1.2)
                 .foregroundStyle(AppColors.textTertiary)
         }
         .frame(maxWidth: .infinity)
@@ -508,11 +509,16 @@ private struct QuickAddGrid: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("QUICK ADD")
-                .font(.system(size: 10, weight: .semibold))
-                .tracking(1.4)
-                .foregroundStyle(AppColors.textTertiary)
-                .padding(.horizontal)
+            HStack(spacing: 10) {
+                Text("QUICK ADD")
+                    .font(.system(size: 10, weight: .semibold))
+                    .tracking(1.4)
+                    .foregroundStyle(AppColors.textTertiary)
+                Rectangle()
+                    .fill(AppColors.border)
+                    .frame(height: 0.5)
+            }
+            .padding(.horizontal)
 
             LazyVGrid(columns: columns, spacing: 10) {
                 ForEach(drinkTypes) { dt in
@@ -533,29 +539,42 @@ private struct DrinkTile: View {
     @State private var pressed = false
 
     var body: some View {
-        Button {
-            onTap()
-        } label: {
-            VStack(spacing: 6) {
-                Image(systemName: drinkType.sfSymbol)
-                    .font(.system(size: 22))
-                    .foregroundStyle(AppColors.accent)
-                Text(drinkType.name)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(AppColors.text)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.center)
-                    .minimumScaleFactor(0.8)
+        Button(action: onTap) {
+            ZStack(alignment: .topTrailing) {
+                VStack(alignment: .leading, spacing: 0) {
+                    Image(systemName: drinkType.sfSymbol)
+                        .font(.system(size: 17, weight: .medium))
+                        .foregroundStyle(AppColors.accent.opacity(0.65))
+
+                    Spacer()
+
+                    Text(drinkType.name)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(AppColors.text)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.8)
+                        .multilineTextAlignment(.leading)
+                }
+                .padding(11)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(height: 92)
+                .premiumCard(radius: 14)
+
+                if drinkType.defaultAbv > 0 {
+                    Text(String(format: "%.0f%%", drinkType.defaultAbv * 100))
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundStyle(AppColors.textTertiary)
+                        .padding(.top, 9)
+                        .padding(.trailing, 9)
+                }
             }
-            .frame(maxWidth: .infinity)
-            .frame(height: 88)
-            .premiumCard(radius: 14)
-            .scaleEffect(pressed ? 0.93 : 1.0)
+            .scaleEffect(pressed ? 0.91 : 1.0)
+            .animation(.spring(response: 0.2, dampingFraction: 0.65), value: pressed)
         }
         .buttonStyle(.plain)
         .simultaneousGesture(DragGesture(minimumDistance: 0)
-            .onChanged { _ in withAnimation(.easeInOut(duration: 0.1)) { pressed = true } }
-            .onEnded   { _ in withAnimation(.easeInOut(duration: 0.15)) { pressed = false } }
+            .onChanged { _ in pressed = true }
+            .onEnded   { _ in pressed = false }
         )
     }
 }
@@ -675,6 +694,28 @@ private struct WaterToast: View {
 
 // MARK: - Timeline
 
+private enum TLItem: Identifiable {
+    case drink(DrinkEntry)
+    case water(WaterEntry)
+
+    var id: String {
+        switch self {
+        case .drink(let e): return "d\(e.id)"
+        case .water(let w): return "w\(w.id)"
+        }
+    }
+    var timestamp: Date {
+        switch self {
+        case .drink(let e): return e.timestamp
+        case .water(let w): return w.timestamp
+        }
+    }
+    var isDrink: Bool {
+        if case .drink = self { return true }; return false
+    }
+    var nodeColor: Color { isDrink ? AppColors.accent : AppColors.water }
+}
+
 private struct TimelineSection: View {
     let entries: [DrinkEntry]
     let waterEntries: [WaterEntry]
@@ -683,77 +724,205 @@ private struct TimelineSection: View {
     let onDeleteWater: (String) -> Void
     let onEditEntry: (DrinkEntry) -> Void
 
-    private enum Item: Identifiable {
-        case drink(DrinkEntry)
-        case water(WaterEntry)
-        var id: String {
-            switch self { case .drink(let e): return e.id; case .water(let w): return w.id }
-        }
-        var timestamp: Date {
-            switch self { case .drink(let e): return e.timestamp; case .water(let w): return w.timestamp }
-        }
-    }
-
-    private var items: [Item] {
-        (entries.map { Item.drink($0) } + waterEntries.map { Item.water($0) })
+    private var items: [TLItem] {
+        (entries.map { TLItem.drink($0) } + waterEntries.map { TLItem.water($0) })
             .sorted { $0.timestamp > $1.timestamp }
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("TIMELINE")
-                .font(.system(size: 10, weight: .semibold))
-                .tracking(1.4)
-                .foregroundStyle(AppColors.textTertiary)
-                .padding(.horizontal)
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 10) {
+                Text("TIMELINE")
+                    .font(.system(size: 10, weight: .semibold))
+                    .tracking(1.4)
+                    .foregroundStyle(AppColors.textTertiary)
+                Rectangle()
+                    .fill(AppColors.border)
+                    .frame(height: 0.5)
+            }
+            .padding(.horizontal)
+            .padding(.bottom, 14)
 
-            ForEach(items) { item in
-                switch item {
-                case .drink(let e):
-                    DrinkRow(
-                        entry: e,
-                        drinkType: drinkTypes.first { $0.id == e.drinkTypeId },
-                        onDelete: { onDeleteEntry(e.id) },
-                        onEdit: { onEditEntry(e) }
-                    )
-                    .padding(.horizontal)
-                case .water(let w):
-                    WaterRow(entry: w, onDelete: { onDeleteWater(w.id) })
-                        .padding(.horizontal)
-                }
+            ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                TLRow(
+                    item: item,
+                    isFirst: index == 0,
+                    isLast: index == items.count - 1,
+                    drinkTypes: drinkTypes,
+                    onDeleteEntry: onDeleteEntry,
+                    onDeleteWater: onDeleteWater,
+                    onEditEntry: onEditEntry,
+                    delay: Double(min(index, 6)) * 0.055
+                )
             }
         }
     }
 }
 
-private struct DrinkRow: View {
-    let entry: DrinkEntry
-    let drinkType: DrinkType?
-    let onDelete: () -> Void
-    let onEdit: () -> Void
-    private static let tf: DateFormatter = { let f = DateFormatter(); f.timeStyle = .short; return f }()
+private struct TLRow: View {
+    let item: TLItem
+    let isFirst: Bool
+    let isLast: Bool
+    let drinkTypes: [DrinkType]
+    let onDeleteEntry: (String) -> Void
+    let onDeleteWater: (String) -> Void
+    let onEditEntry: (DrinkEntry) -> Void
+    let delay: Double
+
+    @State private var appeared = false
+
+    private static let tf: DateFormatter = {
+        let f = DateFormatter(); f.timeStyle = .short; return f
+    }()
 
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: drinkType?.sfSymbol ?? "cup.and.saucer.fill")
-                .font(.system(size: 16))
-                .foregroundStyle(AppColors.accent)
-                .frame(width: 32)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("\(entry.quantity > 1 ? "\(entry.quantity)× " : "")\(drinkType?.name ?? "Unknown")")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(AppColors.text)
-                if let c = entry.comment, !c.isEmpty {
-                    Text(c).font(.system(size: 12)).foregroundStyle(AppColors.textSecondary)
+        HStack(alignment: .top, spacing: 12) {
+            // — spine —
+            VStack(spacing: 0) {
+                Rectangle()
+                    .fill(isFirst ? Color.clear : AppColors.border.opacity(0.55))
+                    .frame(width: 1.5, height: 18)
+                ZStack {
+                    Circle()
+                        .fill(item.nodeColor.opacity(0.18))
+                        .frame(width: item.isDrink ? 18 : 13,
+                               height: item.isDrink ? 18 : 13)
+                    Circle()
+                        .fill(item.nodeColor)
+                        .frame(width: item.isDrink ? 8 : 5,
+                               height: item.isDrink ? 8 : 5)
+                }
+                .shadow(color: item.nodeColor.opacity(0.7),
+                        radius: item.isDrink ? 8 : 5, x: 0, y: 0)
+                Rectangle()
+                    .fill(isLast ? Color.clear : AppColors.border.opacity(0.55))
+                    .frame(width: 1.5)
+                    .frame(maxHeight: .infinity)
+            }
+            .frame(width: 18)
+
+            // — card —
+            Group {
+                switch item {
+                case .drink(let e):
+                    let dt = drinkTypes.first { $0.id == e.drinkTypeId }
+                    TLDrinkCard(
+                        entry: e, drinkType: dt,
+                        time: Self.tf.string(from: e.timestamp),
+                        onDelete: { onDeleteEntry(e.id) },
+                        onEdit: { onEditEntry(e) }
+                    )
+                case .water(let w):
+                    TLWaterCard(
+                        entry: w,
+                        time: Self.tf.string(from: w.timestamp),
+                        onDelete: { onDeleteWater(w.id) }
+                    )
                 }
             }
-            Spacer()
-            Text(Self.tf.string(from: entry.timestamp))
-                .font(.system(size: 12))
-                .foregroundStyle(AppColors.textTertiary)
+            .padding(.bottom, isLast ? 4 : 10)
         }
-        .padding(12)
-        .premiumCard(radius: 12)
+        .padding(.horizontal, 16)
+        .opacity(appeared ? 1 : 0)
+        .offset(x: appeared ? 0 : 20)
+        .onAppear {
+            withAnimation(.spring(response: 0.44, dampingFraction: 0.80).delay(delay)) {
+                appeared = true
+            }
+        }
+    }
+}
+
+private struct TLDrinkCard: View {
+    let entry: DrinkEntry
+    let drinkType: DrinkType?
+    let time: String
+    let onDelete: () -> Void
+    let onEdit: () -> Void
+
+    private var displayAbv: Double {
+        entry.abvOverride ?? drinkType?.defaultAbv ?? 0
+    }
+    private var displayVol: Double {
+        entry.volumeOverrideMl ?? drinkType?.defaultVolumeMl ?? 0
+    }
+
+    var body: some View {
+        HStack(spacing: 0) {
+            // Left accent bar
+            RoundedRectangle(cornerRadius: 2)
+                .fill(
+                    LinearGradient(
+                        colors: [AppColors.accent, AppColors.accent.opacity(0.25)],
+                        startPoint: .top, endPoint: .bottom
+                    )
+                )
+                .frame(width: 3)
+                .padding(.vertical, 8)
+
+            HStack(spacing: 10) {
+                Image(systemName: drinkType?.sfSymbol ?? "cup.and.saucer.fill")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(AppColors.accent)
+                    .frame(width: 20)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 5) {
+                        if entry.quantity > 1 {
+                            Text("×\(entry.quantity)")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(AppColors.accent)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 2)
+                                .background(AppColors.accent.opacity(0.15))
+                                .cornerRadius(4)
+                        }
+                        Text(drinkType?.name ?? "Drink")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(AppColors.text)
+                    }
+
+                    HStack(spacing: 5) {
+                        if displayAbv > 0 {
+                            Text(String(format: "%.0f%% ABV", displayAbv))
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundStyle(AppColors.textTertiary)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 2)
+                                .background(AppColors.border.opacity(0.6))
+                                .cornerRadius(4)
+                        }
+                        if displayVol > 0 {
+                            Text("\(Int(displayVol)) ml")
+                                .font(.system(size: 10))
+                                .foregroundStyle(AppColors.textTertiary)
+                        }
+                        if let c = entry.comment, !c.isEmpty {
+                            Text(c)
+                                .font(.system(size: 10))
+                                .foregroundStyle(AppColors.textSecondary)
+                                .lineLimit(1)
+                        }
+                    }
+                }
+
+                Spacer()
+
+                Text(time)
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .foregroundStyle(AppColors.textTertiary)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 10)
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(AppColors.accent.opacity(0.05))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(AppColors.accent.opacity(0.15), lineWidth: 1)
+                )
+        )
         .contextMenu {
             Button { onEdit() } label: { Label("Edit", systemImage: "pencil") }
             Button(role: .destructive) { onDelete() } label: { Label("Delete", systemImage: "trash") }
@@ -761,27 +930,55 @@ private struct DrinkRow: View {
     }
 }
 
-private struct WaterRow: View {
+private struct TLWaterCard: View {
     let entry: WaterEntry
+    let time: String
     let onDelete: () -> Void
-    private static let tf: DateFormatter = { let f = DateFormatter(); f.timeStyle = .short; return f }()
 
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "drop.fill")
-                .font(.system(size: 16))
-                .foregroundStyle(AppColors.water)
-                .frame(width: 32)
-            Text("Water (\(Int(entry.volumeMl))ml)")
-                .font(.system(size: 14))
-                .foregroundStyle(AppColors.textSecondary)
-            Spacer()
-            Text(Self.tf.string(from: entry.timestamp))
-                .font(.system(size: 12))
-                .foregroundStyle(AppColors.textTertiary)
+        HStack(spacing: 0) {
+            RoundedRectangle(cornerRadius: 2)
+                .fill(
+                    LinearGradient(
+                        colors: [AppColors.water, AppColors.water.opacity(0.25)],
+                        startPoint: .top, endPoint: .bottom
+                    )
+                )
+                .frame(width: 3)
+                .padding(.vertical, 6)
+
+            HStack(spacing: 10) {
+                Image(systemName: "drop.fill")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(AppColors.water)
+                    .frame(width: 20)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Water")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(AppColors.textSecondary)
+                    Text("\(Int(entry.volumeMl)) ml")
+                        .font(.system(size: 10))
+                        .foregroundStyle(AppColors.textTertiary)
+                }
+
+                Spacer()
+
+                Text(time)
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .foregroundStyle(AppColors.textTertiary)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
         }
-        .padding(12)
-        .premiumCard(radius: 12)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(AppColors.water.opacity(0.04))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(AppColors.water.opacity(0.12), lineWidth: 1)
+                )
+        )
         .contextMenu {
             Button(role: .destructive) { onDelete() } label: { Label("Delete", systemImage: "trash") }
         }
@@ -796,36 +993,36 @@ private struct BottomBar: View {
     let onEnd: () -> Void
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 10) {
             Button(action: onAddWater) {
                 HStack(spacing: 6) {
                     Image(systemName: "drop.fill")
-                        .font(.system(size: 15))
+                        .font(.system(size: 13))
                     Text("Water")
                         .font(.system(size: 14, weight: .semibold))
                 }
                 .foregroundStyle(AppColors.water)
-                .frame(width: 110, height: 50)
-                .background(AppColors.waterDim)
-                .cornerRadius(12)
+                .frame(width: 104, height: 48)
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(AppColors.water.opacity(0.35), lineWidth: 1))
             }
 
             Button(action: onEnd) {
                 HStack(spacing: 6) {
                     Image(systemName: "stop.fill")
-                        .font(.system(size: 14))
+                        .font(.system(size: 12))
                     Text("End Night")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.system(size: 14, weight: .semibold))
+                        .tracking(0.2)
                 }
                 .foregroundStyle(AppColors.danger)
                 .frame(maxWidth: .infinity)
-                .frame(height: 50)
-                .background(AppColors.dangerDim)
-                .cornerRadius(12)
+                .frame(height: 48)
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(AppColors.danger.opacity(0.35), lineWidth: 1))
             }
         }
         .padding(.horizontal)
         .padding(.vertical, 12)
         .background(.ultraThinMaterial)
+        .overlay(Rectangle().frame(height: 0.5).foregroundStyle(AppColors.border), alignment: .top)
     }
 }

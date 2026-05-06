@@ -1,5 +1,4 @@
 import SwiftUI
-import AppTrackingTransparency
 
 @main
 struct SipTrackApp: App {
@@ -34,9 +33,7 @@ struct SipTrackApp: App {
                         appState.syncSubscriptionFromStore()
                     }
                     Task {
-                        await ATTrackingManager.requestTrackingAuthorization()
-                        AdManager.shared.initialize()
-                        await AdManager.shared.loadAppOpenAd()
+                        await ConsentManager.shared.gatherConsentAndInitializeAds()
                     }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
