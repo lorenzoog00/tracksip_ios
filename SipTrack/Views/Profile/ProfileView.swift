@@ -806,12 +806,14 @@ struct AuthView: View {
     @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) private var dismiss
 
-    @State private var name      = ""
-    @State private var email     = ""
-    @State private var password  = ""
-    @State private var isSignUp  = false
-    @State private var isLoading = false
+    @State private var name             = ""
+    @State private var email            = ""
+    @State private var password         = ""
+    @State private var isSignUp         = false
+    @State private var isLoading        = false
     @State private var errorMsg: String? = nil
+    @State private var showVerification   = false
+    @State private var showForgotPassword = false
 
     var body: some View {
         ZStack {
@@ -866,47 +868,18 @@ struct AuthView: View {
                         }
                     } label: {
                         HStack(spacing: 10) {
-                            Image(systemName: "globe")
-                                .font(.system(size: 16, weight: .medium))
+                            GoogleGLogo()
+                                .frame(width: 20, height: 20)
                             Text("Continue with Google")
                                 .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(Color(red: 0.26, green: 0.26, blue: 0.26))
                         }
                         .frame(maxWidth: .infinity)
                         .frame(height: 50)
                         .background(Color.white)
-                        .foregroundStyle(Color.black)
                         .cornerRadius(14)
                     }
                     .disabled(isLoading)
-
-                    // MARK: Apple Sign In
-                    SignInWithAppleButton(.continue) { request in
-                        request.requestedScopes = [.fullName, .email]
-                        request.nonce = firebase.prepareAppleSignIn()
-                    } onCompletion: { result in
-                        switch result {
-                        case .success(let auth):
-                            guard let cred = auth.credential as? ASAuthorizationAppleIDCredential else { return }
-                            Task {
-                                isLoading = true
-                                do {
-                                    try await firebase.handleAppleCredential(cred)
-                                    let data = await firebase.pullUserData()
-                                    appState.applyCloudData(data)
-                                    appState.shouldShowAuth = false
-                                    dismiss()
-                                } catch {
-                                    errorMsg = error.localizedDescription
-                                }
-                                isLoading = false
-                            }
-                        case .failure(let error):
-                            errorMsg = error.localizedDescription
-                        }
-                    }
-                    .signInWithAppleButtonStyle(.white)
-                    .frame(height: 50)
-                    .cornerRadius(14)
 
                     HStack {
                         Rectangle().fill(AppColors.border).frame(height: 1)
@@ -958,6 +931,16 @@ struct AuthView: View {
                             .foregroundStyle(AppColors.accent)
                     }
 
+                    if !isSignUp {
+                        Button {
+                            showForgotPassword = true
+                        } label: {
+                            Text("Forgot password?")
+                                .font(.system(size: 14))
+                                .foregroundStyle(AppColors.textSecondary)
+                        }
+                    }
+
                     Spacer(minLength: 40)
                 }
                 .padding()
@@ -965,6 +948,22 @@ struct AuthView: View {
         }
         .navigationTitle(isSignUp ? "Create Account" : "Sign In")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showForgotPassword) {
+            ForgotPasswordView()
+                .environmentObject(firebase)
+        }
+        .fullScreenCover(isPresented: $showVerification) {
+            EmailVerificationView(email: email, password: password) {
+                Task {
+                    let data = await firebase.pullUserData()
+                    appState.applyCloudData(data)
+                    appState.shouldShowAuth = false
+                    showVerification = false
+                    dismiss()
+                }
+            }
+            .environmentObject(firebase)
+        }
     }
 
     private var canSubmit: Bool {
@@ -976,14 +975,22 @@ struct AuthView: View {
         do {
             if isSignUp {
                 try await firebase.signUp(email: email, password: password, displayName: name)
+                showVerification = true
             } else {
                 try await firebase.signIn(email: email, password: password)
+                let data = await firebase.pullUserData()
+                appState.applyCloudData(data)
+                appState.shouldShowAuth = false
+                dismiss()
             }
-            let data = await firebase.pullUserData()
-            appState.applyCloudData(data)
-            appState.shouldShowAuth = false
-            dismiss()
-        } catch { errorMsg = error.localizedDescription }
+        } catch {
+            let msg = error.localizedDescription
+            if msg.contains("verify your email") {
+                showVerification = true
+            } else {
+                errorMsg = msg
+            }
+        }
         isLoading = false
     }
 }

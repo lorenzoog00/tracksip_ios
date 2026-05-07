@@ -2,13 +2,14 @@ import SwiftUI
 
 struct RootView: View {
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var firebase: FirebaseManager
     @State private var path = NavigationPath()
 
     var body: some View {
         Group {
             if appState.shouldShowAuth {
                 AuthView()
-            } else if !appState.userProfile.onboardingComplete {
+            } else if firebase.isSignedIn && !appState.userProfile.onboardingComplete {
                 OnboardingView()
             } else {
                 NavigationStack(path: $path) {

@@ -25,8 +25,8 @@ final class WaterReminderManager {
         content.body = "Time for a glass of water! 💧"
         content.sound = .default
         let trigger = UNTimeIntervalNotificationTrigger(
-            timeInterval: Double(minutes) * 60,
-            repeats: false
+            timeInterval: max(Double(minutes) * 60, 60),
+            repeats: true
         )
         let request = UNNotificationRequest(identifier: notificationId, content: content, trigger: trigger)
         UNUserNotificationCenter.current().add(request)

@@ -41,6 +41,11 @@ final class FirebaseManager: ObservableObject {
 
     func signIn(email: String, password: String) async throws {
         let result = try await auth.signIn(withEmail: email, password: password)
+        guard result.user.isEmailVerified else {
+            try? auth.signOut()
+            throw NSError(domain: "FirebaseManager", code: 17095,
+                          userInfo: [NSLocalizedDescriptionKey: "Please verify your email before signing in. Check your inbox for the verification link."])
+        }
         isSignedIn = true
         userEmail = result.user.email
     }
@@ -53,9 +58,31 @@ final class FirebaseManager: ObservableObject {
             request.displayName = displayName
             try? await request.commitChanges()
         }
-        isSignedIn = true
-        userEmail = result.user.email
+        try? await result.user.sendEmailVerification()
+        try? auth.signOut()
         return true
+    }
+
+    func resetPassword(email: String) async throws {
+        try await auth.sendPasswordReset(withEmail: email)
+    }
+
+    func resendVerificationEmail(email: String, password: String) async throws {
+        let result = try await auth.signIn(withEmail: email, password: password)
+        try await result.user.sendEmailVerification()
+        try? auth.signOut()
+    }
+
+    func checkEmailVerified(email: String, password: String) async throws -> Bool {
+        let result = try await auth.signIn(withEmail: email, password: password)
+        try await result.user.reload()
+        if result.user.isEmailVerified {
+            isSignedIn = true
+            userEmail = result.user.email
+            return true
+        }
+        try? auth.signOut()
+        return false
     }
 
     func signOut() async {
