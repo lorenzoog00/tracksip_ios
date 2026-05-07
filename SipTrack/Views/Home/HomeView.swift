@@ -251,7 +251,7 @@ struct HomeView: View {
                 .padding(.horizontal)
 
                 ForEach(Array(appState.visibleEvents.enumerated()), id: \.element.id) { index, event in
-                    if index == 2 && !appState.isPro {
+                    if index % 2 == 1 && !appState.isPro {
                         NativeAdCardView()
                             .padding(.horizontal)
                     }
