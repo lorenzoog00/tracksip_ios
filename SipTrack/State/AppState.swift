@@ -2,6 +2,7 @@ import SwiftUI
 import StoreKit
 import Combine
 import UIKit
+import UserNotifications
 import SipTrackActivityKit
 
 @MainActor
@@ -23,6 +24,7 @@ final class AppState: ObservableObject {
     @Published var currentUserId: String?    = nil
     @Published var shouldShowAuth: Bool      = false
     @Published var syncFailed: Bool          = false
+    @Published var generatingReportForEventId: String? = nil
 
     /// Set by ActiveEventView right after End Night so RootView can pop the
     /// active event and push SummaryView cleanly.
@@ -184,6 +186,110 @@ final class AppState: ObservableObject {
         if #available(iOS 16.2, *) { LiveActivityManager.shared.end() }
         WaterReminderManager.shared.cancel()
         WatchBridge.shared.pushState()
+        generateAiReport(for: id)
+    }
+
+    // MARK: - AI Report
+
+    private func generateAiReport(for eventId: String) {
+        guard let event = events.first(where: { $0.id == eventId }),
+              let endTime = event.endTime else { return }
+        let eventEntries = entries.filter { $0.eventId == eventId }
+        guard !eventEntries.isEmpty else { return }
+        let eventWater = waterEntries.filter { $0.eventId == eventId }
+
+        let timeline = BACCalculator.bacTimeline(
+            entries: eventEntries,
+            drinkTypes: allDrinkTypes,
+            profile: userProfile,
+            eventStart: event.startTime
+        )
+        let peakPoint = timeline.max(by: { $0.bac < $1.bac })
+        let peakBAC = peakPoint?.bac ?? 0
+        let peakBacTime: String = {
+            guard let date = peakPoint?.date else { return "" }
+            let f = DateFormatter(); f.timeStyle = .short
+            return f.string(from: date)
+        }()
+        let durationMinutes = Int(event.duration / 60)
+        let drinkData: [[String: Any]] = Dictionary(grouping: eventEntries) { $0.drinkTypeId }
+            .compactMap { typeId, es -> [String: Any]? in
+                guard let dt = allDrinkTypes.first(where: { $0.id == typeId }) else { return nil }
+                return ["name": dt.name, "quantity": es.reduce(0) { $0 + $1.quantity }]
+            }
+        let drinkCount = eventEntries.reduce(0) { $0 + $1.quantity }
+        let limit = 0.08
+        let minutesAboveLimit = timeline.filter { $0.bac > limit }.count * 5
+        let waterCount = eventWater.count
+        let hydrationLevel = BACCalculator.hydrationLevel(waterEntries: eventWater, drinkCount: drinkCount)
+        let cals = totalCalories(for: eventId)
+        let lastDrinkTime = eventEntries.max(by: { $0.timestamp < $1.timestamp })?.timestamp ?? event.startTime
+        let recoveryMinutes = Int(endTime.timeIntervalSince(lastDrinkTime) / 60)
+        let thirtyDaysAgo = Calendar.current.date(byAdding: .day, value: -30, to: Date())!
+        let recentEvents = events.filter {
+            $0.userId == currentUserId && $0.endTime != nil
+            && $0.id != eventId && $0.startTime >= thirtyDaysAgo
+        }
+        let avgDrinksLast30Days: Double = recentEvents.isEmpty ? 0
+            : Double(recentEvents.reduce(0) { $0 + totalDrinks(for: $1.id) }) / Double(recentEvents.count)
+        let dayOfWeekFmt = DateFormatter(); dayOfWeekFmt.dateFormat = "EEEE"
+        let dayOfWeek = dayOfWeekFmt.string(from: event.startTime)
+        let currentYear = Calendar.current.component(.year, from: Date())
+
+        var params: [String: Any] = [
+            "eventId": eventId,
+            "durationMinutes": durationMinutes,
+            "drinks": drinkData,
+            "peakBac": peakBAC,
+            "peakBacTime": peakBacTime,
+            "minutesAboveLimit": minutesAboveLimit,
+            "waterCount": waterCount,
+            "hydrationLevel": hydrationLevel.rawValue,
+            "totalCalories": cals,
+            "recoveryMinutes": recoveryMinutes,
+            "userSex": userProfile.sex.rawValue,
+            "userWeightKg": userProfile.weightKg,
+            "avgDrinksLast30Days": avgDrinksLast30Days,
+            "dayOfWeek": dayOfWeek,
+        ]
+        if let name = event.name { params["eventName"] = name }
+        if let birthYear = userProfile.birthYear { params["userAge"] = currentYear - birthYear }
+
+        let eventDisplayName = event.displayName
+        generatingReportForEventId = eventId
+        Task {
+            defer { generatingReportForEventId = nil }
+            do {
+                try await FirebaseManager.shared.requestAiReport(eventId: eventId, data: params)
+                var report: String?
+                for _ in 0..<15 {
+                    try? await Task.sleep(nanoseconds: 3_000_000_000)
+                    report = await FirebaseManager.shared.fetchAiReport(eventId: eventId)
+                    if report != nil { break }
+                }
+                guard let report else {
+                    print("❌ AI report timeout: no report after 45s")
+                    return
+                }
+                if let idx = events.firstIndex(where: { $0.id == eventId }) {
+                    events[idx].aiReport = report
+                    DataStore.shared.updateEvent(events[idx])
+                }
+                scheduleReportReadyNotification(eventName: eventDisplayName)
+            } catch {
+                print("❌ AI report error: \(error)")
+            }
+        }
+    }
+
+    private func scheduleReportReadyNotification(eventName: String) {
+        let content = UNMutableNotificationContent()
+        content.title = "Your night report is ready"
+        content.body = "\(eventName) — tap to read your personalized health summary."
+        content.sound = .default
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+        let request = UNNotificationRequest(identifier: "siptrack.ai-report", content: content, trigger: trigger)
+        UNUserNotificationCenter.current().add(request)
     }
 
     func updateEventNotes(id: String, notes: String) {

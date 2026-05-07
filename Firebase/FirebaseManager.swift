@@ -254,6 +254,7 @@ final class FirebaseManager: ObservableObject {
                 drivingMode: d["driving_mode"] as? Bool ?? false,
                 bacLimit: d["bac_limit"] as? Double,
                 notes: d["notes"] as? String,
+                aiReport: d["ai_report"] as? String,
                 createdAt: (d["created_at"] as? Double).map { Date(timeIntervalSince1970: $0 / 1000) }
                     ?? Date(timeIntervalSince1970: startMs / 1000)
             )
@@ -324,6 +325,22 @@ final class FirebaseManager: ObservableObject {
 
         return PulledData(events: events, entries: entries, drinkTypes: drinkTypes,
                           challenges: challenges, profile: profile)
+    }
+
+    // MARK: - AI Report (Firestore trigger)
+
+    func requestAiReport(eventId: String, data: [String: Any]) async throws {
+        guard let col = col("night_events") else { return }
+        try await col.document(eventId).setData([
+            "ai_report_requested": true,
+            "ai_report_request_data": data
+        ], merge: true)
+    }
+
+    func fetchAiReport(eventId: String) async -> String? {
+        guard let col = col("night_events") else { return nil }
+        let doc = try? await col.document(eventId).getDocument()
+        return doc?.data()?["ai_report"] as? String
     }
 
     // MARK: - Account deletion

@@ -8,6 +8,8 @@ struct SummaryView: View {
     @State private var notes = ""
     @State private var notesSavedAt: Date? = nil
     @State private var showDeleteConfirm = false
+    @State private var showPDFShare = false
+    @State private var pdfURL: URL? = nil
     @Environment(\.dismiss) private var dismiss
 
     private var event: NightEvent?      { appState.events.first { $0.id == eventId } }
@@ -108,6 +110,13 @@ struct SummaryView: View {
                 .background(AppColors.surface)
                 .cornerRadius(14)
                 .padding(.horizontal)
+
+                // AI night report
+                AIReportCard(
+                    report: event.aiReport,
+                    isGenerating: appState.generatingReportForEventId == eventId,
+                    isPro: appState.isPro
+                )
 
                 // Stats grid
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
@@ -284,26 +293,51 @@ struct SummaryView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
-                Button {
-                    let card = SummaryShareCard(
-                        event: event,
-                        meanBAC: meanBACValue,
-                        drinkCount: drinkCount,
-                        standardDrinks: standardDrinks,
-                        timeline: timeline,
-                        calories: calories,
-                        waterCount: eventWater.count
-                    ).environment(\.colorScheme, .dark)
+                Menu {
+                    // Share card (image)
+                    Button {
+                        let card = SummaryShareCard(
+                            event: event,
+                            meanBAC: meanBACValue,
+                            drinkCount: drinkCount,
+                            standardDrinks: standardDrinks,
+                            timeline: timeline,
+                            calories: calories,
+                            waterCount: eventWater.count
+                        ).environment(\.colorScheme, .dark)
+                        let renderer = ImageRenderer(content: card)
+                        renderer.proposedSize = .init(width: 390, height: 693)
+                        renderer.scale = 3.0
+                        guard let image = renderer.uiImage else { return }
+                        let av = UIActivityViewController(activityItems: [image], applicationActivities: nil)
+                        if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                           let root = scene.windows.first?.rootViewController {
+                            root.present(av, animated: true)
+                        }
+                    } label: {
+                        Label("Share Night Card", systemImage: "square.and.arrow.up")
+                    }
 
-                    let renderer = ImageRenderer(content: card)
-                    renderer.proposedSize = .init(width: 390, height: 693)
-                    renderer.scale = 3.0
-
-                    guard let image = renderer.uiImage else { return }
-                    let av = UIActivityViewController(activityItems: [image], applicationActivities: nil)
-                    if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-                       let root = scene.windows.first?.rootViewController {
-                        root.present(av, animated: true)
+                    // Export PDF (Pro + report required)
+                    if appState.isPro, let report = event.aiReport {
+                        Button {
+                            let reportData = NightReportData(
+                                event: event,
+                                report: report,
+                                drinkCount: drinkCount,
+                                peakBAC: peakBAC,
+                                calories: calories,
+                                waterCount: eventWater.count,
+                                standardDrinks: standardDrinks,
+                                userProfile: appState.userProfile
+                            )
+                            if let url = exportNightReportPDF(reportData) {
+                                pdfURL = url
+                                showPDFShare = true
+                            }
+                        } label: {
+                            Label("Export Health Report (PDF)", systemImage: "doc.text.fill")
+                        }
                     }
                 } label: {
                     Image(systemName: "square.and.arrow.up")
@@ -319,6 +353,11 @@ struct SummaryView: View {
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(AppColors.accent)
                 }
+            }
+        }
+        .sheet(isPresented: $showPDFShare) {
+            if let url = pdfURL {
+                ShareSheet(items: [url])
             }
         }
         .onAppear { notes = event.notes ?? "" }
