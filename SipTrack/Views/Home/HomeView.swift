@@ -46,6 +46,10 @@ struct HomeView: View {
             if firebase.isSignedIn {
                 fab
             }
+
+            if appState.syncFailed {
+                syncErrorBanner
+            }
         }
         .navigationBarHidden(true)
         .sheet(isPresented: $showCreateEvent) {
@@ -102,6 +106,34 @@ struct HomeView: View {
     }
 
     // MARK: - FAB
+
+    @ViewBuilder
+    private var syncErrorBanner: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "exclamationmark.icloud.fill")
+                .foregroundStyle(AppColors.danger)
+            Text("Sync failed")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(AppColors.text)
+            Spacer()
+            Button {
+                appState.retrySync()
+            } label: {
+                Text("Retry")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(AppColors.accent)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(AppColors.surface)
+        .overlay(alignment: .top) {
+            Rectangle()
+                .frame(height: 1)
+                .foregroundStyle(AppColors.danger.opacity(0.4))
+        }
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+    }
 
     @ViewBuilder
     private var fab: some View {

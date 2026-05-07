@@ -1,4 +1,5 @@
 import SwiftUI
+import StoreKit
 import Combine
 import UIKit
 import SipTrackActivityKit
@@ -21,6 +22,7 @@ final class AppState: ObservableObject {
     @Published var showWaterNudge: Bool      = false
     @Published var currentUserId: String?    = nil
     @Published var shouldShowAuth: Bool      = false
+    @Published var syncFailed: Bool          = false
 
     /// Set by ActiveEventView right after End Night so RootView can pop the
     /// active event and push SummaryView cleanly.
@@ -110,7 +112,7 @@ final class AppState: ObservableObject {
         let event = DataStore.shared.createEvent(name: name, drivingMode: drivingMode, bacLimit: bacLimit, userId: currentUserId, startTime: startTime)
         events.append(event)
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-        Task { await FirebaseManager.shared.pushEvent(event) }
+        push { try await FirebaseManager.shared.pushEvent(event) }
         WatchBridge.shared.pushState()
         startLiveActivity(for: event)
         WaterReminderManager.shared.schedule(intervalMinutes: userProfile.waterReminderIntervalMinutes)
@@ -193,7 +195,7 @@ final class AppState: ObservableObject {
         events.removeAll { $0.id == id }
         entries.removeAll { $0.eventId == id }
         waterEntries.removeAll { $0.eventId == id }
-        Task { await FirebaseManager.shared.deleteEvent(id) }
+        push { try await FirebaseManager.shared.deleteEvent(id) }
     }
 
     private func updateEvent(id: String, mutate: (inout NightEvent) -> Void) {
@@ -201,7 +203,7 @@ final class AppState: ObservableObject {
         mutate(&events[idx])
         DataStore.shared.updateEvent(events[idx])
         let updated = events[idx]
-        Task { await FirebaseManager.shared.pushEvent(updated) }
+        push { try await FirebaseManager.shared.pushEvent(updated) }
     }
 
     // MARK: - Entries
@@ -230,7 +232,7 @@ final class AppState: ObservableObject {
         scheduleUndo(entry)
         checkWarnings(after: entry, eventId: eventId)
         updateLiveActivity(for: eventId)
-        Task { await FirebaseManager.shared.pushEntry(entry) }
+        push { try await FirebaseManager.shared.pushEntry(entry) }
         WatchBridge.shared.pushState()
     }
 
@@ -239,13 +241,13 @@ final class AppState: ObservableObject {
         if let idx = entries.firstIndex(where: { $0.id == entry.id }) {
             entries[idx] = entry
         }
-        Task { await FirebaseManager.shared.pushEntry(entry) }
+        push { try await FirebaseManager.shared.pushEntry(entry) }
     }
 
     func deleteEntry(_ id: String) {
         DataStore.shared.deleteEntry(id)
         entries.removeAll { $0.id == id }
-        Task { await FirebaseManager.shared.deleteEntry(id) }
+        push { try await FirebaseManager.shared.deleteEntry(id) }
     }
 
     func undoLastEntry() {
@@ -315,13 +317,13 @@ final class AppState: ObservableObject {
         }
         customDrinkTypes = types
         DataStore.shared.saveCustomDrinkTypes(types)
-        Task { await FirebaseManager.shared.pushDrinkType(type) }
+        push { try await FirebaseManager.shared.pushDrinkType(type) }
     }
 
     func deleteDrinkType(_ id: String) {
         customDrinkTypes.removeAll { $0.id == id }
         DataStore.shared.saveCustomDrinkTypes(customDrinkTypes)
-        Task { await FirebaseManager.shared.deleteDrinkType(id) }
+        push { try await FirebaseManager.shared.deleteDrinkType(id) }
     }
 
     // MARK: - Profile
@@ -329,7 +331,7 @@ final class AppState: ObservableObject {
     func updateUserProfile(_ profile: UserProfile) {
         userProfile = profile
         DataStore.shared.saveUserProfile(profile)
-        Task { await FirebaseManager.shared.pushProfile(profile) }
+        push { try await FirebaseManager.shared.pushProfile(profile) }
         if activeEvent != nil {
             WaterReminderManager.shared.schedule(intervalMinutes: profile.waterReminderIntervalMinutes)
         }
@@ -340,7 +342,7 @@ final class AppState: ObservableObject {
     func addChallenge(_ challenge: Challenge) {
         challenges.append(challenge)
         DataStore.shared.saveChallenges(challenges)
-        Task { await FirebaseManager.shared.pushChallenge(challenge) }
+        push { try await FirebaseManager.shared.pushChallenge(challenge) }
     }
 
     func updateChallenge(_ challenge: Challenge) {
@@ -348,13 +350,13 @@ final class AppState: ObservableObject {
             challenges[idx] = challenge
         }
         DataStore.shared.saveChallenges(challenges)
-        Task { await FirebaseManager.shared.pushChallenge(challenge) }
+        push { try await FirebaseManager.shared.pushChallenge(challenge) }
     }
 
     func deleteChallenge(_ id: String) {
         challenges.removeAll { $0.id == id }
         DataStore.shared.saveChallenges(challenges)
-        Task { await FirebaseManager.shared.deleteChallenge(id) }
+        push { try await FirebaseManager.shared.deleteChallenge(id) }
     }
 
     // MARK: - Warnings
@@ -430,6 +432,32 @@ final class AppState: ObservableObject {
         updateUserProfile(profile)
     }
 
+    // MARK: - Push helper
+
+    private func push(_ operation: @escaping () async throws -> Void) {
+        Task {
+            let ok = await FirebaseManager.shared.attempt(operation)
+            if !ok { syncFailed = true }
+        }
+    }
+
+    func retrySync() {
+        syncFailed = false
+        Task {
+            let data = await FirebaseManager.shared.pullUserData()
+            applyCloudData(data)
+            var failed = false
+            let fb = FirebaseManager.shared
+            for event in events        { if await !fb.attempt({ try await fb.pushEvent(event) })      { failed = true } }
+            for entry in entries       { if await !fb.attempt({ try await fb.pushEntry(entry) })      { failed = true } }
+            for dt in customDrinkTypes { if await !fb.attempt({ try await fb.pushDrinkType(dt) })    { failed = true } }
+            for ch in challenges       { if await !fb.attempt({ try await fb.pushChallenge(ch) })    { failed = true } }
+            let profile = userProfile
+            if await !fb.attempt({ try await fb.pushProfile(profile) }) { failed = true }
+            if failed { syncFailed = true }
+        }
+    }
+
     // MARK: - Cloud sync
 
     // Called after sign-in: merges cloud data into local storage without wiping local records.
@@ -465,7 +493,7 @@ final class AppState: ObservableObject {
         if let cloud = data.profile {
             updateUserProfile(cloud)
         } else {
-            Task { await FirebaseManager.shared.pushProfile(userProfile) }
+            push { try await FirebaseManager.shared.pushProfile(self.userProfile) }
         }
     }
 

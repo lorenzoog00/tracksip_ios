@@ -2,7 +2,7 @@ import Foundation
 import UIKit
 import FirebaseAuth
 import FirebaseFirestore
-import AuthenticationServices
+import FirebaseCrashlytics
 import CryptoKit
 import Combine
 
@@ -17,7 +17,6 @@ final class FirebaseManager: ObservableObject {
     @Published var userEmail: String? = nil
 
     private var authStateHandle: AuthStateDidChangeListenerHandle?
-    private(set) var currentNonce: String?
 
     private init() {
         isSignedIn = auth.currentUser != nil
@@ -48,6 +47,7 @@ final class FirebaseManager: ObservableObject {
         }
         isSignedIn = true
         userEmail = result.user.email
+        Crashlytics.crashlytics().setUserID(result.user.uid)
     }
 
     @discardableResult
@@ -86,6 +86,7 @@ final class FirebaseManager: ObservableObject {
     }
 
     func signOut() async {
+        Crashlytics.crashlytics().setUserID("")
         try? auth.signOut()
     }
 
@@ -99,32 +100,9 @@ final class FirebaseManager: ObservableObject {
         let result = try await auth.signIn(with: credential)
         isSignedIn = true
         userEmail = result.user.email
+        Crashlytics.crashlytics().setUserID(result.user.uid)
     }
 
-    // MARK: - Apple Sign In
-
-    func prepareAppleSignIn() -> String {
-        let raw = randomNonceString()
-        currentNonce = raw
-        return sha256(raw)
-    }
-
-    func handleAppleCredential(_ appleCredential: ASAuthorizationAppleIDCredential) async throws {
-        guard let nonce = currentNonce,
-              let tokenData = appleCredential.identityToken,
-              let token = String(data: tokenData, encoding: .utf8) else {
-            throw NSError(domain: "FirebaseManager", code: -1,
-                          userInfo: [NSLocalizedDescriptionKey: "Invalid Apple credential"])
-        }
-        let credential = OAuthProvider.appleCredential(
-            withIDToken: token,
-            rawNonce: nonce,
-            fullName: appleCredential.fullName
-        )
-        let result = try await auth.signIn(with: credential)
-        isSignedIn = true
-        userEmail = result.user.email
-    }
 
     // MARK: - Firestore helpers
 
@@ -133,9 +111,26 @@ final class FirebaseManager: ObservableObject {
         return db.collection("users").document(uid).collection(name)
     }
 
+    // MARK: - Retry wrapper
+
+    @discardableResult
+    func attempt(_ operation: () async throws -> Void, retries: Int = 3) async -> Bool {
+        for attempt in 0..<retries {
+            do {
+                try await operation()
+                return true
+            } catch {
+                if attempt < retries - 1 {
+                    try? await Task.sleep(nanoseconds: 2_000_000_000)
+                }
+            }
+        }
+        return false
+    }
+
     // MARK: - Push
 
-    func pushEvent(_ event: NightEvent) async {
+    func pushEvent(_ event: NightEvent) async throws {
         guard let col = col("night_events") else { return }
         var data: [String: Any] = [
             "started_at": event.startTime.timeIntervalSince1970 * 1000,
@@ -146,14 +141,14 @@ final class FirebaseManager: ObservableObject {
         if let e = event.endTime       { data["ended_at"]   = e.timeIntervalSince1970 * 1000 }
         if let b = event.bacLimit      { data["bac_limit"]  = b }
         if let n = event.notes         { data["notes"]      = n }
-        try? await col.document(event.id).setData(data, merge: true)
+        try await col.document(event.id).setData(data, merge: true)
     }
 
-    func deleteEvent(_ id: String) async {
-        try? await col("night_events")?.document(id).delete()
+    func deleteEvent(_ id: String) async throws {
+        try await col("night_events")?.document(id).delete()
     }
 
-    func pushEntry(_ entry: DrinkEntry) async {
+    func pushEntry(_ entry: DrinkEntry) async throws {
         guard let col = col("drink_entries") else { return }
         var data: [String: Any] = [
             "event_id":      entry.eventId,
@@ -164,14 +159,14 @@ final class FirebaseManager: ObservableObject {
         if let c = entry.comment          { data["comment"]           = c }
         if let v = entry.volumeOverrideMl { data["volume_override_ml"] = v }
         if let a = entry.abvOverride      { data["abv_override"]       = a }
-        try? await col.document(entry.id).setData(data, merge: true)
+        try await col.document(entry.id).setData(data, merge: true)
     }
 
-    func deleteEntry(_ id: String) async {
-        try? await col("drink_entries")?.document(id).delete()
+    func deleteEntry(_ id: String) async throws {
+        try await col("drink_entries")?.document(id).delete()
     }
 
-    func pushDrinkType(_ dt: DrinkType) async {
+    func pushDrinkType(_ dt: DrinkType) async throws {
         guard let col = col("drink_types") else { return }
         var data: [String: Any] = [
             "name":                dt.name,
@@ -182,14 +177,14 @@ final class FirebaseManager: ObservableObject {
             "icon":                dt.icon
         ]
         if let c = dt.colorHex { data["color_hex"] = c }
-        try? await col.document(dt.id).setData(data, merge: true)
+        try await col.document(dt.id).setData(data, merge: true)
     }
 
-    func deleteDrinkType(_ id: String) async {
-        try? await col("drink_types")?.document(id).delete()
+    func deleteDrinkType(_ id: String) async throws {
+        try await col("drink_types")?.document(id).delete()
     }
 
-    func pushProfile(_ profile: UserProfile) async {
+    func pushProfile(_ profile: UserProfile) async throws {
         guard let uid = currentUserId() else { return }
         let currentYear = Calendar.current.component(.year, from: Date())
         var data: [String: Any] = [
@@ -198,16 +193,16 @@ final class FirebaseManager: ObservableObject {
             "onboarding_complete": profile.onboardingComplete,
             "subscription_tier":   profile.subscriptionTier.rawValue
         ]
-        if let h = profile.heightCm            { data["height_cm"]              = h }
-        if let b = profile.birthYear           { data["age"]                    = currentYear - b }
+        if let h = profile.heightCm             { data["height_cm"]              = h }
+        if let b = profile.birthYear            { data["age"]                    = currentYear - b }
         if let d = profile.disclaimerAcceptedAt { data["disclaimer_accepted_at"] = d.timeIntervalSince1970 * 1000 }
-        if let p = profile.subscriptionPeriod  { data["subscription_period"]    = p.rawValue }
+        if let p = profile.subscriptionPeriod   { data["subscription_period"]    = p.rawValue }
         if let s = profile.subscriptionStartedAt { data["subscription_started_at"] = ISO8601DateFormatter().string(from: s) }
-        try? await db.collection("users").document(uid).collection("profiles").document(uid)
+        try await db.collection("users").document(uid).collection("profiles").document(uid)
             .setData(data, merge: true)
     }
 
-    func pushChallenge(_ challenge: Challenge) async {
+    func pushChallenge(_ challenge: Challenge) async throws {
         guard let col = col("challenges") else { return }
         let data: [String: Any] = [
             "type":       challenge.type.rawValue,
@@ -217,11 +212,11 @@ final class FirebaseManager: ObservableObject {
             "created_at": challenge.createdAt.timeIntervalSince1970 * 1000,
             "completed":  challenge.completed
         ]
-        try? await col.document(challenge.id).setData(data, merge: true)
+        try await col.document(challenge.id).setData(data, merge: true)
     }
 
-    func deleteChallenge(_ id: String) async {
-        try? await col("challenges")?.document(id).delete()
+    func deleteChallenge(_ id: String) async throws {
+        try await col("challenges")?.document(id).delete()
     }
 
     // MARK: - Pull
