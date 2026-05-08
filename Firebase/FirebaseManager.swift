@@ -227,11 +227,12 @@ final class FirebaseManager: ObservableObject {
         var drinkTypes: [DrinkType]
         var challenges: [Challenge]
         var profile: UserProfile?
+        var coachReports: [CoachReport]
     }
 
     func pullUserData() async -> PulledData {
         guard let uid = currentUserId() else {
-            return PulledData(events: [], entries: [], drinkTypes: [], challenges: [], profile: nil)
+            return PulledData(events: [], entries: [], drinkTypes: [], challenges: [], profile: nil, coachReports: [])
         }
         let currentYear = Calendar.current.component(.year, from: Date())
         let iso = ISO8601DateFormatter()
@@ -240,6 +241,8 @@ final class FirebaseManager: ObservableObject {
         let entDocs = try? await col("drink_entries")?.getDocuments()
         let tDocs   = try? await col("drink_types")?.getDocuments()
         let cDocs   = try? await col("challenges")?.getDocuments()
+        let crDocs  = try? await db.collection("users").document(uid)
+            .collection("ai_coach_reports").getDocuments()
         let pDoc    = try? await db.collection("users").document(uid)
             .collection("profiles").document(uid).getDocument()
 
@@ -323,8 +326,73 @@ final class FirebaseManager: ObservableObject {
             profile = up
         }
 
+        let coachReports: [CoachReport] = crDocs?.documents.compactMap { doc -> CoachReport? in
+            let d = doc.data()
+            guard let typeStr   = d["type"] as? String,
+                  let type      = ReportType(rawValue: typeStr),
+                  let startMs   = d["period_start"] as? Double,
+                  let endMs     = d["period_end"] as? Double,
+                  let createdMs = d["created_at"] as? Double else { return nil }
+            return CoachReport(
+                id: doc.documentID,
+                type: type,
+                periodStart: Date(timeIntervalSince1970: startMs / 1000),
+                periodEnd: Date(timeIntervalSince1970: endMs / 1000),
+                report: d["report"] as? String,
+                createdAt: Date(timeIntervalSince1970: createdMs / 1000),
+                eventAId: d["event_a_id"] as? String,
+                eventBId: d["event_b_id"] as? String
+            )
+        } ?? []
+
         return PulledData(events: events, entries: entries, drinkTypes: drinkTypes,
-                          challenges: challenges, profile: profile)
+                          challenges: challenges, profile: profile, coachReports: coachReports)
+    }
+
+    // MARK: - AI Coach Report (Firestore trigger)
+
+    func requestCoachReport(reportId: String, data: [String: Any]) async throws {
+        guard let uid = currentUserId() else { return }
+        try await db.collection("users").document(uid)
+            .collection("ai_coach_reports").document(reportId)
+            .setData(data, merge: true)
+    }
+
+    func deleteCoachReport(reportId: String) async throws {
+        guard let uid = currentUserId() else { return }
+        try await db.collection("users").document(uid)
+            .collection("ai_coach_reports").document(reportId).delete()
+    }
+
+    func fetchCoachReport(reportId: String) async -> String? {
+        guard let uid = currentUserId() else { return nil }
+        let doc = try? await db.collection("users").document(uid)
+            .collection("ai_coach_reports").document(reportId).getDocument()
+        return doc?.data()?["report"] as? String
+    }
+
+    func pullCoachReports() async -> [CoachReport] {
+        guard let uid = currentUserId() else { return [] }
+        let snap = try? await db.collection("users").document(uid)
+            .collection("ai_coach_reports").getDocuments()
+        return snap?.documents.compactMap { doc -> CoachReport? in
+            let d = doc.data()
+            guard let typeStr    = d["type"] as? String,
+                  let type       = ReportType(rawValue: typeStr),
+                  let startMs    = d["period_start"] as? Double,
+                  let endMs      = d["period_end"] as? Double,
+                  let createdMs  = d["created_at"] as? Double else { return nil }
+            return CoachReport(
+                id: doc.documentID,
+                type: type,
+                periodStart: Date(timeIntervalSince1970: startMs / 1000),
+                periodEnd: Date(timeIntervalSince1970: endMs / 1000),
+                report: d["report"] as? String,
+                createdAt: Date(timeIntervalSince1970: createdMs / 1000),
+                eventAId: d["event_a_id"] as? String,
+                eventBId: d["event_b_id"] as? String
+            )
+        } ?? []
     }
 
     // MARK: - AI Report (Firestore trigger)
@@ -348,7 +416,7 @@ final class FirebaseManager: ObservableObject {
     func deleteAccount() async -> String? {
         guard let uid = currentUserId(), let user = auth.currentUser else { return "Not signed in" }
         do {
-            for name in ["night_events", "drink_entries", "drink_types", "challenges", "profiles"] {
+            for name in ["night_events", "drink_entries", "drink_types", "challenges", "profiles", "ai_coach_reports"] {
                 if let snap = try? await db.collection("users").document(uid).collection(name).getDocuments() {
                     for doc in snap.documents { try? await doc.reference.delete() }
                 }

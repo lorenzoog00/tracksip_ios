@@ -10,4 +10,5 @@ enum Route: Hashable {
     case profile
     case subscription
     case auth
+    case coach
 }

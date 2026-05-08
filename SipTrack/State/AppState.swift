@@ -25,6 +25,8 @@ final class AppState: ObservableObject {
     @Published var shouldShowAuth: Bool      = false
     @Published var syncFailed: Bool          = false
     @Published var generatingReportForEventId: String? = nil
+    @Published var coachReports: [CoachReport] = []
+    @Published var generatingCoachReportId: String? = nil
 
     /// Set by ActiveEventView right after End Night so RootView can pop the
     /// active event and push SummaryView cleanly.
@@ -48,6 +50,14 @@ final class AppState: ObservableObject {
 
     var activeEvent: NightEvent? {
         events.first { $0.isActive && $0.userId == currentUserId }
+    }
+
+    var latestWeeklyReport: CoachReport? {
+        coachReports.filter { $0.type == .weekly }.max(by: { $0.createdAt < $1.createdAt })
+    }
+
+    var latestMonthlyReport: CoachReport? {
+        coachReports.filter { $0.type == .monthly }.max(by: { $0.createdAt < $1.createdAt })
     }
 
     var visibleEvents: [NightEvent] {
@@ -81,23 +91,27 @@ final class AppState: ObservableObject {
                 }
             }
         refreshFromFirebase()
+        checkAndGenerateAutoReports()
+        scheduleCoachReportReminders()
     }
 
     private func resetProfile() {
-        let fresh = UserProfile()
-        userProfile = fresh
-        DataStore.shared.saveUserProfile(fresh)
+        DataStore.shared.clearAllData()
+        events = []; entries = []; waterEntries = []
+        customDrinkTypes = []; challenges = []; coachReports = []
+        userProfile = UserProfile()
         shouldShowAuth = true
     }
 
     private func loadAll() {
         let ds = DataStore.shared
-        events          = ds.loadEvents()
-        entries         = ds.loadEntries()
-        waterEntries    = ds.loadWaterEntries()
+        events           = ds.loadEvents()
+        entries          = ds.loadEntries()
+        waterEntries     = ds.loadWaterEntries()
         customDrinkTypes = ds.loadCustomDrinkTypes()
-        userProfile     = ds.loadUserProfile()
-        challenges      = ds.loadChallenges()
+        userProfile      = ds.loadUserProfile()
+        challenges       = ds.loadChallenges()
+        coachReports     = ds.loadCoachReports()
     }
 
     func refreshFromFirebase() {
@@ -105,6 +119,7 @@ final class AppState: ObservableObject {
         Task {
             let data = await FirebaseManager.shared.pullUserData()
             applyCloudData(data)
+            checkAndGenerateAutoReports()
         }
     }
 
@@ -290,6 +305,540 @@ final class AppState: ObservableObject {
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
         let request = UNNotificationRequest(identifier: "siptrack.ai-report", content: content, trigger: trigger)
         UNUserNotificationCenter.current().add(request)
+    }
+
+    func scheduleCoachReportReminders() {
+        let center = UNUserNotificationCenter.current()
+
+        let weeklyContent = UNMutableNotificationContent()
+        weeklyContent.title = "Weekly Report Ready"
+        weeklyContent.body = "Your weekly health analysis is available in AI Coach."
+        weeklyContent.sound = .default
+        var weeklyComps = DateComponents()
+        weeklyComps.weekday = 2
+        weeklyComps.hour = 9
+        weeklyComps.minute = 0
+        let weeklyReq = UNNotificationRequest(
+            identifier: "siptrack.coach-weekly-reminder",
+            content: weeklyContent,
+            trigger: UNCalendarNotificationTrigger(dateMatching: weeklyComps, repeats: true)
+        )
+        center.add(weeklyReq)
+
+        let monthlyContent = UNMutableNotificationContent()
+        monthlyContent.title = "Monthly Review Ready"
+        monthlyContent.body = "Your monthly health review is available in AI Coach."
+        monthlyContent.sound = .default
+        var monthlyComps = DateComponents()
+        monthlyComps.day = 1
+        monthlyComps.hour = 9
+        monthlyComps.minute = 30
+        let monthlyReq = UNNotificationRequest(
+            identifier: "siptrack.coach-monthly-reminder",
+            content: monthlyContent,
+            trigger: UNCalendarNotificationTrigger(dateMatching: monthlyComps, repeats: true)
+        )
+        center.add(monthlyReq)
+    }
+
+    private func scheduleCoachReportNotification(type: ReportType, periodLabel: String) {
+        let content = UNMutableNotificationContent()
+        switch type {
+        case .weekly:
+            content.title = "Weekly Report Ready"
+            content.body = "\(periodLabel) — your AI health analysis is ready in Coach."
+        case .monthly:
+            content.title = "Monthly Review Ready"
+            content.body = "\(periodLabel) — your monthly AI health review is ready."
+        case .comparison:
+            return
+        }
+        content.sound = .default
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+        let request = UNNotificationRequest(identifier: "siptrack.coach-\(UUID().uuidString)", content: content, trigger: trigger)
+        UNUserNotificationCenter.current().add(request)
+    }
+
+    // MARK: - AI Coach
+
+    func checkAndGenerateAutoReports() {
+        guard currentUserId != nil else { return }
+        let cal = Calendar(identifier: .iso8601)
+        let now = Date()
+
+        let prevWeekDate = cal.date(byAdding: .weekOfYear, value: -1, to: now)!
+        let weekId = weeklyReportId(for: prevWeekDate)
+        if !coachReports.contains(where: { $0.id == weekId }) {
+            let weekStart = cal.date(from: cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: prevWeekDate))!
+            let weekEnd   = cal.date(byAdding: .day, value: 7, to: weekStart)!
+            let hasNights = events.contains { $0.endTime != nil && $0.startTime >= weekStart && $0.startTime < weekEnd }
+            if hasNights { generateWeeklyReport(for: prevWeekDate) }
+        }
+
+        let prevMonth = cal.date(byAdding: .month, value: -1, to: now)!
+        let y = cal.component(.year, from: prevMonth)
+        let m = cal.component(.month, from: prevMonth)
+        let monthId = "monthly-\(y)-\(String(format: "%02d", m))"
+        if !coachReports.contains(where: { $0.id == monthId }) {
+            let comps = DateComponents(year: y, month: m, day: 1)
+            let monthStart = cal.date(from: comps)!
+            let monthEnd   = cal.date(byAdding: .month, value: 1, to: monthStart)!
+            let hasNights  = events.contains { $0.endTime != nil && $0.startTime >= monthStart && $0.startTime < monthEnd }
+            if hasNights { generateMonthlyReport(year: y, month: m) }
+        }
+    }
+
+    private func weeklyReportId(for date: Date) -> String {
+        let cal = Calendar(identifier: .iso8601)
+        let year = cal.component(.yearForWeekOfYear, from: date)
+        let week = cal.component(.weekOfYear, from: date)
+        return "weekly-\(year)-W\(String(format: "%02d", week))"
+    }
+
+    private func generateWeeklyReport(for refDate: Date = Date()) {
+        guard currentUserId != nil else { return }
+        let cal = Calendar(identifier: .iso8601)
+        let now = Date()
+        let weekStart = cal.date(from: cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: refDate))!
+        let weekEnd   = cal.date(byAdding: .day, value: 7, to: weekStart)!
+        let reportId  = weeklyReportId(for: refDate)
+
+        guard !coachReports.contains(where: { $0.id == reportId }) else { return }
+
+        let data = buildWeeklyData(from: weekStart, to: weekEnd)
+        guard !data.isEmpty else { return }
+
+        let fmt = DateFormatter(); fmt.dateStyle = .medium; fmt.timeStyle = .none
+        let placeholder = CoachReport(
+            id: reportId, type: .weekly,
+            periodStart: weekStart, periodEnd: weekEnd,
+            report: nil, createdAt: now
+        )
+        coachReports.append(placeholder)
+
+        Task {
+            generatingCoachReportId = reportId
+            defer { generatingCoachReportId = nil }
+            var payload: [String: Any] = [
+                "type": "weekly",
+                "period_start": weekStart.timeIntervalSince1970 * 1000,
+                "period_end":   weekEnd.timeIntervalSince1970 * 1000,
+                "created_at":   now.timeIntervalSince1970 * 1000,
+                "status": "pending",
+                "request_data": data
+            ]
+            payload["week_start_label"] = fmt.string(from: weekStart)
+            payload["week_end_label"]   = fmt.string(from: weekEnd)
+            do {
+                try await FirebaseManager.shared.requestCoachReport(reportId: reportId, data: payload)
+                let report = await pollCoachReport(id: reportId)
+                if let report, let idx = coachReports.firstIndex(where: { $0.id == reportId }) {
+                    coachReports[idx].report = report
+                    DataStore.shared.saveCoachReports(coachReports)
+                    let label = payload["week_start_label"] as? String ?? "this week"
+                    scheduleCoachReportNotification(type: .weekly, periodLabel: label)
+                }
+            } catch {
+                coachReports.removeAll { $0.id == reportId }
+                print("❌ Weekly coach report error: \(error)")
+            }
+        }
+    }
+
+    private func generateMonthlyReport(year: Int? = nil, month: Int? = nil) {
+        guard currentUserId != nil else { return }
+        let cal = Calendar(identifier: .iso8601)
+        let now = Date()
+        let prevMonth = cal.date(byAdding: .month, value: -1, to: now)!
+        let y = year  ?? cal.component(.year,  from: prevMonth)
+        let m = month ?? cal.component(.month, from: prevMonth)
+        let reportId = "monthly-\(y)-\(String(format: "%02d", m))"
+
+        guard !coachReports.contains(where: { $0.id == reportId }) else { return }
+
+        let comps = DateComponents(year: y, month: m, day: 1)
+        let monthStart = cal.date(from: comps)!
+        let monthEnd   = cal.date(byAdding: .month, value: 1, to: monthStart)!
+
+        let data = buildMonthlyData(from: monthStart, to: monthEnd)
+        guard !data.isEmpty else { return }
+
+        let placeholder = CoachReport(
+            id: reportId, type: .monthly,
+            periodStart: monthStart, periodEnd: monthEnd,
+            report: nil, createdAt: now
+        )
+        coachReports.append(placeholder)
+
+        Task {
+            generatingCoachReportId = reportId
+            defer { generatingCoachReportId = nil }
+            let payload: [String: Any] = [
+                "type": "monthly",
+                "period_start": monthStart.timeIntervalSince1970 * 1000,
+                "period_end":   monthEnd.timeIntervalSince1970 * 1000,
+                "created_at":   now.timeIntervalSince1970 * 1000,
+                "status": "pending",
+                "request_data": data
+            ]
+            do {
+                try await FirebaseManager.shared.requestCoachReport(reportId: reportId, data: payload)
+                let report = await pollCoachReport(id: reportId)
+                if let report, let idx = coachReports.firstIndex(where: { $0.id == reportId }) {
+                    coachReports[idx].report = report
+                    DataStore.shared.saveCoachReports(coachReports)
+                    let fmt = DateFormatter(); fmt.dateFormat = "MMMM yyyy"
+                    let label = fmt.string(from: monthStart)
+                    scheduleCoachReportNotification(type: .monthly, periodLabel: label)
+                }
+            } catch {
+                coachReports.removeAll { $0.id == reportId }
+                print("❌ Monthly coach report error: \(error)")
+            }
+        }
+    }
+
+    func generateComparisonReport(eventA: NightEvent, eventB: NightEvent) {
+        guard currentUserId != nil else { return }
+        let now = Date()
+        let reportId = "comparison-\(eventA.id)-\(eventB.id)"
+
+        if coachReports.contains(where: { $0.id == reportId }) { return }
+
+        let aData = buildEventSummaryData(event: eventA)
+        let bData = buildEventSummaryData(event: eventB)
+        guard !aData.isEmpty, !bData.isEmpty else { return }
+
+        let currentYear = Calendar.current.component(.year, from: now)
+        var userData: [String: Any] = [
+            "userSex": userProfile.sex.rawValue,
+            "userWeightKg": userProfile.weightKg,
+        ]
+        if let birthYear = userProfile.birthYear { userData["userAge"] = currentYear - birthYear }
+
+        let placeholder = CoachReport(
+            id: reportId, type: .comparison,
+            periodStart: min(eventA.startTime, eventB.startTime),
+            periodEnd: max(eventA.endTime ?? eventA.startTime, eventB.endTime ?? eventB.startTime),
+            report: nil, createdAt: now,
+            eventAId: eventA.id, eventBId: eventB.id
+        )
+        coachReports.append(placeholder)
+
+        Task {
+            generatingCoachReportId = reportId
+            defer { generatingCoachReportId = nil }
+            var requestData = userData
+            requestData["eventA"] = aData
+            requestData["eventB"] = bData
+            let payload: [String: Any] = [
+                "type": "comparison",
+                "period_start": placeholder.periodStart.timeIntervalSince1970 * 1000,
+                "period_end":   placeholder.periodEnd.timeIntervalSince1970 * 1000,
+                "created_at":   now.timeIntervalSince1970 * 1000,
+                "event_a_id": eventA.id,
+                "event_b_id": eventB.id,
+                "status": "pending",
+                "request_data": requestData
+            ]
+            do {
+                try await FirebaseManager.shared.requestCoachReport(reportId: reportId, data: payload)
+                let report = await pollCoachReport(id: reportId)
+                if let report, let idx = coachReports.firstIndex(where: { $0.id == reportId }) {
+                    coachReports[idx].report = report
+                    DataStore.shared.saveCoachReports(coachReports)
+                }
+            } catch {
+                coachReports.removeAll { $0.id == reportId }
+                print("❌ Comparison coach report error: \(error)")
+            }
+        }
+    }
+
+    private func pollCoachReport(id: String) async -> String? {
+        for _ in 0..<15 {
+            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            if let report = await FirebaseManager.shared.fetchCoachReport(reportId: id) {
+                return report
+            }
+        }
+        print("❌ Coach report timeout: \(id)")
+        return nil
+    }
+
+    private func buildWeeklyData(from weekStart: Date, to weekEnd: Date) -> [String: Any] {
+        let cal = Calendar(identifier: .iso8601)
+        let now = Date()
+        let weekNights = events.filter {
+            $0.endTime != nil && $0.userId == currentUserId
+            && $0.startTime >= weekStart && $0.startTime < weekEnd
+        }
+        guard !weekNights.isEmpty else { return [:] }
+
+        var weekTotalDrinks = 0; var totalCals = 0.0; var totalWater = 0
+        var peakBac = 0.0; var peakBacNight = ""
+        var bacValues: [Double] = []
+        var bestNight = ""; var worstNight = ""; var bestCount = Int.max; var worstCount = 0
+        var drivingNights = 0; var drivingExceeded = 0
+
+        for event in weekNights {
+            let evEntries = entries.filter { $0.eventId == event.id }
+            let evWater   = waterEntries.filter { $0.eventId == event.id }
+            let drinkCount = evEntries.reduce(0) { $0 + $1.quantity }
+            weekTotalDrinks += drinkCount
+            totalCals   += totalCalories(for: event.id)
+            totalWater  += evWater.count
+
+            let timeline = BACCalculator.bacTimeline(
+                entries: evEntries,
+                drinkTypes: allDrinkTypes,
+                profile: userProfile,
+                eventStart: event.startTime
+            )
+            let nightPeak = timeline.max(by: { $0.bac < $1.bac })?.bac ?? 0
+            bacValues.append(nightPeak)
+            if nightPeak > peakBac { peakBac = nightPeak; peakBacNight = event.displayName }
+
+            if drinkCount < bestCount  { bestCount = drinkCount;  bestNight  = event.displayName }
+            if drinkCount > worstCount { worstCount = drinkCount; worstNight = event.displayName }
+
+            if event.drivingMode {
+                drivingNights += 1
+                if nightPeak > (event.bacLimit ?? 0.08) { drivingExceeded += 1 }
+            }
+        }
+
+        let avgBac = bacValues.isEmpty ? 0.0 : bacValues.reduce(0, +) / Double(bacValues.count)
+        let thirtyDaysAgo = cal.date(byAdding: .day, value: -30, to: now)!
+        let recentEvents = events.filter {
+            $0.userId == currentUserId && $0.endTime != nil && $0.startTime >= thirtyDaysAgo
+        }
+        let avg30 = recentEvents.isEmpty ? 0.0
+            : Double(recentEvents.reduce(0) { $0 + totalDrinks(for: $1.id) }) / Double(recentEvents.count)
+
+        let dateFmt = DateFormatter(); dateFmt.dateFormat = "MMM d"
+        let currentYear = cal.component(.year, from: now)
+
+        let weekEntries = weekNights.flatMap { event in entries.filter { $0.eventId == event.id } }
+        var drinkByType: [String: Int] = [:]
+        for entry in weekEntries {
+            let name = allDrinkTypes.first { $0.id == entry.drinkTypeId }?.name ?? "Other"
+            drinkByType[name, default: 0] += entry.quantity
+        }
+        let drinkBreakdown = drinkByType.sorted { $0.value > $1.value }.map { "\($0.value)x \($0.key)" }.joined(separator: ", ")
+
+        var d: [String: Any] = [
+            "userSex": userProfile.sex.rawValue,
+            "userWeightKg": userProfile.weightKg,
+            "weekStart": dateFmt.string(from: weekStart),
+            "weekEnd":   dateFmt.string(from: cal.date(byAdding: .day, value: -1, to: weekEnd)!),
+            "nightCount": weekNights.count,
+            "totalDrinks": weekTotalDrinks,
+            "totalStdDrinks": weekTotalDrinks,
+            "totalCalories": totalCals,
+            "peakBac": peakBac,
+            "peakBacNight": peakBacNight,
+            "avgBacPerNight": avgBac,
+            "totalWater": totalWater,
+            "avg30DayDrinksPerNight": avg30,
+            "bestNight": bestNight,
+            "worstNight": worstNight,
+            "drinkBreakdown": drinkBreakdown,
+            "drivingNights": drivingNights,
+            "drivingExceededBACLimit": drivingExceeded,
+        ]
+        if let birthYear = userProfile.birthYear { d["userAge"] = currentYear - birthYear }
+        if let h = userProfile.heightCm {
+            d["userHeightCm"] = h
+            d["userBMI"] = String(format: "%.1f", userProfile.weightKg / ((h / 100) * (h / 100)))
+        }
+        return d
+    }
+
+    private func buildMonthlyData(from monthStart: Date, to monthEnd: Date) -> [String: Any] {
+        let cal = Calendar.current
+        let monthNights = events.filter {
+            $0.endTime != nil && $0.userId == currentUserId
+            && $0.startTime >= monthStart && $0.startTime < monthEnd
+        }
+        guard !monthNights.isEmpty else { return [:] }
+
+        var monthTotalDrinks = 0; var totalCals = 0.0; var totalWater = 0
+        var peakBac = 0.0; var peakBacNight = ""
+        var bacValues: [Double] = []
+        var nightDates = Set<Int>()
+        var drivingNights = 0; var drivingExceeded = 0
+
+        for event in monthNights {
+            let evEntries = entries.filter { $0.eventId == event.id }
+            let evWater   = waterEntries.filter { $0.eventId == event.id }
+            let drinkCount = evEntries.reduce(0) { $0 + $1.quantity }
+            monthTotalDrinks += drinkCount
+            totalCals   += totalCalories(for: event.id)
+            totalWater  += evWater.count
+            nightDates.insert(cal.ordinality(of: .day, in: .era, for: event.startTime) ?? 0)
+
+            let timeline = BACCalculator.bacTimeline(
+                entries: evEntries,
+                drinkTypes: allDrinkTypes,
+                profile: userProfile,
+                eventStart: event.startTime
+            )
+            let nightPeak = timeline.max(by: { $0.bac < $1.bac })?.bac ?? 0
+            bacValues.append(nightPeak)
+            if nightPeak > peakBac { peakBac = nightPeak; peakBacNight = event.displayName }
+
+            if event.drivingMode {
+                drivingNights += 1
+                if nightPeak > (event.bacLimit ?? 0.08) { drivingExceeded += 1 }
+            }
+        }
+
+        let daysInMonth = cal.range(of: .day, in: .month, for: monthStart)?.count ?? 30
+        let soberDays = daysInMonth - nightDates.count
+        let avgBac = bacValues.isEmpty ? 0.0 : bacValues.reduce(0, +) / Double(bacValues.count)
+
+        var weekBreakdowns: [[String: Any]] = []
+        var weekStart = monthStart
+        while weekStart < monthEnd {
+            let weekEnd = min(cal.date(byAdding: .day, value: 7, to: weekStart)!, monthEnd)
+            let wNights = monthNights.filter { $0.startTime >= weekStart && $0.startTime < weekEnd }
+            let wDrinks = wNights.reduce(0) { $0 + totalDrinks(for: $1.id) }
+            let wPeakBac = wNights.reduce(0.0) { (acc, event) -> Double in
+                let evEntries = entries.filter { $0.eventId == event.id }
+                let timeline = BACCalculator.bacTimeline(
+                    entries: evEntries, drinkTypes: allDrinkTypes,
+                    profile: userProfile, eventStart: event.startTime
+                )
+                return max(acc, timeline.max(by: { $0.bac < $1.bac })?.bac ?? 0)
+            }
+            weekBreakdowns.append(["nights": wNights.count, "drinks": wDrinks, "peakBac": wPeakBac])
+            weekStart = weekEnd
+        }
+
+        let prevMonthStart = cal.date(byAdding: .month, value: -1, to: monthStart)!
+        let prevMonthNightCount = events.filter {
+            $0.endTime != nil && $0.userId == currentUserId
+            && $0.startTime >= prevMonthStart && $0.startTime < monthStart
+        }.count
+
+        let monthFmt = DateFormatter(); monthFmt.dateFormat = "MMMM"
+        let yearFmt  = DateFormatter(); yearFmt.dateFormat  = "yyyy"
+        let currentYear = cal.component(.year, from: Date())
+
+        let monthEntries = monthNights.flatMap { event in entries.filter { $0.eventId == event.id } }
+        var drinkByType: [String: Int] = [:]
+        for entry in monthEntries {
+            let name = allDrinkTypes.first { $0.id == entry.drinkTypeId }?.name ?? "Other"
+            drinkByType[name, default: 0] += entry.quantity
+        }
+        let drinkBreakdown = drinkByType.sorted { $0.value > $1.value }.map { "\($0.value)x \($0.key)" }.joined(separator: ", ")
+
+        var d: [String: Any] = [
+            "userSex": userProfile.sex.rawValue,
+            "userWeightKg": userProfile.weightKg,
+            "monthName": monthFmt.string(from: monthStart),
+            "year": yearFmt.string(from: monthStart),
+            "nightCount": monthNights.count,
+            "totalDrinks": monthTotalDrinks,
+            "totalStdDrinks": monthTotalDrinks,
+            "totalCalories": totalCals,
+            "peakBac": peakBac,
+            "peakBacNight": peakBacNight,
+            "avgBacPerNight": avgBac,
+            "totalWater": totalWater,
+            "soberDays": soberDays,
+            "prevMonthNightCount": prevMonthNightCount,
+            "weekBreakdowns": weekBreakdowns,
+            "drinkBreakdown": drinkBreakdown,
+            "drivingNights": drivingNights,
+            "drivingExceededBACLimit": drivingExceeded,
+        ]
+        if let birthYear = userProfile.birthYear { d["userAge"] = currentYear - birthYear }
+        if let h = userProfile.heightCm {
+            d["userHeightCm"] = h
+            d["userBMI"] = String(format: "%.1f", userProfile.weightKg / ((h / 100) * (h / 100)))
+        }
+        return d
+    }
+
+    private func buildEventSummaryData(event: NightEvent) -> [String: Any] {
+        guard let endTime = event.endTime else { return [:] }
+        let evEntries = entries.filter { $0.eventId == event.id }
+        guard !evEntries.isEmpty else { return [:] }
+        let evWater = waterEntries.filter { $0.eventId == event.id }
+
+        let timeline = BACCalculator.bacTimeline(
+            entries: evEntries, drinkTypes: allDrinkTypes,
+            profile: userProfile, eventStart: event.startTime
+        )
+        let peakPoint  = timeline.max(by: { $0.bac < $1.bac })
+        let peakBAC    = peakPoint?.bac ?? 0
+        let peakBacTime: String = {
+            guard let date = peakPoint?.date else { return "" }
+            let f = DateFormatter(); f.timeStyle = .short
+            return f.string(from: date)
+        }()
+        let durationMinutes = Int(event.duration / 60)
+        let drinkCount = evEntries.reduce(0) { $0 + $1.quantity }
+        let drinkList = Dictionary(grouping: evEntries) { $0.drinkTypeId }
+            .compactMap { typeId, es -> String? in
+                guard let dt = allDrinkTypes.first(where: { $0.id == typeId }) else { return nil }
+                return "\(es.reduce(0) { $0 + $1.quantity })x \(dt.name)"
+            }.joined(separator: ", ")
+        let drinksPerHour = durationMinutes > 0
+            ? String(format: "%.1f", Double(drinkCount) / (Double(durationMinutes) / 60))
+            : "0"
+        let minutesAboveLimit = timeline.filter { $0.bac > 0.08 }.count * 5
+        let waterCount = evWater.count
+        let hydrationLevel = BACCalculator.hydrationLevel(waterEntries: evWater, drinkCount: drinkCount)
+        let cals = totalCalories(for: event.id)
+        let lastDrinkTime = evEntries.max(by: { $0.timestamp < $1.timestamp })?.timestamp ?? event.startTime
+        let recoveryMinutes = Int(endTime.timeIntervalSince(lastDrinkTime) / 60)
+
+        var result: [String: Any] = [
+            "name": event.displayName,
+            "durationMinutes": durationMinutes,
+            "drinkList": drinkList,
+            "drinksPerHour": drinksPerHour,
+            "peakBac": peakBAC,
+            "peakBacTime": peakBacTime,
+            "minutesAboveLimit": minutesAboveLimit,
+            "waterCount": waterCount,
+            "hydrationLevel": hydrationLevel.rawValue,
+            "totalCalories": cals,
+            "recoveryMinutes": recoveryMinutes,
+        ]
+        if event.drivingMode {
+            result["drivingMode"] = true
+            result["drivedAboveLimit"] = peakBAC > (event.bacLimit ?? 0.08)
+        }
+        return result
+    }
+
+    func deleteCoachReport(id: String) {
+        coachReports.removeAll { $0.id == id }
+        DataStore.shared.saveCoachReports(coachReports)
+        push { try await FirebaseManager.shared.deleteCoachReport(reportId: id) }
+    }
+
+    func cancelCoachReport(id: String) {
+        coachReports.removeAll { $0.id == id }
+        DataStore.shared.saveCoachReports(coachReports)
+        if generatingCoachReportId == id { generatingCoachReportId = nil }
+    }
+
+    func generateTestWeeklyReport() {
+        let cal = Calendar(identifier: .iso8601)
+        generateWeeklyReport(for: cal.date(byAdding: .day, value: -1, to: Date()) ?? Date())
+    }
+
+    func generateTestMonthlyReport() {
+        let cal = Calendar.current
+        let now = Date()
+        let y = cal.component(.year, from: now)
+        let m = cal.component(.month, from: now)
+        generateMonthlyReport(year: y, month: m)
     }
 
     func updateEventNotes(id: String, notes: String) {
@@ -600,6 +1149,21 @@ final class AppState: ObservableObject {
             updateUserProfile(cloud)
         } else {
             push { try await FirebaseManager.shared.pushProfile(self.userProfile) }
+        }
+
+        let localCoachIds = Set(coachReports.map { $0.id })
+        let newCoach = data.coachReports.filter { !localCoachIds.contains($0.id) }
+        if !newCoach.isEmpty {
+            coachReports.append(contentsOf: newCoach)
+            DataStore.shared.saveCoachReports(coachReports)
+        }
+        for cloud in data.coachReports {
+            if let report = cloud.report,
+               let idx = coachReports.firstIndex(where: { $0.id == cloud.id }),
+               coachReports[idx].report == nil {
+                coachReports[idx].report = report
+                DataStore.shared.saveCoachReports(coachReports)
+            }
         }
     }
 

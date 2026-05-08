@@ -34,6 +34,8 @@ struct RootView: View {
                                 SubscriptionView()
                             case .auth:
                                 AuthView()
+                            case .coach:
+                                CoachView()
                             }
                         }
                 }

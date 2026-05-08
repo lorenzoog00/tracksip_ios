@@ -231,6 +231,14 @@ struct HomeView: View {
                         locked: !appState.isPro,
                         destination: .drinks
                     ) { DrinksCardPreview() }
+
+                    FeatureCard(
+                        title: "AI Coach",
+                        icon: "brain.head.profile",
+                        accent: Color(hex: "#BF5AF2"),
+                        locked: !appState.isPro,
+                        destination: .coach
+                    ) { CoachCardPreview() }
                 }
                 .padding(.horizontal)
             }
@@ -605,6 +613,37 @@ private struct DrinksCardPreview: View {
             Text("drink types")
                 .font(.system(size: 10))
                 .foregroundStyle(AppColors.textTertiary)
+        }
+    }
+}
+
+private struct CoachCardPreview: View {
+    @EnvironmentObject var appState: AppState
+
+    private let sections: [(Color, String)] = [
+        (Color(hex: "#5BC8FF"), "Medical"),
+        (Color(hex: "#4CD964"), "Nutrition"),
+        (Color(hex: "#BF5AF2"), "Behavioral"),
+    ]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            ForEach(sections, id: \.1) { color, label in
+                HStack(spacing: 6) {
+                    RoundedRectangle(cornerRadius: 1)
+                        .fill(color)
+                        .frame(width: 3, height: 14)
+                    Text(label)
+                        .font(.system(size: 9))
+                        .foregroundStyle(AppColors.textTertiary)
+                }
+            }
+            if let report = appState.latestWeeklyReport ?? appState.latestMonthlyReport {
+                Text(report.type == .weekly ? "Weekly ready" : "Monthly ready")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(Color(hex: "#BF5AF2"))
+                    .padding(.top, 2)
+            }
         }
     }
 }
