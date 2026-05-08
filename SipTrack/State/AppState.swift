@@ -27,6 +27,8 @@ final class AppState: ObservableObject {
     @Published var generatingReportForEventId: String? = nil
     @Published var coachReports: [CoachReport] = []
     @Published var generatingCoachReportId: String? = nil
+    @Published var nightRecoveries: [NightRecovery] = []
+    @Published var generatingRecoveryForEventId: String? = nil
 
     /// Set by ActiveEventView right after End Night so RootView can pop the
     /// active event and push SummaryView cleanly.
@@ -92,13 +94,14 @@ final class AppState: ObservableObject {
             }
         refreshFromFirebase()
         checkAndGenerateAutoReports()
+        syncPendingRecoveries()
         scheduleCoachReportReminders()
     }
 
     private func resetProfile() {
         DataStore.shared.clearAllData()
         events = []; entries = []; waterEntries = []
-        customDrinkTypes = []; challenges = []; coachReports = []
+        customDrinkTypes = []; challenges = []; coachReports = []; nightRecoveries = []
         userProfile = UserProfile()
         shouldShowAuth = true
     }
@@ -112,6 +115,7 @@ final class AppState: ObservableObject {
         userProfile      = ds.loadUserProfile()
         challenges       = ds.loadChallenges()
         coachReports     = ds.loadCoachReports()
+        nightRecoveries  = ds.loadNightRecoveries()
     }
 
     func refreshFromFirebase() {
@@ -120,6 +124,8 @@ final class AppState: ObservableObject {
             let data = await FirebaseManager.shared.pullUserData()
             applyCloudData(data)
             checkAndGenerateAutoReports()
+            checkAndGenerateRecoveries()
+            syncPendingRecoveries()
         }
     }
 
@@ -202,6 +208,7 @@ final class AppState: ObservableObject {
         WaterReminderManager.shared.cancel()
         WatchBridge.shared.pushState()
         generateAiReport(for: id)
+        generateRecoveryBrief(for: id)
     }
 
     // MARK: - AI Report
@@ -357,6 +364,132 @@ final class AppState: ObservableObject {
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
         let request = UNNotificationRequest(identifier: "siptrack.coach-\(UUID().uuidString)", content: content, trigger: trigger)
         UNUserNotificationCenter.current().add(request)
+    }
+
+    // MARK: - Recovery Brief
+
+    private func recoverySeverity(peakBAC: Double, hydration: BACCalculator.HydrationLevel) -> RecoverySeverity {
+        if peakBAC >= 0.15 || (peakBAC >= 0.10 && hydration == .none) { return .rough }
+        if peakBAC < 0.06 || (peakBAC < 0.08 && hydration == .great) { return .mild }
+        return .moderate
+    }
+
+    func generateRecoveryBrief(for eventId: String) {
+        guard currentUserId != nil else { return }
+        guard !nightRecoveries.contains(where: { $0.id == eventId }) else { return }
+        guard let event = events.first(where: { $0.id == eventId }),
+              event.endTime != nil else { return }
+
+        let evEntries = entries.filter { $0.eventId == eventId }
+        guard !evEntries.isEmpty else { return }
+        let evWater = waterEntries.filter { $0.eventId == eventId }
+
+        let timeline = BACCalculator.bacTimeline(
+            entries: evEntries, drinkTypes: allDrinkTypes,
+            profile: userProfile, eventStart: event.startTime
+        )
+        let peakBAC = timeline.max(by: { $0.bac < $1.bac })?.bac ?? 0
+        let drinkCount = evEntries.reduce(0) { $0 + $1.quantity }
+        let hydration = BACCalculator.hydrationLevel(waterEntries: evWater, drinkCount: drinkCount)
+        let severity = recoverySeverity(peakBAC: peakBAC, hydration: hydration)
+
+        let drinkList = Dictionary(grouping: evEntries) { $0.drinkTypeId }
+            .compactMap { typeId, es -> String? in
+                guard let dt = allDrinkTypes.first(where: { $0.id == typeId }) else { return nil }
+                return "\(es.reduce(0) { $0 + $1.quantity })x \(dt.name)"
+            }.joined(separator: ", ")
+
+        let placeholder = NightRecovery(id: eventId, severity: severity, report: nil, createdAt: Date())
+        nightRecoveries.append(placeholder)
+        DataStore.shared.saveNightRecoveries(nightRecoveries)
+
+        scheduleRecoveryNotification(for: event)
+
+        let currentYear = Calendar.current.component(.year, from: Date())
+        var requestData: [String: Any] = [
+            "userSex": userProfile.sex.rawValue,
+            "userWeightKg": userProfile.weightKg,
+            "drinkList": drinkList,
+            "peakBac": peakBAC,
+            "waterCount": evWater.count,
+            "hydrationLevel": hydration.rawValue,
+            "severity": severity.rawValue,
+        ]
+        if let birthYear = userProfile.birthYear { requestData["userAge"] = currentYear - birthYear }
+
+        Task {
+            generatingRecoveryForEventId = eventId
+            defer { generatingRecoveryForEventId = nil }
+            let payload: [String: Any] = [
+                "status": "pending",
+                "created_at": Date().timeIntervalSince1970 * 1000,
+                "request_data": requestData
+            ]
+            do {
+                try await FirebaseManager.shared.requestRecoveryBrief(eventId: eventId, data: payload)
+                var report: String?
+                for _ in 0..<15 {
+                    try? await Task.sleep(nanoseconds: 3_000_000_000)
+                    report = await FirebaseManager.shared.fetchRecoveryBrief(eventId: eventId)
+                    if report != nil { break }
+                }
+                if let report, let idx = nightRecoveries.firstIndex(where: { $0.id == eventId }) {
+                    nightRecoveries[idx].report = report
+                    DataStore.shared.saveNightRecoveries(nightRecoveries)
+                }
+            } catch {
+                nightRecoveries.removeAll { $0.id == eventId }
+                DataStore.shared.saveNightRecoveries(nightRecoveries)
+                print("❌ Recovery brief error: \(error)")
+            }
+        }
+    }
+
+    func checkAndGenerateRecoveries() {
+        let cutoff = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date()
+        let recent = events.filter {
+            guard let end = $0.endTime else { return false }
+            return end >= cutoff
+        }
+        for event in recent {
+            if !nightRecoveries.contains(where: { $0.id == event.id }) {
+                generateRecoveryBrief(for: event.id)
+            }
+        }
+    }
+
+    func syncPendingRecoveries() {
+        let pending = nightRecoveries.filter { $0.report == nil }
+        guard !pending.isEmpty else { return }
+        Task {
+            for r in pending {
+                guard let report = await FirebaseManager.shared.fetchRecoveryBrief(
+                    eventId: r.id
+                ) else { continue }
+                if let idx = nightRecoveries.firstIndex(where: { $0.id == r.id }) {
+                    nightRecoveries[idx].report = report
+                    DataStore.shared.saveNightRecoveries(nightRecoveries)
+                }
+            }
+        }
+    }
+
+    private func scheduleRecoveryNotification(for event: NightEvent) {
+        let cal = Calendar.current
+        guard let tomorrow = cal.date(byAdding: .day, value: 1, to: event.startTime) else { return }
+        var comps = cal.dateComponents([.year, .month, .day], from: tomorrow)
+        comps.hour = 8; comps.minute = 0
+        guard let fireDate = cal.date(from: comps), fireDate > Date() else { return }
+        let content = UNMutableNotificationContent()
+        content.title = "Recovery Brief Ready"
+        content.body = "\(event.displayName) — your morning recovery guide is ready."
+        content.sound = .default
+        let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)
+        let req = UNNotificationRequest(
+            identifier: "siptrack.recovery-\(event.id)",
+            content: content, trigger: trigger
+        )
+        UNUserNotificationCenter.current().add(req)
     }
 
     // MARK: - AI Coach

@@ -358,6 +358,21 @@ final class FirebaseManager: ObservableObject {
             .setData(data, merge: true)
     }
 
+    func requestRecoveryBrief(eventId: String, data: [String: Any]) async throws {
+        guard let uid = currentUserId() else { return }
+        try await db.collection("users").document(uid)
+            .collection("night_recoveries").document(eventId)
+            .setData(data)
+    }
+
+    func fetchRecoveryBrief(eventId: String) async -> String? {
+        guard let uid = currentUserId() else { return nil }
+        let doc = try? await db.collection("users").document(uid)
+            .collection("night_recoveries").document(eventId).getDocument()
+        guard let d = doc?.data(), d["status"] == nil else { return nil }
+        return d["report"] as? String
+    }
+
     func deleteCoachReport(reportId: String) async throws {
         guard let uid = currentUserId() else { return }
         try await db.collection("users").document(uid)

@@ -111,12 +111,9 @@ struct SummaryView: View {
                 .cornerRadius(14)
                 .padding(.horizontal)
 
-                // AI night report
-                AIReportCard(
-                    report: event.aiReport,
-                    isGenerating: appState.generatingReportForEventId == eventId,
-                    isPro: appState.isPro
-                )
+                // Night analysis (AI report + recovery brief)
+                NightAnalysisCard(eventId: eventId)
+                    .padding(.horizontal)
 
                 // Stats grid
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {

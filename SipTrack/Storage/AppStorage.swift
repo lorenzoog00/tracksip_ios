@@ -172,6 +172,16 @@ final class DataStore {
         save(reports, key: "siptrack_coach_reports")
     }
 
+    // MARK: - Night Recoveries
+
+    func loadNightRecoveries() -> [NightRecovery] {
+        load([NightRecovery].self, key: "siptrack_night_recoveries") ?? []
+    }
+
+    func saveNightRecoveries(_ recoveries: [NightRecovery]) {
+        save(recoveries, key: "siptrack_night_recoveries") 
+    }
+
     // MARK: - Data Management
 
     func pruneOldEvents(olderThan cutoff: Date) {
@@ -181,7 +191,7 @@ final class DataStore {
     }
 
     func clearAllData() {
-        let keys = ["siptrack_events","siptrack_entries","siptrack_water","siptrack_drink_types","siptrack_challenges","siptrack_profile","siptrack_coach_reports"]
+        let keys = ["siptrack_events","siptrack_entries","siptrack_water","siptrack_drink_types","siptrack_challenges","siptrack_profile","siptrack_coach_reports","siptrack_night_recoveries"]
         for key in keys {
             try? FileManager.default.removeItem(at: url(key: key))
         }

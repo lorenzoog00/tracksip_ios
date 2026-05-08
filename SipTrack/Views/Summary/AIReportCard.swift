@@ -429,3 +429,502 @@ struct TracksipLogoMark: View {
         .frame(width: size, height: size)
     }
 }
+
+// MARK: - RecoverySeverity color (SwiftUI layer)
+
+extension RecoverySeverity {
+    var color: Color {
+        switch self {
+        case .mild:     return Color(hex: "#4CD964")
+        case .moderate: return Color(hex: "#F0A830")
+        case .rough:    return Color(hex: "#FF6B6B")
+        }
+    }
+}
+
+// MARK: - Unified Analysis Section
+
+struct AnalysisSection {
+    enum Kind {
+        case overview, physiology, insight
+        case recovery, hydration
+        case unknown
+
+        var title: String {
+            switch self {
+            case .overview:   return "OVERVIEW"
+            case .physiology: return "PHYSIOLOGY"
+            case .insight:    return "INSIGHT"
+            case .recovery:   return "RECOVERY PROTOCOL"
+            case .hydration:  return "HYDRATION TIP"
+            case .unknown:    return "ANALYSIS"
+            }
+        }
+
+        var icon: String {
+            switch self {
+            case .overview:   return "doc.text.fill"
+            case .physiology: return "waveform.path.ecg"
+            case .insight:    return "brain.head.profile"
+            case .recovery:   return "cross.case.fill"
+            case .hydration:  return "drop.fill"
+            case .unknown:    return "sparkles"
+            }
+        }
+
+        var color: Color {
+            switch self {
+            case .overview:   return AppColors.accent
+            case .physiology: return Color(hex: "#5BC8FF")
+            case .insight:    return Color(hex: "#BF5AF2")
+            case .recovery:   return Color(hex: "#5BC8FF")
+            case .hydration:  return Color(hex: "#4CD964")
+            case .unknown:    return AppColors.accent
+            }
+        }
+    }
+
+    let kind: Kind
+    let body: String
+}
+
+// MARK: - Parsers
+
+enum NightReportParser {
+    private static let order: [AnalysisSection.Kind] = [.overview, .physiology, .insight]
+
+    static func parse(_ text: String) -> [AnalysisSection] {
+        let paras = text.components(separatedBy: "\n\n")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        return paras.enumerated().map { i, para in
+            let body: String
+            if let colon = para.range(of: ":") {
+                body = String(para[colon.upperBound...])
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+            } else {
+                body = para
+            }
+            let kind = i < order.count ? order[i] : .unknown
+            return AnalysisSection(kind: kind, body: body.isEmpty ? para : body)
+        }
+    }
+}
+
+enum RecoveryAnalysisParser {
+    static func parse(_ text: String) -> [AnalysisSection] {
+        text.components(separatedBy: "\n\n")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .compactMap { para -> AnalysisSection? in
+                guard let colon = para.range(of: ":") else { return nil }
+                let prefix = String(
+                    para[para.startIndex..<colon.lowerBound]
+                ).uppercased()
+                let body = String(para[colon.upperBound...])
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                if prefix.contains("RECOVERY") {
+                    return AnalysisSection(kind: .recovery, body: body)
+                }
+                if prefix.contains("HYDRATION") {
+                    return AnalysisSection(kind: .hydration, body: body)
+                }
+                return nil
+            }
+    }
+}
+
+// MARK: - Collapsible Row
+
+private struct AnalysisSectionRow: View {
+    let section: AnalysisSection
+    @State private var collapsed = true
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 0) {
+            Rectangle()
+                .fill(section.kind.color)
+                .frame(width: 3)
+                .cornerRadius(1.5)
+                .padding(.vertical, 14)
+                .padding(.leading, 16)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        collapsed.toggle()
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: section.kind.icon)
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(section.kind.color)
+                        Text(section.kind.title)
+                            .font(.system(size: 9, weight: .black))
+                            .tracking(2)
+                            .foregroundStyle(section.kind.color)
+                        Spacer()
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundStyle(section.kind.color.opacity(0.6))
+                            .rotationEffect(.degrees(collapsed ? -90 : 0))
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .background(section.kind.color.opacity(0.12))
+                    .cornerRadius(5)
+                }
+                .buttonStyle(.plain)
+
+                if !collapsed {
+                    Text(section.body)
+                        .font(.system(size: 13, design: .serif))
+                        .foregroundStyle(AppColors.text)
+                        .lineSpacing(5)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                }
+            }
+            .padding(.leading, 12)
+            .padding(.trailing, 16)
+            .padding(.top, 14)
+            .padding(.bottom, collapsed ? 10 : 14)
+        }
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: collapsed)
+    }
+}
+
+// MARK: - EKG Line
+
+private struct AnalysisEKGLine: View {
+    let accentColor: Color
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 0.016)) { tl in
+            Canvas { ctx, size in
+                let t = CGFloat(tl.date.timeIntervalSinceReferenceDate)
+                let progress = (t / 2.2).truncatingRemainder(dividingBy: 1.0)
+                let scanX = progress * size.width
+                let midY = size.height / 2
+
+                var ahead = Path()
+                ahead.move(to: CGPoint(x: scanX, y: midY))
+                ahead.addLine(to: CGPoint(x: size.width, y: midY))
+                ctx.stroke(ahead, with: .color(.white.opacity(0.07)), lineWidth: 1)
+
+                if scanX > 0 {
+                    var path = Path()
+                    var x: CGFloat = 0
+                    while x <= scanX {
+                        let y = ekgY(x / size.width, midY: midY, h: size.height)
+                        if x == 0 { path.move(to: CGPoint(x: x, y: y)) }
+                        else { path.addLine(to: CGPoint(x: x, y: y)) }
+                        x += 2
+                    }
+                    ctx.stroke(path, with: .linearGradient(
+                        Gradient(stops: [
+                            .init(color: accentColor.opacity(0.05), location: 0),
+                            .init(color: accentColor.opacity(0.9), location: 1)
+                        ]),
+                        startPoint: .zero,
+                        endPoint: CGPoint(x: scanX, y: midY)
+                    ), lineWidth: 2)
+                    let dotY = ekgY(scanX / size.width, midY: midY, h: size.height)
+                    ctx.fill(
+                        Path(ellipseIn: CGRect(x: scanX-5, y: dotY-5, width: 10, height: 10)),
+                        with: .color(accentColor.opacity(0.25))
+                    )
+                    ctx.fill(
+                        Path(ellipseIn: CGRect(x: scanX-3, y: dotY-3, width: 6, height: 6)),
+                        with: .color(accentColor)
+                    )
+                }
+            }
+        }
+    }
+
+    private func ekgY(_ norm: CGFloat, midY: CGFloat, h: CGFloat) -> CGFloat {
+        let s = norm.truncatingRemainder(dividingBy: 1.0)
+        if s < 0.08 { return midY }
+        if s < 0.14 { return midY - h * 0.13 * sin((s-0.08)/0.06 * .pi) }
+        if s < 0.26 { return midY }
+        if s < 0.30 { return midY + h * 0.09 * ((s-0.26)/0.04) }
+        if s < 0.34 { return midY - h * 0.44 * sin((s-0.30)/0.04 * .pi) }
+        if s < 0.38 { return midY + h * 0.20 * sin((s-0.34)/0.04 * .pi) }
+        if s < 0.48 { return midY }
+        if s < 0.62 { return midY - h * 0.16 * sin((s-0.48)/0.14 * .pi) }
+        return midY
+    }
+}
+
+// MARK: - Unified Night Analysis Card
+
+struct NightAnalysisCard: View {
+    let eventId: String
+    @EnvironmentObject var appState: AppState
+    @State private var showPaywall = false
+
+    private var event: NightEvent? {
+        appState.events.first { $0.id == eventId }
+    }
+    private var recovery: NightRecovery? {
+        appState.nightRecoveries.first { $0.id == eventId }
+    }
+    private var severity: RecoverySeverity { recovery?.severity ?? .mild }
+    private var isGeneratingNight: Bool {
+        appState.generatingReportForEventId == eventId
+    }
+    private var isGeneratingRecovery: Bool {
+        appState.generatingRecoveryForEventId == eventId
+    }
+    private var isPro: Bool { appState.isPro }
+    private var hasEnded: Bool { event?.endTime != nil }
+
+    private var themeColor: Color {
+        recovery != nil ? severity.color : AppColors.accent
+    }
+    private var nightSections: [AnalysisSection] {
+        guard let text = event?.aiReport else { return [] }
+        return NightReportParser.parse(text)
+    }
+    private var recoverySections: [AnalysisSection] {
+        guard let text = recovery?.report else { return [] }
+        return RecoveryAnalysisParser.parse(text)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            cardHeader
+            themeAccentRule
+            if isGeneratingNight || event?.aiReport == nil {
+                analysisLoading(label: "SCANNING", color: AppColors.accent)
+            } else {
+                ZStack(alignment: .top) {
+                    cardBody
+                        .blur(radius: isPro ? 0 : 9)
+                        .allowsHitTesting(isPro)
+                    if !isPro { proGate }
+                }
+                .clipped()
+            }
+        }
+        .background(dotGridBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18)
+                .stroke(
+                    LinearGradient(
+                        colors: [themeColor.opacity(0.5), AppColors.border.opacity(0.2)],
+                        startPoint: .topLeading, endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
+        )
+        .sheet(isPresented: $showPaywall) { PaywallView() }
+    }
+
+    // MARK: Header
+
+    private var cardHeader: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center, spacing: 12) {
+                Image(uiImage: UIImage(named: "AppIcon") ?? UIImage())
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 34, height: 34)
+                    .cornerRadius(8)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("NIGHT ANALYSIS")
+                        .font(.system(size: 8, weight: .black))
+                        .tracking(2.5)
+                        .foregroundStyle(AppColors.accent)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background(AppColors.accentDim)
+                        .cornerRadius(4)
+                    Text(event?.displayName ?? "—")
+                        .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(AppColors.text)
+                        .lineLimit(1)
+                }
+
+                Spacer()
+
+                if let event = event {
+                    Text(event.startTime, format: .dateTime.month(.abbreviated).day())
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(AppColors.textTertiary)
+                }
+            }
+
+            if let r = recovery {
+                HStack(spacing: 6) {
+                    HStack(spacing: 5) {
+                        Image(systemName: r.severity.icon)
+                            .font(.system(size: 9, weight: .semibold))
+                        Text(r.severity.label)
+                            .font(.system(size: 9, weight: .black))
+                            .tracking(2)
+                    }
+                    .foregroundStyle(r.severity.color)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(r.severity.color.opacity(0.14))
+                    .cornerRadius(5)
+
+                    Text("RECOVERY")
+                        .font(.system(size: 8, weight: .semibold))
+                        .tracking(1.5)
+                        .foregroundStyle(AppColors.textTertiary)
+                    Spacer()
+                }
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 14)
+        .padding(.bottom, 12)
+    }
+
+    // MARK: Body
+
+    private var cardBody: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(nightSections.enumerated()), id: \.offset) { i, section in
+                AnalysisSectionRow(section: section)
+                dashedDivider
+            }
+
+            if hasEnded {
+                recoveryDivider
+                if isGeneratingRecovery || (recovery != nil && recovery?.report == nil) {
+                    analysisLoading(label: "RECOVERY", color: severity.color)
+                } else {
+                    ForEach(Array(recoverySections.enumerated()), id: \.offset) { i, section in
+                        AnalysisSectionRow(section: section)
+                        if i < recoverySections.count - 1 { dashedDivider }
+                    }
+                }
+            }
+        }
+        .padding(.bottom, 10)
+    }
+
+    // MARK: Sub-views
+
+    private var recoveryDivider: some View {
+        HStack(spacing: 10) {
+            Rectangle()
+                .fill(LinearGradient(
+                    colors: [.clear, AppColors.border.opacity(0.4)],
+                    startPoint: .leading, endPoint: .trailing
+                ))
+                .frame(height: 1)
+            Text("RECOVERY")
+                .font(.system(size: 7, weight: .black))
+                .tracking(2.5)
+                .foregroundStyle(AppColors.textTertiary)
+            Rectangle()
+                .fill(LinearGradient(
+                    colors: [AppColors.border.opacity(0.4), .clear],
+                    startPoint: .leading, endPoint: .trailing
+                ))
+                .frame(height: 1)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+    }
+
+    private func analysisLoading(label: String, color: Color) -> some View {
+        VStack(spacing: 16) {
+            AnalysisEKGLine(accentColor: color)
+                .frame(height: 48)
+                .padding(.horizontal, 4)
+            VStack(spacing: 4) {
+                Text(label)
+                    .font(.system(size: 9, weight: .black))
+                    .tracking(2.5)
+                    .foregroundStyle(color)
+                Text("AI processing…")
+                    .font(.system(size: 11))
+                    .foregroundStyle(AppColors.textSecondary)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 26)
+    }
+
+    private var proGate: some View {
+        VStack(spacing: 14) {
+            ZStack {
+                Circle().fill(AppColors.accent.opacity(0.12)).frame(width: 52, height: 52)
+                Image(systemName: "lock.shield.fill")
+                    .font(.system(size: 24)).foregroundStyle(AppColors.accent)
+            }
+            VStack(spacing: 5) {
+                Text("PRO ANALYSIS")
+                    .font(.system(size: 12, weight: .black)).tracking(2)
+                    .foregroundStyle(AppColors.text)
+                Text("Your full night report is ready. Upgrade to read it.")
+                    .font(.system(size: 12)).foregroundStyle(AppColors.textSecondary)
+                    .multilineTextAlignment(.center)
+            }
+            Button { showPaywall = true } label: {
+                Text("Upgrade to Pro")
+                    .font(.system(size: 13, weight: .bold)).foregroundStyle(.black)
+                    .padding(.horizontal, 24).padding(.vertical, 11)
+                    .background(LinearGradient(
+                        colors: [AppColors.accentWarm, AppColors.accent],
+                        startPoint: .leading, endPoint: .trailing
+                    ))
+                    .cornerRadius(24)
+                    .shadow(color: AppColors.accent.opacity(0.5), radius: 10, y: 4)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 36).padding(.horizontal, 20)
+    }
+
+    private var themeAccentRule: some View {
+        Rectangle()
+            .fill(LinearGradient(
+                colors: [themeColor, themeColor.opacity(0.3), .clear],
+                startPoint: .leading, endPoint: .trailing
+            ))
+            .frame(height: 1)
+    }
+
+    private var dashedDivider: some View {
+        Canvas { ctx, size in
+            var path = Path()
+            path.move(to: CGPoint(x: 0, y: 0))
+            path.addLine(to: CGPoint(x: size.width, y: 0))
+            ctx.stroke(path, with: .color(.white.opacity(0.08)),
+                       style: StrokeStyle(lineWidth: 1, dash: [4, 5]))
+        }
+        .frame(height: 1)
+        .padding(.horizontal, 16)
+    }
+
+    private var dotGridBackground: some View {
+        ZStack {
+            LinearGradient(
+                colors: [AppColors.surfaceTop, AppColors.surfaceBottom],
+                startPoint: .top, endPoint: .bottom
+            )
+            Canvas { ctx, size in
+                let sp: CGFloat = 20
+                for x in stride(from: sp/2, through: size.width, by: sp) {
+                    for y in stride(from: sp/2, through: size.height, by: sp) {
+                        ctx.fill(
+                            Path(ellipseIn: CGRect(x: x-0.7, y: y-0.7, width: 1.4, height: 1.4)),
+                            with: .color(.white.opacity(0.04))
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+

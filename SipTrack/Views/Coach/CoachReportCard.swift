@@ -297,7 +297,7 @@ private extension ComparisonReportCard {
 
 private struct SectionRow: View {
     let section: ParsedSection
-    @State private var collapsed = false
+    @State private var collapsed = true
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
