@@ -217,7 +217,6 @@ final class AppState: ObservableObject {
         guard let event = events.first(where: { $0.id == eventId }),
               let endTime = event.endTime else { return }
         let eventEntries = entries.filter { $0.eventId == eventId }
-        guard !eventEntries.isEmpty else { return }
         let eventWater = waterEntries.filter { $0.eventId == eventId }
 
         let timeline = BACCalculator.bacTimeline(
@@ -410,6 +409,7 @@ final class AppState: ObservableObject {
             "userSex": userProfile.sex.rawValue,
             "userWeightKg": userProfile.weightKg,
             "drinkList": drinkList,
+            "drinkCount": drinkCount,
             "peakBac": peakBAC,
             "waterCount": evWater.count,
             "hydrationLevel": hydration.rawValue,
