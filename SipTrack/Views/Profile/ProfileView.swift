@@ -356,6 +356,11 @@ struct ProfileView: View {
                         }
                     }
 
+                    // MARK: Learn
+                    ProfileSection(title: "About Alcohol & BAC", icon: "book.closed.fill") {
+                        learnRow
+                    }
+
                     // MARK: Legal
                     ProfileSection(title: "Legal", icon: "doc.text.fill") {
                         Link(destination: URL(string: "https://looqs.online/siptrack/policy")!) {
@@ -427,6 +432,26 @@ struct ProfileView: View {
     }
 
     // MARK: - Sub-views
+
+    private var learnRow: some View {
+        NavigationLink(destination: LearnView()) {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Alcohol & BAC Guide")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(AppColors.text)
+                    Text("What BAC is, how it's calculated, safe limits")
+                        .font(.system(size: 12))
+                        .foregroundStyle(AppColors.textSecondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(AppColors.textTertiary)
+            }
+        }
+        .buttonStyle(.plain)
+    }
 
     private var avatarHeader: some View {
         VStack(spacing: 10) {

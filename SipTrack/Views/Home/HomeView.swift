@@ -185,64 +185,64 @@ struct HomeView: View {
             .padding(.horizontal)
         }
 
-        // Feature cards section
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 10) {
-                Text("EXPLORE")
-                    .font(.system(size: 10, weight: .semibold))
-                    .tracking(1.4)
-                    .foregroundStyle(AppColors.textTertiary)
-                Rectangle()
-                    .fill(AppColors.border)
-                    .frame(height: 0.5)
-            }
+        // YOUR DATA group
+        FeatureSectionHeader(label: "YOUR DATA", accentColor: Color(hex: "#6B99FF"))
             .padding(.horizontal)
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    FeatureCard(
-                        title: "Calendar",
-                        icon: "calendar",
-                        accent: Color(hex: "#6B99FF"),
-                        locked: !appState.isPro,
-                        destination: .calendar
-                    ) { CalendarDotsPreview() }
+        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+            FeatureCard(
+                title: "Stats",
+                icon: "chart.bar.fill",
+                accent: AppColors.accent,
+                locked: !appState.isPro,
+                destination: .dashboard
+            ) { StatsCardPreview() }
 
-                    FeatureCard(
-                        title: "Stats",
-                        icon: "chart.bar.fill",
-                        accent: AppColors.accent,
-                        locked: !appState.isPro,
-                        destination: .dashboard
-                    ) { StatsCardPreview() }
-
-                    FeatureCard(
-                        title: "Challenges",
-                        icon: "trophy.fill",
-                        accent: Color(hex: "#E8834A"),
-                        locked: !appState.isPro,
-                        destination: .challenges
-                    ) { ChallengesCardPreview() }
-
-                    FeatureCard(
-                        title: "Drinks",
-                        icon: "wineglass.fill",
-                        accent: Color(hex: "#3DBDA7"),
-                        locked: !appState.isPro,
-                        destination: .drinks
-                    ) { DrinksCardPreview() }
-
-                    FeatureCard(
-                        title: "AI Coach",
-                        icon: "brain.head.profile",
-                        accent: Color(hex: "#BF5AF2"),
-                        locked: !appState.isPro,
-                        destination: .coach
-                    ) { CoachCardPreview() }
-                }
-                .padding(.horizontal)
-            }
+            FeatureCard(
+                title: "Calendar",
+                icon: "calendar",
+                accent: Color(hex: "#6B99FF"),
+                locked: !appState.isPro,
+                destination: .calendar
+            ) { CalendarDotsPreview() }
         }
+        .padding(.horizontal)
+
+        // GROW group
+        FeatureSectionHeader(label: "GROW", accentColor: Color(hex: "#BF5AF2"))
+            .padding(.horizontal)
+
+        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+            FeatureCard(
+                title: "AI Coach",
+                icon: "brain.head.profile",
+                accent: Color(hex: "#BF5AF2"),
+                locked: !appState.isPro,
+                destination: .coach
+            ) { CoachCardPreview() }
+
+            FeatureCard(
+                title: "Challenges",
+                icon: "trophy.fill",
+                accent: Color(hex: "#E8834A"),
+                locked: !appState.isPro,
+                destination: .challenges
+            ) { ChallengesCardPreview() }
+        }
+        .padding(.horizontal)
+
+        // Drinks — full-width catalog pill
+        FeatureCardWide(
+            title: "Drinks",
+            subtitle: "Manage your drink catalog",
+            icon: "wineglass.fill",
+            accent: Color(hex: "#3DBDA7"),
+            locked: !appState.isPro,
+            destination: .drinks,
+            count: appState.allDrinkTypes.count,
+            countLabel: "types"
+        )
+        .padding(.horizontal)
 
         // Past nights section
         if !appState.visibleEvents.isEmpty {
@@ -531,12 +531,121 @@ private struct FeatureCard<Content: View>: View {
                 .foregroundStyle(locked ? AppColors.textTertiary : AppColors.textSecondary)
         }
         .padding(14)
-        .frame(width: 152, height: 144)
+        .frame(maxWidth: .infinity, minHeight: 140)
         .premiumCard(
             radius: 18,
             tint: locked ? .clear : accent,
             tintOpacity: locked ? 0 : 0.06,
             borderTop: locked ? AppColors.rimLight : accent.opacity(0.45),
+            borderBottom: AppColors.border
+        )
+    }
+}
+
+// MARK: - Section header
+
+private struct FeatureSectionHeader: View {
+    let label: String
+    let accentColor: Color
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Text(label)
+                .font(.system(size: 10, weight: .bold))
+                .tracking(1.8)
+                .foregroundStyle(accentColor.opacity(0.85))
+            Rectangle()
+                .fill(
+                    LinearGradient(
+                        colors: [accentColor.opacity(0.35), Color.clear],
+                        startPoint: .leading, endPoint: .trailing
+                    )
+                )
+                .frame(height: 1)
+        }
+    }
+}
+
+// MARK: - Wide feature card (Drinks)
+
+private struct FeatureCardWide: View {
+    let title: String
+    let subtitle: String
+    let icon: String
+    let accent: Color
+    let locked: Bool
+    let destination: Route
+    let count: Int
+    let countLabel: String
+
+    @State private var showPaywall = false
+
+    var body: some View {
+        Group {
+            if locked {
+                Button { showPaywall = true } label: { card }
+            } else {
+                NavigationLink(value: destination) { card }
+            }
+        }
+        .buttonStyle(.plain)
+        .sheet(isPresented: $showPaywall) {
+            PaywallView()
+        }
+    }
+
+    private var card: some View {
+        HStack(spacing: 14) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(accent.opacity(locked ? 0.08 : 0.14))
+                    .frame(width: 42, height: 42)
+                Image(systemName: icon)
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundStyle(locked ? AppColors.textTertiary : accent)
+            }
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(locked ? AppColors.textTertiary : AppColors.text)
+                Text(subtitle)
+                    .font(.system(size: 11))
+                    .foregroundStyle(AppColors.textTertiary)
+            }
+
+            Spacer()
+
+            HStack(alignment: .lastTextBaseline, spacing: 3) {
+                Text("\(count)")
+                    .font(.system(size: 18, weight: .bold, design: .monospaced))
+                    .foregroundStyle(locked ? AppColors.textTertiary : accent)
+                Text(countLabel)
+                    .font(.system(size: 10))
+                    .foregroundStyle(AppColors.textTertiary)
+            }
+
+            if locked {
+                Text("PRO")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(AppColors.accent)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(AppColors.accentDim)
+                    .cornerRadius(6)
+            }
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 11, weight: .light))
+                .foregroundStyle(AppColors.textTertiary)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .premiumCard(
+            radius: 16,
+            tint: locked ? .clear : accent,
+            tintOpacity: locked ? 0 : 0.04,
+            borderTop: locked ? AppColors.rimLight : accent.opacity(0.3),
             borderBottom: AppColors.border
         )
     }

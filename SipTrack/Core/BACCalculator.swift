@@ -71,16 +71,30 @@ struct BACCalculator {
         entries: [DrinkEntry],
         drinkTypes: [DrinkType],
         weightKg: Double,
-        r: Double
+        r: Double,
+        stomachState: StomachState = .empty,
+        stomachStateTimestamp: Date,
+        foodEntries: [FoodEntry] = []
     ) -> Double {
         guard weightKg > 0, r > 0 else { return 0 }
-        return entries.filter { $0.timestamp <= time }.reduce(0.0) { sum, entry in
-            let dt = drinkTypes.first { $0.id == entry.drinkTypeId }
-            let vol = entry.volumeOverrideMl ?? dt?.defaultVolumeMl ?? 0
-            let abv = entry.abvOverride ?? dt?.defaultAbv ?? 0
+        return entries.reduce(0.0) { sum, entry in
+            let dt      = drinkTypes.first { $0.id == entry.drinkTypeId }
+            let vol     = entry.volumeOverrideMl ?? dt?.defaultVolumeMl ?? 0
+            let abv     = entry.abvOverride ?? dt?.defaultAbv ?? 0
             let alcohol = calculateAlcohol(volumeMl: vol, abv: abv, quantity: entry.quantity)
-            let hours = time.timeIntervalSince(entry.timestamp) / 3600
-            let raw = (alcohol / (weightKg * 1000 * r)) * 100
+
+            let factor       = computeStomachFactor(
+                at: entry.timestamp,
+                stomachState: stomachState,
+                stomachStateTimestamp: stomachStateTimestamp,
+                foodEntries: foodEntries
+            )
+            let effectiveStart = entry.timestamp.addingTimeInterval(factor.absorptionDelayMinutes * 60)
+            guard time >= effectiveStart else { return sum }   // drink not yet absorbed
+
+            let hours            = time.timeIntervalSince(effectiveStart) / 3600
+            let effectiveAlcohol = alcohol * (1.0 - factor.peakReductionFactor)
+            let raw              = (effectiveAlcohol / (weightKg * 1000 * r)) * 100
             return sum + max(0, raw - 0.015 * hours)
         }
     }
@@ -91,16 +105,30 @@ struct BACCalculator {
         weightKg: Double,
         sex: Sex,
         eventStart: Date,
-        r: Double? = nil
+        r: Double? = nil,
+        stomachState: StomachState = .empty,
+        stomachStateTimestamp: Date? = nil,
+        foodEntries: [FoodEntry] = []
     ) -> Double {
         guard !entries.isEmpty else { return 0 }
-        let rFactor = r ?? widmarkR(sex: sex)
+        let rFactor     = r ?? widmarkR(sex: sex)
+        let stTimestamp = stomachStateTimestamp ?? eventStart
         let lastTimestamp = entries.map(\.timestamp).max() ?? eventStart
-        let endCheck = lastTimestamp.addingTimeInterval(3600)
-        var peak = 0.0
-        var checkpoint = eventStart
+        let endCheck    = lastTimestamp.addingTimeInterval(3600)
+        var peak        = 0.0
+        var checkpoint  = eventStart
         while checkpoint <= endCheck {
-            peak = max(peak, bacAt(checkpoint, entries: entries, drinkTypes: drinkTypes, weightKg: weightKg, r: rFactor))
+            let bac = bacAt(
+                checkpoint,
+                entries: entries,
+                drinkTypes: drinkTypes,
+                weightKg: weightKg,
+                r: rFactor,
+                stomachState: stomachState,
+                stomachStateTimestamp: stTimestamp,
+                foodEntries: foodEntries
+            )
+            peak = max(peak, bac)
             checkpoint = checkpoint.addingTimeInterval(300)
         }
         return peak
@@ -110,26 +138,39 @@ struct BACCalculator {
         entries: [DrinkEntry],
         drinkTypes: [DrinkType],
         profile: UserProfile,
-        eventStart: Date
+        eventStart: Date,
+        stomachState: StomachState = .empty,
+        stomachStateTimestamp: Date? = nil,
+        foodEntries: [FoodEntry] = []
     ) -> [BACDataPoint] {
         guard !entries.isEmpty, profile.weightKg > 0 else { return [] }
-        let r = profileR(profile: profile)
+        let r           = profileR(profile: profile)
+        let stTimestamp = stomachStateTimestamp ?? eventStart
         let totalAlcohol = entries.reduce(0.0) { sum, entry in
-            let dt = drinkTypes.first { $0.id == entry.drinkTypeId }
+            let dt  = drinkTypes.first { $0.id == entry.drinkTypeId }
             let vol = entry.volumeOverrideMl ?? dt?.defaultVolumeMl ?? 0
             let abv = entry.abvOverride ?? dt?.defaultAbv ?? 0
             return sum + calculateAlcohol(volumeMl: vol, abv: abv, quantity: entry.quantity)
         }
         guard totalAlcohol > 0 else { return [] }
-        let rawBAC = (totalAlcohol / (profile.weightKg * 1000 * r)) * 100
+        let rawBAC     = (totalAlcohol / (profile.weightKg * 1000 * r)) * 100
         let hoursToZero = rawBAC / 0.015
-        let endDate = eventStart.addingTimeInterval((hoursToZero + 0.5) * 3600)
-        let lastDrink = entries.map(\.timestamp).max() ?? eventStart
+        let endDate    = eventStart.addingTimeInterval((hoursToZero + 0.5) * 3600)
+        let lastDrink  = entries.map(\.timestamp).max() ?? eventStart
 
         var points: [BACDataPoint] = []
         var checkpoint = eventStart
         while checkpoint <= endDate {
-            let bac = bacAt(checkpoint, entries: entries, drinkTypes: drinkTypes, weightKg: profile.weightKg, r: r)
+            let bac = bacAt(
+                checkpoint,
+                entries: entries,
+                drinkTypes: drinkTypes,
+                weightKg: profile.weightKg,
+                r: r,
+                stomachState: stomachState,
+                stomachStateTimestamp: stTimestamp,
+                foodEntries: foodEntries
+            )
             points.append(BACDataPoint(date: checkpoint, bac: bac))
             if bac == 0 && checkpoint > lastDrink { break }
             checkpoint = checkpoint.addingTimeInterval(300)
@@ -146,17 +187,30 @@ struct BACCalculator {
         drinkTypes: [DrinkType],
         profile: UserProfile,
         eventStart: Date,
-        eventEnd: Date
+        eventEnd: Date,
+        stomachState: StomachState = .empty,
+        stomachStateTimestamp: Date? = nil,
+        foodEntries: [FoodEntry] = []
     ) -> Double {
         guard !entries.isEmpty, eventEnd > eventStart else { return 0 }
-        let r = profileR(profile: profile)
+        let r           = profileR(profile: profile)
+        let stTimestamp = stomachStateTimestamp ?? eventStart
         let duration = eventEnd.timeIntervalSince(eventStart)
         let interval = max(1.0, min(300.0, duration / 20.0))
         var sum = 0.0
         var count = 0
         var t = eventStart
         while t <= eventEnd {
-            sum += bacAt(t, entries: entries, drinkTypes: drinkTypes, weightKg: profile.weightKg, r: r)
+            sum += bacAt(
+                t,
+                entries: entries,
+                drinkTypes: drinkTypes,
+                weightKg: profile.weightKg,
+                r: r,
+                stomachState: stomachState,
+                stomachStateTimestamp: stTimestamp,
+                foodEntries: foodEntries
+            )
             count += 1
             t = t.addingTimeInterval(interval)
         }
@@ -218,10 +272,23 @@ struct BACCalculator {
         waterEntries: [WaterEntry],
         drinkTypes: [DrinkType],
         profile: UserProfile,
-        eventStart: Date
+        eventStart: Date,
+        stomachState: StomachState = .empty,
+        stomachStateTimestamp: Date? = nil,
+        foodEntries: [FoodEntry] = []
     ) -> Double {
-        let r = profileR(profile: profile)
-        let rawBAC = bacAt(Date(), entries: entries, drinkTypes: drinkTypes, weightKg: profile.weightKg, r: r)
+        let r           = profileR(profile: profile)
+        let stTimestamp = stomachStateTimestamp ?? eventStart
+        let rawBAC = bacAt(
+            Date(),
+            entries: entries,
+            drinkTypes: drinkTypes,
+            weightKg: profile.weightKg,
+            r: r,
+            stomachState: stomachState,
+            stomachStateTimestamp: stTimestamp,
+            foodEntries: foodEntries
+        )
         let ratio = computeHydrationRatio(waterEntries: waterEntries, drinkCount: entries.count)
         return applyHydration(bac: rawBAC, ratio: ratio)
     }
@@ -229,5 +296,45 @@ struct BACCalculator {
     static func drinksInLastHour(entries: [DrinkEntry]) -> Int {
         let cutoff = Date().addingTimeInterval(-3600)
         return entries.filter { $0.timestamp >= cutoff }.count
+    }
+
+    // MARK: - Food / Stomach factor
+
+    static func computeStomachFactor(
+        at drinkTime: Date,
+        stomachState: StomachState,
+        stomachStateTimestamp: Date,
+        foodEntries: [FoodEntry]
+    ) -> (absorptionDelayMinutes: Double, peakReductionFactor: Double) {
+
+        func base(for state: StomachState) -> (delay: Double, reduction: Double) {
+            switch state {
+            case .empty:    return (0,    0)
+            case .snack:    return (15,   0.15)
+            case .fullMeal: return (37.5, 0.30)
+            }
+        }
+
+        // Linear decay back to empty over 150 minutes (gastric emptying model)
+        func decay(minutesSince: Double) -> Double {
+            max(0.0, 1.0 - (minutesSince / 150.0))
+        }
+
+        let initMinutes = drinkTime.timeIntervalSince(stomachStateTimestamp) / 60
+        let initBase    = base(for: stomachState)
+        let initDecay   = decay(minutesSince: max(0, initMinutes))
+        var bestDelay   = initBase.delay     * initDecay
+        var bestReduce  = initBase.reduction * initDecay
+
+        // Check every food entry logged before this drink; pick strongest remaining effect
+        for entry in foodEntries where entry.timestamp <= drinkTime {
+            let minutes     = drinkTime.timeIntervalSince(entry.timestamp) / 60
+            let entryBase   = base(for: entry.type)
+            let entryDecay  = decay(minutesSince: minutes)
+            bestDelay  = max(bestDelay,  entryBase.delay     * entryDecay)
+            bestReduce = max(bestReduce, entryBase.reduction * entryDecay)
+        }
+
+        return (absorptionDelayMinutes: bestDelay, peakReductionFactor: bestReduce)
     }
 }

@@ -446,24 +446,22 @@ extension RecoverySeverity {
 
 struct AnalysisSection {
     enum Kind {
-        case overview, physiology, insight
+        case physiology, insight
         case recovery, hydration
         case unknown
 
         var title: String {
             switch self {
-            case .overview:   return "OVERVIEW"
             case .physiology: return "PHYSIOLOGY"
-            case .insight:    return "INSIGHT"
-            case .recovery:   return "RECOVERY PROTOCOL"
-            case .hydration:  return "HYDRATION TIP"
+            case .insight:    return "NEXT TIME"
+            case .recovery:   return "RECOVERY"
+            case .hydration:  return "HYDRATION"
             case .unknown:    return "ANALYSIS"
             }
         }
 
         var icon: String {
             switch self {
-            case .overview:   return "doc.text.fill"
             case .physiology: return "waveform.path.ecg"
             case .insight:    return "brain.head.profile"
             case .recovery:   return "cross.case.fill"
@@ -474,11 +472,10 @@ struct AnalysisSection {
 
         var color: Color {
             switch self {
-            case .overview:   return AppColors.accent
             case .physiology: return Color(hex: "#5BC8FF")
             case .insight:    return Color(hex: "#BF5AF2")
-            case .recovery:   return Color(hex: "#5BC8FF")
-            case .hydration:  return Color(hex: "#4CD964")
+            case .recovery:   return Color(hex: "#4CD964")
+            case .hydration:  return AppColors.water
             case .unknown:    return AppColors.accent
             }
         }
@@ -491,7 +488,7 @@ struct AnalysisSection {
 // MARK: - Parsers
 
 enum NightReportParser {
-    private static let order: [AnalysisSection.Kind] = [.overview, .physiology, .insight]
+    private static let order: [AnalysisSection.Kind] = [.physiology, .insight]
 
     static func parse(_ text: String) -> [AnalysisSection] {
         let paras = text.components(separatedBy: "\n\n")
@@ -513,24 +510,24 @@ enum NightReportParser {
 
 enum RecoveryAnalysisParser {
     static func parse(_ text: String) -> [AnalysisSection] {
-        text.components(separatedBy: "\n\n")
+        let paras = text.components(separatedBy: "\n\n")
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
-            .compactMap { para -> AnalysisSection? in
-                guard let colon = para.range(of: ":") else { return nil }
-                let prefix = String(
-                    para[para.startIndex..<colon.lowerBound]
-                ).uppercased()
-                let body = String(para[colon.upperBound...])
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                if prefix.contains("RECOVERY") {
-                    return AnalysisSection(kind: .recovery, body: body)
-                }
-                if prefix.contains("HYDRATION") {
-                    return AnalysisSection(kind: .hydration, body: body)
-                }
-                return nil
-            }
+
+        // New format: single unlabeled paragraph
+        if paras.count == 1 {
+            return [AnalysisSection(kind: .recovery, body: paras[0])]
+        }
+
+        // Legacy format: labeled RECOVERY / HYDRATION paragraphs
+        return paras.compactMap { para -> AnalysisSection? in
+            guard let colon = para.range(of: ":") else { return nil }
+            let prefix = String(para[para.startIndex..<colon.lowerBound]).uppercased()
+            let body = String(para[colon.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
+            if prefix.contains("RECOVERY") { return AnalysisSection(kind: .recovery, body: body) }
+            if prefix.contains("HYDRATION") { return AnalysisSection(kind: .hydration, body: body) }
+            return nil
+        }
     }
 }
 
