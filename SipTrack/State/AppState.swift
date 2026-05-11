@@ -152,9 +152,8 @@ final class AppState: ObservableObject {
         bacTimerTask?.cancel()
         bacTimerTask = Task {
             while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 60_000_000_000)
-                guard !Task.isCancelled else { break }
                 updateLiveActivity(for: eventId)
+                try? await Task.sleep(nanoseconds: 10_000_000_000)
             }
         }
     }
@@ -224,6 +223,7 @@ final class AppState: ObservableObject {
               let endTime = event.endTime else { return }
         let eventEntries = entries.filter { $0.eventId == eventId }
         let eventWater = waterEntries.filter { $0.eventId == eventId }
+        let eventFoodEntries = foodEntries.filter { $0.eventId == eventId }
 
         let timeline = BACCalculator.bacTimeline(
             entries: eventEntries,
@@ -278,6 +278,8 @@ final class AppState: ObservableObject {
             "userWeightKg": userProfile.weightKg,
             "avgDrinksLast30Days": avgDrinksLast30Days,
             "dayOfWeek": dayOfWeek,
+            "stomachState": (event.stomachState ?? .empty).rawValue,
+            "foodEntryCount": eventFoodEntries.count,
         ]
         if let name = event.name { params["eventName"] = name }
         if let birthYear = userProfile.birthYear { params["userAge"] = currentYear - birthYear }

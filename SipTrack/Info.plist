@@ -39,6 +39,8 @@
 	<string>https://looqs.online/siptrack/policy</string>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
+	<key>NSSupportsLiveActivitiesFrequentUpdates</key>
+	<true/>
 	<key>NSUserTrackingUsageDescription</key>
 	<string>We use this to show you relevant ads that help keep Tracksip free.</string>
 	<key>SKAdNetworkItems</key>

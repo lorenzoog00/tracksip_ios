@@ -74,7 +74,8 @@ struct BACCalculator {
         r: Double,
         stomachState: StomachState = .empty,
         stomachStateTimestamp: Date,
-        foodEntries: [FoodEntry] = []
+        foodEntries: [FoodEntry] = [],
+        applyAbsorptionDelay: Bool = true
     ) -> Double {
         guard weightKg > 0, r > 0 else { return 0 }
         return entries.reduce(0.0) { sum, entry in
@@ -83,16 +84,23 @@ struct BACCalculator {
             let abv     = entry.abvOverride ?? dt?.defaultAbv ?? 0
             let alcohol = calculateAlcohol(volumeMl: vol, abv: abv, quantity: entry.quantity)
 
-            let factor       = computeStomachFactor(
+            let factor = computeStomachFactor(
                 at: entry.timestamp,
                 stomachState: stomachState,
                 stomachStateTimestamp: stomachStateTimestamp,
                 foodEntries: foodEntries
             )
-            let effectiveStart = entry.timestamp.addingTimeInterval(factor.absorptionDelayMinutes * 60)
-            guard time >= effectiveStart else { return sum }   // drink not yet absorbed
 
-            let hours            = time.timeIntervalSince(effectiveStart) / 3600
+            let start: Date
+            if applyAbsorptionDelay {
+                let effectiveStart = entry.timestamp.addingTimeInterval(factor.absorptionDelayMinutes * 60)
+                guard time >= effectiveStart else { return sum }
+                start = effectiveStart
+            } else {
+                start = entry.timestamp
+            }
+
+            let hours            = time.timeIntervalSince(start) / 3600
             let effectiveAlcohol = alcohol * (1.0 - factor.peakReductionFactor)
             let raw              = (effectiveAlcohol / (weightKg * 1000 * r)) * 100
             return sum + max(0, raw - 0.015 * hours)
@@ -287,7 +295,8 @@ struct BACCalculator {
             r: r,
             stomachState: stomachState,
             stomachStateTimestamp: stTimestamp,
-            foodEntries: foodEntries
+            foodEntries: foodEntries,
+            applyAbsorptionDelay: false
         )
         let ratio = computeHydrationRatio(waterEntries: waterEntries, drinkCount: entries.count)
         return applyHydration(bac: rawBAC, ratio: ratio)

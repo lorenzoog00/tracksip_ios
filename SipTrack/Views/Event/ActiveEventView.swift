@@ -180,7 +180,7 @@ struct ActiveEventView: View {
 
     private func startTimer() {
         now = Date()
-        timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { _ in now = Date() }
+        timer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { _ in now = Date() }
     }
 
     private func stopTimer() {
@@ -1081,7 +1081,9 @@ private struct BottomBar: View {
             Button(action: onAddFood) {
                 HStack(spacing: 6) {
                     Text("🍟")
+                        .font(.system(size: 13))
                     Text("Food")
+                        .font(.system(size: 14, weight: .semibold))
                 }
                 .foregroundStyle(AppColors.accent)
                 .frame(width: 90, height: 48)

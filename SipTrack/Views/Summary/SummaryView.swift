@@ -124,7 +124,7 @@ struct SummaryView: View {
                 // Stats grid
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                     SummaryStatCard(value: "\(drinkCount)",                  label: "Total Drinks",   icon: "wineglass.fill",   color: AppColors.accent)
-                    SummaryStatCard(value: "\(Int(calories))",               label: "Calories",        icon: "flame.fill",       color: .orange)
+                    SummaryStatCard(value: "\(Int(calories))",               label: "Drink Cals",      icon: "flame.fill",       color: .orange)
                     SummaryStatCard(value: String(format: "%.1f", standardDrinks), label: "Std Drinks", icon: "drop.fill",       color: AppColors.textSecondary)
                     SummaryStatCard(value: String(format: "%.1fg", alcoholG),label: "Alcohol",         icon: "flask.fill",       color: AppColors.textSecondary)
                 }
