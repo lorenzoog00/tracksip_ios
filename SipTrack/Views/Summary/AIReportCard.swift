@@ -677,6 +677,12 @@ struct NightAnalysisCard: View {
     private var isPro: Bool { appState.isPro }
     private var hasEnded: Bool { event?.endTime != nil }
 
+    private var isAtFreeLimit: Bool {
+        guard !isPro else { return false }
+        guard event?.aiReport == nil, !isGeneratingNight else { return false }
+        return !appState.canGenerateNightReport
+    }
+
     private var themeColor: Color {
         recovery != nil ? severity.color : AppColors.accent
     }
@@ -693,16 +699,14 @@ struct NightAnalysisCard: View {
         VStack(alignment: .leading, spacing: 0) {
             cardHeader
             themeAccentRule
-            if isGeneratingNight || event?.aiReport == nil {
+            if isGeneratingNight {
                 analysisLoading(label: "SCANNING", color: AppColors.accent)
+            } else if isAtFreeLimit {
+                freeReportLimitGate
+            } else if event?.aiReport != nil {
+                cardBody
             } else {
-                ZStack(alignment: .top) {
-                    cardBody
-                        .blur(radius: isPro ? 0 : 9)
-                        .allowsHitTesting(isPro)
-                    if !isPro { proGate }
-                }
-                .clipped()
+                analysisLoading(label: "SCANNING", color: AppColors.accent)
             }
         }
         .background(dotGridBackground)
@@ -852,35 +856,56 @@ struct NightAnalysisCard: View {
         .padding(.vertical, 26)
     }
 
-    private var proGate: some View {
-        VStack(spacing: 14) {
+    private var freeReportLimitGate: some View {
+        VStack(spacing: 16) {
             ZStack {
-                Circle().fill(AppColors.accent.opacity(0.12)).frame(width: 52, height: 52)
-                Image(systemName: "lock.shield.fill")
-                    .font(.system(size: 24)).foregroundStyle(AppColors.accent)
+                Circle()
+                    .fill(AppColors.accent.opacity(0.12))
+                    .frame(width: 60, height: 60)
+                VStack(spacing: 2) {
+                    Text("\(AppState.freeMonthlyReportLimit)")
+                        .font(.system(size: 20, weight: .black, design: .monospaced))
+                        .foregroundStyle(AppColors.accent)
+                    Text("/\(AppState.freeMonthlyReportLimit)")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(AppColors.accent.opacity(0.6))
+                }
             }
-            VStack(spacing: 5) {
-                Text("PRO ANALYSIS")
-                    .font(.system(size: 12, weight: .black)).tracking(2)
+
+            VStack(spacing: 6) {
+                Text("MONTHLY LIMIT REACHED")
+                    .font(.system(size: 11, weight: .black))
+                    .tracking(1.8)
                     .foregroundStyle(AppColors.text)
-                Text("Your full night report is ready. Upgrade to read it.")
-                    .font(.system(size: 12)).foregroundStyle(AppColors.textSecondary)
+                Text("You've used all \(AppState.freeMonthlyReportLimit) free AI reports this month. Upgrade for unlimited night analysis.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(AppColors.textSecondary)
                     .multilineTextAlignment(.center)
             }
+
             Button { showPaywall = true } label: {
-                Text("Upgrade to Pro")
-                    .font(.system(size: 13, weight: .bold)).foregroundStyle(.black)
-                    .padding(.horizontal, 24).padding(.vertical, 11)
-                    .background(LinearGradient(
+                HStack(spacing: 8) {
+                    Image(systemName: "crown.fill")
+                        .font(.system(size: 12))
+                    Text("Upgrade for Unlimited")
+                        .font(.system(size: 13, weight: .bold))
+                }
+                .foregroundStyle(.black)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 11)
+                .background(
+                    LinearGradient(
                         colors: [AppColors.accentWarm, AppColors.accent],
                         startPoint: .leading, endPoint: .trailing
-                    ))
-                    .cornerRadius(24)
-                    .shadow(color: AppColors.accent.opacity(0.5), radius: 10, y: 4)
+                    )
+                )
+                .cornerRadius(24)
+                .shadow(color: AppColors.accent.opacity(0.5), radius: 10, y: 4)
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 36).padding(.horizontal, 20)
+        .padding(.vertical, 36)
+        .padding(.horizontal, 20)
     }
 
     private var themeAccentRule: some View {

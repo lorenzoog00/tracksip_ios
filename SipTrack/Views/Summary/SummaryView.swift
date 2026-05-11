@@ -405,7 +405,13 @@ struct SummaryView: View {
                 ShareSheet(items: [url])
             }
         }
-        .onAppear { notes = event.notes ?? "" }
+        .onAppear {
+            notes = event.notes ?? ""
+            // Show interstitial when browsing past summaries (not triggered by endEvent which already fires one)
+            if appState.pendingSummaryEventId != eventId {
+                AdManager.shared.showInterstitialIfReady(isPro: appState.isPro)
+            }
+        }
         .confirmationDialog("Delete this night?", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
             Button("Delete", role: .destructive) {
                 appState.deleteEvent(eventId)

@@ -51,6 +51,25 @@ final class AppState: ObservableObject {
     var allDrinkTypes: [DrinkType] { DrinkType.mergedWith(custom: customDrinkTypes) }
     var isPro: Bool { store.isPro || userProfile.isPro }
 
+    static let freeMonthlyReportLimit = 5
+
+    private func currentMonthKey() -> String {
+        let cal = Calendar.current
+        let y = cal.component(.year, from: Date())
+        let m = cal.component(.month, from: Date())
+        return String(format: "%04d-%02d", y, m)
+    }
+
+    var freeAiReportsUsedThisMonth: Int {
+        guard !isPro else { return 0 }
+        let key = currentMonthKey()
+        return userProfile.aiReportMonthKey == key ? userProfile.aiReportsUsedThisMonth : 0
+    }
+
+    var canGenerateNightReport: Bool {
+        isPro || freeAiReportsUsedThisMonth < Self.freeMonthlyReportLimit
+    }
+
     var activeEvent: NightEvent? {
         events.first { $0.isActive && $0.userId == currentUserId }
     }
@@ -218,7 +237,21 @@ final class AppState: ObservableObject {
 
     // MARK: - AI Report
 
+    private func incrementAiReportUsage() {
+        guard !isPro else { return }
+        var profile = userProfile
+        let key = currentMonthKey()
+        if profile.aiReportMonthKey != key {
+            profile.aiReportMonthKey = key
+            profile.aiReportsUsedThisMonth = 1
+        } else {
+            profile.aiReportsUsedThisMonth += 1
+        }
+        updateUserProfile(profile)
+    }
+
     private func generateAiReport(for eventId: String) {
+        guard canGenerateNightReport else { return }
         guard let event = events.first(where: { $0.id == eventId }),
               let endTime = event.endTime else { return }
         let eventEntries = entries.filter { $0.eventId == eventId }
@@ -304,6 +337,7 @@ final class AppState: ObservableObject {
                     events[idx].aiReport = report
                     DataStore.shared.updateEvent(events[idx])
                 }
+                incrementAiReportUsage()
                 scheduleReportReadyNotification(eventName: eventDisplayName)
             } catch {
                 print("❌ AI report error: \(error)")

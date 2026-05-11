@@ -156,6 +156,7 @@ struct ActiveEventView: View {
             Button("End Night", role: .destructive) {
                 appState.endEvent(eventId)
                 appState.pendingSummaryEventId = eventId
+                AdManager.shared.showInterstitialIfReady(isPro: appState.isPro)
             }
             Button("Cancel", role: .cancel) {}
         }

@@ -13,7 +13,9 @@ final class ConsentManager {
         guard ConsentInformation.shared.canRequestAds else { return }
         await ATTrackingManager.requestTrackingAuthorization()
         AdManager.shared.initialize()
-        await AdManager.shared.loadAppOpenAd()
+        async let appOpen: () = AdManager.shared.loadAppOpenAd()
+        async let interstitial: () = AdManager.shared.loadInterstitialAd()
+        _ = await (appOpen, interstitial)
     }
 
     private func requestUMPConsent() async {

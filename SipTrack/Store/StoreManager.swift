@@ -59,6 +59,11 @@ final class StoreManager: ObservableObject {
         isPro = true
         activePeriod = .yearly
     }
+
+    func debugDowngradeFree() {
+        isPro = false
+        activePeriod = nil
+    }
     #endif
 
     func retryLoadProducts() {

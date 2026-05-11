@@ -10,12 +10,14 @@ struct PaywallView: View {
     @State private var errorMessage: String? = nil
 
     private let proFeatures: [(String, String, String)] = [
-        ("calendar",        "Full calendar history",     "See every night, every drink, forever."),
-        ("chart.bar.fill",  "Stats & trends",            "Weekly trends, monthly totals, your patterns."),
-        ("trophy.fill",     "Challenges & goals",        "Set weekly limits and crush them."),
-        ("wineglass.fill",  "Custom drinks",             "Save your favorite drinks for one-tap logging."),
-        ("flame.fill",      "Calorie equivalencies",     "How many pizza slices was that night, really?"),
-        ("infinity",        "Unlimited event history",   "Free is capped at 30 days. Pro keeps it all."),
+        ("brain.head.profile", "Unlimited AI night reports",  "Free is 5/month. Pro gets every night analyzed."),
+        ("calendar",           "Full calendar history",       "See every night, every drink, forever."),
+        ("chart.bar.fill",     "Stats & trends",              "Weekly trends, monthly totals, your patterns."),
+        ("trophy.fill",        "Challenges & goals",          "Set weekly limits and crush them."),
+        ("wineglass.fill",     "Custom drinks",               "Save your favorites for one-tap logging."),
+        ("flame.fill",         "Calorie equivalencies",       "How many pizza slices was that night, really?"),
+        ("infinity",           "Unlimited event history",     "Free is capped at 30 days. Pro keeps it all."),
+        ("doc.text.fill",      "PDF health export",           "Export your full night report as a PDF."),
     ]
 
     var body: some View {
@@ -139,7 +141,7 @@ struct PaywallView: View {
                         } else {
                             // Period selector
                             VStack(spacing: 10) {
-                                ForEach([SubscriptionPeriod.yearly, .monthly, .lifetime], id: \.self) { period in
+                                ForEach([SubscriptionPeriod.yearly, .monthly], id: \.self) { period in
                                     PeriodOption(
                                         period: period,
                                         product: store.product(for: period),
@@ -208,6 +210,50 @@ struct PaywallView: View {
                                     .font(.system(size: 13))
                                     .foregroundStyle(AppColors.textSecondary)
                             }
+
+                            #if DEBUG
+                            Divider().padding(.horizontal, 40).opacity(0.3)
+                            VStack(spacing: 8) {
+                                Button("DEBUG: Unlock Pro") {
+                                    store.debugUnlockPro()
+                                    appState.syncSubscriptionFromStore()
+                                    dismiss()
+                                }
+                                .font(.system(size: 11))
+                                .foregroundStyle(AppColors.textTertiary)
+
+                                Button("DEBUG: Simulate Free User") {
+                                    store.debugDowngradeFree()
+                                    var p = appState.userProfile
+                                    p.subscriptionTier = .free
+                                    p.subscriptionPeriod = nil
+                                    p.subscriptionStartedAt = nil
+                                    p.aiReportsUsedThisMonth = 0
+                                    p.aiReportMonthKey = ""
+                                    appState.updateUserProfile(p)
+                                    dismiss()
+                                }
+                                .font(.system(size: 11))
+                                .foregroundStyle(AppColors.textTertiary)
+
+                                Button("DEBUG: Simulate Limit Reached") {
+                                    store.debugDowngradeFree()
+                                    var p = appState.userProfile
+                                    p.subscriptionTier = .free
+                                    p.subscriptionPeriod = nil
+                                    p.subscriptionStartedAt = nil
+                                    let cal = Calendar.current
+                                    let y = cal.component(.year, from: Date())
+                                    let m = cal.component(.month, from: Date())
+                                    p.aiReportMonthKey = String(format: "%04d-%02d", y, m)
+                                    p.aiReportsUsedThisMonth = AppState.freeMonthlyReportLimit
+                                    appState.updateUserProfile(p)
+                                    dismiss()
+                                }
+                                .font(.system(size: 11))
+                                .foregroundStyle(AppColors.textTertiary)
+                            }
+                            #endif
                         }
 
                         Color.clear.frame(height: 24)
@@ -228,9 +274,9 @@ struct PaywallView: View {
     private var purchaseLabel: String {
         guard let product = store.product(for: selectedPeriod) else { return "Subscribe" }
         switch selectedPeriod {
-        case .lifetime: return "Get Lifetime — \(product.displayPrice)"
         case .yearly:   return "Start Yearly — \(product.displayPrice)/yr"
         case .monthly:  return "Start Monthly — \(product.displayPrice)/mo"
+        case .lifetime: return "Get Lifetime — \(product.displayPrice)"
         }
     }
 
@@ -272,9 +318,9 @@ private struct PeriodOption: View {
 
     private var subtitle: String? {
         switch period {
-        case .yearly:   return "Save ~17% vs monthly"
+        case .yearly:   return "Save ~17% — $1.67/mo billed annually"
+        case .monthly:  return "Billed every month · Cancel anytime"
         case .lifetime: return "One-time payment, forever"
-        case .monthly:  return nil
         }
     }
 

@@ -142,6 +142,52 @@ struct SubscriptionView: View {
                     .padding(.horizontal)
                     .padding(.bottom, 28)
 
+                    #if DEBUG
+                    VStack(spacing: 8) {
+                        Text("DEBUG")
+                            .font(.system(size: 9, weight: .bold))
+                            .tracking(2)
+                            .foregroundStyle(AppColors.textTertiary)
+
+                        Button("Unlock Pro") {
+                            store.debugUnlockPro()
+                            appState.syncSubscriptionFromStore()
+                        }
+                        .font(.system(size: 11))
+                        .foregroundStyle(AppColors.textTertiary)
+
+                        Button("Simulate Free User (0/5 used)") {
+                            store.debugDowngradeFree()
+                            var p = appState.userProfile
+                            p.subscriptionTier = .free
+                            p.subscriptionPeriod = nil
+                            p.subscriptionStartedAt = nil
+                            p.aiReportsUsedThisMonth = 0
+                            p.aiReportMonthKey = ""
+                            appState.updateUserProfile(p)
+                        }
+                        .font(.system(size: 11))
+                        .foregroundStyle(AppColors.textTertiary)
+
+                        Button("Simulate Limit Reached (5/5)") {
+                            store.debugDowngradeFree()
+                            var p = appState.userProfile
+                            p.subscriptionTier = .free
+                            p.subscriptionPeriod = nil
+                            p.subscriptionStartedAt = nil
+                            let cal = Calendar.current
+                            let y = cal.component(.year, from: Date())
+                            let m = cal.component(.month, from: Date())
+                            p.aiReportMonthKey = String(format: "%04d-%02d", y, m)
+                            p.aiReportsUsedThisMonth = AppState.freeMonthlyReportLimit
+                            appState.updateUserProfile(p)
+                        }
+                        .font(.system(size: 11))
+                        .foregroundStyle(AppColors.textTertiary)
+                    }
+                    .padding(.bottom, 16)
+                    #endif
+
                     // MARK: Pricing
                     if !appState.isPro {
                         if store.isLoadingProducts {
@@ -177,7 +223,7 @@ struct SubscriptionView: View {
 
                                 // Plan cards
                                 VStack(spacing: 10) {
-                                    ForEach([SubscriptionPeriod.monthly, .yearly, .lifetime], id: \.self) { period in
+                                    ForEach([SubscriptionPeriod.monthly, .yearly], id: \.self) { period in
                                         PlanCard(
                                             period: period,
                                             product: store.product(for: period),

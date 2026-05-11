@@ -40,6 +40,8 @@ struct UserProfile: Codable {
     var subscriptionPeriod: SubscriptionPeriod?
     var subscriptionStartedAt: Date?
     var liveActivityDrinkIds: [String]         = ["beer", "red-wine", "tequila"]
+    var aiReportsUsedThisMonth: Int            = 0
+    var aiReportMonthKey: String               = "" // format: "2026-05"
 
     var isPro: Bool { subscriptionTier == .pro }
 
