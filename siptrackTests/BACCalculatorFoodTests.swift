@@ -3,38 +3,38 @@
 //  siptrackTests
 //
 
-import XCTest
+import Testing
 @testable import siptrack
 
-final class BACCalculatorFoodTests: XCTestCase {
+struct BACCalculatorFoodTests {
 
     let now = Date()
 
     // MARK: - computeStomachFactor
 
-    func test_emptyStomach_returnsZeroEffect() {
+    @Test func emptyStomach_returnsZeroEffect() {
         let result = BACCalculator.computeStomachFactor(
             at: now,
             stomachState: .empty,
             stomachStateTimestamp: now.addingTimeInterval(-3600),
             foodEntries: []
         )
-        XCTAssertEqual(result.absorptionDelayMinutes, 0, accuracy: 0.01)
-        XCTAssertEqual(result.peakReductionFactor, 0, accuracy: 0.01)
+        #expect(abs(result.absorptionDelayMinutes) < 0.01)
+        #expect(abs(result.peakReductionFactor) < 0.01)
     }
 
-    func test_fullMealJustEaten_returnsFullEffect() {
+    @Test func fullMealJustEaten_returnsFullEffect() {
         let result = BACCalculator.computeStomachFactor(
             at: now,
             stomachState: .fullMeal,
             stomachStateTimestamp: now,
             foodEntries: []
         )
-        XCTAssertEqual(result.absorptionDelayMinutes, 37.5, accuracy: 0.1)
-        XCTAssertEqual(result.peakReductionFactor, 0.30, accuracy: 0.01)
+        #expect(abs(result.absorptionDelayMinutes - 37.5) < 0.1)
+        #expect(abs(result.peakReductionFactor - 0.30) < 0.01)
     }
 
-    func test_fullMealTwoHoursAgo_effectPartiallyDecayed() {
+    @Test func fullMealTwoHoursAgo_effectPartiallyDecayed() {
         let twoHoursAgo = now.addingTimeInterval(-2 * 3600)
         let result = BACCalculator.computeStomachFactor(
             at: now,
@@ -43,11 +43,11 @@ final class BACCalculatorFoodTests: XCTestCase {
             foodEntries: []
         )
         // decay = max(0, 1 - 120/150) = 0.2
-        XCTAssertEqual(result.absorptionDelayMinutes, 37.5 * 0.2, accuracy: 0.1)
-        XCTAssertEqual(result.peakReductionFactor, 0.30 * 0.2, accuracy: 0.01)
+        #expect(abs(result.absorptionDelayMinutes - 37.5 * 0.2) < 0.1)
+        #expect(abs(result.peakReductionFactor - 0.30 * 0.2) < 0.01)
     }
 
-    func test_fullMealOver150MinAgo_effectIsZero() {
+    @Test func fullMealOver150MinAgo_effectIsZero() {
         let oldEat = now.addingTimeInterval(-3 * 3600)
         let result = BACCalculator.computeStomachFactor(
             at: now,
@@ -55,11 +55,11 @@ final class BACCalculatorFoodTests: XCTestCase {
             stomachStateTimestamp: oldEat,
             foodEntries: []
         )
-        XCTAssertEqual(result.absorptionDelayMinutes, 0, accuracy: 0.01)
-        XCTAssertEqual(result.peakReductionFactor, 0, accuracy: 0.01)
+        #expect(abs(result.absorptionDelayMinutes) < 0.01)
+        #expect(abs(result.peakReductionFactor) < 0.01)
     }
 
-    func test_inEventSnack_overridesDecayedInitialState() {
+    @Test func inEventSnack_overridesDecayedInitialState() {
         let threeHoursAgo = now.addingTimeInterval(-3 * 3600)
         let thirtyMinAgo  = now.addingTimeInterval(-30 * 60)
         let snack = FoodEntry(id: "1", eventId: "e", type: .snack, timestamp: thirtyMinAgo)
@@ -70,19 +70,25 @@ final class BACCalculatorFoodTests: XCTestCase {
             foodEntries: [snack]
         )
         // Initial fullMeal is fully decayed. Snack 30 min ago: decay = 1 - 30/150 = 0.8
-        XCTAssertEqual(result.peakReductionFactor, 0.15 * 0.8, accuracy: 0.01)
+        #expect(abs(result.peakReductionFactor - 0.15 * 0.8) < 0.01)
     }
 
-    func test_snackReducesBACRelativeToEmpty() {
-        let profile   = makeProfile()
-        let drinkType = makeDrinkType()
-        // Drink was consumed 1 hour ago so currentBAC (which uses Date() internally) produces non-zero BAC
+    @Test func snackReducesBACRelativeToEmpty() {
+        var profile = UserProfile()
+        profile.weightKg = 80
+        profile.sex = .male
+
+        let drinkType = DrinkType.presets.first(where: { $0.id == "beer" }) ?? DrinkType(
+            id: "beer", name: "Beer", defaultVolumeMl: 355, defaultAbv: 5.0,
+            caloriesPerServing: 153, isPreset: true, icon: "beer-outline"
+        )
         let drinkTime = Date().addingTimeInterval(-3600)
         let drink = DrinkEntry(
             id: "d1", eventId: "e", drinkTypeId: "beer",
             timestamp: drinkTime,
             quantity: 1, comment: nil, volumeOverrideMl: nil, abvOverride: nil
         )
+
         let emptyBAC = BACCalculator.currentBAC(
             entries: [drink], waterEntries: [], drinkTypes: [drinkType],
             profile: profile, eventStart: drinkTime
@@ -94,33 +100,6 @@ final class BACCalculatorFoodTests: XCTestCase {
             stomachStateTimestamp: drinkTime,
             foodEntries: []
         )
-        // Snack should reduce BAC
-        XCTAssertLessThan(snackBAC, emptyBAC)
-    }
-
-    // MARK: - Helpers
-
-    private func makeProfile() -> UserProfile {
-        var p = UserProfile()
-        p.weightKg = 80
-        p.sex = .male
-        return p
-    }
-
-    private func makeDrinkType() -> DrinkType {
-        // Use the preset beer directly from DrinkType.presets
-        if let beer = DrinkType.presets.first(where: { $0.id == "beer" }) {
-            return beer
-        }
-        // Fallback with correct DrinkType field names
-        return DrinkType(
-            id: "beer",
-            name: "Beer",
-            defaultVolumeMl: 355,
-            defaultAbv: 5.0,
-            caloriesPerServing: 153,
-            isPreset: true,
-            icon: "beer-outline"
-        )
+        #expect(snackBAC < emptyBAC)
     }
 }
