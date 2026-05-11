@@ -15,6 +15,7 @@ struct SummaryView: View {
     private var event: NightEvent?      { appState.events.first { $0.id == eventId } }
     private var eventEntries: [DrinkEntry] { appState.entries.filter { $0.eventId == eventId } }
     private var eventWater: [WaterEntry]   { appState.waterEntries.filter { $0.eventId == eventId } }
+    private var eventFood: [FoodEntry]     { appState.foodEntries.filter { $0.eventId == eventId } }
 
     var body: some View {
         guard let event = event else {
@@ -71,6 +72,11 @@ struct SummaryView: View {
                     Text(durationString(event.duration))
                         .font(.system(size: 13))
                         .foregroundStyle(AppColors.textTertiary)
+                    if let state = event.stomachState, state != .empty {
+                        Label("\(state.emoji) \(state.displayName) before drinking", systemImage: "fork.knife")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 .padding(.top)
 
@@ -224,6 +230,48 @@ struct SummaryView: View {
                                 Text("×\(count)")
                                     .font(.system(size: 14, weight: .semibold))
                                     .foregroundStyle(AppColors.accent)
+                            }
+                        }
+                    }
+                    .padding()
+                    .background(AppColors.surface)
+                    .cornerRadius(14)
+                    .padding(.horizontal)
+                }
+
+                // Event timeline (drinks, water, food sorted by time)
+                let allTimestamps: [(date: Date, label: String)] = {
+                    var items: [(Date, String)] = []
+                    for e in eventEntries {
+                        let name = appState.allDrinkTypes.first { $0.id == e.drinkTypeId }?.name ?? "Drink"
+                        items.append((e.timestamp, e.quantity > 1 ? "×\(e.quantity) \(name)" : name))
+                    }
+                    for w in eventWater {
+                        items.append((w.timestamp, "💧 Water"))
+                    }
+                    for f in eventFood {
+                        items.append((f.timestamp, "\(f.type.emoji) \(f.type.displayName)"))
+                    }
+                    return items.sorted { $0.0 < $1.0 }
+                }()
+                if !allTimestamps.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label("Timeline", systemImage: "list.bullet.clock")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(AppColors.textSecondary)
+                        ForEach(allTimestamps.indices, id: \.self) { idx in
+                            let item = allTimestamps[idx]
+                            HStack {
+                                Text(item.label)
+                                    .font(.system(size: 14))
+                                    .foregroundStyle(AppColors.text)
+                                Spacer()
+                                Text(item.date, format: .dateTime.hour().minute())
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(AppColors.textSecondary)
+                            }
+                            if idx < allTimestamps.count - 1 {
+                                Divider().background(AppColors.border)
                             }
                         }
                     }
