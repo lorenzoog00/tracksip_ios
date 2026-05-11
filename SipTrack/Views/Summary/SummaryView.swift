@@ -407,9 +407,10 @@ struct SummaryView: View {
         }
         .onAppear {
             notes = event.notes ?? ""
-            // Show interstitial when browsing past summaries (not triggered by endEvent which already fires one)
+            // Show interstitial when browsing past summaries (not triggered by endEvent which already fires one).
+            // Uses the alternating method so it only fires every other visit.
             if appState.pendingSummaryEventId != eventId {
-                AdManager.shared.showInterstitialIfReady(isPro: appState.isPro)
+                AdManager.shared.showInterstitialForBrowse(isPro: appState.isPro)
             }
         }
         .confirmationDialog("Delete this night?", isPresented: $showDeleteConfirm, titleVisibility: .visible) {

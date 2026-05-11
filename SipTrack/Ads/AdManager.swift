@@ -12,6 +12,7 @@ final class AdManager: NSObject, ObservableObject, FullScreenContentDelegate {
     private var appOpenAd: AppOpenAd? = nil
     private var interstitialAd: InterstitialAd? = nil
     private var shownThisSession = false
+    private var summaryBrowseToggle = false
 
     private override init() {}
 
@@ -66,6 +67,13 @@ final class AdManager: NSObject, ObservableObject, FullScreenContentDelegate {
         guard let root = rootViewController() else { return }
         interstitialAd?.present(from: root)
         interstitialReady = false
+    }
+
+    // Shows only on every other call — for summary browsing so it's not shown every tap.
+    func showInterstitialForBrowse(isPro: Bool) {
+        summaryBrowseToggle.toggle()
+        guard summaryBrowseToggle else { return }
+        showInterstitialIfReady(isPro: isPro)
     }
 
     // MARK: - FullScreenContentDelegate (reload after dismiss)

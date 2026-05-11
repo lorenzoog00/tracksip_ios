@@ -120,6 +120,7 @@ final class StoreManager: ObservableObject {
 
         // Race StoreKit against an 8-second timeout. Without proper IAP
         // entitlement on device, currentEntitlements can hang indefinitely.
+        // Sandbox is slower than production — 8s gives it enough time.
         let checker = Task {
             for await result in Transaction.currentEntitlements {
                 if let transaction = try? checkVerified(result) {
@@ -130,7 +131,7 @@ final class StoreManager: ObservableObject {
             }
         }
         let timer = Task {
-            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            try? await Task.sleep(nanoseconds: 8_000_000_000)
             checker.cancel()
         }
         await checker.value  // returns immediately when StoreKit responds OR after 8s timeout

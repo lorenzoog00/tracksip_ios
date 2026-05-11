@@ -6,7 +6,7 @@ enum AdConfig {
     static let appOpen       = "ca-app-pub-9583249699000184/6783736085"
     static let native        = "ca-app-pub-9583249699000184/5470654414"
     // TODO: replace with real interstitial unit ID from AdMob console
-    static let interstitial  = "ca-app-pub-9583249699000184/XXXXXXXXXX"
+    static let interstitial  = "ca-app-pub-9583249699000184/9007075758"
 
     // Swap to test IDs in debug builds
     static var activeBanner:       String { isDebug ? "ca-app-pub-3940256099942544/2934735716" : banner }
