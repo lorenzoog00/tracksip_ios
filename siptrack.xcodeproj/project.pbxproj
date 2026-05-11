@@ -6,6 +6,94 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		81C0FDA9CF014AD68B83E825 /* CompareView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0303E6B5D734A7E92B6E68C /* CompareView.swift */; };
+		A0WB1001000000000000001A /* WatchBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0WB1002000000000000001B /* WatchBridge.swift */; };
+		B101B4D92F9CD5E0009F7DDD /* SipTrackApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4C82F9C2F32009F7DDD /* SipTrackApp.swift */; };
+		B101B4DB2F9CD648009F7DDD /* AdConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4902F9C2F32009F7DDD /* AdConfig.swift */; };
+		B101B4DC2F9CD648009F7DDD /* AdManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4912F9C2F32009F7DDD /* AdManager.swift */; };
+		B101B4DD2F9CD648009F7DDD /* BannerAdView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4922F9C2F32009F7DDD /* BannerAdView.swift */; };
+		B101B4DE2F9CD648009F7DDD /* NativeAdCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4932F9C2F32009F7DDD /* NativeAdCardView.swift */; };
+		B101B4DF2F9CD648009F7DDD /* AppColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4952F9C2F32009F7DDD /* AppColors.swift */; };
+		B101B4E02F9CD648009F7DDD /* Analytics.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4972F9C2F32009F7DDD /* Analytics.swift */; };
+		B101B4E12F9CD648009F7DDD /* BACCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4982F9C2F32009F7DDD /* BACCalculator.swift */; };
+		B101B4E22F9CD648009F7DDD /* ChallengeUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4992F9C2F32009F7DDD /* ChallengeUtils.swift */; };
+		B101B4E32F9CD648009F7DDD /* IntoxicationStage.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B49A2F9C2F32009F7DDD /* IntoxicationStage.swift */; };
+		B101B4E42F9CD648009F7DDD /* WarningSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B49B2F9C2F32009F7DDD /* WarningSystem.swift */; };
+		B101B4E52F9CD648009F7DDD /* Challenge.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B49D2F9C2F32009F7DDD /* Challenge.swift */; };
+		B101B4E62F9CD648009F7DDD /* DrinkType.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B49E2F9C2F32009F7DDD /* DrinkType.swift */; };
+		B101B4E72F9CD648009F7DDD /* NightEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B49F2F9C2F32009F7DDD /* NightEvent.swift */; };
+		0B600C73A34541F49740B136 /* FoodEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0E98F63CB724D4CB75A1270 /* FoodEntry.swift */; };
+		B101B4E82F9CD648009F7DDD /* UserProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4A02F9C2F32009F7DDD /* UserProfile.swift */; };
+		6d03191640c54d6ca2734dfaa02ef4ac /* CoachReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4f3719ab9d5d455c9961490721ee331e /* CoachReport.swift */; };
+		B101B4E92F9CD648009F7DDD /* Route.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4A22F9C2F32009F7DDD /* Route.swift */; };
+		B101B4EA2F9CD648009F7DDD /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4A42F9C2F32009F7DDD /* AppState.swift */; };
+		B101B4EB2F9CD648009F7DDD /* AppStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4A62F9C2F32009F7DDD /* AppStorage.swift */; };
+		B101B4EC2F9CD648009F7DDD /* StoreManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4A82F9C2F32009F7DDD /* StoreManager.swift */; };
+		B101B4EE2F9CD648009F7DDD /* CalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4AC2F9C2F32009F7DDD /* CalendarView.swift */; };
+		B101B4EF2F9CD648009F7DDD /* ChallengesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4AE2F9C2F32009F7DDD /* ChallengesView.swift */; };
+		B101B4F02F9CD648009F7DDD /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4B02F9C2F32009F7DDD /* DashboardView.swift */; };
+		B101B4F12F9CD648009F7DDD /* DrinksView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4B22F9C2F32009F7DDD /* DrinksView.swift */; };
+		B101B4F22F9CD648009F7DDD /* EditDrinkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4B32F9C2F32009F7DDD /* EditDrinkView.swift */; };
+		B101B4F32F9CD648009F7DDD /* EditEntryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4B52F9C2F32009F7DDD /* EditEntryView.swift */; };
+		B101B4F42F9CD648009F7DDD /* ActiveEventView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4B72F9C2F32009F7DDD /* ActiveEventView.swift */; };
+		B101B4F52F9CD648009F7DDD /* CreateEventView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4B82F9C2F32009F7DDD /* CreateEventView.swift */; };
+		B101B4F62F9CD648009F7DDD /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4BA2F9C2F32009F7DDD /* HomeView.swift */; };
+		B101B4F72F9CD648009F7DDD /* DisclaimerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4BC2F9C2F32009F7DDD /* DisclaimerView.swift */; };
+		B101B4F82F9CD648009F7DDD /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4BD2F9C2F32009F7DDD /* OnboardingView.swift */; };
+		B101B4F92F9CD648009F7DDD /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4BF2F9C2F32009F7DDD /* ProfileView.swift */; };
+		B101B4FA2F9CD648009F7DDD /* PaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4C12F9C2F32009F7DDD /* PaywallView.swift */; };
+		B101B4FB2F9CD648009F7DDD /* SubscriptionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4C22F9C2F32009F7DDD /* SubscriptionView.swift */; };
+		B101B4FC2F9CD648009F7DDD /* SummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4C42F9C2F32009F7DDD /* SummaryView.swift */; };
+		B101B4FD2F9CD648009F7DDD /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4C62F9C2F32009F7DDD /* RootView.swift */; };
+		B101B5062F9CD92D009F7DDD /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = B101B5052F9CD92D009F7DDD /* Auth */; };
+		B101B5082F9CD92D009F7DDD /* Functions in Frameworks */ = {isa = PBXBuildFile; productRef = B101B5072F9CD92D009F7DDD /* Functions */; };
+		B101B50A2F9CD92D009F7DDD /* PostgREST in Frameworks */ = {isa = PBXBuildFile; productRef = B101B5092F9CD92D009F7DDD /* PostgREST */; };
+		B101B50C2F9CD92D009F7DDD /* Realtime in Frameworks */ = {isa = PBXBuildFile; productRef = B101B50B2F9CD92D009F7DDD /* Realtime */; };
+		B101B50E2F9CD92D009F7DDD /* Storage in Frameworks */ = {isa = PBXBuildFile; productRef = B101B50D2F9CD92D009F7DDD /* Storage */; };
+		B101B5102F9CD92D009F7DDD /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = B101B50F2F9CD92D009F7DDD /* Supabase */; };
+		B101B5142F9EB92E009F7DDD /* GoogleMobileAds in Frameworks */ = {isa = PBXBuildFile; productRef = B101B5122F9EB92E009F7DDD /* GoogleMobileAds */; };
+		B15DA93A2FA938B200345F64 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = B15DA9392FA938B200345F64 /* PrivacyInfo.xcprivacy */; };
+		B15DA93C2FA9390900345F64 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B15DA93B2FA9390900345F64 /* Assets.xcassets */; };
+		B15DA9492FA9733900345F64 /* WaterReminderManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B15DA9482FA9733900345F64 /* WaterReminderManager.swift */; };
+		B15DA94B2FAABF7600345F64 /* ConsentManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B15DA94A2FAABF7600345F64 /* ConsentManager.swift */; };
+		B15DA9642FAB947B00345F64 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = B15DA9632FAB947B00345F64 /* FirebaseAuth */; };
+		B15DA96E2FAB947B00345F64 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = B15DA96D2FAB947B00345F64 /* FirebaseFirestore */; };
+		B15DA9872FAB993000345F64 /* FirebaseManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B15DA9852FAB993000345F64 /* FirebaseManager.swift */; };
+		B15DA98C2FAB9EED00345F64 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = B15DA98B2FAB9EED00345F64 /* GoogleSignIn */; };
+		B15DA98E2FAB9EED00345F64 /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = B15DA98D2FAB9EED00345F64 /* GoogleSignInSwift */; };
+		B15DA9A82FABAC1600345F64 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = B15DA9A72FABAC1600345F64 /* GoogleService-Info.plist */; };
+		B15DA9AA2FAC149800345F64 /* EmailVerificationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B15DA9A92FAC149800345F64 /* EmailVerificationView.swift */; };
+		B15DA9AC2FAC184E00345F64 /* ForgotPasswordView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B15DA9AB2FAC184E00345F64 /* ForgotPasswordView.swift */; };
+		B15DA9AE2FAC1A1600345F64 /* GoogleGLogo.swift in Sources */ = {isa = PBXBuildFile; fileRef = B15DA9AD2FAC1A1600345F64 /* GoogleGLogo.swift */; };
+		CC1A2B3D4E5F6A7B8C9D0E1F /* LearnView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1A2B3D4E5F6A7B8C9D0E10 /* LearnView.swift */; };
+		B15DA9B02FAC443C00345F64 /* FirebaseCrashlytics in Frameworks */ = {isa = PBXBuildFile; productRef = B15DA9AF2FAC443C00345F64 /* FirebaseCrashlytics */; };
+		B15DA9BE2FAD420300345F64 /* NightReportPDF.swift in Sources */ = {isa = PBXBuildFile; fileRef = B15DA9BD2FAD420300345F64 /* NightReportPDF.swift */; };
+		B15DA9BF2FAD420300345F64 /* AIReportCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = B15DA9BC2FAD420300345F64 /* AIReportCard.swift */; };
+		B164CFD72FA2C98100AA682B /* SipTrack Watch Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = B164CFB72FA2C98000AA682B /* SipTrack Watch Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		B164CFE32FA2C9EB00AA682B /* UserProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4A02F9C2F32009F7DDD /* UserProfile.swift */; };
+		B164CFE42FA2C9EB00AA682B /* Challenge.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B49D2F9C2F32009F7DDD /* Challenge.swift */; };
+		B164CFE52FA2C9EB00AA682B /* NightEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B49F2F9C2F32009F7DDD /* NightEvent.swift */; };
+		8EA9EA16F38D4163B2A7B78F /* FoodEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0E98F63CB724D4CB75A1270 /* FoodEntry.swift */; };
+		B164CFE62FA2C9EB00AA682B /* DrinkType.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B49E2F9C2F32009F7DDD /* DrinkType.swift */; };
+		B164CFE72FA2C9F800AA682B /* BACCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4982F9C2F32009F7DDD /* BACCalculator.swift */; };
+		B164CFE92FA2CA5B00AA682B /* WatchConnectivity.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B164CFE82FA2CA5B00AA682B /* WatchConnectivity.framework */; };
+		B164D0872FA2CC3300AA682B /* AppStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4A62F9C2F32009F7DDD /* AppStorage.swift */; };
+		484c06b9a233439db00dc5988d74786e /* CoachReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4f3719ab9d5d455c9961490721ee331e /* CoachReport.swift */; };
+		B1AE99082F9F37E7001DD5F8 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B1AE99072F9F37E7001DD5F8 /* StoreKit.framework */; };
+		B1AE990C2F9F4EEE001DD5F8 /* Siptrack.storekit in Resources */ = {isa = PBXBuildFile; fileRef = B1AE990B2F9F4EEE001DD5F8 /* Siptrack.storekit */; };
+		B1AE99132FA02308001DD5F8 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B1AE99122FA02308001DD5F8 /* WidgetKit.framework */; };
+		B1AE99152FA02308001DD5F8 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B1AE99142FA02308001DD5F8 /* SwiftUI.framework */; };
+		B1AE99262FA0230A001DD5F8 /* SipTrackWidgetsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B1AE99112FA02308001DD5F8 /* SipTrackWidgetsExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		B1CC00042FA00000000BBBBB /* LiveActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1CC00022FA00000000BBBBB /* LiveActivityManager.swift */; };
+		B1CC00072FA00001000CCCCC /* SipTrackActivityKit in Frameworks */ = {isa = PBXBuildFile; productRef = B1CC00052FA00001000CCCCC /* SipTrackActivityKit */; };
+		B1CC00082FA00001000CCCCC /* SipTrackActivityKit in Frameworks */ = {isa = PBXBuildFile; productRef = B1CC00062FA00001000CCCCC /* SipTrackActivityKit */; };
+		2A41B90C2B57482B91131763 /* CoachView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6305C2FF0C534B6ABC925280 /* CoachView.swift */; };
+		EB905CE970424234994954D0 /* CoachReportCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F19FB458C03404B93011571 /* CoachReportCard.swift */; };
+		A5E1F2C3D4B5009F7DDE0002 /* NightRecovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5E1F2C3D4B5009F7DDE0001 /* NightRecovery.swift */; };
+		A5E1F2C3D4B5009F7DDE0004 /* RecoveryBriefCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5E1F2C3D4B5009F7DDE0003 /* RecoveryBriefCard.swift */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		B101B4702F9C2B29009F7DDD /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -21,28 +109,184 @@
 			remoteGlobalIDString = B101B4612F9C2B24009F7DDD;
 			remoteInfo = siptrack;
 		};
+		B164CFC42FA2C98100AA682B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B101B45A2F9C2B24009F7DDD /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B164CFB62FA2C98000AA682B;
+			remoteInfo = "SipTrack Watch Watch App";
+		};
+		B164CFCE2FA2C98100AA682B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B101B45A2F9C2B24009F7DDD /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B164CFB62FA2C98000AA682B;
+			remoteInfo = "SipTrack Watch Watch App";
+		};
+		B164CFD52FA2C98100AA682B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B101B45A2F9C2B24009F7DDD /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B164CFB62FA2C98000AA682B;
+			remoteInfo = "SipTrack Watch Watch App";
+		};
+		B1AE99242FA0230A001DD5F8 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B101B45A2F9C2B24009F7DDD /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B1AE99102FA02308001DD5F8;
+			remoteInfo = SipTrackWidgetsExtension;
+		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		B164CFA92FA2C8AE00AA682B /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				B164CFD72FA2C98100AA682B /* SipTrack Watch Watch App.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B1AE99272FA0230A001DD5F8 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				B1AE99262FA0230A001DD5F8 /* SipTrackWidgetsExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		A0WB1002000000000000001B /* WatchBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchBridge.swift; sourceTree = "<group>"; };
 		B101B4622F9C2B24009F7DDD /* siptrack.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = siptrack.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B101B46F2F9C2B29009F7DDD /* siptrackTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = siptrackTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B101B4792F9C2B29009F7DDD /* siptrackUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = siptrackUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		B101B4902F9C2F32009F7DDD /* AdConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdConfig.swift; sourceTree = "<group>"; };
+		B101B4912F9C2F32009F7DDD /* AdManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdManager.swift; sourceTree = "<group>"; };
+		B101B4922F9C2F32009F7DDD /* BannerAdView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BannerAdView.swift; sourceTree = "<group>"; };
+		B101B4932F9C2F32009F7DDD /* NativeAdCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeAdCardView.swift; sourceTree = "<group>"; };
+		B101B4952F9C2F32009F7DDD /* AppColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppColors.swift; sourceTree = "<group>"; };
+		B101B4972F9C2F32009F7DDD /* Analytics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Analytics.swift; sourceTree = "<group>"; };
+		B101B4982F9C2F32009F7DDD /* BACCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BACCalculator.swift; sourceTree = "<group>"; };
+		B101B4992F9C2F32009F7DDD /* ChallengeUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChallengeUtils.swift; sourceTree = "<group>"; };
+		B101B49A2F9C2F32009F7DDD /* IntoxicationStage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntoxicationStage.swift; sourceTree = "<group>"; };
+		B101B49B2F9C2F32009F7DDD /* WarningSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WarningSystem.swift; sourceTree = "<group>"; };
+		B101B49D2F9C2F32009F7DDD /* Challenge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Challenge.swift; sourceTree = "<group>"; };
+		4f3719ab9d5d455c9961490721ee331e /* CoachReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachReport.swift; sourceTree = "<group>"; };
+		A5E1F2C3D4B5009F7DDE0001 /* NightRecovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NightRecovery.swift; sourceTree = "<group>"; };
+		A5E1F2C3D4B5009F7DDE0003 /* RecoveryBriefCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecoveryBriefCard.swift; sourceTree = "<group>"; };
+		B101B49E2F9C2F32009F7DDD /* DrinkType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrinkType.swift; sourceTree = "<group>"; };
+		B101B49F2F9C2F32009F7DDD /* NightEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NightEvent.swift; sourceTree = "<group>"; };
+		A0E98F63CB724D4CB75A1270 /* FoodEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodEntry.swift; sourceTree = "<group>"; };
+		B101B4A02F9C2F32009F7DDD /* UserProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserProfile.swift; sourceTree = "<group>"; };
+		B101B4A22F9C2F32009F7DDD /* Route.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Route.swift; sourceTree = "<group>"; };
+		B101B4A42F9C2F32009F7DDD /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		B101B4A62F9C2F32009F7DDD /* AppStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStorage.swift; sourceTree = "<group>"; };
+		B101B4A82F9C2F32009F7DDD /* StoreManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreManager.swift; sourceTree = "<group>"; };
+		B101B4AC2F9C2F32009F7DDD /* CalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarView.swift; sourceTree = "<group>"; };
+		B101B4AE2F9C2F32009F7DDD /* ChallengesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChallengesView.swift; sourceTree = "<group>"; };
+		B101B4B02F9C2F32009F7DDD /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
+		B101B4B22F9C2F32009F7DDD /* DrinksView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrinksView.swift; sourceTree = "<group>"; };
+		B101B4B32F9C2F32009F7DDD /* EditDrinkView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditDrinkView.swift; sourceTree = "<group>"; };
+		B101B4B52F9C2F32009F7DDD /* EditEntryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditEntryView.swift; sourceTree = "<group>"; };
+		B101B4B72F9C2F32009F7DDD /* ActiveEventView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveEventView.swift; sourceTree = "<group>"; };
+		B101B4B82F9C2F32009F7DDD /* CreateEventView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateEventView.swift; sourceTree = "<group>"; };
+		B101B4BA2F9C2F32009F7DDD /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		B101B4BC2F9C2F32009F7DDD /* DisclaimerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisclaimerView.swift; sourceTree = "<group>"; };
+		B101B4BD2F9C2F32009F7DDD /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		B101B4BF2F9C2F32009F7DDD /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
+		B101B4C12F9C2F32009F7DDD /* PaywallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaywallView.swift; sourceTree = "<group>"; };
+		B101B4C22F9C2F32009F7DDD /* SubscriptionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionView.swift; sourceTree = "<group>"; };
+		B101B4C42F9C2F32009F7DDD /* SummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummaryView.swift; sourceTree = "<group>"; };
+		B101B4C62F9C2F32009F7DDD /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		B101B4C82F9C2F32009F7DDD /* SipTrackApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SipTrackApp.swift; sourceTree = "<group>"; };
+		B101B4CA2F9C2F32009F7DDD /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
+		B101B4CB2F9C2F32009F7DDD /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+		B101B4D52F9CBCB3009F7DDD /* siptrack-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "siptrack-Bridging-Header.h"; sourceTree = "<group>"; };
+		B101B4D62F9CBFC2009F7DDD /* errors.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = errors.txt; sourceTree = "<group>"; };
+		B15DA9392FA938B200345F64 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		B15DA93B2FA9390900345F64 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B15DA9482FA9733900345F64 /* WaterReminderManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaterReminderManager.swift; sourceTree = "<group>"; };
+		B15DA94A2FAABF7600345F64 /* ConsentManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConsentManager.swift; sourceTree = "<group>"; };
+		B15DA9852FAB993000345F64 /* FirebaseManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirebaseManager.swift; sourceTree = "<group>"; };
+		B15DA9A72FABAC1600345F64 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
+		B15DA9A92FAC149800345F64 /* EmailVerificationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmailVerificationView.swift; sourceTree = "<group>"; };
+		B15DA9AB2FAC184E00345F64 /* ForgotPasswordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgotPasswordView.swift; sourceTree = "<group>"; };
+		B15DA9AD2FAC1A1600345F64 /* GoogleGLogo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleGLogo.swift; sourceTree = "<group>"; };
+		CC1A2B3D4E5F6A7B8C9D0E10 /* LearnView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LearnView.swift; sourceTree = "<group>"; };
+		B15DA9BC2FAD420300345F64 /* AIReportCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIReportCard.swift; sourceTree = "<group>"; };
+		B15DA9BD2FAD420300345F64 /* NightReportPDF.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NightReportPDF.swift; sourceTree = "<group>"; };
+		B164CFB72FA2C98000AA682B /* SipTrack Watch Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "SipTrack Watch Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		B164CFC32FA2C98100AA682B /* SipTrack Watch Watch AppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "SipTrack Watch Watch AppTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		B164CFCD2FA2C98100AA682B /* SipTrack Watch Watch AppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "SipTrack Watch Watch AppUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		B164CFE82FA2CA5B00AA682B /* WatchConnectivity.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WatchConnectivity.framework; path = System/Library/Frameworks/WatchConnectivity.framework; sourceTree = SDKROOT; };
+		B1AE99072F9F37E7001DD5F8 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
+		B1AE990B2F9F4EEE001DD5F8 /* Siptrack.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = Siptrack.storekit; sourceTree = "<group>"; };
+		B1AE99112FA02308001DD5F8 /* SipTrackWidgetsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SipTrackWidgetsExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		B1AE99122FA02308001DD5F8 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		B1AE99142FA02308001DD5F8 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		B1CC00022FA00000000BBBBB /* LiveActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityManager.swift; sourceTree = "<group>"; };
+		B2AA00012F9FF000000AAAAA /* SipTrack.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SipTrack.entitlements; sourceTree = "<group>"; };
+		D0303E6B5D734A7E92B6E68C /* CompareView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompareView.swift; sourceTree = "<group>"; };
+		6305C2FF0C534B6ABC925280 /* CoachView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachView.swift; sourceTree = "<group>"; };
+		3F19FB458C03404B93011571 /* CoachReportCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachReportCard.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		B1AE992A2FA0230A001DD5F8 /* Exceptions for "SipTrackWidgets" folder in "SipTrackWidgetsExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = B1AE99102FA02308001DD5F8 /* SipTrackWidgetsExtension */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		B101B4642F9C2B24009F7DDD /* siptrack */ = {
+		B164CF892FA2C8AC00AA682B /* SipTrack Watch Watch App */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = siptrack;
+			path = "SipTrack Watch Watch App";
 			sourceTree = "<group>";
 		};
-		B101B4722F9C2B29009F7DDD /* siptrackTests */ = {
+		B164CF972FA2C8AE00AA682B /* SipTrack Watch Watch AppTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = siptrackTests;
+			path = "SipTrack Watch Watch AppTests";
 			sourceTree = "<group>";
 		};
-		B101B47C2F9C2B29009F7DDD /* siptrackUITests */ = {
+		B164CFA12FA2C8AE00AA682B /* SipTrack Watch Watch AppUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = siptrackUITests;
+			path = "SipTrack Watch Watch AppUITests";
+			sourceTree = "<group>";
+		};
+		B164CFB82FA2C98000AA682B /* SipTrack Watch Watch App */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "SipTrack Watch Watch App";
+			sourceTree = "<group>";
+		};
+		B164CFC62FA2C98100AA682B /* SipTrack Watch Watch AppTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "SipTrack Watch Watch AppTests";
+			sourceTree = "<group>";
+		};
+		B164CFD02FA2C98100AA682B /* SipTrack Watch Watch AppUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "SipTrack Watch Watch AppUITests";
+			sourceTree = "<group>";
+		};
+		B1AE99162FA02308001DD5F8 /* SipTrackWidgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				B1AE992A2FA0230A001DD5F8 /* Exceptions for "SipTrackWidgets" folder in "SipTrackWidgetsExtension" target */,
+			);
+			path = SipTrackWidgets;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -52,6 +296,21 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B101B50A2F9CD92D009F7DDD /* PostgREST in Frameworks */,
+				B101B5082F9CD92D009F7DDD /* Functions in Frameworks */,
+				B101B5102F9CD92D009F7DDD /* Supabase in Frameworks */,
+				B15DA98C2FAB9EED00345F64 /* GoogleSignIn in Frameworks */,
+				B1AE99082F9F37E7001DD5F8 /* StoreKit.framework in Frameworks */,
+				B101B5062F9CD92D009F7DDD /* Auth in Frameworks */,
+				B101B50E2F9CD92D009F7DDD /* Storage in Frameworks */,
+				B101B50C2F9CD92D009F7DDD /* Realtime in Frameworks */,
+				B101B5142F9EB92E009F7DDD /* GoogleMobileAds in Frameworks */,
+				B15DA98E2FAB9EED00345F64 /* GoogleSignInSwift in Frameworks */,
+				B15DA96E2FAB947B00345F64 /* FirebaseFirestore in Frameworks */,
+				B15DA9642FAB947B00345F64 /* FirebaseAuth in Frameworks */,
+				B15DA9B02FAC443C00345F64 /* FirebaseCrashlytics in Frameworks */,
+				B1CC00072FA00001000CCCCC /* SipTrackActivityKit in Frameworks */,
+				B164CFE92FA2CA5B00AA682B /* WatchConnectivity.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -69,15 +328,56 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B164CFB42FA2C98000AA682B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B164CFC02FA2C98100AA682B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B164CFCA2FA2C98100AA682B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B1AE990E2FA02308001DD5F8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B1AE99152FA02308001DD5F8 /* SwiftUI.framework in Frameworks */,
+				B1AE99132FA02308001DD5F8 /* WidgetKit.framework in Frameworks */,
+				B1CC00082FA00001000CCCCC /* SipTrackActivityKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		B101B4592F9C2B24009F7DDD = {
 			isa = PBXGroup;
 			children = (
-				B101B4642F9C2B24009F7DDD /* siptrack */,
-				B101B4722F9C2B29009F7DDD /* siptrackTests */,
-				B101B47C2F9C2B29009F7DDD /* siptrackUITests */,
+				B15DA9A72FABAC1600345F64 /* GoogleService-Info.plist */,
+				B15DA93B2FA9390900345F64 /* Assets.xcassets */,
+				B15DA9392FA938B200345F64 /* PrivacyInfo.xcprivacy */,
+				B1AE990B2F9F4EEE001DD5F8 /* Siptrack.storekit */,
+				B101B4CC2F9C2F32009F7DDD /* tracksip_ios */,
+				B1AE99162FA02308001DD5F8 /* SipTrackWidgets */,
+				B164CF892FA2C8AC00AA682B /* SipTrack Watch Watch App */,
+				B164CF972FA2C8AE00AA682B /* SipTrack Watch Watch AppTests */,
+				B164CFA12FA2C8AE00AA682B /* SipTrack Watch Watch AppUITests */,
+				B164CFB82FA2C98000AA682B /* SipTrack Watch Watch App */,
+				B164CFC62FA2C98100AA682B /* SipTrack Watch Watch AppTests */,
+				B164CFD02FA2C98100AA682B /* SipTrack Watch Watch AppUITests */,
+				B101B5042F9CD779009F7DDD /* Frameworks */,
 				B101B4632F9C2B24009F7DDD /* Products */,
 			);
 			sourceTree = "<group>";
@@ -88,8 +388,272 @@
 				B101B4622F9C2B24009F7DDD /* siptrack.app */,
 				B101B46F2F9C2B29009F7DDD /* siptrackTests.xctest */,
 				B101B4792F9C2B29009F7DDD /* siptrackUITests.xctest */,
+				B1AE99112FA02308001DD5F8 /* SipTrackWidgetsExtension.appex */,
+				B164CFB72FA2C98000AA682B /* SipTrack Watch Watch App.app */,
+				B164CFC32FA2C98100AA682B /* SipTrack Watch Watch AppTests.xctest */,
+				B164CFCD2FA2C98100AA682B /* SipTrack Watch Watch AppUITests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		B101B4942F9C2F32009F7DDD /* Ads */ = {
+			isa = PBXGroup;
+			children = (
+				B15DA94A2FAABF7600345F64 /* ConsentManager.swift */,
+				B101B4902F9C2F32009F7DDD /* AdConfig.swift */,
+				B101B4912F9C2F32009F7DDD /* AdManager.swift */,
+				B101B4922F9C2F32009F7DDD /* BannerAdView.swift */,
+				B101B4932F9C2F32009F7DDD /* NativeAdCardView.swift */,
+			);
+			path = Ads;
+			sourceTree = "<group>";
+		};
+		B101B4962F9C2F32009F7DDD /* Constants */ = {
+			isa = PBXGroup;
+			children = (
+				B101B4952F9C2F32009F7DDD /* AppColors.swift */,
+			);
+			path = Constants;
+			sourceTree = "<group>";
+		};
+		B101B49C2F9C2F32009F7DDD /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				B15DA9482FA9733900345F64 /* WaterReminderManager.swift */,
+				A0WB1002000000000000001B /* WatchBridge.swift */,
+				B101B4972F9C2F32009F7DDD /* Analytics.swift */,
+				B101B4982F9C2F32009F7DDD /* BACCalculator.swift */,
+				B101B4992F9C2F32009F7DDD /* ChallengeUtils.swift */,
+				B101B49A2F9C2F32009F7DDD /* IntoxicationStage.swift */,
+				B101B49B2F9C2F32009F7DDD /* WarningSystem.swift */,
+				B1CC00022FA00000000BBBBB /* LiveActivityManager.swift */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		B101B4A12F9C2F32009F7DDD /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				B101B49D2F9C2F32009F7DDD /* Challenge.swift */,
+				4f3719ab9d5d455c9961490721ee331e /* CoachReport.swift */,
+				B101B49E2F9C2F32009F7DDD /* DrinkType.swift */,
+				B101B49F2F9C2F32009F7DDD /* NightEvent.swift */,
+				A0E98F63CB724D4CB75A1270 /* FoodEntry.swift */,
+				A5E1F2C3D4B5009F7DDE0001 /* NightRecovery.swift */,
+				B101B4A02F9C2F32009F7DDD /* UserProfile.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		B101B4A32F9C2F32009F7DDD /* Navigation */ = {
+			isa = PBXGroup;
+			children = (
+				B101B4A22F9C2F32009F7DDD /* Route.swift */,
+			);
+			path = Navigation;
+			sourceTree = "<group>";
+		};
+		B101B4A52F9C2F32009F7DDD /* State */ = {
+			isa = PBXGroup;
+			children = (
+				B101B4A42F9C2F32009F7DDD /* AppState.swift */,
+			);
+			path = State;
+			sourceTree = "<group>";
+		};
+		B101B4A72F9C2F32009F7DDD /* Storage */ = {
+			isa = PBXGroup;
+			children = (
+				B101B4A62F9C2F32009F7DDD /* AppStorage.swift */,
+			);
+			path = Storage;
+			sourceTree = "<group>";
+		};
+		B101B4A92F9C2F32009F7DDD /* Store */ = {
+			isa = PBXGroup;
+			children = (
+				B101B4A82F9C2F32009F7DDD /* StoreManager.swift */,
+			);
+			path = Store;
+			sourceTree = "<group>";
+		};
+		B101B4AD2F9C2F32009F7DDD /* Calendar */ = {
+			isa = PBXGroup;
+			children = (
+				B101B4AC2F9C2F32009F7DDD /* CalendarView.swift */,
+			);
+			path = Calendar;
+			sourceTree = "<group>";
+		};
+		B101B4AF2F9C2F32009F7DDD /* Challenges */ = {
+			isa = PBXGroup;
+			children = (
+				B101B4AE2F9C2F32009F7DDD /* ChallengesView.swift */,
+			);
+			path = Challenges;
+			sourceTree = "<group>";
+		};
+		B101B4B12F9C2F32009F7DDD /* Dashboard */ = {
+			isa = PBXGroup;
+			children = (
+				B101B4B02F9C2F32009F7DDD /* DashboardView.swift */,
+				D0303E6B5D734A7E92B6E68C /* CompareView.swift */,
+			);
+			path = Dashboard;
+			sourceTree = "<group>";
+		};
+		B101B4B42F9C2F32009F7DDD /* Drinks */ = {
+			isa = PBXGroup;
+			children = (
+				B101B4B22F9C2F32009F7DDD /* DrinksView.swift */,
+				B101B4B32F9C2F32009F7DDD /* EditDrinkView.swift */,
+			);
+			path = Drinks;
+			sourceTree = "<group>";
+		};
+		B101B4B62F9C2F32009F7DDD /* Entry */ = {
+			isa = PBXGroup;
+			children = (
+				B101B4B52F9C2F32009F7DDD /* EditEntryView.swift */,
+			);
+			path = Entry;
+			sourceTree = "<group>";
+		};
+		B101B4B92F9C2F32009F7DDD /* Event */ = {
+			isa = PBXGroup;
+			children = (
+				B101B4B72F9C2F32009F7DDD /* ActiveEventView.swift */,
+				B101B4B82F9C2F32009F7DDD /* CreateEventView.swift */,
+			);
+			path = Event;
+			sourceTree = "<group>";
+		};
+		B101B4BB2F9C2F32009F7DDD /* Home */ = {
+			isa = PBXGroup;
+			children = (
+				B101B4BA2F9C2F32009F7DDD /* HomeView.swift */,
+			);
+			path = Home;
+			sourceTree = "<group>";
+		};
+		B101B4BE2F9C2F32009F7DDD /* Onboarding */ = {
+			isa = PBXGroup;
+			children = (
+				B101B4BC2F9C2F32009F7DDD /* DisclaimerView.swift */,
+				B101B4BD2F9C2F32009F7DDD /* OnboardingView.swift */,
+			);
+			path = Onboarding;
+			sourceTree = "<group>";
+		};
+		B101B4C02F9C2F32009F7DDD /* Profile */ = {
+			isa = PBXGroup;
+			children = (
+				B15DA9AD2FAC1A1600345F64 /* GoogleGLogo.swift */,
+				B15DA9AB2FAC184E00345F64 /* ForgotPasswordView.swift */,
+				B15DA9A92FAC149800345F64 /* EmailVerificationView.swift */,
+				B101B4BF2F9C2F32009F7DDD /* ProfileView.swift */,
+				CC1A2B3D4E5F6A7B8C9D0E10 /* LearnView.swift */,
+			);
+			path = Profile;
+			sourceTree = "<group>";
+		};
+		B101B4C32F9C2F32009F7DDD /* Subscription */ = {
+			isa = PBXGroup;
+			children = (
+				B101B4C12F9C2F32009F7DDD /* PaywallView.swift */,
+				B101B4C22F9C2F32009F7DDD /* SubscriptionView.swift */,
+			);
+			path = Subscription;
+			sourceTree = "<group>";
+		};
+		B101B4C52F9C2F32009F7DDD /* Summary */ = {
+			isa = PBXGroup;
+			children = (
+				B15DA9BC2FAD420300345F64 /* AIReportCard.swift */,
+				B15DA9BD2FAD420300345F64 /* NightReportPDF.swift */,
+				A5E1F2C3D4B5009F7DDE0003 /* RecoveryBriefCard.swift */,
+				B101B4C42F9C2F32009F7DDD /* SummaryView.swift */,
+			);
+			path = Summary;
+			sourceTree = "<group>";
+		};
+		D73AFE8325134E05A20D23C9 /* Coach */ = {
+			isa = PBXGroup;
+			children = (
+				6305C2FF0C534B6ABC925280 /* CoachView.swift */,
+				3F19FB458C03404B93011571 /* CoachReportCard.swift */,
+			);
+			path = Coach;
+			sourceTree = "<group>";
+		};
+		B101B4C72F9C2F32009F7DDD /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				B101B4AD2F9C2F32009F7DDD /* Calendar */,
+				B101B4AF2F9C2F32009F7DDD /* Challenges */,
+				D73AFE8325134E05A20D23C9 /* Coach */,
+				B101B4B12F9C2F32009F7DDD /* Dashboard */,
+				B101B4B42F9C2F32009F7DDD /* Drinks */,
+				B101B4B62F9C2F32009F7DDD /* Entry */,
+				B101B4B92F9C2F32009F7DDD /* Event */,
+				B101B4BB2F9C2F32009F7DDD /* Home */,
+				B101B4BE2F9C2F32009F7DDD /* Onboarding */,
+				B101B4C02F9C2F32009F7DDD /* Profile */,
+				B101B4C32F9C2F32009F7DDD /* Subscription */,
+				B101B4C52F9C2F32009F7DDD /* Summary */,
+				B101B4C62F9C2F32009F7DDD /* RootView.swift */,
+				B101B4D52F9CBCB3009F7DDD /* siptrack-Bridging-Header.h */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		B101B4C92F9C2F32009F7DDD /* SipTrack */ = {
+			isa = PBXGroup;
+			children = (
+				B101B4D62F9CBFC2009F7DDD /* errors.txt */,
+				B101B4942F9C2F32009F7DDD /* Ads */,
+				B101B4962F9C2F32009F7DDD /* Constants */,
+				B101B49C2F9C2F32009F7DDD /* Core */,
+				B101B4A12F9C2F32009F7DDD /* Models */,
+				B101B4A32F9C2F32009F7DDD /* Navigation */,
+				B101B4A52F9C2F32009F7DDD /* State */,
+				B101B4A72F9C2F32009F7DDD /* Storage */,
+				B101B4A92F9C2F32009F7DDD /* Store */,
+				B101B4C72F9C2F32009F7DDD /* Views */,
+				B101B4C82F9C2F32009F7DDD /* SipTrackApp.swift */,
+				B2AA00012F9FF000000AAAAA /* SipTrack.entitlements */,
+			);
+			path = SipTrack;
+			sourceTree = "<group>";
+		};
+		B101B4CC2F9C2F32009F7DDD /* tracksip_ios */ = {
+			isa = PBXGroup;
+			children = (
+				B15DA9862FAB993000345F64 /* Firebase */,
+				B101B4C92F9C2F32009F7DDD /* SipTrack */,
+				B101B4CA2F9C2F32009F7DDD /* .gitignore */,
+				B101B4CB2F9C2F32009F7DDD /* README.md */,
+			);
+			path = tracksip_ios;
+			sourceTree = "<group>";
+		};
+		B101B5042F9CD779009F7DDD /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				B164CFE82FA2CA5B00AA682B /* WatchConnectivity.framework */,
+				B1AE99072F9F37E7001DD5F8 /* StoreKit.framework */,
+				B1AE99122FA02308001DD5F8 /* WidgetKit.framework */,
+				B1AE99142FA02308001DD5F8 /* SwiftUI.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		B15DA9862FAB993000345F64 /* Firebase */ = {
+			isa = PBXGroup;
+			children = (
+				B15DA9852FAB993000345F64 /* FirebaseManager.swift */,
+			);
+			path = Firebase;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -102,16 +666,30 @@
 				B101B45E2F9C2B24009F7DDD /* Sources */,
 				B101B45F2F9C2B24009F7DDD /* Frameworks */,
 				B101B4602F9C2B24009F7DDD /* Resources */,
+				B1AE99272FA0230A001DD5F8 /* Embed Foundation Extensions */,
+				B164CFA92FA2C8AE00AA682B /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-			);
-			fileSystemSynchronizedGroups = (
-				B101B4642F9C2B24009F7DDD /* siptrack */,
+				B1AE99252FA0230A001DD5F8 /* PBXTargetDependency */,
+				B164CFD62FA2C98100AA682B /* PBXTargetDependency */,
 			);
 			name = siptrack;
 			packageProductDependencies = (
+				B101B5052F9CD92D009F7DDD /* Auth */,
+				B101B5072F9CD92D009F7DDD /* Functions */,
+				B101B5092F9CD92D009F7DDD /* PostgREST */,
+				B101B50B2F9CD92D009F7DDD /* Realtime */,
+				B101B50D2F9CD92D009F7DDD /* Storage */,
+				B101B50F2F9CD92D009F7DDD /* Supabase */,
+				B101B5122F9EB92E009F7DDD /* GoogleMobileAds */,
+				B1CC00052FA00001000CCCCC /* SipTrackActivityKit */,
+				B15DA9632FAB947B00345F64 /* FirebaseAuth */,
+				B15DA96D2FAB947B00345F64 /* FirebaseFirestore */,
+				B15DA98B2FAB9EED00345F64 /* GoogleSignIn */,
+				B15DA98D2FAB9EED00345F64 /* GoogleSignInSwift */,
+				B15DA9AF2FAC443C00345F64 /* FirebaseCrashlytics */,
 			);
 			productName = siptrack;
 			productReference = B101B4622F9C2B24009F7DDD /* siptrack.app */;
@@ -129,9 +707,6 @@
 			);
 			dependencies = (
 				B101B4712F9C2B29009F7DDD /* PBXTargetDependency */,
-			);
-			fileSystemSynchronizedGroups = (
-				B101B4722F9C2B29009F7DDD /* siptrackTests */,
 			);
 			name = siptrackTests;
 			packageProductDependencies = (
@@ -153,15 +728,104 @@
 			dependencies = (
 				B101B47B2F9C2B29009F7DDD /* PBXTargetDependency */,
 			);
-			fileSystemSynchronizedGroups = (
-				B101B47C2F9C2B29009F7DDD /* siptrackUITests */,
-			);
 			name = siptrackUITests;
 			packageProductDependencies = (
 			);
 			productName = siptrackUITests;
 			productReference = B101B4792F9C2B29009F7DDD /* siptrackUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		B164CFB62FA2C98000AA682B /* SipTrack Watch Watch App */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B164CFD82FA2C98100AA682B /* Build configuration list for PBXNativeTarget "SipTrack Watch Watch App" */;
+			buildPhases = (
+				B164CFB32FA2C98000AA682B /* Sources */,
+				B164CFB42FA2C98000AA682B /* Frameworks */,
+				B164CFB52FA2C98000AA682B /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				B164CF892FA2C8AC00AA682B /* SipTrack Watch Watch App */,
+				B164CFB82FA2C98000AA682B /* SipTrack Watch Watch App */,
+			);
+			name = "SipTrack Watch Watch App";
+			packageProductDependencies = (
+			);
+			productName = "SipTrack Watch Watch App";
+			productReference = B164CFB72FA2C98000AA682B /* SipTrack Watch Watch App.app */;
+			productType = "com.apple.product-type.application";
+		};
+		B164CFC22FA2C98100AA682B /* SipTrack Watch Watch AppTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B164CFDB2FA2C98100AA682B /* Build configuration list for PBXNativeTarget "SipTrack Watch Watch AppTests" */;
+			buildPhases = (
+				B164CFBF2FA2C98100AA682B /* Sources */,
+				B164CFC02FA2C98100AA682B /* Frameworks */,
+				B164CFC12FA2C98100AA682B /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				B164CFC52FA2C98100AA682B /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				B164CFC62FA2C98100AA682B /* SipTrack Watch Watch AppTests */,
+			);
+			name = "SipTrack Watch Watch AppTests";
+			packageProductDependencies = (
+			);
+			productName = "SipTrack Watch Watch AppTests";
+			productReference = B164CFC32FA2C98100AA682B /* SipTrack Watch Watch AppTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		B164CFCC2FA2C98100AA682B /* SipTrack Watch Watch AppUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B164CFDE2FA2C98100AA682B /* Build configuration list for PBXNativeTarget "SipTrack Watch Watch AppUITests" */;
+			buildPhases = (
+				B164CFC92FA2C98100AA682B /* Sources */,
+				B164CFCA2FA2C98100AA682B /* Frameworks */,
+				B164CFCB2FA2C98100AA682B /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				B164CFCF2FA2C98100AA682B /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				B164CFD02FA2C98100AA682B /* SipTrack Watch Watch AppUITests */,
+			);
+			name = "SipTrack Watch Watch AppUITests";
+			packageProductDependencies = (
+			);
+			productName = "SipTrack Watch Watch AppUITests";
+			productReference = B164CFCD2FA2C98100AA682B /* SipTrack Watch Watch AppUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		B1AE99102FA02308001DD5F8 /* SipTrackWidgetsExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B1AE992B2FA0230A001DD5F8 /* Build configuration list for PBXNativeTarget "SipTrackWidgetsExtension" */;
+			buildPhases = (
+				B1AE990D2FA02308001DD5F8 /* Sources */,
+				B1AE990E2FA02308001DD5F8 /* Frameworks */,
+				B1AE990F2FA02308001DD5F8 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				B1AE99162FA02308001DD5F8 /* SipTrackWidgets */,
+			);
+			name = SipTrackWidgetsExtension;
+			packageProductDependencies = (
+				B1CC00062FA00001000CCCCC /* SipTrackActivityKit */,
+			);
+			productName = SipTrackWidgetsExtension;
+			productReference = B1AE99112FA02308001DD5F8 /* SipTrackWidgetsExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -175,6 +839,7 @@
 				TargetAttributes = {
 					B101B4612F9C2B24009F7DDD = {
 						CreatedOnToolsVersion = 26.4.1;
+						LastSwiftMigration = 2640;
 					};
 					B101B46E2F9C2B29009F7DDD = {
 						CreatedOnToolsVersion = 26.4.1;
@@ -183,6 +848,20 @@
 					B101B4782F9C2B29009F7DDD = {
 						CreatedOnToolsVersion = 26.4.1;
 						TestTargetID = B101B4612F9C2B24009F7DDD;
+					};
+					B164CFB62FA2C98000AA682B = {
+						CreatedOnToolsVersion = 26.4.1;
+					};
+					B164CFC22FA2C98100AA682B = {
+						CreatedOnToolsVersion = 26.4.1;
+						TestTargetID = B164CFB62FA2C98000AA682B;
+					};
+					B164CFCC2FA2C98100AA682B = {
+						CreatedOnToolsVersion = 26.4.1;
+						TestTargetID = B164CFB62FA2C98000AA682B;
+					};
+					B1AE99102FA02308001DD5F8 = {
+						CreatedOnToolsVersion = 26.4.1;
 					};
 				};
 			};
@@ -195,6 +874,13 @@
 			);
 			mainGroup = B101B4592F9C2B24009F7DDD;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				B101B4CD2F9C92D1009F7DDD /* XCRemoteSwiftPackageReference "supabase-swift" */,
+				B101B5112F9EB92E009F7DDD /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */,
+				B1AE996E2FA02EA5001DD5F8 /* XCLocalSwiftPackageReference "SipTrackActivityKit" */,
+				B15DA9542FAB940400345F64 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+				B15DA9882FAB9E3600345F64 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = B101B4632F9C2B24009F7DDD /* Products */;
 			projectDirPath = "";
@@ -203,6 +889,10 @@
 				B101B4612F9C2B24009F7DDD /* siptrack */,
 				B101B46E2F9C2B29009F7DDD /* siptrackTests */,
 				B101B4782F9C2B29009F7DDD /* siptrackUITests */,
+				B1AE99102FA02308001DD5F8 /* SipTrackWidgetsExtension */,
+				B164CFB62FA2C98000AA682B /* SipTrack Watch Watch App */,
+				B164CFC22FA2C98100AA682B /* SipTrack Watch Watch AppTests */,
+				B164CFCC2FA2C98100AA682B /* SipTrack Watch Watch AppUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -212,6 +902,10 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B15DA93A2FA938B200345F64 /* PrivacyInfo.xcprivacy in Resources */,
+				B15DA9A82FABAC1600345F64 /* GoogleService-Info.plist in Resources */,
+				B15DA93C2FA9390900345F64 /* Assets.xcassets in Resources */,
+				B1AE990C2F9F4EEE001DD5F8 /* Siptrack.storekit in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -229,6 +923,34 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B164CFB52FA2C98000AA682B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B164CFC12FA2C98100AA682B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B164CFCB2FA2C98100AA682B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B1AE990F2FA02308001DD5F8 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -236,6 +958,59 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B101B4DB2F9CD648009F7DDD /* AdConfig.swift in Sources */,
+				B101B4DC2F9CD648009F7DDD /* AdManager.swift in Sources */,
+				B101B4DD2F9CD648009F7DDD /* BannerAdView.swift in Sources */,
+				B15DA9BE2FAD420300345F64 /* NightReportPDF.swift in Sources */,
+				B15DA9BF2FAD420300345F64 /* AIReportCard.swift in Sources */,
+				B101B4DE2F9CD648009F7DDD /* NativeAdCardView.swift in Sources */,
+				B101B4DF2F9CD648009F7DDD /* AppColors.swift in Sources */,
+				A0WB1001000000000000001A /* WatchBridge.swift in Sources */,
+				B101B4E02F9CD648009F7DDD /* Analytics.swift in Sources */,
+				B101B4E12F9CD648009F7DDD /* BACCalculator.swift in Sources */,
+				B101B4E22F9CD648009F7DDD /* ChallengeUtils.swift in Sources */,
+				B101B4E32F9CD648009F7DDD /* IntoxicationStage.swift in Sources */,
+				B15DA94B2FAABF7600345F64 /* ConsentManager.swift in Sources */,
+				B101B4E42F9CD648009F7DDD /* WarningSystem.swift in Sources */,
+				B101B4E52F9CD648009F7DDD /* Challenge.swift in Sources */,
+				6d03191640c54d6ca2734dfaa02ef4ac /* CoachReport.swift in Sources */,
+				B101B4E62F9CD648009F7DDD /* DrinkType.swift in Sources */,
+				B101B4E72F9CD648009F7DDD /* NightEvent.swift in Sources */,
+				0B600C73A34541F49740B136 /* FoodEntry.swift in Sources */,
+				B101B4E82F9CD648009F7DDD /* UserProfile.swift in Sources */,
+				B101B4E92F9CD648009F7DDD /* Route.swift in Sources */,
+				B101B4EA2F9CD648009F7DDD /* AppState.swift in Sources */,
+				B101B4EB2F9CD648009F7DDD /* AppStorage.swift in Sources */,
+				B101B4EC2F9CD648009F7DDD /* StoreManager.swift in Sources */,
+				B101B4EE2F9CD648009F7DDD /* CalendarView.swift in Sources */,
+				B101B4EF2F9CD648009F7DDD /* ChallengesView.swift in Sources */,
+				B101B4F02F9CD648009F7DDD /* DashboardView.swift in Sources */,
+				81C0FDA9CF014AD68B83E825 /* CompareView.swift in Sources */,
+				B101B4F12F9CD648009F7DDD /* DrinksView.swift in Sources */,
+				B101B4F22F9CD648009F7DDD /* EditDrinkView.swift in Sources */,
+				B101B4F32F9CD648009F7DDD /* EditEntryView.swift in Sources */,
+				B101B4F42F9CD648009F7DDD /* ActiveEventView.swift in Sources */,
+				B15DA9AA2FAC149800345F64 /* EmailVerificationView.swift in Sources */,
+				B101B4F52F9CD648009F7DDD /* CreateEventView.swift in Sources */,
+				B15DA9872FAB993000345F64 /* FirebaseManager.swift in Sources */,
+				B101B4F62F9CD648009F7DDD /* HomeView.swift in Sources */,
+				B101B4F72F9CD648009F7DDD /* DisclaimerView.swift in Sources */,
+				B15DA9AC2FAC184E00345F64 /* ForgotPasswordView.swift in Sources */,
+				B101B4F82F9CD648009F7DDD /* OnboardingView.swift in Sources */,
+				B101B4F92F9CD648009F7DDD /* ProfileView.swift in Sources */,
+				B15DA9492FA9733900345F64 /* WaterReminderManager.swift in Sources */,
+				B15DA9AE2FAC1A1600345F64 /* GoogleGLogo.swift in Sources */,
+				CC1A2B3D4E5F6A7B8C9D0E1F /* LearnView.swift in Sources */,
+				B101B4FA2F9CD648009F7DDD /* PaywallView.swift in Sources */,
+				B101B4FB2F9CD648009F7DDD /* SubscriptionView.swift in Sources */,
+				B101B4FC2F9CD648009F7DDD /* SummaryView.swift in Sources */,
+				B101B4FD2F9CD648009F7DDD /* RootView.swift in Sources */,
+				B101B4D92F9CD5E0009F7DDD /* SipTrackApp.swift in Sources */,
+				B1CC00042FA00000000BBBBB /* LiveActivityManager.swift in Sources */,
+				2A41B90C2B57482B91131763 /* CoachView.swift in Sources */,
+				EB905CE970424234994954D0 /* CoachReportCard.swift in Sources */,
+				A5E1F2C3D4B5009F7DDE0002 /* NightRecovery.swift in Sources */,
+				A5E1F2C3D4B5009F7DDE0004 /* RecoveryBriefCard.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -247,6 +1022,42 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		B101B4752F9C2B29009F7DDD /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B164CFB32FA2C98000AA682B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B164CFE32FA2C9EB00AA682B /* UserProfile.swift in Sources */,
+				B164CFE42FA2C9EB00AA682B /* Challenge.swift in Sources */,
+				B164CFE52FA2C9EB00AA682B /* NightEvent.swift in Sources */,
+				8EA9EA16F38D4163B2A7B78F /* FoodEntry.swift in Sources */,
+				B164CFE62FA2C9EB00AA682B /* DrinkType.swift in Sources */,
+				B164CFE72FA2C9F800AA682B /* BACCalculator.swift in Sources */,
+				B164D0872FA2CC3300AA682B /* AppStorage.swift in Sources */,
+				484c06b9a233439db00dc5988d74786e /* CoachReport.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B164CFBF2FA2C98100AA682B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B164CFC92FA2C98100AA682B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B1AE990D2FA02308001DD5F8 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -265,6 +1076,26 @@
 			isa = PBXTargetDependency;
 			target = B101B4612F9C2B24009F7DDD /* siptrack */;
 			targetProxy = B101B47A2F9C2B29009F7DDD /* PBXContainerItemProxy */;
+		};
+		B164CFC52FA2C98100AA682B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B164CFB62FA2C98000AA682B /* SipTrack Watch Watch App */;
+			targetProxy = B164CFC42FA2C98100AA682B /* PBXContainerItemProxy */;
+		};
+		B164CFCF2FA2C98100AA682B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B164CFB62FA2C98000AA682B /* SipTrack Watch Watch App */;
+			targetProxy = B164CFCE2FA2C98100AA682B /* PBXContainerItemProxy */;
+		};
+		B164CFD62FA2C98100AA682B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B164CFB62FA2C98000AA682B /* SipTrack Watch Watch App */;
+			targetProxy = B164CFD52FA2C98100AA682B /* PBXContainerItemProxy */;
+		};
+		B1AE99252FA0230A001DD5F8 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B1AE99102FA02308001DD5F8 /* SipTrackWidgetsExtension */;
+			targetProxy = B1AE99242FA0230A001DD5F8 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -395,27 +1226,31 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = tracksip_ios/SipTrack/SipTrack.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = 6T5DB8M42N;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = tracksip_ios/SipTrack/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Tracksip;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = lorenzoog.siptrack;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lorenzoog.siptrack;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "tracksip_ios/SipTrack/Views/siptrack-Bridging-Header.h";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -427,27 +1262,30 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = tracksip_ios/SipTrack/SipTrack.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = 6T5DB8M42N;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = tracksip_ios/SipTrack/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Tracksip;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = lorenzoog.siptrack;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lorenzoog.siptrack;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "tracksip_ios/SipTrack/Views/siptrack-Bridging-Header.h";
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -464,7 +1302,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = lorenzoog.siptrackTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lorenzoog.siptrackTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -486,7 +1324,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = lorenzoog.siptrackTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lorenzoog.siptrackTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -506,7 +1344,7 @@
 				DEVELOPMENT_TEAM = 6T5DB8M42N;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = lorenzoog.siptrackUITests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lorenzoog.siptrackUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -526,7 +1364,7 @@
 				DEVELOPMENT_TEAM = 6T5DB8M42N;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = lorenzoog.siptrackUITests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lorenzoog.siptrackUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -535,6 +1373,230 @@
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_TARGET_NAME = siptrack;
+			};
+			name = Release;
+		};
+		B164CFD92FA2C98100AA682B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				"ASSETCATALOG_COMPILER_APPICON_NAME[sdk=watchos*]" = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
+				CODE_SIGN_ENTITLEMENTS = "SipTrack Watch Watch App/SipTrack Watch Watch App.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6T5DB8M42N;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Tracksip;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.lorenzoog.siptrack;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lorenzoog.siptrack.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 26.4;
+			};
+			name = Debug;
+		};
+		B164CFDA2FA2C98100AA682B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				"ASSETCATALOG_COMPILER_APPICON_NAME[sdk=watchos*]" = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
+				CODE_SIGN_ENTITLEMENTS = "SipTrack Watch Watch App/SipTrack Watch Watch App.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6T5DB8M42N;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Tracksip;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.lorenzoog.siptrack;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lorenzoog.siptrack.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 26.4;
+			};
+			name = Release;
+		};
+		B164CFDC2FA2C98100AA682B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6T5DB8M42N;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.lorenzoog.SipTrack-Watch-Watch-AppTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/SipTrack Watch Watch App.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/SipTrack Watch Watch App";
+				WATCHOS_DEPLOYMENT_TARGET = 26.4;
+			};
+			name = Debug;
+		};
+		B164CFDD2FA2C98100AA682B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6T5DB8M42N;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.lorenzoog.SipTrack-Watch-Watch-AppTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/SipTrack Watch Watch App.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/SipTrack Watch Watch App";
+				WATCHOS_DEPLOYMENT_TARGET = 26.4;
+			};
+			name = Release;
+		};
+		B164CFDF2FA2C98100AA682B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6T5DB8M42N;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.lorenzoog.SipTrack-Watch-Watch-AppUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				TEST_TARGET_NAME = "SipTrack Watch Watch App";
+				WATCHOS_DEPLOYMENT_TARGET = 26.4;
+			};
+			name = Debug;
+		};
+		B164CFE02FA2C98100AA682B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6T5DB8M42N;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.lorenzoog.SipTrack-Watch-Watch-AppUITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				TEST_TARGET_NAME = "SipTrack Watch Watch App";
+				WATCHOS_DEPLOYMENT_TARGET = 26.4;
+			};
+			name = Release;
+		};
+		B1AE99282FA0230A001DD5F8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6T5DB8M42N;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SipTrackWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = SipTrackWidgets;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lorenzoog.siptrack.SipTrackWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		B1AE99292FA0230A001DD5F8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6T5DB8M42N;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SipTrackWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = SipTrackWidgets;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.lorenzoog.siptrack.SipTrackWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
 		};
@@ -577,7 +1639,158 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		B164CFD82FA2C98100AA682B /* Build configuration list for PBXNativeTarget "SipTrack Watch Watch App" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B164CFD92FA2C98100AA682B /* Debug */,
+				B164CFDA2FA2C98100AA682B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B164CFDB2FA2C98100AA682B /* Build configuration list for PBXNativeTarget "SipTrack Watch Watch AppTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B164CFDC2FA2C98100AA682B /* Debug */,
+				B164CFDD2FA2C98100AA682B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B164CFDE2FA2C98100AA682B /* Build configuration list for PBXNativeTarget "SipTrack Watch Watch AppUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B164CFDF2FA2C98100AA682B /* Debug */,
+				B164CFE02FA2C98100AA682B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B1AE992B2FA0230A001DD5F8 /* Build configuration list for PBXNativeTarget "SipTrackWidgetsExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B1AE99282FA0230A001DD5F8 /* Debug */,
+				B1AE99292FA0230A001DD5F8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		B1AE996E2FA02EA5001DD5F8 /* XCLocalSwiftPackageReference "SipTrackActivityKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = SipTrackActivityKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		B101B4CD2F9C92D1009F7DDD /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/supabase/supabase-swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.5.1;
+			};
+		};
+		B101B5112F9EB92E009F7DDD /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/googleads/swift-package-manager-google-mobile-ads.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 13.2.0;
+			};
+		};
+		B15DA9542FAB940400345F64 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.13.0;
+			};
+		};
+		B15DA9882FAB9E3600345F64 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google/GoogleSignIn-iOS";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 9.1.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		B101B5052F9CD92D009F7DDD /* Auth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B101B4CD2F9C92D1009F7DDD /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Auth;
+		};
+		B101B5072F9CD92D009F7DDD /* Functions */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B101B4CD2F9C92D1009F7DDD /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Functions;
+		};
+		B101B5092F9CD92D009F7DDD /* PostgREST */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B101B4CD2F9C92D1009F7DDD /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = PostgREST;
+		};
+		B101B50B2F9CD92D009F7DDD /* Realtime */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B101B4CD2F9C92D1009F7DDD /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Realtime;
+		};
+		B101B50D2F9CD92D009F7DDD /* Storage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B101B4CD2F9C92D1009F7DDD /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Storage;
+		};
+		B101B50F2F9CD92D009F7DDD /* Supabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B101B4CD2F9C92D1009F7DDD /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Supabase;
+		};
+		B101B5122F9EB92E009F7DDD /* GoogleMobileAds */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B101B5112F9EB92E009F7DDD /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */;
+			productName = GoogleMobileAds;
+		};
+		B15DA9632FAB947B00345F64 /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B15DA9542FAB940400345F64 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
+		};
+		B15DA96D2FAB947B00345F64 /* FirebaseFirestore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B15DA9542FAB940400345F64 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFirestore;
+		};
+		B15DA98B2FAB9EED00345F64 /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B15DA9882FAB9E3600345F64 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
+		};
+		B15DA98D2FAB9EED00345F64 /* GoogleSignInSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B15DA9882FAB9E3600345F64 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignInSwift;
+		};
+		B15DA9AF2FAC443C00345F64 /* FirebaseCrashlytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B15DA9542FAB940400345F64 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCrashlytics;
+		};
+		B1CC00052FA00001000CCCCC /* SipTrackActivityKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B1AE996E2FA02EA5001DD5F8 /* XCLocalSwiftPackageReference "SipTrackActivityKit" */;
+			productName = SipTrackActivityKit;
+		};
+		B1CC00062FA00001000CCCCC /* SipTrackActivityKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B1AE996E2FA02EA5001DD5F8 /* XCLocalSwiftPackageReference "SipTrackActivityKit" */;
+			productName = SipTrackActivityKit;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = B101B45A2F9C2B24009F7DDD /* Project object */;
 }
