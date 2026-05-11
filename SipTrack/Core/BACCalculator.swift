@@ -8,9 +8,74 @@ struct BACDataPoint: Identifiable {
     let bac: Double
 }
 
+// BAC model for SipTrack.
+//
+// Architecture: Widmark distribution + Watson/Forrest individualisation of `r`,
+// first-order gut absorption with food-dependent rate constant `kA`,
+// gender-corrected first-pass metabolism, sex-specific elimination β.
+//
+// Numbers traced to: Searle 2015 (PMC4361698), JAAPL 2017, Jones 1996 / 2010,
+// Frezza NEJM 1990, Bissinger 2020 (PMC7518982), Maskell 2022, Norberg 2003.
+// See LearnView (in-app) and .planning/research/BAC-ACCURACY-RESEARCH.md.
+
 struct BACCalculator {
 
-    // MARK: - Widmark r factor
+    // MARK: - Model constants
+
+    private static let ethanolDensityGPerMl = 0.789
+    private static let standardDrinkGrams   = 14.0   // US NIAAA
+
+    // Sex-specific elimination β in BAC %/hour (g/100mL/h).
+    // Forensic mean 0.0155 ± 0.0029 (JAAPL 2017); split per Bissinger 2020.
+    private static let betaMale    = 0.0138
+    private static let betaFemale  = 0.0157
+    private static let betaNeutral = 0.0148
+
+    // Blood water fraction used to convert TBW → distribution factor r (Searle 2015).
+    private static let bloodWaterFraction = 0.806
+
+    // First-order absorption rate constant (1/hour) and first-pass metabolism fraction
+    // by stomach state. kA half-life = ln(2)/kA · 60 minutes.
+    // Sources: Jones 1996 (FPM), Jones 2010 (kA ranges), Frezza NEJM 1990.
+    private struct StomachKinetics {
+        let kAPerHour: Double
+        let firstPassFraction: Double
+    }
+    private static func kinetics(for state: StomachState) -> StomachKinetics {
+        switch state {
+        case .empty:    return .init(kAPerHour: 6.0, firstPassFraction: 0.00) // t½ ≈ 7 min
+        case .snack:    return .init(kAPerHour: 3.0, firstPassFraction: 0.10) // t½ ≈ 14 min
+        case .fullMeal: return .init(kAPerHour: 1.5, firstPassFraction: 0.20) // t½ ≈ 28 min
+        }
+    }
+
+    // Time over which a meal's effect on gastric emptying linearly decays back to empty.
+    private static let stomachDecayMinutes = 150.0
+
+    // Population coefficient of variation for combined Widmark output (Searle 2015).
+    private static let bacCV = 0.20
+
+    // MARK: - Elimination rate β
+
+    static func eliminationRate(sex: Sex) -> Double {
+        switch sex {
+        case .male:           return betaMale
+        case .female:         return betaFemale
+        case .preferNotToSay: return betaNeutral
+        }
+    }
+
+    static func eliminationRate(profile: UserProfile) -> Double {
+        var beta = eliminationRate(sex: profile.sex)
+        // Age modifier: β slows ~5% per decade after 60 (Vestal 1977; Forensic Sci Int 2014).
+        if let age = profile.age, age > 60 {
+            let decades = Double(age - 60) / 10.0
+            beta *= max(0.75, 1.0 - 0.05 * decades)
+        }
+        return beta
+    }
+
+    // MARK: - Widmark distribution factor r
 
     static func widmarkR(sex: Sex) -> Double {
         switch sex {
@@ -20,8 +85,7 @@ struct BACCalculator {
         }
     }
 
-    // MARK: - Watson (1980) Total Body Water
-
+    // Watson 1980 total body water (litres).
     static func watsonTBW(weightKg: Double, heightCm: Double, age: Int, sex: Sex) -> Double {
         switch sex {
         case .female:
@@ -38,19 +102,38 @@ struct BACCalculator {
     static func watsonR(weightKg: Double, heightCm: Double, age: Int, sex: Sex) -> Double {
         guard weightKg > 0 else { return widmarkR(sex: sex) }
         let tbw = watsonTBW(weightKg: weightKg, heightCm: heightCm, age: age, sex: sex)
-        return max(0.3, min(0.9, tbw / weightKg))
+        // r = TBW / (weight · blood-water-fraction). Maskell 2022 recommends TBW form.
+        return max(0.50, min(0.85, tbw / (weightKg * bloodWaterFraction)))
+    }
+
+    // Forrest/Barbour BMI-based fallback when age is unknown. Linear fits to the
+    // Forrest table reproduced in Searle 2015.
+    static func forrestR(weightKg: Double, heightCm: Double, sex: Sex) -> Double {
+        let hM = heightCm / 100
+        guard hM > 0, weightKg > 0 else { return widmarkR(sex: sex) }
+        let bmi = weightKg / (hM * hM)
+        let r: Double
+        switch sex {
+        case .male:           r = 0.9215 - 0.00939 * bmi
+        case .female:         r = 0.9362 - 0.01225 * bmi
+        case .preferNotToSay: r = ((0.9215 - 0.00939 * bmi) + (0.9362 - 0.01225 * bmi)) / 2
+        }
+        return max(0.50, min(0.85, r))
     }
 
     static func profileR(profile: UserProfile) -> Double {
-        if let h = profile.heightCm, let year = profile.birthYear {
-            let age = Calendar.current.component(.year, from: Date()) - year
-            return watsonR(weightKg: profile.weightKg, heightCm: h, age: age, sex: profile.sex)
+        if let h = profile.heightCm, h > 0 {
+            if let age = profile.age, age > 0 {
+                return watsonR(weightKg: profile.weightKg, heightCm: h, age: age, sex: profile.sex)
+            }
+            return forrestR(weightKg: profile.weightKg, heightCm: h, sex: profile.sex)
         }
         return widmarkR(sex: profile.sex)
     }
 
-    // MARK: - Core BAC estimation
+    // MARK: - Closed-form estimate (legacy API)
 
+    // Single-shot Widmark estimate. Kept for callers that don't have per-drink data.
     static func estimateBAC(
         alcoholGrams: Double,
         weightKg: Double,
@@ -61,28 +144,59 @@ struct BACCalculator {
         guard weightKg > 0 else { return 0 }
         let rFactor = r ?? widmarkR(sex: sex)
         let bac = (alcoholGrams / (weightKg * 1000 * rFactor)) * 100
-        let metabolized = 0.015 * durationHours
-        return max(0, bac - metabolized)
+        return max(0, bac - eliminationRate(sex: sex) * durationHours)
     }
 
-    // Per-drink BAC at a given moment: each drink metabolizes from when it was consumed.
+    // MARK: - Per-drink first-order absorption model
+
+    // Fraction of a drink's dose that has been absorbed into the bloodstream Δt hours
+    // after the user STARTED drinking it. Models a continuous infusion into the gut
+    // over duration `T` (the drinking duration) followed by first-order gastric
+    // emptying at rate `kA`. Reduces to the bolus form `1 − e^(−kA·Δt)` as T → 0.
+    private static func absorbedFraction(deltaHours: Double, kA: Double, durationHours T: Double) -> Double {
+        guard deltaHours > 0, kA > 0 else { return 0 }
+        // Below ~1 second of duration: indistinguishable from a bolus.
+        if T < 1.0 / 3600.0 { return 1.0 - exp(-kA * deltaHours) }
+        let kT = kA * T
+        if deltaHours < T {
+            // Still drinking — linear input minus what's still in the gut.
+            return max(0, deltaHours / T - (1.0 - exp(-kA * deltaHours)) / kT)
+        }
+        // Done drinking — residual gut empties exponentially.
+        let residualAtFinish = (1.0 - exp(-kT)) / kT
+        return 1.0 - residualAtFinish * exp(-kA * (deltaHours - T))
+    }
+
     private static func bacAt(
         _ time: Date,
         entries: [DrinkEntry],
         drinkTypes: [DrinkType],
         weightKg: Double,
         r: Double,
-        stomachState: StomachState = .empty,
+        beta: Double,
+        sex: Sex,
+        stomachState: StomachState,
         stomachStateTimestamp: Date,
-        foodEntries: [FoodEntry] = [],
-        applyAbsorptionDelay: Bool = true
+        foodEntries: [FoodEntry]
     ) -> Double {
         guard weightKg > 0, r > 0 else { return 0 }
-        return entries.reduce(0.0) { sum, entry in
-            let dt      = drinkTypes.first { $0.id == entry.drinkTypeId }
-            let vol     = entry.volumeOverrideMl ?? dt?.defaultVolumeMl ?? 0
-            let abv     = entry.abvOverride ?? dt?.defaultAbv ?? 0
-            let alcohol = calculateAlcohol(volumeMl: vol, abv: abv, quantity: entry.quantity)
+        // Female gastric ADH activity ≈ 25% lower than male → less first-pass metabolism
+        // → higher peak BAC for same dose. (Frezza NEJM 1990.)
+        let fpmSexMultiplier: Double
+        switch sex {
+        case .female:         fpmSexMultiplier = 0.75
+        case .preferNotToSay: fpmSexMultiplier = 0.875
+        case .male:           fpmSexMultiplier = 1.0
+        }
+        let sorted = entries.sorted { $0.timestamp < $1.timestamp }
+        var sum = 0.0
+        for i in sorted.indices {
+            let entry = sorted[i]
+            let dt    = drinkTypes.first { $0.id == entry.drinkTypeId }
+            let vol   = entry.volumeOverrideMl ?? dt?.defaultVolumeMl ?? 0
+            let abv   = entry.abvOverride ?? dt?.defaultAbv ?? 0
+            let dose  = calculateAlcohol(volumeMl: vol, abv: abv, quantity: entry.quantity)
+            guard dose > 0, time >= entry.timestamp else { continue }
 
             let factor = computeStomachFactor(
                 at: entry.timestamp,
@@ -90,21 +204,24 @@ struct BACCalculator {
                 stomachStateTimestamp: stomachStateTimestamp,
                 foodEntries: foodEntries
             )
+            let fpm = min(0.40, factor.firstPassFraction * fpmSexMultiplier)
 
-            let start: Date
-            if applyAbsorptionDelay {
-                let effectiveStart = entry.timestamp.addingTimeInterval(factor.absorptionDelayMinutes * 60)
-                guard time >= effectiveStart else { return sum }
-                start = effectiveStart
-            } else {
-                start = entry.timestamp
+            // Effective drinking duration in hours. Scales with quantity (3 beers = 3×
+            // the typical time), then truncates if the next drink starts sooner.
+            let perServing = Double(dt?.effectiveDrinkingMinutes ?? 15)
+            var T = perServing * Double(max(1, entry.quantity)) / 60.0
+            if i + 1 < sorted.count {
+                let gap = sorted[i + 1].timestamp.timeIntervalSince(entry.timestamp) / 3600
+                if gap > 0, gap < T { T = gap }
             }
 
-            let hours            = time.timeIntervalSince(start) / 3600
-            let effectiveAlcohol = alcohol * (1.0 - factor.peakReductionFactor)
-            let raw              = (effectiveAlcohol / (weightKg * 1000 * r)) * 100
-            return sum + max(0, raw - 0.015 * hours)
+            let hours    = time.timeIntervalSince(entry.timestamp) / 3600
+            let absorbed = absorbedFraction(deltaHours: hours, kA: factor.kAPerHour, durationHours: T)
+            let aEff     = dose * (1.0 - fpm) * absorbed
+            let raw      = (aEff / (weightKg * 1000 * r)) * 100
+            sum += max(0, raw - beta * hours)
         }
+        return sum
     }
 
     static func estimatePeakBAC(
@@ -120,20 +237,19 @@ struct BACCalculator {
     ) -> Double {
         guard !entries.isEmpty else { return 0 }
         let rFactor     = r ?? widmarkR(sex: sex)
+        let beta        = eliminationRate(sex: sex)
         let stTimestamp = stomachStateTimestamp ?? eventStart
         let lastTimestamp = entries.map(\.timestamp).max() ?? eventStart
-        let endCheck    = lastTimestamp.addingTimeInterval(3600)
+        // Peak typically within 60–120 min after last drink even with food. Scan to +2 h.
+        let endCheck    = lastTimestamp.addingTimeInterval(7200)
         var peak        = 0.0
         var checkpoint  = eventStart
         while checkpoint <= endCheck {
             let bac = bacAt(
                 checkpoint,
-                entries: entries,
-                drinkTypes: drinkTypes,
-                weightKg: weightKg,
-                r: rFactor,
-                stomachState: stomachState,
-                stomachStateTimestamp: stTimestamp,
+                entries: entries, drinkTypes: drinkTypes,
+                weightKg: weightKg, r: rFactor, beta: beta, sex: sex,
+                stomachState: stomachState, stomachStateTimestamp: stTimestamp,
                 foodEntries: foodEntries
             )
             peak = max(peak, bac)
@@ -153,6 +269,7 @@ struct BACCalculator {
     ) -> [BACDataPoint] {
         guard !entries.isEmpty, profile.weightKg > 0 else { return [] }
         let r           = profileR(profile: profile)
+        let beta        = eliminationRate(profile: profile)
         let stTimestamp = stomachStateTimestamp ?? eventStart
         let totalAlcohol = entries.reduce(0.0) { sum, entry in
             let dt  = drinkTypes.first { $0.id == entry.drinkTypeId }
@@ -161,22 +278,19 @@ struct BACCalculator {
             return sum + calculateAlcohol(volumeMl: vol, abv: abv, quantity: entry.quantity)
         }
         guard totalAlcohol > 0 else { return [] }
-        let rawBAC     = (totalAlcohol / (profile.weightKg * 1000 * r)) * 100
-        let hoursToZero = rawBAC / 0.015
-        let endDate    = eventStart.addingTimeInterval((hoursToZero + 0.5) * 3600)
-        let lastDrink  = entries.map(\.timestamp).max() ?? eventStart
+        let rawBAC      = (totalAlcohol / (profile.weightKg * 1000 * r)) * 100
+        let hoursToZero = rawBAC / beta
+        let endDate     = eventStart.addingTimeInterval((hoursToZero + 1.5) * 3600)
+        let lastDrink   = entries.map(\.timestamp).max() ?? eventStart
 
         var points: [BACDataPoint] = []
         var checkpoint = eventStart
         while checkpoint <= endDate {
             let bac = bacAt(
                 checkpoint,
-                entries: entries,
-                drinkTypes: drinkTypes,
-                weightKg: profile.weightKg,
-                r: r,
-                stomachState: stomachState,
-                stomachStateTimestamp: stTimestamp,
+                entries: entries, drinkTypes: drinkTypes,
+                weightKg: profile.weightKg, r: r, beta: beta, sex: profile.sex,
+                stomachState: stomachState, stomachStateTimestamp: stTimestamp,
                 foodEntries: foodEntries
             )
             points.append(BACDataPoint(date: checkpoint, bac: bac))
@@ -188,8 +302,6 @@ struct BACCalculator {
 
     // MARK: - Mean BAC
 
-    // Mean BAC = average of BAC sampled across [eventStart, eventEnd].
-    // Interval scales with duration so short events still get ~20 samples.
     static func meanBACForEvent(
         entries: [DrinkEntry],
         drinkTypes: [DrinkType],
@@ -202,6 +314,7 @@ struct BACCalculator {
     ) -> Double {
         guard !entries.isEmpty, eventEnd > eventStart else { return 0 }
         let r           = profileR(profile: profile)
+        let beta        = eliminationRate(profile: profile)
         let stTimestamp = stomachStateTimestamp ?? eventStart
         let duration = eventEnd.timeIntervalSince(eventStart)
         let interval = max(1.0, min(300.0, duration / 20.0))
@@ -211,12 +324,9 @@ struct BACCalculator {
         while t <= eventEnd {
             sum += bacAt(
                 t,
-                entries: entries,
-                drinkTypes: drinkTypes,
-                weightKg: profile.weightKg,
-                r: r,
-                stomachState: stomachState,
-                stomachStateTimestamp: stTimestamp,
+                entries: entries, drinkTypes: drinkTypes,
+                weightKg: profile.weightKg, r: r, beta: beta, sex: profile.sex,
+                stomachState: stomachState, stomachStateTimestamp: stTimestamp,
                 foodEntries: foodEntries
             )
             count += 1
@@ -225,20 +335,31 @@ struct BACCalculator {
         return count > 0 ? sum / Double(count) : 0
     }
 
+    // MARK: - Uncertainty band (population CV ≈ 20% per Searle 2015)
+
+    static func uncertaintyBand(point: Double) -> (low: Double, high: Double) {
+        guard point > 0 else { return (0, 0) }
+        return (max(0, point * (1 - bacCV)), point * (1 + bacCV))
+    }
+
     // MARK: - Alcohol content
 
     static func calculateAlcohol(volumeMl: Double, abv: Double, quantity: Int) -> Double {
-        volumeMl * (abv / 100) * Double(quantity) * 0.789
+        volumeMl * (abv / 100) * Double(quantity) * ethanolDensityGPerMl
     }
 
     static func standardDrinks(alcoholGrams: Double) -> Double {
-        alcoholGrams / 14.0
+        alcoholGrams / standardDrinkGrams
     }
 
     // MARK: - Time / Status helpers
 
-    static func hoursToZeroBAC(_ bac: Double) -> Double {
-        bac / 0.015
+    static func hoursToZeroBAC(_ bac: Double, sex: Sex = .preferNotToSay) -> Double {
+        bac / eliminationRate(sex: sex)
+    }
+
+    static func hoursToZeroBAC(_ bac: Double, profile: UserProfile) -> Double {
+        bac / eliminationRate(profile: profile)
     }
 
     static func getBACStatus(bac: Double, limit: Double) -> BACStatus {
@@ -247,7 +368,7 @@ struct BACCalculator {
         return .green
     }
 
-    // MARK: - Hydration
+    // MARK: - Hydration (UI/coaching only — does NOT modify BAC)
 
     static func computeHydrationRatio(waterEntries: [WaterEntry], drinkCount: Int) -> Double {
         guard drinkCount > 0 else { return 0 }
@@ -255,10 +376,9 @@ struct BACCalculator {
         return glasses / Double(drinkCount)
     }
 
-    static func applyHydration(bac: Double, ratio: Double) -> Double {
-        guard ratio >= 1.25 else { return bac }
-        return bac * 0.95
-    }
+    // Water intake does not pharmacokinetically lower BAC. The pharmacology literature
+    // is consistent on this. Function retained for API compatibility; returns input.
+    static func applyHydration(bac: Double, ratio: Double) -> Double { bac }
 
     enum HydrationLevel: String {
         case none = "none", behind = "behind", balanced = "balanced", great = "great"
@@ -286,20 +406,15 @@ struct BACCalculator {
         foodEntries: [FoodEntry] = []
     ) -> Double {
         let r           = profileR(profile: profile)
+        let beta        = eliminationRate(profile: profile)
         let stTimestamp = stomachStateTimestamp ?? eventStart
-        let rawBAC = bacAt(
+        return bacAt(
             Date(),
-            entries: entries,
-            drinkTypes: drinkTypes,
-            weightKg: profile.weightKg,
-            r: r,
-            stomachState: stomachState,
-            stomachStateTimestamp: stTimestamp,
-            foodEntries: foodEntries,
-            applyAbsorptionDelay: false
+            entries: entries, drinkTypes: drinkTypes,
+            weightKg: profile.weightKg, r: r, beta: beta, sex: profile.sex,
+            stomachState: stomachState, stomachStateTimestamp: stTimestamp,
+            foodEntries: foodEntries
         )
-        let ratio = computeHydrationRatio(waterEntries: waterEntries, drinkCount: entries.count)
-        return applyHydration(bac: rawBAC, ratio: ratio)
     }
 
     static func drinksInLastHour(entries: [DrinkEntry]) -> Int {
@@ -307,43 +422,35 @@ struct BACCalculator {
         return entries.filter { $0.timestamp >= cutoff }.count
     }
 
-    // MARK: - Food / Stomach factor
+    // MARK: - Stomach / food factor
 
+    // Returns (kA, FPM) at a drink moment. Effects from the user's declared start-of-night
+    // stomach state and each logged food entry both decay linearly toward empty over
+    // `stomachDecayMinutes`. The slowest absorption / highest FPM still in effect wins.
     static func computeStomachFactor(
         at drinkTime: Date,
         stomachState: StomachState,
         stomachStateTimestamp: Date,
         foodEntries: [FoodEntry]
-    ) -> (absorptionDelayMinutes: Double, peakReductionFactor: Double) {
+    ) -> (kAPerHour: Double, firstPassFraction: Double) {
 
-        func base(for state: StomachState) -> (delay: Double, reduction: Double) {
-            switch state {
-            case .empty:    return (0,    0)
-            case .snack:    return (15,   0.15)
-            case .fullMeal: return (37.5, 0.30)
-            }
+        let empty = kinetics(for: .empty)
+
+        func resolved(state: StomachState, since: Date) -> (kA: Double, fpm: Double) {
+            let minutes = max(0, drinkTime.timeIntervalSince(since) / 60)
+            let weight  = max(0.0, 1.0 - minutes / stomachDecayMinutes)
+            let k       = kinetics(for: state)
+            let kA  = empty.kAPerHour         * (1 - weight) + k.kAPerHour         * weight
+            let fpm = empty.firstPassFraction * (1 - weight) + k.firstPassFraction * weight
+            return (kA, fpm)
         }
 
-        // Linear decay back to empty over 150 minutes (gastric emptying model)
-        func decay(minutesSince: Double) -> Double {
-            max(0.0, 1.0 - (minutesSince / 150.0))
-        }
-
-        let initMinutes = drinkTime.timeIntervalSince(stomachStateTimestamp) / 60
-        let initBase    = base(for: stomachState)
-        let initDecay   = decay(minutesSince: max(0, initMinutes))
-        var bestDelay   = initBase.delay     * initDecay
-        var bestReduce  = initBase.reduction * initDecay
-
-        // Check every food entry logged before this drink; pick strongest remaining effect
+        var best = resolved(state: stomachState, since: stomachStateTimestamp)
         for entry in foodEntries where entry.timestamp <= drinkTime {
-            let minutes     = drinkTime.timeIntervalSince(entry.timestamp) / 60
-            let entryBase   = base(for: entry.type)
-            let entryDecay  = decay(minutesSince: minutes)
-            bestDelay  = max(bestDelay,  entryBase.delay     * entryDecay)
-            bestReduce = max(bestReduce, entryBase.reduction * entryDecay)
+            let r = resolved(state: entry.type, since: entry.timestamp)
+            if r.kA < best.kA  { best.kA  = r.kA }
+            if r.fpm > best.fpm { best.fpm = r.fpm }
         }
-
-        return (absorptionDelayMinutes: bestDelay, peakReductionFactor: bestReduce)
+        return (kAPerHour: best.kA, firstPassFraction: best.fpm)
     }
 }

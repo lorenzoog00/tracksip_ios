@@ -176,7 +176,8 @@ final class FirebaseManager: ObservableObject {
             "is_preset":           dt.isPreset,
             "icon":                dt.icon
         ]
-        if let c = dt.colorHex { data["color_hex"] = c }
+        if let c = dt.colorHex                          { data["color_hex"]                  = c }
+        if let d = dt.defaultDrinkingDurationMinutes    { data["drinking_duration_minutes"]  = d }
         try await col.document(dt.id).setData(data, merge: true)
     }
 
@@ -290,7 +291,8 @@ final class FirebaseManager: ObservableObject {
                 caloriesPerServing: d["calories_per_serving"] as? Double ?? 0,
                 isPreset: d["is_preset"] as? Bool ?? false,
                 icon: d["icon"] as? String ?? "",
-                colorHex: d["color_hex"] as? String
+                colorHex: d["color_hex"] as? String,
+                defaultDrinkingDurationMinutes: d["drinking_duration_minutes"] as? Int
             )
         } ?? []
 

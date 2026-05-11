@@ -9,6 +9,7 @@ struct EditDrinkView: View {
     @State private var volumeStr: String
     @State private var abvStr: String
     @State private var caloriesStr: String
+    @State private var durationStr: String
     @State private var icon: String
     @State private var colorHex: String?
 
@@ -31,6 +32,7 @@ struct EditDrinkView: View {
         _volumeStr    = State(initialValue: existing.map { "\(Int($0.defaultVolumeMl))" } ?? "355")
         _abvStr       = State(initialValue: existing.map { String(format: "%.1f", $0.defaultAbv) } ?? "5.0")
         _caloriesStr  = State(initialValue: existing.map { "\(Int($0.caloriesPerServing))" } ?? "150")
+        _durationStr  = State(initialValue: "\(existing?.effectiveDrinkingMinutes ?? 20)")
         _icon         = State(initialValue: existing?.sfSymbol ?? "cup.and.saucer.fill")
         _colorHex     = State(initialValue: existing?.colorHex)
     }
@@ -39,7 +41,8 @@ struct EditDrinkView: View {
         !name.isEmpty &&
         Double(volumeStr) != nil &&
         Double(abvStr) != nil &&
-        Double(caloriesStr) != nil
+        Double(caloriesStr) != nil &&
+        (Int(durationStr) ?? 0) > 0
     }
 
     var body: some View {
@@ -108,6 +111,12 @@ struct EditDrinkView: View {
                         numericField(label: "Volume (ml)", placeholder: "355", text: $volumeStr)
                         numericField(label: "ABV (%)", placeholder: "5.0", text: $abvStr)
                         numericField(label: "Calories per serving", placeholder: "150", text: $caloriesStr)
+                        numericField(
+                            label: "Average time to finish (min)",
+                            placeholder: "20",
+                            text: $durationStr,
+                            footnote: "Improves BAC accuracy — short for shots, longer for beer or wine. Auto-shortened if you log another drink sooner."
+                        )
 
                         Spacer(minLength: 20)
 
@@ -152,7 +161,7 @@ struct EditDrinkView: View {
         }
     }
 
-    private func numericField(label: String, placeholder: String, text: Binding<String>) -> some View {
+    private func numericField(label: String, placeholder: String, text: Binding<String>, footnote: String? = nil) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(label)
                 .font(.system(size: 13, weight: .medium))
@@ -164,6 +173,13 @@ struct EditDrinkView: View {
                 .cornerRadius(10)
                 .overlay(RoundedRectangle(cornerRadius: 10).stroke(AppColors.border, lineWidth: 1))
                 .foregroundStyle(AppColors.text)
+            if let note = footnote {
+                Text(note)
+                    .font(.system(size: 11))
+                    .foregroundStyle(AppColors.textTertiary)
+                    .lineSpacing(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 
@@ -177,7 +193,8 @@ struct EditDrinkView: View {
             caloriesPerServing: Double(caloriesStr) ?? 150,
             isPreset: existing?.isPreset ?? false,
             icon: icon,
-            colorHex: colorHex
+            colorHex: colorHex,
+            defaultDrinkingDurationMinutes: Int(durationStr).flatMap { $0 > 0 ? $0 : nil }
         )
         appState.saveDrinkType(type)
         dismiss()
