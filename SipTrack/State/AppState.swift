@@ -13,6 +13,7 @@ final class AppState: ObservableObject {
     @Published var events: [NightEvent]      = []
     @Published var entries: [DrinkEntry]     = []
     @Published var waterEntries: [WaterEntry] = []
+    @Published var foodEntries: [FoodEntry]  = []
     @Published var customDrinkTypes: [DrinkType] = []
     @Published var userProfile: UserProfile  = UserProfile()
     @Published var challenges: [Challenge]   = []
@@ -100,7 +101,7 @@ final class AppState: ObservableObject {
 
     private func resetProfile() {
         DataStore.shared.clearAllData()
-        events = []; entries = []; waterEntries = []
+        events = []; entries = []; waterEntries = []; foodEntries = []
         customDrinkTypes = []; challenges = []; coachReports = []; nightRecoveries = []
         userProfile = UserProfile()
         shouldShowAuth = true
@@ -111,6 +112,7 @@ final class AppState: ObservableObject {
         events           = ds.loadEvents()
         entries          = ds.loadEntries()
         waterEntries     = ds.loadWaterEntries()
+        foodEntries      = ds.loadFoodEntries()
         customDrinkTypes = ds.loadCustomDrinkTypes()
         userProfile      = ds.loadUserProfile()
         challenges       = ds.loadChallenges()
@@ -131,8 +133,12 @@ final class AppState: ObservableObject {
 
     // MARK: - Events
 
-    func createEvent(name: String?, drivingMode: Bool, bacLimit: Double?, startTime: Date = Date()) -> NightEvent {
-        let event = DataStore.shared.createEvent(name: name, drivingMode: drivingMode, bacLimit: bacLimit, userId: currentUserId, startTime: startTime)
+    @discardableResult
+    func createEvent(name: String?, drivingMode: Bool, bacLimit: Double?, startTime: Date = Date(), stomachState: StomachState = .empty) -> NightEvent {
+        var event = DataStore.shared.createEvent(name: name, drivingMode: drivingMode, bacLimit: bacLimit, userId: currentUserId, startTime: startTime)
+        event.stomachState = stomachState
+        event.stomachStateTimestamp = startTime
+        DataStore.shared.updateEvent(event)
         events.append(event)
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         push { try await FirebaseManager.shared.pushEvent(event) }
@@ -983,6 +989,7 @@ final class AppState: ObservableObject {
         events.removeAll { $0.id == id }
         entries.removeAll { $0.eventId == id }
         waterEntries.removeAll { $0.eventId == id }
+        foodEntries.removeAll { $0.eventId == id }
         push { try await FirebaseManager.shared.deleteEvent(id) }
     }
 
@@ -1092,6 +1099,23 @@ final class AppState: ObservableObject {
     func deleteWaterEntry(_ id: String) {
         DataStore.shared.deleteWaterEntry(id)
         waterEntries.removeAll { $0.id == id }
+    }
+
+    // MARK: - Food
+
+    func addFoodEntry(eventId: String, type: StomachState) {
+        let entry = FoodEntry(id: generateId(), eventId: eventId, type: type, timestamp: Date())
+        DataStore.shared.addFoodEntry(entry)
+        foodEntries.append(entry)
+    }
+
+    func deleteFoodEntry(_ id: String) {
+        DataStore.shared.deleteFoodEntry(id)
+        foodEntries.removeAll { $0.id == id }
+    }
+
+    func foodList(for eventId: String) -> [FoodEntry] {
+        foodEntries.filter { $0.eventId == eventId }
     }
 
     // MARK: - Drink Types
@@ -1306,12 +1330,16 @@ final class AppState: ObservableObject {
         guard let event = events.first(where: { $0.id == eventId }) else { return 0 }
         let eventEntries = entries.filter { $0.eventId == eventId }
         let eventWater   = waterEntries.filter { $0.eventId == eventId }
+        let eventFood    = foodEntries.filter { $0.eventId == eventId }
         return BACCalculator.currentBAC(
             entries: eventEntries,
             waterEntries: eventWater,
             drinkTypes: allDrinkTypes,
             profile: userProfile,
-            eventStart: event.startTime
+            eventStart: event.startTime,
+            stomachState: event.stomachState ?? .empty,
+            stomachStateTimestamp: event.stomachStateTimestamp ?? event.startTime,
+            foodEntries: eventFood
         )
     }
 
