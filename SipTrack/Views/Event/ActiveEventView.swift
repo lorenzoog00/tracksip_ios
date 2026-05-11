@@ -7,12 +7,14 @@ struct ActiveEventView: View {
 
     @State private var showEndConfirm     = false
     @State private var showEditEntry: DrinkEntry? = nil
+    @State private var showFoodSheet      = false
     @State private var timer: Timer?      = nil
     @State private var now                = Date()
 
     private var event: NightEvent? { appState.events.first { $0.id == eventId } }
     private var eventEntries: [DrinkEntry] { appState.entries.filter { $0.eventId == eventId }.sorted { $0.timestamp > $1.timestamp } }
     private var eventWater: [WaterEntry]  { appState.waterEntries.filter { $0.eventId == eventId }.sorted { $0.timestamp > $1.timestamp } }
+    var eventFood: [FoodEntry] { appState.foodEntries.filter { $0.eventId == eventId } }
     private var currentBAC: Double {
         _ = now
         return appState.currentBAC(for: eventId)
@@ -63,10 +65,11 @@ struct ActiveEventView: View {
                     }
 
                     // Timeline
-                    if !eventEntries.isEmpty || !eventWater.isEmpty {
+                    if !eventEntries.isEmpty || !eventWater.isEmpty || !eventFood.isEmpty {
                         TimelineSection(
                             entries: eventEntries,
                             waterEntries: eventWater,
+                            foodEntries: eventFood,
                             drinkTypes: appState.allDrinkTypes,
                             onDeleteEntry: { appState.deleteEntry($0) },
                             onDeleteWater: { appState.deleteWaterEntry($0) },
@@ -80,9 +83,10 @@ struct ActiveEventView: View {
             }
             .background(AppColors.background)
 
-            // Bottom bar — water + end only (drinks are inline above)
+            // Bottom bar — water + food + end only (drinks are inline above)
             BottomBar(
                 onAddWater: { appState.addWater(eventId: eventId) },
+                onAddFood:  { showFoodSheet = true },
                 onEnd:      { showEndConfirm = true }
             )
 
@@ -112,6 +116,41 @@ struct ActiveEventView: View {
         .onDisappear { stopTimer() }
         .sheet(item: $showEditEntry) { entry in
             EditEntryView(entry: entry)
+        }
+        .sheet(isPresented: $showFoodSheet) {
+            VStack(spacing: 20) {
+                Text("What did you eat?")
+                    .font(.headline)
+                    .padding(.top, 24)
+
+                HStack(spacing: 16) {
+                    ForEach([StomachState.snack, .fullMeal], id: \.self) { type in
+                        Button {
+                            appState.addFoodEntry(eventId: eventId, type: type)
+                            showFoodSheet = false
+                        } label: {
+                            VStack(spacing: 8) {
+                                Text(type.emoji)
+                                    .font(.system(size: 40))
+                                Text(type.displayName)
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 24)
+                            .background(Color(.systemGray6))
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal)
+
+                Button("Cancel") { showFoodSheet = false }
+                    .foregroundStyle(.secondary)
+                    .padding(.bottom, 24)
+            }
+            .presentationDetents([.height(260)])
         }
         .confirmationDialog("End this night?", isPresented: $showEndConfirm, titleVisibility: .visible) {
             Button("End Night", role: .destructive) {
@@ -687,17 +726,20 @@ private struct WaterToast: View {
 private enum TLItem: Identifiable {
     case drink(DrinkEntry)
     case water(WaterEntry)
+    case food(FoodEntry)
 
     var id: String {
         switch self {
         case .drink(let e): return "d\(e.id)"
         case .water(let w): return "w\(w.id)"
+        case .food(let e):  return "f\(e.id)"
         }
     }
     var timestamp: Date {
         switch self {
         case .drink(let e): return e.timestamp
         case .water(let w): return w.timestamp
+        case .food(let e):  return e.timestamp
         }
     }
     var isDrink: Bool {
@@ -708,14 +750,18 @@ private enum TLItem: Identifiable {
 private struct TimelineSection: View {
     let entries: [DrinkEntry]
     let waterEntries: [WaterEntry]
+    let foodEntries: [FoodEntry]
     let drinkTypes: [DrinkType]
     let onDeleteEntry: (String) -> Void
     let onDeleteWater: (String) -> Void
     let onEditEntry: (DrinkEntry) -> Void
 
     private var items: [TLItem] {
-        (entries.map { TLItem.drink($0) } + waterEntries.map { TLItem.water($0) })
-            .sorted { $0.timestamp > $1.timestamp }
+        (
+            entries.map    { TLItem.drink($0) } +
+            waterEntries.map { TLItem.water($0) } +
+            foodEntries.map  { TLItem.food($0) }
+        ).sorted { $0.timestamp > $1.timestamp }
     }
 
     var body: some View {
@@ -764,6 +810,7 @@ private struct TLRow: View {
         switch item {
         case .drink(let e): return drinkTypes.first { $0.id == e.drinkTypeId }?.color ?? AppColors.accent
         case .water:        return AppColors.water
+        case .food:         return AppColors.accent
         }
     }
 
@@ -814,6 +861,8 @@ private struct TLRow: View {
                         time: Self.tf.string(from: w.timestamp),
                         onDelete: { onDeleteWater(w.id) }
                     )
+                case .food(let entry):
+                    TLFoodCard(entry: entry)
                 }
             }
             .padding(.bottom, isLast ? 4 : 10)
@@ -984,10 +1033,35 @@ private struct TLWaterCard: View {
 }
 
 
+private struct TLFoodCard: View {
+    let entry: FoodEntry
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text(entry.type.emoji)
+                .font(.title3)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(entry.type.displayName)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                Text(entry.timestamp, style: .time)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+        }
+        .padding(12)
+        .background(AppColors.accent.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+    }
+}
+
+
 // MARK: - Bottom Bar
 
 private struct BottomBar: View {
     let onAddWater: () -> Void
+    let onAddFood: () -> Void
     let onEnd: () -> Void
 
     var body: some View {
@@ -1000,8 +1074,19 @@ private struct BottomBar: View {
                         .font(.system(size: 14, weight: .semibold))
                 }
                 .foregroundStyle(AppColors.water)
-                .frame(width: 104, height: 48)
+                .frame(width: 90, height: 48)
                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(AppColors.water.opacity(0.35), lineWidth: 1))
+            }
+
+            Button(action: onAddFood) {
+                HStack(spacing: 6) {
+                    Text("🍟")
+                    Text("Food")
+                }
+                .foregroundStyle(AppColors.accent)
+                .frame(width: 90, height: 48)
+                .overlay(RoundedRectangle(cornerRadius: 12)
+                    .stroke(AppColors.accent.opacity(0.35), lineWidth: 1))
             }
 
             Button(action: onEnd) {
