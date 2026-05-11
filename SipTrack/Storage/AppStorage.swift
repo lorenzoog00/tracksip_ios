@@ -78,6 +78,9 @@ final class DataStore {
         var water = loadWaterEntries()
         water.removeAll { $0.eventId == id }
         saveWaterEntries(water)
+        var food = loadFoodEntries()
+        food.removeAll { $0.eventId == id }
+        saveFoodEntries(food)
     }
 
     // MARK: - Drink Entries
@@ -130,6 +133,28 @@ final class DataStore {
         var entries = loadWaterEntries()
         entries.removeAll { $0.id == id }
         saveWaterEntries(entries)
+    }
+
+    // MARK: - Food Entries
+
+    func loadFoodEntries() -> [FoodEntry] {
+        load([FoodEntry].self, key: "siptrack_food") ?? []
+    }
+
+    func saveFoodEntries(_ entries: [FoodEntry]) {
+        save(entries, key: "siptrack_food")
+    }
+
+    func addFoodEntry(_ entry: FoodEntry) {
+        var entries = loadFoodEntries()
+        entries.append(entry)
+        saveFoodEntries(entries)
+    }
+
+    func deleteFoodEntry(_ id: String) {
+        var entries = loadFoodEntries()
+        entries.removeAll { $0.id == id }
+        saveFoodEntries(entries)
     }
 
     // MARK: - Drink Types
@@ -191,7 +216,7 @@ final class DataStore {
     }
 
     func clearAllData() {
-        let keys = ["siptrack_events","siptrack_entries","siptrack_water","siptrack_drink_types","siptrack_challenges","siptrack_profile","siptrack_coach_reports","siptrack_night_recoveries"]
+        let keys = ["siptrack_events","siptrack_entries","siptrack_water","siptrack_drink_types","siptrack_challenges","siptrack_profile","siptrack_coach_reports","siptrack_night_recoveries","siptrack_food"]
         for key in keys {
             try? FileManager.default.removeItem(at: url(key: key))
         }
