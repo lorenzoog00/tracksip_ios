@@ -9,6 +9,7 @@ struct CreateEventView: View {
     @State private var bacLimit    = 0.08
     @State private var startTime   = Date()
     @State private var customStart = false
+    @State private var stomachState: StomachState = .empty
 
     var body: some View {
         NavigationStack {
@@ -104,6 +105,42 @@ struct CreateEventView: View {
                     }
                     .animation(.easeInOut(duration: 0.2), value: drivingMode)
 
+                    Divider().background(AppColors.border)
+
+                    // Stomach state
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("How full is your stomach?")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .textCase(.uppercase)
+
+                        HStack(spacing: 10) {
+                            ForEach([StomachState.empty, .snack, .fullMeal], id: \.self) { state in
+                                Button {
+                                    stomachState = state
+                                } label: {
+                                    VStack(spacing: 4) {
+                                        Text(state.emoji)
+                                            .font(.title2)
+                                        Text(state.displayName)
+                                            .font(.caption2)
+                                            .fontWeight(.medium)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 12)
+                                    .background(stomachState == state ? AppColors.accent.opacity(0.15) : Color(.systemGray6))
+                                    .foregroundStyle(stomachState == state ? AppColors.accent : .secondary)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .stroke(stomachState == state ? AppColors.accent : Color.clear, lineWidth: 1.5)
+                                    )
+                                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+
                     if appState.activeEvent != nil {
                         HStack(spacing: 8) {
                             Image(systemName: "exclamationmark.triangle.fill")
@@ -124,7 +161,8 @@ struct CreateEventView: View {
                             name: name.isEmpty ? nil : name,
                             drivingMode: drivingMode,
                             bacLimit: drivingMode ? bacLimit : nil,
-                            startTime: customStart ? startTime : Date()
+                            startTime: customStart ? startTime : Date(),
+                            stomachState: stomachState
                         )
                         appState.pendingEventRouteId = event.id
                         dismiss()
