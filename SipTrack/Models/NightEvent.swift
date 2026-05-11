@@ -11,6 +11,8 @@ struct NightEvent: Codable, Identifiable, Hashable {
     var notes: String?
     var aiReport: String?
     var createdAt: Date
+    var stomachState: StomachState?
+    var stomachStateTimestamp: Date?
 
     var isActive: Bool { endTime == nil }
 
