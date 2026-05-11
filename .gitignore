@@ -14,3 +14,37 @@ build/
 
 # macOS
 .DS_Store
+
+# Firebase / Node.js (functions)
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+firebase-debug.log*
+firebase-debug.*.log*
+
+.firebase/
+.firebaserc
+
+pids
+*.pid
+*.seed
+*.pid.lock
+
+lib-cov
+coverage
+.nyc_output
+.grunt
+bower_components
+.lock-wscript
+build/Release
+node_modules/
+.npm
+.eslintcache
+.node_repl_history
+*.tgz
+.yarn-integrity
+.env
+.dataconnect
+tracksip_ios/
