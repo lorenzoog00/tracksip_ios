@@ -51,6 +51,14 @@ struct EditDrinkView: View {
                 AppColors.background.ignoresSafeArea()
                 ScrollView {
                     VStack(spacing: 20) {
+                        field(label: "Name", placeholder: "e.g. Rosé Wine", text: $name)
+                        numericField(
+                            label: "Avg. time to finish (min)",
+                            placeholder: "20",
+                            text: $durationStr,
+                            footnote: "How long you typically take to drink one. Used to spread your BAC rise realistically."
+                        )
+
                         // Icon picker
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Icon")
@@ -107,13 +115,6 @@ struct EditDrinkView: View {
                             }
                         }
 
-                        field(label: "Name", placeholder: "e.g. Rosé Wine", text: $name)
-                        numericField(
-                            label: "Avg. time to finish (min)",
-                            placeholder: "20",
-                            text: $durationStr,
-                            footnote: "How long you typically take to drink one. Used to spread your BAC rise realistically."
-                        )
                         numericField(label: "Volume (ml)", placeholder: "355", text: $volumeStr)
                         numericField(label: "ABV (%)", placeholder: "5.0", text: $abvStr)
                         numericField(label: "Calories per serving", placeholder: "150", text: $caloriesStr)

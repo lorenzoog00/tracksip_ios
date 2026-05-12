@@ -256,7 +256,7 @@ struct SummaryView: View {
                 }()
                 if !allTimestamps.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
-                        Label("Timeline", systemImage: "list.bullet.clock")
+                        Label("Timeline", systemImage: "clock")
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(AppColors.textSecondary)
                         ForEach(allTimestamps.indices, id: \.self) { idx in
