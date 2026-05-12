@@ -108,15 +108,15 @@ struct EditDrinkView: View {
                         }
 
                         field(label: "Name", placeholder: "e.g. Rosé Wine", text: $name)
+                        numericField(
+                            label: "Avg. time to finish (min)",
+                            placeholder: "20",
+                            text: $durationStr,
+                            footnote: "How long you typically take to drink one. Used to spread your BAC rise realistically."
+                        )
                         numericField(label: "Volume (ml)", placeholder: "355", text: $volumeStr)
                         numericField(label: "ABV (%)", placeholder: "5.0", text: $abvStr)
                         numericField(label: "Calories per serving", placeholder: "150", text: $caloriesStr)
-                        numericField(
-                            label: "Average time to finish (min)",
-                            placeholder: "20",
-                            text: $durationStr,
-                            footnote: "Improves BAC accuracy — short for shots, longer for beer or wine. Auto-shortened if you log another drink sooner."
-                        )
 
                         Spacer(minLength: 20)
 
@@ -192,11 +192,28 @@ struct EditDrinkView: View {
             defaultAbv: Double(abvStr) ?? 5.0,
             caloriesPerServing: Double(caloriesStr) ?? 150,
             isPreset: existing?.isPreset ?? false,
-            icon: icon,
+            icon: internalIcon(from: icon),
             colorHex: colorHex,
             defaultDrinkingDurationMinutes: Int(durationStr).flatMap { $0 > 0 ? $0 : nil }
         )
         appState.saveDrinkType(type)
         dismiss()
+    }
+
+    private func internalIcon(from sfSymbol: String) -> String {
+        switch sfSymbol {
+        case "mug.fill":          return "beer-outline"
+        case "wineglass.fill":    return "wine"
+        case "wineglass":         return "wine-sharp"
+        case "sparkles":          return "sparkles"
+        case "flask.fill":        return "flask-outline"
+        case "flask":             return "flask"
+        case "drop.fill":         return "water"
+        case "leaf.fill":         return "leaf"
+        case "snowflake":         return "snow"
+        case "sun.max.fill":      return "sunny"
+        case "fork.knife":        return "restaurant"
+        default:                  return "cup"
+        }
     }
 }
