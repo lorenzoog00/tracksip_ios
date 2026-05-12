@@ -213,6 +213,7 @@ struct EditDrinkView: View {
         case "snowflake":         return "snow"
         case "sun.max.fill":      return "sunny"
         case "fork.knife":        return "restaurant"
+        case "cup.and.saucer.fill": return "cup"
         default:                  return "cup"
         }
     }

@@ -20,6 +20,7 @@ struct DrinkType: Codable, Identifiable, Hashable {
         case "wine", "wine-sharp", "champagne", "sparkles":   return 30
         case "flask", "flask-outline":                        return 1   // shots — gulped
         case "restaurant", "leaf", "water", "sunny", "snow":  return 25  // cocktails
+        case "cup":                                          return 25
         default:                                              return 15
         }
     }
@@ -36,6 +37,7 @@ struct DrinkType: Codable, Identifiable, Hashable {
         case "water":                       return "drop.fill"
         case "snow":                        return "snowflake"
         case "sunny":                       return "sun.max.fill"
+        case "cup":                         return "cup.and.saucer.fill"
         default:                            return "cup.and.saucer.fill"
         }
     }
