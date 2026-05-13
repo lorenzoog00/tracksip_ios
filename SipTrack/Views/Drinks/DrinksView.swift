@@ -78,13 +78,20 @@ private struct DrinkCard: View {
                 Text(drink.name)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(AppColors.text)
-                VStack(spacing: 2) {
+                VStack(spacing: 3) {
                     Text("\(Int(drink.defaultVolumeMl))ml · \(String(format: "%.1f", drink.defaultAbv))%")
                         .font(.system(size: 11))
                         .foregroundStyle(AppColors.textTertiary)
                     Text("\(Int(drink.caloriesPerServing)) kcal · ~\(drink.effectiveDrinkingMinutes)m")
                         .font(.system(size: 11))
                         .foregroundStyle(AppColors.textTertiary)
+                    HStack(spacing: 3) {
+                        Image(systemName: "timer")
+                            .font(.system(size: 9))
+                        Text("\(drink.effectiveDrinkingMinutes) min avg")
+                            .font(.system(size: 11, weight: .medium))
+                    }
+                    .foregroundStyle(AppColors.accent.opacity(0.75))
                 }
             }
             .frame(maxWidth: .infinity)
