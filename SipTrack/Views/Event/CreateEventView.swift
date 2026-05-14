@@ -7,11 +7,28 @@ struct CreateEventView: View {
     @State private var name          = ""
     @State private var drivingMode   = false
     @State private var bacLimit      = 0.08
+    @State private var useCountryLimit = true
     @State private var targetBAC: Double? = nil
     @State private var startTime     = Date()
     @State private var customStart   = false
     @State private var stomachState: StomachState = .empty
     @FocusState private var nameFocused: Bool
+
+    private var country: LegalBACLimit? { appState.userProfile.legalBACLimit }
+    private var countryResolvedLimit: Double? {
+        country.map { $0.limit(for: appState.userProfile.driverType) }
+    }
+    private var effectiveBACLimit: Double {
+        useCountryLimit ? (countryResolvedLimit ?? bacLimit) : bacLimit
+    }
+
+    private func seedLimitFromProfile() {
+        if let l = countryResolvedLimit {
+            bacLimit = l
+        } else {
+            bacLimit = appState.userProfile.bacLimit
+        }
+    }
 
     var body: some View {
         NavigationStack {
@@ -21,6 +38,13 @@ struct CreateEventView: View {
                 VStack(spacing: 0) {
                     ScrollView {
                         VStack(spacing: 24) {
+
+                            // Country banner — auto-detected from locale, editable in Profile
+                            if let c = country {
+                                LocationBanner(country: c,
+                                               driver: appState.userProfile.driverType,
+                                               limit: c.limit(for: appState.userProfile.driverType))
+                            }
 
                             // Event name
                             VStack(alignment: .leading, spacing: 8) {
@@ -98,16 +122,12 @@ struct CreateEventView: View {
                                 .tint(AppColors.danger)
 
                                 if drivingMode {
-                                    VStack(alignment: .leading, spacing: 8) {
-                                        Text("BAC Limit")
-                                            .font(.system(size: 13, weight: .medium))
-                                            .foregroundStyle(AppColors.textSecondary)
-                                        Picker("BAC Limit", selection: $bacLimit) {
-                                            Text("0.05%").tag(0.05)
-                                            Text("0.08%").tag(0.08)
-                                        }
-                                        .pickerStyle(.segmented)
-                                    }
+                                    DrivingLimitSection(
+                                        country: country,
+                                        driverType: appState.userProfile.driverType,
+                                        useCountryLimit: $useCountryLimit,
+                                        manualLimit: $bacLimit
+                                    )
                                     .transition(.move(edge: .top).combined(with: .opacity))
                                 }
                             }
@@ -179,7 +199,7 @@ struct CreateEventView: View {
                         let event = appState.createEvent(
                             name: name.isEmpty ? nil : name,
                             drivingMode: drivingMode,
-                            bacLimit: drivingMode ? bacLimit : nil,
+                            bacLimit: drivingMode ? effectiveBACLimit : nil,
                             targetBAC: targetBAC,
                             startTime: customStart ? startTime : Date(),
                             stomachState: stomachState
@@ -202,6 +222,7 @@ struct CreateEventView: View {
                     .overlay(Rectangle().frame(height: 0.5).foregroundStyle(AppColors.border), alignment: .top)
                 }
             }
+            .onAppear { seedLimitFromProfile() }
             .navigationTitle("New Night")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -376,6 +397,122 @@ private struct GoalCeilingMeter: View {
                     .buttonStyle(.plain)
                 }
             }
+        }
+    }
+}
+
+// MARK: - Location banner
+
+private struct LocationBanner: View {
+    let country: LegalBACLimit
+    let driver: DriverType
+    let limit: Double
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text(country.flagEmoji)
+                .font(.system(size: 28))
+
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 5) {
+                    Text("Located in")
+                        .font(.system(size: 11))
+                        .foregroundStyle(AppColors.textTertiary)
+                    Text(country.name)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(AppColors.text)
+                }
+                HStack(spacing: 6) {
+                    Image(systemName: driver.icon)
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(AppColors.textSecondary)
+                    Text(driver.displayName)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(AppColors.textSecondary)
+                    Text("·")
+                        .foregroundStyle(AppColors.textTertiary)
+                    Text("drive limit \(formatPct(limit))")
+                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                        .foregroundStyle(limit == 0 ? AppColors.danger : AppColors.textSecondary)
+                }
+                if let note = country.note {
+                    Text(note)
+                        .font(.system(size: 10))
+                        .foregroundStyle(AppColors.textTertiary)
+                        .lineLimit(2)
+                }
+            }
+            Spacer()
+            NavigationLink(value: Route.profile) {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(AppColors.textTertiary)
+            }
+        }
+        .padding(14)
+        .background(AppColors.surface)
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(AppColors.border, lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
+    private func formatPct(_ v: Double) -> String {
+        v == 0 ? "0.00%" : String(format: "%.2f%%", v)
+    }
+}
+
+// MARK: - Driving limit section
+//
+// Shown only when "Driving Mode" is on. Default behaviour is "use my country's
+// limit" — the toggle exists for travellers or anyone who explicitly wants a
+// stricter ceiling than their jurisdiction requires.
+
+private struct DrivingLimitSection: View {
+    let country: LegalBACLimit?
+    let driverType: DriverType
+    @Binding var useCountryLimit: Bool
+    @Binding var manualLimit: Double
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("BAC Limit")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(AppColors.textSecondary)
+
+            if let c = country {
+                let auto = c.limit(for: driverType)
+                Toggle(isOn: $useCountryLimit) {
+                    HStack(spacing: 6) {
+                        Text(c.flagEmoji)
+                        Text("Use \(c.name)'s limit")
+                            .font(.system(size: 13))
+                            .foregroundStyle(AppColors.text)
+                        Spacer()
+                        Text(auto == 0 ? "0.00%" : String(format: "%.2f%%", auto))
+                            .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(auto == 0 ? AppColors.danger : AppColors.accent)
+                    }
+                }
+                .tint(AppColors.accent)
+            }
+
+            if !useCountryLimit || country == nil {
+                Picker("BAC Limit", selection: $manualLimit) {
+                    Text("0.00%").tag(0.00)
+                    Text("0.02%").tag(0.02)
+                    Text("0.03%").tag(0.03)
+                    Text("0.05%").tag(0.05)
+                    Text("0.08%").tag(0.08)
+                }
+                .pickerStyle(.segmented)
+            }
+
+            Text(country == nil
+                 ? "Set your country in Profile so we can auto-apply the local drink-drive limit."
+                 : (useCountryLimit
+                    ? "Auto-applied from your country and driver tier."
+                    : "Manual override — used only for this night."))
+                .font(.system(size: 11))
+                .foregroundStyle(AppColors.textTertiary)
         }
     }
 }

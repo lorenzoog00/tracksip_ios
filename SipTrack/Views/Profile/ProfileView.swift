@@ -12,6 +12,8 @@ struct ProfileView: View {
     @State private var heightStr: String
     @State private var birthYearStr: String
     @State private var bacLimit: Double
+    @State private var countryCode: String?
+    @State private var driverType: DriverType
     @State private var waterSuggestions: Bool
     @State private var waterReminderEnabled: Bool
     @State private var waterReminderInterval: Int
@@ -36,6 +38,8 @@ struct ProfileView: View {
         _heightStr            = State(initialValue: p.heightCm.map { "\(Int($0))" } ?? "")
         _birthYearStr         = State(initialValue: p.birthYear.map { "\($0)" } ?? "")
         _bacLimit             = State(initialValue: p.bacLimit)
+        _countryCode          = State(initialValue: p.countryCode)
+        _driverType           = State(initialValue: p.driverType)
         _waterSuggestions     = State(initialValue: p.waterSuggestions)
         _waterReminderEnabled  = State(initialValue: p.waterReminderIntervalMinutes != nil)
         _waterReminderInterval = State(initialValue: min(p.waterReminderIntervalMinutes ?? 25, 60))
@@ -55,6 +59,8 @@ struct ProfileView: View {
             || Double(heightStr) != p.heightCm
             || Int(birthYearStr) != p.birthYear
             || bacLimit != p.bacLimit
+            || countryCode != p.countryCode
+            || driverType != p.driverType
             || waterSuggestions != p.waterSuggestions
             || waterReminderEnabled != (p.waterReminderIntervalMinutes != nil)
             || (waterReminderEnabled && waterReminderInterval != (p.waterReminderIntervalMinutes ?? 25))
@@ -130,23 +136,131 @@ struct ProfileView: View {
                         numRow(label: "Birth Year", unit: nil, text: $birthYearStr, placeholder: "1995", optional: true)
                     }
 
-                    // MARK: BAC Settings
-                    ProfileSection(title: "Driving", icon: "car.fill") {
-                        VStack(alignment: .leading, spacing: 8) {
+                    // MARK: Country & Driving
+                    ProfileSection(title: "Country & Driving", icon: "car.fill") {
+                        VStack(alignment: .leading, spacing: 14) {
+
+                            // Country picker
                             HStack {
-                                Text("Default BAC limit")
+                                Text("Country")
                                     .font(.system(size: 14))
                                     .foregroundStyle(AppColors.text)
                                 Spacer()
+                                Menu {
+                                    Button {
+                                        countryCode = nil
+                                    } label: {
+                                        Label("Not set", systemImage: "globe")
+                                    }
+                                    Divider()
+                                    ForEach(LegalBACLimits.all) { c in
+                                        Button {
+                                            countryCode = c.countryCode
+                                        } label: {
+                                            HStack {
+                                                Text("\(c.flagEmoji)  \(c.name)")
+                                                Spacer()
+                                                Text(String(format: "%.2f%%", c.general))
+                                            }
+                                        }
+                                    }
+                                } label: {
+                                    HStack(spacing: 6) {
+                                        if let c = LegalBACLimits.find(countryCode) {
+                                            Text(c.flagEmoji)
+                                            Text(c.name)
+                                                .font(.system(size: 14, weight: .medium))
+                                                .foregroundStyle(AppColors.text)
+                                        } else {
+                                            Image(systemName: "globe")
+                                                .foregroundStyle(AppColors.textTertiary)
+                                            Text("Not set")
+                                                .font(.system(size: 14))
+                                                .foregroundStyle(AppColors.textTertiary)
+                                        }
+                                        Image(systemName: "chevron.up.chevron.down")
+                                            .font(.system(size: 10))
+                                            .foregroundStyle(AppColors.textTertiary)
+                                    }
+                                }
                             }
-                            Picker("BAC Limit", selection: $bacLimit) {
-                                Text("0.05% — Conservative").tag(0.05)
-                                Text("0.08% — Standard").tag(0.08)
+
+                            ProfileDivider()
+
+                            // Driver tier
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Driver type")
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundStyle(AppColors.textSecondary)
+                                HStack(spacing: 8) {
+                                    ForEach(DriverType.allCases, id: \.self) { d in
+                                        Button {
+                                            driverType = d
+                                        } label: {
+                                            VStack(spacing: 4) {
+                                                Image(systemName: d.icon)
+                                                    .font(.system(size: 14, weight: .semibold))
+                                                Text(d.displayName)
+                                                    .font(.system(size: 11, weight: .semibold))
+                                                    .lineLimit(1)
+                                                    .minimumScaleFactor(0.8)
+                                            }
+                                            .frame(maxWidth: .infinity)
+                                            .padding(.vertical, 10)
+                                            .background(driverType == d ? AppColors.accent.opacity(0.15) : AppColors.surface)
+                                            .foregroundStyle(driverType == d ? AppColors.accent : AppColors.textSecondary)
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 10)
+                                                    .stroke(driverType == d ? AppColors.accent : AppColors.border, lineWidth: 1)
+                                            )
+                                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                                Text(driverType.sub)
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(AppColors.textTertiary)
                             }
-                            .pickerStyle(.segmented)
-                            Text("Used when driving mode is on during an event.")
-                                .font(.system(size: 11))
-                                .foregroundStyle(AppColors.textTertiary)
+
+                            // Resolved limit summary
+                            if let c = LegalBACLimits.find(countryCode) {
+                                let resolved = c.limit(for: driverType)
+                                HStack(spacing: 10) {
+                                    Image(systemName: resolved == 0 ? "nosign" : "checkmark.shield.fill")
+                                        .foregroundStyle(resolved == 0 ? AppColors.danger : AppColors.accent)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("Your drink-drive limit")
+                                            .font(.system(size: 11))
+                                            .foregroundStyle(AppColors.textTertiary)
+                                        Text(resolved == 0 ? "Zero tolerance" : String(format: "%.2f%% BAC", resolved))
+                                            .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                                            .foregroundStyle(resolved == 0 ? AppColors.danger : AppColors.text)
+                                    }
+                                    Spacer()
+                                }
+                                .padding(10)
+                                .background((resolved == 0 ? AppColors.danger : AppColors.accent).opacity(0.08))
+                                .clipShape(RoundedRectangle(cornerRadius: 10))
+
+                                if let note = c.note {
+                                    Text(note)
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(AppColors.textTertiary)
+                                }
+                            } else {
+                                Picker("BAC Limit (manual)", selection: $bacLimit) {
+                                    Text("0.00%").tag(0.00)
+                                    Text("0.02%").tag(0.02)
+                                    Text("0.03%").tag(0.03)
+                                    Text("0.05%").tag(0.05)
+                                    Text("0.08%").tag(0.08)
+                                }
+                                .pickerStyle(.segmented)
+                                Text("Pick a country above to auto-apply the local limit.")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(AppColors.textTertiary)
+                            }
                         }
                     }
 
@@ -595,6 +709,8 @@ struct ProfileView: View {
         heightStr            = p.heightCm.map { "\(Int($0))" } ?? ""
         birthYearStr         = p.birthYear.map { "\($0)" } ?? ""
         bacLimit             = p.bacLimit
+        countryCode          = p.countryCode
+        driverType           = p.driverType
         waterSuggestions      = p.waterSuggestions
         waterReminderEnabled  = p.waterReminderIntervalMinutes != nil
         waterReminderInterval = min(p.waterReminderIntervalMinutes ?? 25, 60)
@@ -613,6 +729,13 @@ struct ProfileView: View {
         profile.heightCm         = Double(heightStr)
         profile.birthYear        = Int(birthYearStr)
         profile.bacLimit         = bacLimit
+        profile.countryCode      = countryCode
+        profile.driverType       = driverType
+        // If country is set, keep bacLimit in sync with the resolved value
+        // so legacy code paths reading profile.bacLimit directly stay correct.
+        if let c = LegalBACLimits.find(countryCode) {
+            profile.bacLimit = c.limit(for: driverType)
+        }
         profile.waterSuggestions = waterSuggestions
         profile.waterReminderIntervalMinutes = waterReminderEnabled ? waterReminderInterval : nil
         profile.notifications = NotificationPreferences(

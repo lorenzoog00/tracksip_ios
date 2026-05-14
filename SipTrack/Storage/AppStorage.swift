@@ -170,7 +170,16 @@ final class DataStore {
     // MARK: - User Profile
 
     func loadUserProfile() -> UserProfile {
-        load(UserProfile.self, key: "siptrack_profile") ?? UserProfile()
+        var p = load(UserProfile.self, key: "siptrack_profile") ?? UserProfile()
+        // First-launch locale seed for country + matching BAC limit. We only
+        // do this once: as soon as `countryCode` exists in storage we treat
+        // it as user-owned and never overwrite.
+        if p.countryCode == nil, let detected = LegalBACLimits.detectFromLocale() {
+            p.countryCode = detected.countryCode
+            p.bacLimit = detected.limit(for: p.driverType)
+            saveUserProfile(p)
+        }
+        return p
     }
 
     func saveUserProfile(_ profile: UserProfile) {

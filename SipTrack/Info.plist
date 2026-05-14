@@ -35,6 +35,8 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>GADApplicationIdentifier</key>
 	<string>ca-app-pub-9583249699000184~7133030963</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>One-time check to apply your country's drink-drive BAC limit. We never track your location, store it, or share it.</string>
 	<key>NSPrivacyPolicyURL</key>
 	<string>https://looqs.online/siptrack/policy</string>
 	<key>NSSupportsLiveActivities</key>

@@ -219,7 +219,7 @@ final class AppState: ObservableObject {
 
             var safeToDriveAt: Date? = nil
             if event.drivingMode {
-                let limit = event.bacLimit ?? userProfile.bacLimit
+                let limit = event.bacLimit ?? userProfile.resolvedBACLimit
                 if bac > limit {
                     let hoursUntilSafe = (bac - limit) / 0.015
                     safeToDriveAt = Date().addingTimeInterval(hoursUntilSafe * 3600)
@@ -1227,6 +1227,57 @@ final class AppState: ObservableObject {
         }
     }
 
+    // MARK: - Country detection
+    //
+    // Detection runs on every cold start (post-onboarding). The location is
+    // taken once, reverse-geocoded, then discarded. The sheet only surfaces
+    // when the detected country differs from BOTH the stored country and the
+    // last country the user explicitly dismissed — so travellers get prompted
+    // each time they cross a border, but repeat sessions in the same place
+    // don't nag.
+
+    var shouldAttemptCountryDetection: Bool {
+        let p = userProfile
+        guard p.onboardingComplete else { return false }
+        if p.countryDetectionDisabled { return false }
+        return true
+    }
+
+    // Whether to actually present the sheet for this detection result. Hides
+    // when detected == stored country, or detected == last-dismissed country.
+    func shouldPromptForDetectedCountry(_ code: String) -> Bool {
+        let p = userProfile
+        if p.countryDetectionDisabled { return false }
+        if code == p.countryCode { return false }
+        if let dismissed = p.countryDetectionLastDismissedCode, code == dismissed {
+            return false
+        }
+        return true
+    }
+
+    func applyDetectedCountry(_ country: LegalBACLimit) {
+        var p = userProfile
+        p.countryCode = country.countryCode
+        p.bacLimit = country.limit(for: p.driverType)
+        p.countryDetectionLastDismissedCode = nil
+        updateUserProfile(p)
+    }
+
+    // User tapped "Keep mine" / "Got it" — remember the detected country so
+    // we don't re-prompt for the same one. Next time the detector reports a
+    // *different* country, the sheet shows again.
+    func dismissDetectedCountry(_ code: String) {
+        var p = userProfile
+        p.countryDetectionLastDismissedCode = code
+        updateUserProfile(p)
+    }
+
+    func disableCountryDetection() {
+        var p = userProfile
+        p.countryDetectionDisabled = true
+        updateUserProfile(p)
+    }
+
     // MARK: - Challenges
 
     func addChallenge(_ challenge: Challenge) {
@@ -1282,7 +1333,7 @@ final class AppState: ObservableObject {
             currentBAC: bac,
             previousBAC: prevBAC,
             drivingMode: event.drivingMode,
-            bacLimit: event.bacLimit ?? userProfile.bacLimit,
+            bacLimit: event.bacLimit ?? userProfile.resolvedBACLimit,
             drinksLastHour: BACCalculator.drinksInLastHour(entries: eventEntries),
             totalCalories: calories,
             previousStage: IntoxicationStage.stage(for: prevBAC),

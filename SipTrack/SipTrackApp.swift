@@ -9,6 +9,7 @@ struct SipTrackApp: App {
     @StateObject private var appState: AppState
     @StateObject private var adManager = AdManager.shared
     @StateObject private var firebase  = FirebaseManager.shared
+    @StateObject private var countryDetector = LocationCountryDetector()
 
     init() {
         FirebaseApp.configure()
@@ -26,6 +27,7 @@ struct SipTrackApp: App {
                 .environmentObject(store)
                 .environmentObject(adManager)
                 .environmentObject(firebase)
+                .environmentObject(countryDetector)
                 .preferredColorScheme(.dark)
                 .task {
                     firebase.startListening()

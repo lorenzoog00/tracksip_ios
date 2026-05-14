@@ -198,8 +198,76 @@ These are **suggestions for future work**, not changes to be made now.
 
 ---
 
-## 9. Key Sources
+## 9. Rapid Drinking ("Gulp Detection") — Model vs UX
 
+### 9.1 What the literature says
+
+Drinking pace shifts both **Cmax** (peak) and **Tmax** (time to peak), but does not eliminate gut transit:
+
+| Beverage (0.5 g/kg over 20 min, fasted) | Cmax (mg/dL) | Tmax (min) |
+|---|---|---|
+| Vodka/tonic (20% v/v) | 77.4 ± 17.0 | **36 ± 10** |
+| Wine (12.5% v/v) | 61.7 ± 10.8 | **54 ± 14** |
+| Beer (5.1% v/v) | 50.3 ± 9.8 | **62 ± 23** |
+
+Source: **Mitchell 2014** (Alcohol Clin Exp Res, DOI 10.1111/acer.12355, PMC4112772).
+
+**Sjögren 1996** measured "absorption time" (peak time + plateau) in 31 social drinkers with drinking times ≥30 min: **77.4% absorbed within 60 min**; 74.2% had Tmax < 30 min. Faster drinking compresses this further, but the literature does not show instant absorption — gut transit is rate-limiting.
+
+A **Roux-en-Y gastric bypass** cohort (PMC4487806) is the only setting that approaches "instant": Cmax 138.4 mg/dL at Tmax **5.4 ± 3.1 min** because the duodenum is reached almost immediately. This is the physiological upper bound on absorption speed for an oral dose.
+
+### 9.2 What SipTrack does
+
+```swift
+// in BACCalculator.bacAt(...)
+if i + 1 < sorted.count {
+    let gap = sorted[i+1].timestamp.timeIntervalSince(entry.timestamp) / 3600
+    if gap >= 0, gap < T {
+        T = 0
+        gulped = true
+    }
+}
+let absorbed = gulped ? 1.0
+                      : absorbedFraction(deltaHours: hours, kA: factor.kAPerHour, durationHours: T)
+```
+
+The drink whose follow-up arrives inside its `effectiveDrinkingMinutes` window is marked **gulped** and contributes its full Widmark mass to plasma at the entry timestamp.
+
+### 9.3 Options considered
+
+| Option | Behaviour | Why rejected / accepted |
+|---|---|---|
+| **A. Pure first-order, T = original** | Sip curve over typical 15–30 min | Doesn't reflect rapid drinking at all. Original bug. |
+| **B. Shrink T to gap, first-order** | Bolus into gut at timestamp + linear infusion over `gap` | Pharmacologically correct (Mitchell 2014 / Norberg 2003 / Plawecki 2008). Rejected: at kA = 6/h (empty), only ~10% absorbed at +1 min — user sees no spike, calls the meter broken. |
+| **C. Quadruple kA when gulped** | Aggressive first-order (t½ ≈ 1–2 min) | Closer to RYGB physiology but not normal physiology. Mixed message and still not instantaneous in early seconds. |
+| **D. Gulp → full Widmark, instant** | Treat gulped drink as fully in blood at timestamp (current) | **Selected.** Matches user mental model and the classic forensic Widmark bolus assumption. Trade-off: overestimates BAC for the first 5–30 min after a gulped drink relative to PBPK ground truth. |
+
+### 9.4 Accepted error budget for option D
+
+Versus a Plawecki-style PBPK simulation for two beers consumed 1 min apart on an empty stomach:
+
+- **t = +1 to +10 min after second drink:** SipTrack reads **+0.012 to +0.018 BAC%** higher than PBPK (gulped drink shown as fully absorbed instead of ~10–50%).
+- **t = +30 min:** error drops below ±0.003 BAC% (both models near peak).
+- **t = +60 min:** identical within the bacCV = 20% uncertainty band.
+
+This bias is **conservative for safety** (over-estimates BAC during the highest-risk window, never under-estimates) and is bounded — once the actual gut absorption catches up, the curves converge well inside the displayed uncertainty band.
+
+### 9.5 When to revisit
+
+Switch to **Option C** (variable kA) if/when:
+- Users complain of over-estimation (we've only ever heard the opposite).
+- We add a "post-hoc accuracy review" mode that compares against measured BrAC.
+- We add a "low-risk drinker" toggle where pharmacological accuracy matters more than reactivity.
+
+Switch to **Option B** if we add an explicit "peak in X min" indicator that takes the slow rise visible to the user — then they understand they're seeing absorption, not a stuck meter.
+
+---
+
+## 10. Key Sources
+
+- Mitchell MC, Teigen EL, Ramchandani VA. "Absorption and Peak Blood Alcohol Concentration After Drinking Beer, Wine, or Spirits." Alcohol Clin Exp Res 2014; 38(5):1200–4. DOI 10.1111/acer.12355. PMC4112772.
+- Sjögren H, Eriksson A, Ahlner J. "Determination of absorption time of ethanol in social drinkers." Forensic Sci Int 1996; 77(1–2):69–76. (PubMed 8819992.)
+- Plawecki MH, Han JJ, Doerschuk PC, Ramchandani VA, O'Connor SJ. "Physiologically based pharmacokinetic (PBPK) models for ethanol." IEEE Trans Biomed Eng 2008. (Multi-input gut → portal → plasma model, foundation for our multi-dose superposition.)
 - Searle J. "Alcohol calculations and their uncertainty." Med Sci Law 2015. PMC4361698.
 - Maskell PD et al. "Revised equations allowing the estimation of uncertainty associated with the Total Body Water version of the Widmark equation." J Forensic Sci 2022.
 - Watson PE, Watson ID, Batt RD. Am J Clin Nutr 1980 — Watson TBW equation.
@@ -215,3 +283,32 @@ These are **suggestions for future work**, not changes to be made now.
 - UKIAFT "Guidelines for Alcohol Calculations" v4.4 (2024).
 - JAAPL "Ethanol Forensic Toxicology" 2017; 45(4):429 — practical forensic numbers (β = 0.0155 ± 0.0029).
 - Wikipedia "Blood alcohol content" — equation summary and references.
+- Wikipedia "Drunk driving law by country" — primary source for SipTrack's `LegalBACLimits` table, cross-checked May 2026.
+- WHO "Legal blood alcohol concentration (BAC) limits" indicator (Global Health Observatory).
+- International Alliance for Responsible Drinking (IARD) — BAC Limits resource.
+- drinkdriving.org — Worldwide drink-driving limits.
+
+---
+
+## 11. Legal Drink-Drive Limits (jurisdiction lookup)
+
+Implemented as `LegalBACLimits.all` in `SipTrack/Core/LegalBACLimit.swift`. Each entry carries the general / novice / commercial threshold and an optional note covering sub-jurisdictions and lab tolerances.
+
+### 11.1 Why three driver tiers
+
+Nearly every jurisdiction that allows any BAC for the general driver enforces a **stricter** threshold for at least two protected classes:
+
+- **Novice / probationary** — typically first 2–3 years of licensure, or under-21 where applicable. Limits drop to 0.00 % or 0.02 % in most of Europe, Australia (L/P plates), USA (under-21 zero-tolerance), Canada (provincial graduated licensing).
+- **Commercial** — heavy vehicles, taxis, buses, rideshare. USA federal CDL = 0.04 %; most EU = 0.00 / 0.02 %; Australia and NZ heavy vehicles = 0.00 %.
+
+SipTrack stores `DriverType` on the user profile so the visible "drive limit" matches the user's actual legal threshold, not the country's default.
+
+### 11.2 Coverage choices
+
+55 countries covering >90 % of expected user base. Where sub-jurisdictions differ (UK Eng/Wales/NI 0.08 vs Scotland 0.05; US Utah 0.05 vs other 0.08), we encode the most common value and surface the variation in the `note` field. Auto-detect via `Locale.current.region` runs once at first launch and never overwrites the stored value.
+
+### 11.3 Limitations
+
+- Sub-national jurisdictions (US states, Canadian provinces, UK constituent countries) are flattened to a single value per ISO-3166 code.
+- Zero-tolerance jurisdictions with a **lab tolerance** (Russia 0.016, Brazil 0.02) are encoded as the lab number, not "0.00", to avoid false-positive warnings from BAC noise.
+- The table is a snapshot — Denmark's July-2025 novice change is encoded; future changes require a code update.

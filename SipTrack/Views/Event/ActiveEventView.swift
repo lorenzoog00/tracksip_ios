@@ -30,7 +30,7 @@ struct ActiveEventView: View {
     }
 
     private func content(event: NightEvent) -> some View {
-        let bacLimit = event.bacLimit ?? appState.userProfile.bacLimit
+        let bacLimit = event.bacLimit ?? appState.userProfile.resolvedBACLimit
         let overLimit = event.drivingMode && currentBAC >= bacLimit
 
         return ZStack(alignment: .bottom) {
@@ -781,7 +781,7 @@ private struct QuickAddGrid: View {
     private var impacts: [String: DrinkImpact] {
         _ = appState.bacTick
         let tf = DateFormatter(); tf.timeStyle = .short
-        let bacLimit = event.bacLimit ?? appState.userProfile.bacLimit
+        let bacLimit = event.bacLimit ?? appState.userProfile.resolvedBACLimit
         return Dictionary(uniqueKeysWithValues: drinkTypes.map { dt in
             let pBAC = appState.projectedBAC(forEventId: event.id, addingDrinkTypeId: dt.id)
             var safeDrive: String? = nil

@@ -53,7 +53,7 @@ struct SummaryView: View {
             profile: appState.userProfile,
             eventStart: event.startTime
         )
-        let drivingLimit: Double? = event.drivingMode ? (event.bacLimit ?? appState.userProfile.bacLimit) : nil
+        let drivingLimit: Double? = event.drivingMode ? (event.bacLimit ?? appState.userProfile.resolvedBACLimit) : nil
         let meanBACValue = event.endTime.map {
             BACCalculator.meanBACForEvent(entries: eventEntries, drinkTypes: appState.allDrinkTypes, profile: appState.userProfile, eventStart: event.startTime, eventEnd: $0)
         } ?? 0

@@ -12,10 +12,24 @@ struct BACDataPoint: Identifiable {
 //
 // Architecture: Widmark distribution + Watson/Forrest individualisation of `r`,
 // first-order gut absorption with food-dependent rate constant `kA`,
-// gender-corrected first-pass metabolism, sex-specific elimination β.
+// gender-corrected first-pass metabolism, sex-specific elimination β. Multi-
+// dose intake is modeled as parallel first-order inputs summed in plasma —
+// the standard PBPK approach (Plawecki 2008; Ramchandani group). Each drink
+// owns its own absorption curve with `T` = effective drinking duration.
+//
+// "Gulp detection" (rapid-pace deviation): when a follow-up drink arrives
+// inside the previous drink's expected drinking time, the previous drink is
+// treated as **instantly fully absorbed Widmark** instead of first-order. This
+// is a deliberate UX choice — pharmacologically the correct response would be
+// to shrink T toward zero (Mitchell 2014 shows Tmax 36 min spirits → 62 min
+// beer, Norberg/Sjögren find 77% of social drinkers absorb in <60 min), but
+// users intuit BAC as "alcohol I drank = BAC I have" and read the slow first-
+// order curve as a broken meter. Documented in detail in
+// .planning/research/BAC-ACCURACY-RESEARCH.md §9.
 //
 // Numbers traced to: Searle 2015 (PMC4361698), JAAPL 2017, Jones 1996 / 2010,
-// Frezza NEJM 1990, Bissinger 2020 (PMC7518982), Maskell 2022, Norberg 2003.
+// Frezza NEJM 1990, Bissinger 2020 (PMC7518982), Maskell 2022, Norberg 2003,
+// Mitchell 2014 (acer.12355), Sjögren 1996, Plawecki 2008.
 // See LearnView (in-app) and .planning/research/BAC-ACCURACY-RESEARCH.md.
 
 struct BACCalculator {
@@ -208,20 +222,38 @@ struct BACCalculator {
 
             // Effective drinking duration in hours. Scales with quantity (3 beers = 3×
             // the typical time). If the next drink starts before this one's typical
-            // drinking time elapses, the user gulped this drink — collapse to a bolus
-            // (T = 0) so the full dose lands in the gut immediately. Gulped doses give
-            // a higher Cmax and earlier Tmax than the same dose sipped (Jones 2010;
-            // Norberg 2003), and this also matches the user-visible behaviour of BAC
-            // spiking as soon as a fast-paced drink is logged.
+            // drinking time elapses, the user gulped this drink: we treat the full
+            // dose as already absorbed at the entry timestamp (instant Widmark) so
+            // the live BAC visibly spikes the moment a fast-paced drink is logged.
+            //
+            // PK background: gulping accelerates Cmax and shortens Tmax but does
+            // not bypass gut absorption — Mitchell 2014 (acer.12355) measured Tmax
+            // 36 ± 10 min for vodka, 54 ± 14 min wine, 62 ± 23 min beer at 0.5 g/kg
+            // over 20 min on an empty stomach; Sjögren 1996 found 77% of social
+            // drinkers complete absorption within 60 min. A pharmacologically
+            // correct implementation collapses T → 0 and lets the first-order
+            // curve with kA from `kinetics(for:)` run (Jones 2010; Norberg 2003;
+            // Plawecki 2008 PBPK). We deliberately deviate: users read the slow
+            // first-order rise as "the calculator isn't reacting" and lose trust.
+            // Setting `absorbed = 1.0` makes the gulped drink's contribution land
+            // in plasma at its timestamp, matching the intuitive model and the
+            // bolus assumption used by classic Widmark forensic estimation.
+            // See .planning/research/BAC-ACCURACY-RESEARCH.md §9 for the full
+            // rationale and the alternatives considered.
             let perServing = Double(dt?.effectiveDrinkingMinutes ?? 15)
             var T = perServing * Double(max(1, entry.quantity)) / 60.0
+            var gulped = false
             if i + 1 < sorted.count {
                 let gap = sorted[i + 1].timestamp.timeIntervalSince(entry.timestamp) / 3600
-                if gap >= 0, gap < T { T = 0 }
+                if gap >= 0, gap < T {
+                    T = 0
+                    gulped = true
+                }
             }
 
             let hours    = time.timeIntervalSince(entry.timestamp) / 3600
-            let absorbed = absorbedFraction(deltaHours: hours, kA: factor.kAPerHour, durationHours: T)
+            let absorbed = gulped ? 1.0
+                                  : absorbedFraction(deltaHours: hours, kA: factor.kAPerHour, durationHours: T)
             let aEff     = dose * (1.0 - fpm) * absorbed
             let raw      = (aEff / (weightKg * 1000 * r)) * 100
             sum += max(0, raw - beta * hours)
