@@ -8,6 +8,7 @@ struct ActiveEventView: View {
     @State private var showEndConfirm     = false
     @State private var showFoodSheet      = false
     @State private var showEditEntry: DrinkEntry? = nil
+    @State private var pendingDrink: PendingDrinkWarning? = nil
 
     private var event: NightEvent? { appState.events.first { $0.id == eventId } }
     private var eventEntries: [DrinkEntry] { appState.entries.filter { $0.eventId == eventId }.sorted { $0.timestamp > $1.timestamp } }
@@ -54,7 +55,7 @@ struct ActiveEventView: View {
                     // Current drink in progress
                     CurrentDrinkCard(entries: eventEntries, drinkTypes: appState.allDrinkTypes, now: appState.bacTick)
 
-                    // Target BAC nudge
+                    // Ceiling reached nudge
                     if let target = event.targetBAC, currentBAC >= target {
                         TargetBACBanner(bac: currentBAC, target: target)
                     }
@@ -63,7 +64,9 @@ struct ActiveEventView: View {
                     StatsRow(eventId: eventId, waterEntries: eventWater)
 
                     // Quick Add — inline, always visible
-                    QuickAddGrid(event: event, drinkTypes: appState.allDrinkTypes)
+                    QuickAddGrid(event: event, drinkTypes: appState.allDrinkTypes) { dt in
+                        handleDrinkTap(dt, event: event, bacLimit: bacLimit)
+                    }
 
                     // Drink breakdown chips (summary of what was had)
                     if !eventEntries.isEmpty {
@@ -180,9 +183,85 @@ struct ActiveEventView: View {
         } message: {
             Text("You're falling behind on water. Add a glass?")
         }
+        .sheet(item: $pendingDrink) { warning in
+            OverLimitWarningSheet(
+                warning: warning,
+                onDrinkAnyway: {
+                    appState.addDrink(eventId: eventId, drinkTypeId: warning.drinkType.id)
+                    pendingDrink = nil
+                },
+                onAddWater: {
+                    appState.addWater(eventId: eventId)
+                    pendingDrink = nil
+                },
+                onAddSnack: {
+                    pendingDrink = nil
+                    showFoodSheet = true
+                },
+                onWait: { pendingDrink = nil },
+                onCancel: { pendingDrink = nil }
+            )
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+        }
+    }
+
+    // MARK: - Drink tap dispatch
+
+    // Intercepts QuickAdd taps. If the projected BAC would cross the night's
+    // ceiling (event.targetBAC) or the driving limit (event.bacLimit), present
+    // a warning sheet offering water / snack / wait / drink-anyway. Otherwise
+    // just log the drink.
+    private func handleDrinkTap(_ dt: DrinkType, event: NightEvent, bacLimit: Double) {
+        let pBAC = appState.projectedBAC(forEventId: event.id, addingDrinkTypeId: dt.id)
+        let nowBAC = appState.currentBAC(for: eventId)
+        let beta = BACCalculator.eliminationRate(profile: appState.userProfile)
+
+        var threshold: Double? = nil
+        var thresholdLabel: String = ""
+        if event.drivingMode, pBAC >= bacLimit, nowBAC < bacLimit {
+            threshold = bacLimit
+            thresholdLabel = "driving limit"
+        } else if let ceiling = event.targetBAC, pBAC >= ceiling, nowBAC < ceiling {
+            threshold = ceiling
+            thresholdLabel = "your ceiling"
+        }
+
+        guard let t = threshold else {
+            appState.addDrink(eventId: event.id, drinkTypeId: dt.id)
+            return
+        }
+
+        // Minutes until current BAC has fallen far enough that adding this
+        // drink wouldn't cross `t`. Linear estimate using elimination rate β.
+        let over = max(0, pBAC - t)
+        let waitMinutes = max(1, Int(ceil((over / max(beta, 0.0001)) * 60)))
+
+        pendingDrink = PendingDrinkWarning(
+            drinkType: dt,
+            currentBAC: nowBAC,
+            projectedBAC: pBAC,
+            threshold: t,
+            thresholdLabel: thresholdLabel,
+            waitMinutes: waitMinutes
+        )
+        UINotificationFeedbackGenerator().notificationOccurred(.warning)
     }
 
 
+}
+
+// MARK: - Pending warning model
+
+struct PendingDrinkWarning: Identifiable {
+    let drinkType: DrinkType
+    let currentBAC: Double
+    let projectedBAC: Double
+    let threshold: Double
+    let thresholdLabel: String
+    let waitMinutes: Int
+
+    var id: String { drinkType.id }
 }
 
 // MARK: - DO NOT DRIVE
@@ -257,7 +336,7 @@ private struct TargetBACBanner: View {
                 .foregroundStyle(AppColors.accent)
 
             VStack(alignment: .leading, spacing: 3) {
-                Text("You've hit your goal for tonight")
+                Text("You've reached your ceiling")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(AppColors.text)
                 HStack(spacing: 4) {
@@ -266,7 +345,7 @@ private struct TargetBACBanner: View {
                         .foregroundStyle(AppColors.accent)
                     Text("·")
                         .foregroundStyle(AppColors.textTertiary)
-                    Text(String(format: "goal was %.2f%%", target))
+                    Text(String(format: "ceiling %.2f%%", target))
                         .font(.system(size: 11))
                         .foregroundStyle(AppColors.textTertiary)
                 }
@@ -690,6 +769,7 @@ private struct QuickAddGrid: View {
     @EnvironmentObject var appState: AppState
     let event: NightEvent
     let drinkTypes: [DrinkType]
+    let onPick: (DrinkType) -> Void
 
     let columns = [
         GridItem(.flexible(), spacing: 10),
@@ -740,7 +820,7 @@ private struct QuickAddGrid: View {
             LazyVGrid(columns: columns, spacing: 10) {
                 ForEach(drinkTypes) { dt in
                     DrinkTile(drinkType: dt, impact: impacts[dt.id]) {
-                        appState.addDrink(eventId: event.id, drinkTypeId: dt.id)
+                        onPick(dt)
                     }
                 }
             }
@@ -1298,5 +1378,159 @@ private struct BottomBar: View {
         .padding(.vertical, 12)
         .background(.ultraThinMaterial)
         .overlay(Rectangle().frame(height: 0.5).foregroundStyle(AppColors.border), alignment: .top)
+    }
+}
+
+// MARK: - Over-Limit Warning Sheet
+
+struct OverLimitWarningSheet: View {
+    let warning: PendingDrinkWarning
+    let onDrinkAnyway: () -> Void
+    let onAddWater: () -> Void
+    let onAddSnack: () -> Void
+    let onWait: () -> Void
+    let onCancel: () -> Void
+
+    var body: some View {
+        let stage = IntoxicationStage.stage(for: warning.projectedBAC)
+        let over  = max(0, warning.projectedBAC - warning.threshold)
+
+        VStack(spacing: 0) {
+
+            // Header
+            VStack(spacing: 10) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 34, weight: .semibold))
+                    .foregroundStyle(stage.color)
+                    .padding(.top, 24)
+
+                Text("Heads up")
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundStyle(AppColors.text)
+
+                Text("This \(warning.drinkType.name) would push you past \(warning.thresholdLabel).")
+                    .font(.system(size: 14))
+                    .foregroundStyle(AppColors.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 28)
+            }
+
+            // BAC delta row
+            HStack(spacing: 18) {
+                bacBlock(label: "Now",
+                         value: warning.currentBAC,
+                         color: AppColors.textSecondary)
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(AppColors.textTertiary)
+                bacBlock(label: "After drink",
+                         value: warning.projectedBAC,
+                         color: stage.color)
+                Image(systemName: "minus")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(AppColors.textTertiary)
+                bacBlock(label: "Ceiling",
+                         value: warning.threshold,
+                         color: AppColors.textSecondary)
+            }
+            .padding(.vertical, 22)
+
+            Text(String(format: "That's %.3f%% over.", over))
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(stage.color)
+                .padding(.bottom, 16)
+
+            // Actions
+            VStack(spacing: 10) {
+                actionButton(
+                    title: "Wait ~\(warning.waitMinutes) min",
+                    subtitle: "Your body burns it off — then this drink is in range",
+                    icon: "hourglass",
+                    tint: AppColors.accent,
+                    onTap: onWait
+                )
+
+                actionButton(
+                    title: "Add a glass of water",
+                    subtitle: "Doesn't lower BAC, but paces the night",
+                    icon: "drop.fill",
+                    tint: AppColors.water,
+                    onTap: onAddWater
+                )
+
+                actionButton(
+                    title: "Grab a snack",
+                    subtitle: "Slows absorption of any drink you have next",
+                    icon: "fork.knife",
+                    tint: .orange,
+                    onTap: onAddSnack
+                )
+
+                Button(action: onDrinkAnyway) {
+                    Text("Drink anyway")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(AppColors.danger)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .overlay(RoundedRectangle(cornerRadius: 12)
+                            .stroke(AppColors.danger.opacity(0.4), lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+
+                Button("Cancel", action: onCancel)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(AppColors.textSecondary)
+                    .padding(.top, 4)
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 24)
+        }
+        .frame(maxWidth: .infinity)
+        .background(AppColors.background.ignoresSafeArea())
+    }
+
+    private func bacBlock(label: String, value: Double, color: Color) -> some View {
+        VStack(spacing: 3) {
+            Text(String(format: "%.3f", value))
+                .font(.system(size: 18, weight: .bold, design: .monospaced))
+                .foregroundStyle(color)
+            Text(label.uppercased())
+                .font(.system(size: 8, weight: .semibold))
+                .tracking(1.2)
+                .foregroundStyle(AppColors.textTertiary)
+        }
+    }
+
+    private func actionButton(title: String,
+                              subtitle: String,
+                              icon: String,
+                              tint: Color,
+                              onTap: @escaping () -> Void) -> some View {
+        Button(action: onTap) {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(tint)
+                    .frame(width: 28, height: 28)
+                    .background(tint.opacity(0.15), in: Circle())
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(AppColors.text)
+                    Text(subtitle)
+                        .font(.system(size: 11))
+                        .foregroundStyle(AppColors.textTertiary)
+                        .lineLimit(2)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(AppColors.textTertiary)
+            }
+            .padding(12)
+            .background(AppColors.surface, in: RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(tint.opacity(0.18), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
     }
 }

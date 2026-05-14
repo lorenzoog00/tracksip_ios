@@ -207,12 +207,17 @@ struct BACCalculator {
             let fpm = min(0.40, factor.firstPassFraction * fpmSexMultiplier)
 
             // Effective drinking duration in hours. Scales with quantity (3 beers = 3×
-            // the typical time), then truncates if the next drink starts sooner.
+            // the typical time). If the next drink starts before this one's typical
+            // drinking time elapses, the user gulped this drink — collapse to a bolus
+            // (T = 0) so the full dose lands in the gut immediately. Gulped doses give
+            // a higher Cmax and earlier Tmax than the same dose sipped (Jones 2010;
+            // Norberg 2003), and this also matches the user-visible behaviour of BAC
+            // spiking as soon as a fast-paced drink is logged.
             let perServing = Double(dt?.effectiveDrinkingMinutes ?? 15)
             var T = perServing * Double(max(1, entry.quantity)) / 60.0
             if i + 1 < sorted.count {
                 let gap = sorted[i + 1].timestamp.timeIntervalSince(entry.timestamp) / 3600
-                if gap > 0, gap < T { T = gap }
+                if gap >= 0, gap < T { T = 0 }
             }
 
             let hours    = time.timeIntervalSince(entry.timestamp) / 3600
