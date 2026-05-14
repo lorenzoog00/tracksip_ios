@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 import CoreLocation
 
 // Result of one country detection pass.

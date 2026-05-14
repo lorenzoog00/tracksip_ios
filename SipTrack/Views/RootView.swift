@@ -64,7 +64,7 @@ struct RootView: View {
             // re-arms the one-shot detector; the next HomeView.task fires it.
             if signedIn { countryDetector.resetSession() }
         }
-        .sheet(item: Binding(
+        .sheet(item: Binding<CountryDetectionResult?>(
             get: {
                 // Detection runs every login, but the sheet only shows when
                 // the detected country differs from the stored one and is not
@@ -78,9 +78,7 @@ struct RootView: View {
                 }()
                 return appState.shouldPromptForDetectedCountry(code) ? r : nil
             },
-            set: { new in
-                if new == nil { countryDetector.dismissResult() }
-            }
+            set: { _ in countryDetector.dismissResult() }
         )) { result in
             let dismissCode: String = {
                 switch result {

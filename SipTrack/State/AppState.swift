@@ -142,6 +142,12 @@ final class AppState: ObservableObject {
         challenges       = ds.loadChallenges()
         coachReports     = ds.loadCoachReports()
         nightRecoveries  = ds.loadNightRecoveries()
+        // First-launch locale seed — only runs once, before user sets a country.
+        if userProfile.countryCode == nil, let detected = LegalBACLimits.detectFromLocale() {
+            userProfile.countryCode = detected.countryCode
+            userProfile.bacLimit = detected.limit(for: userProfile.driverType)
+            DataStore.shared.saveUserProfile(userProfile)
+        }
     }
 
     func refreshFromFirebase() {

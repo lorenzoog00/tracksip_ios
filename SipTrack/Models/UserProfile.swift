@@ -1,5 +1,35 @@
 import Foundation
 
+enum DriverType: String, Codable, CaseIterable {
+    case general    = "general"
+    case novice     = "novice"
+    case commercial = "commercial"
+
+    var displayName: String {
+        switch self {
+        case .general:    return "General"
+        case .novice:     return "Novice / Learner"
+        case .commercial: return "Commercial"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .general:    return "car.fill"
+        case .novice:     return "graduationcap.fill"
+        case .commercial: return "truck.box.fill"
+        }
+    }
+
+    var sub: String {
+        switch self {
+        case .general:    return "Standard driver licence"
+        case .novice:     return "First 2–3 years; under-21 in many places"
+        case .commercial: return "CDL, taxi, bus, heavy vehicle"
+        }
+    }
+}
+
 enum Sex: String, Codable, CaseIterable {
     case male            = "Male"
     case female          = "Female"
@@ -61,16 +91,5 @@ struct UserProfile: Codable {
     var age: Int? {
         guard let year = birthYear else { return nil }
         return Calendar.current.component(.year, from: Date()) - year
-    }
-
-    // Resolved legal BAC limit from the user's country + driver tier. Falls
-    // back to the manual `bacLimit` field when no country is set or the
-    // country is not in our lookup.
-    var legalBACLimit: LegalBACLimit? {
-        LegalBACLimits.find(countryCode)
-    }
-
-    var resolvedBACLimit: Double {
-        legalBACLimit?.limit(for: driverType) ?? bacLimit
     }
 }

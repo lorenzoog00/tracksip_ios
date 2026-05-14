@@ -1,39 +1,5 @@
 import Foundation
 
-// Driver tier — every jurisdiction we list applies a stricter limit to novice
-// drivers (typically first 2–3 years of licensure) and commercial drivers
-// (CDL / heavy / public-transport). See .planning/research/BAC-ACCURACY-RESEARCH.md
-// for sources.
-enum DriverType: String, Codable, CaseIterable {
-    case general    = "general"
-    case novice     = "novice"
-    case commercial = "commercial"
-
-    var displayName: String {
-        switch self {
-        case .general:    return "General"
-        case .novice:     return "Novice / Learner"
-        case .commercial: return "Commercial"
-        }
-    }
-
-    var icon: String {
-        switch self {
-        case .general:    return "car.fill"
-        case .novice:     return "graduationcap.fill"
-        case .commercial: return "truck.box.fill"
-        }
-    }
-
-    var sub: String {
-        switch self {
-        case .general:    return "Standard driver licence"
-        case .novice:     return "First 2–3 years; under-21 in many places"
-        case .commercial: return "CDL, taxi, bus, heavy vehicle"
-        }
-    }
-}
-
 // Statutory general-driver drink-drive BAC limit (BAC %) by ISO-3166 alpha-2
 // country code. Where a country has multiple sub-jurisdictions (UK Scotland
 // 0.05 vs Eng/Wales/NI 0.08, US Utah 0.05 vs other states 0.08) we list the
@@ -147,4 +113,9 @@ enum LegalBACLimits {
         }
         return find(code)
     }
+}
+
+extension UserProfile {
+    var legalBACLimit: LegalBACLimit? { LegalBACLimits.find(countryCode) }
+    var resolvedBACLimit: Double { legalBACLimit?.limit(for: driverType) ?? bacLimit }
 }
