@@ -7,15 +7,14 @@ struct ActiveEventView: View {
 
     @State private var showEndConfirm     = false
     @State private var showFoodSheet      = false
-    @State private var timer: Timer?      = nil
-    @State private var now                = Date()
+    @State private var showEditEntry: DrinkEntry? = nil
 
     private var event: NightEvent? { appState.events.first { $0.id == eventId } }
     private var eventEntries: [DrinkEntry] { appState.entries.filter { $0.eventId == eventId }.sorted { $0.timestamp > $1.timestamp } }
     private var eventWater: [WaterEntry]  { appState.waterEntries.filter { $0.eventId == eventId }.sorted { $0.timestamp > $1.timestamp } }
     var eventFood: [FoodEntry] { appState.foodEntries.filter { $0.eventId == eventId } }
     private var currentBAC: Double {
-        _ = now
+        _ = appState.bacTick
         return appState.currentBAC(for: eventId)
     }
     private var stage: IntoxicationStage  { IntoxicationStage.stage(for: currentBAC) }
@@ -47,19 +46,24 @@ struct ActiveEventView: View {
                         bac: currentBAC,
                         stage: stage,
                         event: event,
-                        now: now,
+                        now: appState.bacTick,
                         drivingMode: event.drivingMode,
                         bacLimit: bacLimit
                     )
 
                     // Current drink in progress
-                    CurrentDrinkCard(entries: eventEntries, drinkTypes: appState.allDrinkTypes, now: now)
+                    CurrentDrinkCard(entries: eventEntries, drinkTypes: appState.allDrinkTypes, now: appState.bacTick)
+
+                    // Target BAC nudge
+                    if let target = event.targetBAC, currentBAC >= target {
+                        TargetBACBanner(bac: currentBAC, target: target)
+                    }
 
                     // Stats row
                     StatsRow(eventId: eventId, waterEntries: eventWater)
 
                     // Quick Add — inline, always visible
-                    QuickAddGrid(eventId: eventId, drinkTypes: appState.allDrinkTypes)
+                    QuickAddGrid(event: event, drinkTypes: appState.allDrinkTypes)
 
                     // Drink breakdown chips (summary of what was had)
                     if !eventEntries.isEmpty {
@@ -113,8 +117,9 @@ struct ActiveEventView: View {
         .navigationTitle(event.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(false)
-        .onAppear  { startTimer() }
-        .onDisappear { stopTimer() }
+        .sheet(item: $showEditEntry) { entry in
+            EditEntryView(entry: entry)
+        }
         .sheet(isPresented: $showFoodSheet) {
             VStack(spacing: 20) {
                 Text("What did you eat?")
@@ -177,15 +182,7 @@ struct ActiveEventView: View {
         }
     }
 
-    private func startTimer() {
-        now = Date()
-        timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { _ in now = Date() }
-    }
 
-    private func stopTimer() {
-        timer?.invalidate()
-        timer = nil
-    }
 }
 
 // MARK: - DO NOT DRIVE
@@ -243,6 +240,44 @@ private struct DriveWarningBanner: View {
         .background(AppColors.danger.opacity(0.1))
         .cornerRadius(14)
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(AppColors.danger.opacity(0.35), lineWidth: 1))
+        .padding(.horizontal)
+    }
+}
+
+// MARK: - Target BAC Banner
+
+private struct TargetBACBanner: View {
+    let bac: Double
+    let target: Double
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "target")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(AppColors.accent)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text("You've hit your goal for tonight")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(AppColors.text)
+                HStack(spacing: 4) {
+                    Text(String(format: "%.3f%%", bac))
+                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                        .foregroundStyle(AppColors.accent)
+                    Text("·")
+                        .foregroundStyle(AppColors.textTertiary)
+                    Text(String(format: "goal was %.2f%%", target))
+                        .font(.system(size: 11))
+                        .foregroundStyle(AppColors.textTertiary)
+                }
+            }
+            Spacer()
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity)
+        .background(AppColors.accent.opacity(0.1))
+        .cornerRadius(14)
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(AppColors.accent.opacity(0.3), lineWidth: 1))
         .padding(.horizontal)
     }
 }
@@ -405,76 +440,117 @@ private struct GaugeFillArc: Shape {
     }
 }
 
-// MARK: - Current Drink Card
+// MARK: - Current Drink In Progress
 
 private struct CurrentDrinkCard: View {
-    let entries: [DrinkEntry]   // newest-first
+    let entries: [DrinkEntry]
     let drinkTypes: [DrinkType]
     let now: Date
 
-    private struct ActiveDrink {
-        let entry: DrinkEntry
-        let drinkType: DrinkType
-        let totalMinutes: Int
-        let elapsedMinutes: Double
-    }
+    @State private var pulse = false
 
-    private var activeDrink: ActiveDrink? {
-        guard let entry = entries.first,
-              let dt = drinkTypes.first(where: { $0.id == entry.drinkTypeId })
-        else { return nil }
-        let total   = dt.effectiveDrinkingMinutes * max(1, entry.quantity)
-        let elapsed = now.timeIntervalSince(entry.timestamp) / 60
-        guard elapsed >= 0, elapsed < Double(total) else { return nil }
-        return ActiveDrink(entry: entry, drinkType: dt, totalMinutes: total, elapsedMinutes: elapsed)
+    private var currentEntry: DrinkEntry? { entries.first }
+    private var drinkType: DrinkType? {
+        guard let e = currentEntry else { return nil }
+        return drinkTypes.first { $0.id == e.drinkTypeId }
     }
+    private var elapsedMin: Double {
+        guard let e = currentEntry else { return 0 }
+        return max(0, now.timeIntervalSince(e.timestamp) / 60.0)
+    }
+    private var totalMin: Double { Double(drinkType?.effectiveDrinkingMinutes ?? 20) }
+    private var progress: Double { min(1.0, elapsedMin / totalMin) }
 
     var body: some View {
-        if let drink = activeDrink {
-            HStack(spacing: 12) {
-                ZStack {
-                    Circle()
-                        .fill(drink.drinkType.color.opacity(0.14))
-                        .frame(width: 36, height: 36)
-                    Image(systemName: drink.drinkType.sfSymbol)
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(drink.drinkType.color)
+        if let dt = drinkType, elapsedMin < totalMin {
+            let fillFraction = 1.0 - progress
+            let minsLeft = max(1, Int(ceil(totalMin - elapsedMin)))
+
+            HStack(spacing: 14) {
+                // Animated glass
+                ZStack(alignment: .bottom) {
+                    RoundedRectangle(cornerRadius: 7)
+                        .stroke(dt.color.opacity(0.45), lineWidth: 1.5)
+                    LiquidFill(fillFraction: fillFraction)
+                        .fill(LinearGradient(
+                            colors: [dt.color.opacity(pulse ? 0.60 : 0.50),
+                                     dt.color.opacity(pulse ? 0.28 : 0.20)],
+                            startPoint: .top, endPoint: .bottom
+                        ))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                        .animation(.easeInOut(duration: 3.0), value: fillFraction)
+                }
+                .frame(width: 30, height: 50)
+                .onAppear {
+                    withAnimation(.easeInOut(duration: 2.2).repeatForever(autoreverses: true)) {
+                        pulse = true
+                    }
                 }
 
-                VStack(alignment: .leading, spacing: 5) {
+                // Info
+                VStack(alignment: .leading, spacing: 7) {
                     HStack(alignment: .firstTextBaseline) {
-                        Text(drink.drinkType.name)
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(AppColors.text)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(dt.name)
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(AppColors.text)
+                            Text("sipping now")
+                                .font(.system(size: 10))
+                                .foregroundStyle(AppColors.textTertiary)
+                        }
                         Spacer()
-                        Text("\(Int(drink.elapsedMinutes))m / \(drink.totalMinutes)m")
-                            .font(.system(size: 11, weight: .medium, design: .monospaced))
-                            .foregroundStyle(AppColors.textSecondary)
+                        HStack(alignment: .lastTextBaseline, spacing: 1) {
+                            Text("\(Int(elapsedMin))")
+                                .font(.system(size: 20, weight: .bold, design: .monospaced))
+                                .foregroundStyle(dt.color)
+                            Text(" / \(Int(totalMin))m")
+                                .font(.system(size: 10))
+                                .foregroundStyle(AppColors.textTertiary)
+                        }
                     }
 
                     GeometryReader { geo in
-                        let progress = min(1.0, drink.elapsedMinutes / Double(drink.totalMinutes))
                         ZStack(alignment: .leading) {
                             Capsule()
                                 .fill(AppColors.border)
                                 .frame(height: 4)
                             Capsule()
-                                .fill(drink.drinkType.color)
-                                .frame(width: geo.size.width * progress, height: 4)
+                                .fill(dt.color.opacity(0.85))
+                                .frame(width: max(0, geo.size.width * CGFloat(fillFraction)), height: 4)
+                                .animation(.easeInOut(duration: 3.0), value: fillFraction)
                         }
                     }
                     .frame(height: 4)
+
+                    Text("~\(minsLeft)m left to absorb")
+                        .font(.system(size: 10))
+                        .foregroundStyle(AppColors.textTertiary)
                 }
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .premiumCard(radius: 14, tint: drink.drinkType.color, tintOpacity: 0.04)
+            .padding(14)
+            .premiumCard(radius: 14, tint: dt.color, tintOpacity: 0.06)
             .padding(.horizontal)
-            .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
-            .animation(.spring(response: 0.4, dampingFraction: 0.75), value: drink.entry.id)
         }
     }
 }
+
+private struct LiquidFill: Shape {
+    var fillFraction: Double
+
+    var animatableData: Double {
+        get { fillFraction }
+        set { fillFraction = newValue }
+    }
+
+    func path(in rect: CGRect) -> Path {
+        let h = rect.height * max(0, min(1, fillFraction))
+        return Path(roundedRect: CGRect(
+            x: rect.minX, y: rect.maxY - h,
+            width: rect.width, height: h
+        ), cornerRadius: 5)
+    }
+}
+
 
 // MARK: - Stats Row
 
@@ -605,9 +681,14 @@ private struct DrinkChips: View {
 
 // MARK: - Quick Add (inline drink grid)
 
+private struct DrinkImpact {
+    let safeDriveLabel: String?   // e.g. "Safe ~1:30 AM" — only when drivingMode
+    let hitsTarget: Bool           // true when this drink would push BAC >= targetBAC
+}
+
 private struct QuickAddGrid: View {
     @EnvironmentObject var appState: AppState
-    let eventId: String
+    let event: NightEvent
     let drinkTypes: [DrinkType]
 
     let columns = [
@@ -615,6 +696,33 @@ private struct QuickAddGrid: View {
         GridItem(.flexible(), spacing: 10),
         GridItem(.flexible(), spacing: 10)
     ]
+
+    // Precomputed once per bacTick — one projectedBAC call per drink type.
+    private var impacts: [String: DrinkImpact] {
+        _ = appState.bacTick
+        let tf = DateFormatter(); tf.timeStyle = .short
+        let bacLimit = event.bacLimit ?? appState.userProfile.bacLimit
+        return Dictionary(uniqueKeysWithValues: drinkTypes.map { dt in
+            let pBAC = appState.projectedBAC(forEventId: event.id, addingDrinkTypeId: dt.id)
+            var safeDrive: String? = nil
+            if event.drivingMode {
+                let hoursUntilSafe = pBAC > bacLimit
+                    ? (pBAC - bacLimit) / BACCalculator.eliminationRate(profile: appState.userProfile)
+                    : 0
+                if hoursUntilSafe > 0.08 {  // only label if > ~5 min impact
+                    let safeDate = Date().addingTimeInterval(hoursUntilSafe * 3600)
+                    safeDrive = "Safe ~\(tf.string(from: safeDate))"
+                }
+            }
+            let hitsTarget: Bool
+            if let target = event.targetBAC {
+                hitsTarget = pBAC >= target
+            } else {
+                hitsTarget = false
+            }
+            return (dt.id, DrinkImpact(safeDriveLabel: safeDrive, hitsTarget: hitsTarget))
+        })
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -631,8 +739,8 @@ private struct QuickAddGrid: View {
 
             LazyVGrid(columns: columns, spacing: 10) {
                 ForEach(drinkTypes) { dt in
-                    DrinkTile(drinkType: dt) {
-                        appState.addDrink(eventId: eventId, drinkTypeId: dt.id)
+                    DrinkTile(drinkType: dt, impact: impacts[dt.id]) {
+                        appState.addDrink(eventId: event.id, drinkTypeId: dt.id)
                     }
                 }
             }
@@ -643,6 +751,7 @@ private struct QuickAddGrid: View {
 
 private struct DrinkTile: View {
     let drinkType: DrinkType
+    let impact: DrinkImpact?
     let onTap: () -> Void
 
     @State private var pressed = false
@@ -663,14 +772,25 @@ private struct DrinkTile: View {
                     .minimumScaleFactor(0.8)
                     .multilineTextAlignment(.leading)
 
-                Text("~\(drinkType.effectiveDrinkingMinutes)m")
-                    .font(.system(size: 10, weight: .medium, design: .monospaced))
-                    .foregroundStyle(drinkType.color.opacity(0.7))
-                    .padding(.top, 2)
+                // Drive / target impact label — one line, max 11pt
+                if let label = impact?.safeDriveLabel {
+                    Text(label)
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundStyle(AppColors.danger.opacity(0.75))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                        .padding(.top, 2)
+                } else if impact?.hitsTarget == true {
+                    Text("Hits your goal")
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundStyle(AppColors.accent)
+                        .lineLimit(1)
+                        .padding(.top, 2)
+                }
             }
             .padding(11)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .frame(height: 92)
+            .frame(height: 100)
             .premiumCard(radius: 14, tint: drinkType.color, tintOpacity: 0.06)
             .scaleEffect(pressed ? 0.91 : 1.0)
             .animation(.spring(response: 0.2, dampingFraction: 0.65), value: pressed)

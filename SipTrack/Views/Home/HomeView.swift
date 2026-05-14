@@ -349,10 +349,14 @@ private struct ActiveEventCard: View {
     @EnvironmentObject var appState: AppState
     let event: NightEvent
 
-    private var bac: Double { appState.currentBAC(for: event.id) }
+    private var bac: Double {
+        _ = appState.bacTick
+        return appState.currentBAC(for: event.id)
+    }
     private var stage: IntoxicationStage { IntoxicationStage.stage(for: bac) }
     private var drinkCount: Int { appState.totalDrinks(for: event.id) }
     private var elapsed: String {
+        _ = appState.bacTick
         let mins = Int(max(0, -event.startTime.timeIntervalSinceNow) / 60)
         let h = mins / 60; let m = mins % 60
         return h > 0 ? "\(h)h \(m)m" : "\(m)m"

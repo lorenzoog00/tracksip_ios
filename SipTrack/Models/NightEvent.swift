@@ -8,6 +8,7 @@ struct NightEvent: Codable, Identifiable, Hashable {
     var endTime: Date?
     var drivingMode: Bool
     var bacLimit: Double?
+    var targetBAC: Double? = nil
     var notes: String?
     var aiReport: String?
     var createdAt: Date

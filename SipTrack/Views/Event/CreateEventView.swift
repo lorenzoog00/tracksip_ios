@@ -4,12 +4,27 @@ struct CreateEventView: View {
     @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) private var dismiss
 
-    @State private var name        = ""
-    @State private var drivingMode = false
-    @State private var bacLimit    = 0.08
-    @State private var startTime   = Date()
-    @State private var customStart = false
+    @State private var name          = ""
+    @State private var drivingMode   = false
+    @State private var bacLimit      = 0.08
+    @State private var targetBAC: Double? = nil
+    @State private var startTime     = Date()
+    @State private var customStart   = false
     @State private var stomachState: StomachState = .empty
+
+    private struct BACGoal: Identifiable {
+        let id: String
+        let label: String
+        let emoji: String
+        let bac: Double?
+        let description: String
+    }
+    private let bacGoals: [BACGoal] = [
+        .init(id: "none",    label: "None",    emoji: "🚫", bac: nil,  description: "No goal"),
+        .init(id: "buzzed",  label: "Buzzed",  emoji: "😊", bac: 0.04, description: "Light & social"),
+        .init(id: "tipsy",   label: "Tipsy",   emoji: "😄", bac: 0.07, description: "Relaxed"),
+        .init(id: "relaxed", label: "Feeling it", emoji: "😌", bac: 0.10, description: "Full effect"),
+    ]
 
     var body: some View {
         NavigationStack {
@@ -107,6 +122,47 @@ struct CreateEventView: View {
 
                     Divider().background(AppColors.border)
 
+                    // Tonight's Goal
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label("Tonight's Goal", systemImage: "target")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(AppColors.textSecondary)
+                        Text("We'll tell you when you hit your mark")
+                            .font(.system(size: 11))
+                            .foregroundStyle(AppColors.textTertiary)
+                        HStack(spacing: 8) {
+                            ForEach(bacGoals) { goal in
+                                Button {
+                                    targetBAC = targetBAC == goal.bac ? nil : goal.bac
+                                } label: {
+                                    VStack(spacing: 4) {
+                                        Text(goal.emoji)
+                                            .font(.system(size: 20))
+                                        Text(goal.label)
+                                            .font(.system(size: 10, weight: .semibold))
+                                        if let bac = goal.bac {
+                                            Text(String(format: "%.2f%%", bac))
+                                                .font(.system(size: 9))
+                                                .foregroundStyle(targetBAC == bac ? AppColors.accent : AppColors.textTertiary)
+                                        }
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 10)
+                                    .background(targetBAC == goal.bac ? AppColors.accent.opacity(0.15) : AppColors.surface)
+                                    .foregroundStyle(targetBAC == goal.bac ? AppColors.accent : AppColors.text)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .stroke(targetBAC == goal.bac ? AppColors.accent : AppColors.border, lineWidth: 1.5)
+                                    )
+                                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+
+                    Divider().background(AppColors.border)
+
                     // Stomach state
                     VStack(alignment: .leading, spacing: 8) {
                         Text("How full is your stomach?")
@@ -161,6 +217,7 @@ struct CreateEventView: View {
                             name: name.isEmpty ? nil : name,
                             drivingMode: drivingMode,
                             bacLimit: drivingMode ? bacLimit : nil,
+                            targetBAC: targetBAC,
                             startTime: customStart ? startTime : Date(),
                             stomachState: stomachState
                         )

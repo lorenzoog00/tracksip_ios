@@ -31,6 +31,10 @@ final class AppState: ObservableObject {
     @Published var nightRecoveries: [NightRecovery] = []
     @Published var generatingRecoveryForEventId: String? = nil
 
+    /// Fires every 10 s while an event is active. All views that show live BAC
+    /// read `_ = appState.bacTick` so they recompute in sync.
+    @Published var bacTick: Date = Date()
+
     /// Set by ActiveEventView right after End Night so RootView can pop the
     /// active event and push SummaryView cleanly.
     @Published var pendingSummaryEventId: String? = nil
@@ -98,8 +102,9 @@ final class AppState: ObservableObject {
         self.store = store
         currentUserId = FirebaseManager.shared.currentUserId()
         loadAll()
-        if activeEvent != nil {
+        if let active = activeEvent {
             WaterReminderManager.shared.schedule(intervalMinutes: userProfile.waterReminderIntervalMinutes)
+            startBACRefreshTimer(for: active.id)
         }
         authCancellable = FirebaseManager.shared.$isSignedIn
             .receive(on: RunLoop.main)
@@ -153,15 +158,24 @@ final class AppState: ObservableObject {
     // MARK: - Events
 
     @discardableResult
-    func createEvent(name: String?, drivingMode: Bool, bacLimit: Double?, startTime: Date = Date(), stomachState: StomachState = .empty) -> NightEvent {
+    func createEvent(
+        name: String?,
+        drivingMode: Bool,
+        bacLimit: Double?,
+        targetBAC: Double? = nil,
+        startTime: Date = Date(),
+        stomachState: StomachState = .empty
+    ) -> NightEvent {
         var event = DataStore.shared.createEvent(name: name, drivingMode: drivingMode, bacLimit: bacLimit, userId: currentUserId, startTime: startTime)
         event.stomachState = stomachState
         event.stomachStateTimestamp = startTime
+        event.targetBAC = targetBAC
         DataStore.shared.updateEvent(event)
         events.append(event)
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         push { try await FirebaseManager.shared.pushEvent(event) }
         WatchBridge.shared.pushState()
+        startBACRefreshTimer(for: event.id)
         startLiveActivity(for: event)
         WaterReminderManager.shared.schedule(intervalMinutes: userProfile.waterReminderIntervalMinutes)
         return event
@@ -171,8 +185,9 @@ final class AppState: ObservableObject {
         bacTimerTask?.cancel()
         bacTimerTask = Task {
             while !Task.isCancelled {
-                updateLiveActivity(for: eventId)
                 try? await Task.sleep(nanoseconds: 10_000_000_000)
+                bacTick = Date()           // single clock: all views re-render here
+                updateLiveActivity(for: eventId)
             }
         }
     }
@@ -192,7 +207,6 @@ final class AppState: ObservableObject {
                 eventId: event.id,
                 quickDrinks: Array(quickDrinks)
             )
-            startBACRefreshTimer(for: event.id)
         }
     }
 
@@ -316,6 +330,34 @@ final class AppState: ObservableObject {
         ]
         if let name = event.name { params["eventName"] = name }
         if let birthYear = userProfile.birthYear { params["userAge"] = currentYear - birthYear }
+
+        // Drinking pace
+        let sipResults = drinkSipDurations(entries: eventEntries, drinkTypes: allDrinkTypes)
+        if !sipResults.isEmpty {
+            let totalSipMin = sipResults.reduce(0) { $0 + $1.sipMinutes }
+            let avgSip      = Double(totalSipMin) / Double(sipResults.count)
+            let eventHours  = max(0.01, (event.endTime ?? Date()).timeIntervalSince(event.startTime) / 3600)
+            let dph         = Double(drinkCount) / eventHours
+            let pace: String
+            if avgSip < 12 { pace = "fast" } else if avgSip < 25 { pace = "moderate" } else { pace = "slow" }
+            params["avgSipMinutes"]   = Int(avgSip)
+            params["drinksPerHour"]   = round(dph * 10) / 10
+            params["paceSummary"]     = pace
+            if let f = sipResults.min(by: { $0.sipMinutes < $1.sipMinutes }) {
+                params["fastestDrinkName"] = f.drinkType?.name ?? "Unknown"
+            }
+            if let s = sipResults.max(by: { $0.sipMinutes < $1.sipMinutes }) {
+                params["slowestDrinkName"] = s.drinkType?.name ?? "Unknown"
+            }
+        }
+
+        // Tonight's goal (targetBAC)
+        if let target = event.targetBAC {
+            params["targetBAC"] = target
+            let overTarget = timeline.filter { $0.bac >= target }
+            params["exceededTarget"]     = !overTarget.isEmpty
+            params["minutesOverTarget"]  = overTarget.count * 5
+        }
 
         let eventDisplayName = event.displayName
         generatingReportForEventId = eventId
@@ -1361,6 +1403,36 @@ final class AppState: ObservableObject {
     }
 
     // MARK: - BAC helpers (for active event view)
+
+    /// BAC that would result from logging `drinkTypeId` right now into `eventId`.
+    func projectedBAC(forEventId eventId: String, addingDrinkTypeId dtId: String) -> Double {
+        guard let event = events.first(where: { $0.id == eventId }) else { return 0 }
+        let existing    = entries.filter { $0.eventId == eventId }
+        let eventWater  = waterEntries.filter { $0.eventId == eventId }
+        let eventFood   = foodEntries.filter { $0.eventId == eventId }
+        let hypothetical = DrinkEntry(
+            id: "__projected__",
+            eventId: eventId,
+            drinkTypeId: dtId,
+            timestamp: Date(),
+            quantity: 1,
+            comment: nil,
+            volumeOverrideMl: nil,
+            abvOverride: nil
+        )
+        let r    = BACCalculator.profileR(profile: userProfile)
+        let beta = BACCalculator.eliminationRate(profile: userProfile)
+        return BACCalculator.currentBAC(
+            entries: existing + [hypothetical],
+            waterEntries: eventWater,
+            drinkTypes: allDrinkTypes,
+            profile: userProfile,
+            eventStart: event.startTime,
+            stomachState: event.stomachState ?? .empty,
+            stomachStateTimestamp: event.stomachStateTimestamp ?? event.startTime,
+            foodEntries: eventFood
+        )
+    }
 
     func currentBAC(for eventId: String) -> Double {
         guard let event = events.first(where: { $0.id == eventId }) else { return 0 }

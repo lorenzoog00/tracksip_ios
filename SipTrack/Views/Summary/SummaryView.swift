@@ -130,6 +130,15 @@ struct SummaryView: View {
                 }
                 .padding(.horizontal)
 
+                // Drinking pace history card
+                if eventEntries.count >= 2 {
+                    DrinkingPaceHistoryCard(
+                        entries: eventEntries,
+                        drinkTypes: appState.allDrinkTypes
+                    )
+                    .padding(.horizontal)
+                }
+
                 // Mean BAC card
                 if meanBACValue > 0 {
                     VStack(spacing: 10) {
@@ -240,11 +249,15 @@ struct SummaryView: View {
                 }
 
                 // Event timeline (drinks, water, food sorted by time)
+                let sipDurations = drinkSipDurations(entries: eventEntries, drinkTypes: appState.allDrinkTypes)
+                let sipDurMap: [String: Int] = Dictionary(uniqueKeysWithValues: sipDurations.map { ($0.entry.id, $0.sipMinutes) })
                 let allTimestamps: [(date: Date, label: String)] = {
                     var items: [(Date, String)] = []
                     for e in eventEntries {
                         let name = appState.allDrinkTypes.first { $0.id == e.drinkTypeId }?.name ?? "Drink"
-                        items.append((e.timestamp, e.quantity > 1 ? "×\(e.quantity) \(name)" : name))
+                        let base = e.quantity > 1 ? "×\(e.quantity) \(name)" : name
+                        let sip  = sipDurMap[e.id].map { " · ~\($0)m" } ?? ""
+                        items.append((e.timestamp, base + sip))
                     }
                     for w in eventWater {
                         items.append((w.timestamp, "💧 Water"))
@@ -1254,5 +1267,133 @@ private struct ShareMiniStat: View {
                 .foregroundStyle(.white.opacity(0.38))
         }
         .frame(maxWidth: .infinity)
+    }
+}
+
+// MARK: - Drinking Pace helper + card
+
+/// Per-drink sipping duration: min(effectiveDrinkingMinutes, gap to next drink).
+struct DrinkSipResult {
+    let entry: DrinkEntry
+    let drinkType: DrinkType?
+    let sipMinutes: Int
+}
+
+func drinkSipDurations(entries: [DrinkEntry], drinkTypes: [DrinkType]) -> [DrinkSipResult] {
+    let sorted = entries.sorted { $0.timestamp < $1.timestamp }
+    return sorted.enumerated().map { i, entry in
+        let dt      = drinkTypes.first { $0.id == entry.drinkTypeId }
+        let natural = dt?.effectiveDrinkingMinutes ?? 20
+        let sipMin: Int
+        if i + 1 < sorted.count {
+            let gap = Int(sorted[i + 1].timestamp.timeIntervalSince(entry.timestamp) / 60)
+            sipMin = gap > 0 ? min(natural, gap) : natural
+        } else {
+            sipMin = natural
+        }
+        return DrinkSipResult(entry: entry, drinkType: dt, sipMinutes: sipMin)
+    }
+}
+
+private struct DrinkingPaceHistoryCard: View {
+    let entries: [DrinkEntry]
+    let drinkTypes: [DrinkType]
+
+    private var sips: [DrinkSipResult] { drinkSipDurations(entries: entries, drinkTypes: drinkTypes) }
+
+    private var avgSip: Double {
+        let total = sips.reduce(0) { $0 + $1.sipMinutes }
+        return sips.isEmpty ? 0 : Double(total) / Double(sips.count)
+    }
+    private var durationHours: Double {
+        guard let first = entries.min(by: { $0.timestamp < $1.timestamp }),
+              let last  = entries.max(by: { $0.timestamp < $1.timestamp }) else { return 0 }
+        return max(0.01, last.timestamp.timeIntervalSince(first.timestamp) / 3600)
+    }
+    private var drinksPerHour: Double {
+        Double(entries.reduce(0) { $0 + $1.quantity }) / durationHours
+    }
+    private var paceLabel: String {
+        if avgSip < 12 { return "Fast" }
+        if avgSip < 25 { return "Moderate" }
+        return "Slow"
+    }
+    private var paceColor: Color {
+        if avgSip < 12 { return AppColors.danger }
+        if avgSip < 25 { return AppColors.accent }
+        return AppColors.success
+    }
+    private var fastest: DrinkSipResult? { sips.min(by: { $0.sipMinutes < $1.sipMinutes }) }
+    private var slowest: DrinkSipResult? { sips.max(by: { $0.sipMinutes < $1.sipMinutes }) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Drinking Pace", systemImage: "gauge.with.needle")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(AppColors.textSecondary)
+
+            HStack(spacing: 8) {
+                ForEach(["Fast", "Moderate", "Slow"], id: \.self) { label in
+                    let active = label == paceLabel
+                    Text(label)
+                        .font(.system(size: 11, weight: active ? .bold : .regular))
+                        .foregroundStyle(active ? paceColor : AppColors.textTertiary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(active ? paceColor.opacity(0.15) : AppColors.surface)
+                        .cornerRadius(20)
+                        .overlay(RoundedRectangle(cornerRadius: 20).stroke(active ? paceColor.opacity(0.4) : AppColors.border, lineWidth: 1))
+                }
+            }
+
+            HStack(spacing: 16) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(String(format: "%.0f min", avgSip))
+                        .font(.system(size: 20, weight: .bold, design: .monospaced))
+                        .foregroundStyle(AppColors.text)
+                    Text("avg per drink")
+                        .font(.system(size: 10))
+                        .foregroundStyle(AppColors.textTertiary)
+                }
+                Divider().frame(height: 30)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(String(format: "%.1f/hr", drinksPerHour))
+                        .font(.system(size: 20, weight: .bold, design: .monospaced))
+                        .foregroundStyle(AppColors.text)
+                    Text("drinks per hour")
+                        .font(.system(size: 10))
+                        .foregroundStyle(AppColors.textTertiary)
+                }
+            }
+
+            if let f = fastest, let s = slowest, f.entry.id != s.entry.id {
+                Divider().background(AppColors.border)
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("FASTEST")
+                            .font(.system(size: 9, weight: .semibold))
+                            .tracking(0.8)
+                            .foregroundStyle(AppColors.danger.opacity(0.8))
+                        Text("\(f.drinkType?.name ?? "Drink") (~\(f.sipMinutes)m)")
+                            .font(.system(size: 12))
+                            .foregroundStyle(AppColors.text)
+                    }
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("SLOWEST")
+                            .font(.system(size: 9, weight: .semibold))
+                            .tracking(0.8)
+                            .foregroundStyle(AppColors.success.opacity(0.8))
+                        Text("\(s.drinkType?.name ?? "Drink") (~\(s.sipMinutes)m)")
+                            .font(.system(size: 12))
+                            .foregroundStyle(AppColors.text)
+                    }
+                }
+            }
+        }
+        .padding()
+        .background(AppColors.surface)
+        .cornerRadius(14)
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(AppColors.border, lineWidth: 1))
     }
 }
