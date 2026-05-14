@@ -1,0 +1,38 @@
+<h2>3 approaches to food-aware BAC</h2>
+<p class="subtitle">A push notification reminds you to eat before going out. Here's how to model food's effect on BAC calculations.</p>
+
+<div class="options">
+  <div class="option" data-choice="stomach-state" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Stomach State Modifier</h3>
+      <p>Set a stomach state at event start (Empty / Snack / Full Meal) and update it if you eat during the night. Each state applies a fixed absorption multiplier — Full Meal reduces peak BAC ~30%, Snack ~15%.</p>
+      <div class="pros-cons" style="margin-top:10px">
+        <div class="pros"><h4>Pros</h4><ul><li>Simple to understand</li><li>Fast to log</li><li>Easy to implement</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Ignores timing — eating at 8pm then drinking at 11pm treated the same as eating at 10pm</li></ul></div>
+      </div>
+    </div>
+  </div>
+  <div class="option" data-choice="time-decay" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Time-Decaying Food Effect <span style="color:#F0A830;font-size:12px;margin-left:6px">★ Recommended</span></h3>
+      <p>Each food log is timestamped. Food's protective effect decays over ~2–3 hours (modelling gastric emptying). BAC at any moment accounts for all food entries and how long ago they were eaten.</p>
+      <div class="pros-cons" style="margin-top:10px">
+        <div class="pros"><h4>Pros</h4><ul><li>Most accurate</li><li>Timing-aware — old food counts less</li><li>Same quick-log UX as water entries</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>More complex model to tune</li></ul></div>
+      </div>
+    </div>
+  </div>
+  <div class="option" data-choice="hybrid" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Hybrid — Baseline + Live Adjust</h3>
+      <p>Notification primes the user. Event start asks stomach state (sets baseline). During the night, food logs boost fullness back up. State decays over time automatically. Middle ground between A and B.</p>
+      <div class="pros-cons" style="margin-top:10px">
+        <div class="pros"><h4>Pros</h4><ul><li>Good accuracy</li><li>Baseline covers pre-event eating</li><li>Digestible UX</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Two-step (notification + event start prompt) adds a little friction</li></ul></div>
+      </div>
+    </div>
+  </div>
+</div>

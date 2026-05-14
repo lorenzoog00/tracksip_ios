@@ -1,0 +1,64 @@
+<h2>Revised Design: Food-Aware BAC</h2>
+<p class="subtitle">Two components only — no notifications. Does this look good to ship?</p>
+
+<div class="section">
+  <h3>1 — Event Start: Stomach State</h3>
+  <p>One extra step added to event creation. Sets the initial absorption baseline for the BAC model. Tap one, start the night.</p>
+  <div class="mockup">
+    <div class="mockup-header">Event Creation — Stomach State</div>
+    <div class="mockup-body" style="padding:16px;background:#1a1a1a;border-radius:8px">
+      <div style="color:#888;font-size:12px;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">How full is your stomach?</div>
+      <div style="display:flex;gap:10px">
+        <div style="flex:1;background:#2a2a2a;border-radius:10px;padding:12px;text-align:center;border:2px solid transparent">
+          <div style="font-size:22px">💨</div>
+          <div style="color:#fff;font-size:12px;margin-top:6px">Empty</div>
+          <div style="color:#888;font-size:10px">Haven't eaten</div>
+        </div>
+        <div style="flex:1;background:#2a2a2a;border-radius:10px;padding:12px;text-align:center;border:2px solid #F0A830">
+          <div style="font-size:22px">🥨</div>
+          <div style="color:#F0A830;font-size:12px;margin-top:6px;font-weight:600">Snack</div>
+          <div style="color:#888;font-size:10px">Light bite</div>
+        </div>
+        <div style="flex:1;background:#2a2a2a;border-radius:10px;padding:12px;text-align:center;border:2px solid transparent">
+          <div style="font-size:22px">🍽️</div>
+          <div style="color:#fff;font-size:12px;margin-top:6px">Full Meal</div>
+          <div style="color:#888;font-size:10px">Ate properly</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>2 — In-Event Food Logging</h3>
+  <p>During the night, log food alongside water with one tap. Each entry resets the decay clock from that moment — eating at midnight counts fully, eating 3 hours ago barely counts.</p>
+  <div class="mockup">
+    <div class="mockup-header">Active Event Screen</div>
+    <div class="mockup-body" style="padding:16px;background:#1a1a1a;border-radius:8px">
+      <div style="display:flex;gap:10px;align-items:center">
+        <div style="background:#2a2a2a;border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:8px">
+          <span style="font-size:20px">💧</span>
+          <div><div style="color:#888;font-size:10px">Water</div><div style="color:#fff;font-size:13px">2 logged</div></div>
+        </div>
+        <div style="background:#2a2a2a;border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:8px;border:1px solid #F0A830">
+          <span style="font-size:20px">🍟</span>
+          <div><div style="color:#888;font-size:10px">Food</div><div style="color:#F0A830;font-size:13px;font-weight:600">+ Snack</div></div>
+        </div>
+      </div>
+      <div style="margin-top:10px;color:#888;font-size:11px">Stomach: <span style="color:#F0A830">Snack level</span> — decays in ~1h 45m</div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>BAC Model</h3>
+  <ul style="color:#ccc;font-size:13px;line-height:1.8">
+    <li><strong style="color:#fff">Empty:</strong> baseline — current behavior, fastest absorption</li>
+    <li><strong style="color:#fff">Snack:</strong> −15% peak BAC, 15 min absorption delay</li>
+    <li><strong style="color:#fff">Full Meal:</strong> −30% peak BAC, 30–45 min absorption delay</li>
+    <li><strong style="color:#fff">Decay:</strong> effect reduces linearly back to Empty over 2–3 hrs</li>
+    <li><strong style="color:#fff">In-event log:</strong> resets decay clock from that timestamp forward</li>
+  </ul>
+</div>
+
+<p class="subtitle" style="margin-top:20px">Ready to write this up as a spec?</p>

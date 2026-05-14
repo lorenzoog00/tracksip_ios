@@ -82,7 +82,7 @@ private struct DrinkCard: View {
                     Text("\(Int(drink.defaultVolumeMl))ml · \(String(format: "%.1f", drink.defaultAbv))%")
                         .font(.system(size: 11))
                         .foregroundStyle(AppColors.textTertiary)
-                    Text("\(Int(drink.caloriesPerServing)) kcal")
+                    Text("\(Int(drink.caloriesPerServing)) kcal · ~\(drink.effectiveDrinkingMinutes)m")
                         .font(.system(size: 11))
                         .foregroundStyle(AppColors.textTertiary)
                 }

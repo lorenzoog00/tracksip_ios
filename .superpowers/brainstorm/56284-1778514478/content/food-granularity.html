@@ -1,0 +1,26 @@
+<h2>How detailed should food logging be?</h2>
+<p class="subtitle">More detail = more accurate BAC, but also more friction to log mid-night.</p>
+
+<div class="options">
+  <div class="option" data-choice="simple" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Simple: Meal Toggle</h3>
+      <p>"Did you eat before/during?" — one tap sets a stomach fullness level (empty / light snack / full meal). Applies a single absorption multiplier to BAC. Minimal friction.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="medium" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Medium: Food Type Picker</h3>
+      <p>Log what kind of food — carbs, protein, fatty/greasy, mixed. Each type has a different absorption delay factor. Quick chips-style selector, 5 seconds to log.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="detailed" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Detailed: Meal Logging</h3>
+      <p>Log actual meals with estimated calories. Full nutrition-aware BAC model. Most accurate, but similar friction to logging a drink — might feel heavy mid-night.</p>
+    </div>
+  </div>
+</div>

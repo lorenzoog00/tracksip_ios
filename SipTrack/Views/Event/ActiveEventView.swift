@@ -6,7 +6,6 @@ struct ActiveEventView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var showEndConfirm     = false
-    @State private var showEditEntry: DrinkEntry? = nil
     @State private var showFoodSheet      = false
     @State private var timer: Timer?      = nil
     @State private var now                = Date()
@@ -53,6 +52,9 @@ struct ActiveEventView: View {
                         bacLimit: bacLimit
                     )
 
+                    // Current drink in progress
+                    CurrentDrinkCard(entries: eventEntries, drinkTypes: appState.allDrinkTypes, now: now)
+
                     // Stats row
                     StatsRow(eventId: eventId, waterEntries: eventWater)
 
@@ -72,8 +74,7 @@ struct ActiveEventView: View {
                             foodEntries: eventFood,
                             drinkTypes: appState.allDrinkTypes,
                             onDeleteEntry: { appState.deleteEntry($0) },
-                            onDeleteWater: { appState.deleteWaterEntry($0) },
-                            onEditEntry: { showEditEntry = $0 }
+                            onDeleteWater: { appState.deleteWaterEntry($0) }
                         )
                     }
 
@@ -114,9 +115,6 @@ struct ActiveEventView: View {
         .navigationBarBackButtonHidden(false)
         .onAppear  { startTimer() }
         .onDisappear { stopTimer() }
-        .sheet(item: $showEditEntry) { entry in
-            EditEntryView(entry: entry)
-        }
         .sheet(isPresented: $showFoodSheet) {
             VStack(spacing: 20) {
                 Text("What did you eat?")
@@ -181,7 +179,7 @@ struct ActiveEventView: View {
 
     private func startTimer() {
         now = Date()
-        timer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { _ in now = Date() }
+        timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { _ in now = Date() }
     }
 
     private func stopTimer() {
@@ -407,6 +405,77 @@ private struct GaugeFillArc: Shape {
     }
 }
 
+// MARK: - Current Drink Card
+
+private struct CurrentDrinkCard: View {
+    let entries: [DrinkEntry]   // newest-first
+    let drinkTypes: [DrinkType]
+    let now: Date
+
+    private struct ActiveDrink {
+        let entry: DrinkEntry
+        let drinkType: DrinkType
+        let totalMinutes: Int
+        let elapsedMinutes: Double
+    }
+
+    private var activeDrink: ActiveDrink? {
+        guard let entry = entries.first,
+              let dt = drinkTypes.first(where: { $0.id == entry.drinkTypeId })
+        else { return nil }
+        let total   = dt.effectiveDrinkingMinutes * max(1, entry.quantity)
+        let elapsed = now.timeIntervalSince(entry.timestamp) / 60
+        guard elapsed >= 0, elapsed < Double(total) else { return nil }
+        return ActiveDrink(entry: entry, drinkType: dt, totalMinutes: total, elapsedMinutes: elapsed)
+    }
+
+    var body: some View {
+        if let drink = activeDrink {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(drink.drinkType.color.opacity(0.14))
+                        .frame(width: 36, height: 36)
+                    Image(systemName: drink.drinkType.sfSymbol)
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(drink.drinkType.color)
+                }
+
+                VStack(alignment: .leading, spacing: 5) {
+                    HStack(alignment: .firstTextBaseline) {
+                        Text(drink.drinkType.name)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(AppColors.text)
+                        Spacer()
+                        Text("\(Int(drink.elapsedMinutes))m / \(drink.totalMinutes)m")
+                            .font(.system(size: 11, weight: .medium, design: .monospaced))
+                            .foregroundStyle(AppColors.textSecondary)
+                    }
+
+                    GeometryReader { geo in
+                        let progress = min(1.0, drink.elapsedMinutes / Double(drink.totalMinutes))
+                        ZStack(alignment: .leading) {
+                            Capsule()
+                                .fill(AppColors.border)
+                                .frame(height: 4)
+                            Capsule()
+                                .fill(drink.drinkType.color)
+                                .frame(width: geo.size.width * progress, height: 4)
+                        }
+                    }
+                    .frame(height: 4)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .premiumCard(radius: 14, tint: drink.drinkType.color, tintOpacity: 0.04)
+            .padding(.horizontal)
+            .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
+            .animation(.spring(response: 0.4, dampingFraction: 0.75), value: drink.entry.id)
+        }
+    }
+}
+
 // MARK: - Stats Row
 
 private struct StatsRow: View {
@@ -593,6 +662,11 @@ private struct DrinkTile: View {
                     .lineLimit(2)
                     .minimumScaleFactor(0.8)
                     .multilineTextAlignment(.leading)
+
+                Text("~\(drinkType.effectiveDrinkingMinutes)m")
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .foregroundStyle(drinkType.color.opacity(0.7))
+                    .padding(.top, 2)
             }
             .padding(11)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -755,7 +829,6 @@ private struct TimelineSection: View {
     let drinkTypes: [DrinkType]
     let onDeleteEntry: (String) -> Void
     let onDeleteWater: (String) -> Void
-    let onEditEntry: (DrinkEntry) -> Void
 
     private var items: [TLItem] {
         (
@@ -787,7 +860,6 @@ private struct TimelineSection: View {
                     drinkTypes: drinkTypes,
                     onDeleteEntry: onDeleteEntry,
                     onDeleteWater: onDeleteWater,
-                    onEditEntry: onEditEntry,
                     delay: Double(min(index, 6)) * 0.055
                 )
             }
@@ -802,7 +874,6 @@ private struct TLRow: View {
     let drinkTypes: [DrinkType]
     let onDeleteEntry: (String) -> Void
     let onDeleteWater: (String) -> Void
-    let onEditEntry: (DrinkEntry) -> Void
     let delay: Double
 
     @State private var appeared = false
@@ -853,8 +924,7 @@ private struct TLRow: View {
                     TLDrinkCard(
                         entry: e, drinkType: dt,
                         time: Self.tf.string(from: e.timestamp),
-                        onDelete: { onDeleteEntry(e.id) },
-                        onEdit: { onEditEntry(e) }
+                        onDelete: { onDeleteEntry(e.id) }
                     )
                 case .water(let w):
                     TLWaterCard(
@@ -884,7 +954,6 @@ private struct TLDrinkCard: View {
     let drinkType: DrinkType?
     let time: String
     let onDelete: () -> Void
-    let onEdit: () -> Void
 
     private var displayAbv: Double {
         entry.abvOverride ?? drinkType?.defaultAbv ?? 0
@@ -972,7 +1041,6 @@ private struct TLDrinkCard: View {
                 )
         )
         .contextMenu {
-            Button { onEdit() } label: { Label("Edit", systemImage: "pencil") }
             Button(role: .destructive) { onDelete() } label: { Label("Delete", systemImage: "trash") }
         }
     }

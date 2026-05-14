@@ -1,0 +1,83 @@
+<h2>Design: Food-Aware BAC — Hybrid Approach</h2>
+<p class="subtitle">3 components working together. Does this architecture look right?</p>
+
+<div class="section">
+  <h3>1 — Pre-Event Notification</h3>
+  <p>A push notification fires ~45 min before the user's historically typical drinking start time (derived from past event data). No action required — it's a nudge, not a prompt. If the user has no history yet, it fires at a configurable time (default 8:00 PM on Friday/Saturday).</p>
+  <div class="mockup">
+    <div class="mockup-header">Lock Screen Notification</div>
+    <div class="mockup-body" style="padding:16px;background:#1a1a1a;border-radius:8px;font-family:system-ui">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <div style="width:32px;height:32px;background:#F0A830;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px">🍺</div>
+        <div>
+          <div style="color:#fff;font-size:13px;font-weight:600">SipTrack</div>
+          <div style="color:#888;font-size:11px">now</div>
+        </div>
+      </div>
+      <div style="color:#fff;font-size:14px;font-weight:600">Heading out tonight?</div>
+      <div style="color:#ccc;font-size:13px;margin-top:4px">Eating before drinking helps keep your BAC accurate — and lower. 🍕</div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>2 — Event Start Prompt</h3>
+  <p>When the user starts a new event, a single extra step asks "How full is your stomach right now?" — three options, one tap. This sets the initial absorption baseline for the entire BAC model.</p>
+  <div class="mockup">
+    <div class="mockup-header">Event Creation — Stomach State</div>
+    <div class="mockup-body" style="padding:16px;background:#1a1a1a;border-radius:8px">
+      <div style="color:#888;font-size:12px;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">How full is your stomach?</div>
+      <div style="display:flex;gap:10px">
+        <div style="flex:1;background:#2a2a2a;border-radius:10px;padding:12px;text-align:center;border:2px solid transparent">
+          <div style="font-size:22px">💨</div>
+          <div style="color:#fff;font-size:12px;margin-top:6px">Empty</div>
+          <div style="color:#888;font-size:10px">Haven't eaten</div>
+        </div>
+        <div style="flex:1;background:#2a2a2a;border-radius:10px;padding:12px;text-align:center;border:2px solid #F0A830">
+          <div style="font-size:22px">🥨</div>
+          <div style="color:#F0A830;font-size:12px;margin-top:6px;font-weight:600">Snack</div>
+          <div style="color:#888;font-size:10px">Light bite</div>
+        </div>
+        <div style="flex:1;background:#2a2a2a;border-radius:10px;padding:12px;text-align:center;border:2px solid transparent">
+          <div style="font-size:22px">🍽️</div>
+          <div style="color:#fff;font-size:12px;margin-top:6px">Full Meal</div>
+          <div style="color:#888;font-size:10px">Ate properly</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>3 — In-Event Food Logging</h3>
+  <p>During the night, users can log food the same way they log water — one tap in the active event screen. Each log timestamps the entry and temporarily boosts the stomach fullness level, which then decays over 2–3 hours (gastric emptying model).</p>
+  <div class="mockup">
+    <div class="mockup-header">Active Event — Food Log</div>
+    <div class="mockup-body" style="padding:16px;background:#1a1a1a;border-radius:8px">
+      <div style="display:flex;gap:10px;align-items:center">
+        <div style="background:#2a2a2a;border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:8px">
+          <span style="font-size:20px">💧</span>
+          <div><div style="color:#888;font-size:10px">Water</div><div style="color:#fff;font-size:13px">2 logged</div></div>
+        </div>
+        <div style="background:#2a2a2a;border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:8px;border:1px solid #F0A830">
+          <span style="font-size:20px">🍟</span>
+          <div><div style="color:#888;font-size:10px">Food</div><div style="color:#F0A830;font-size:13px;font-weight:600">+ Snack</div></div>
+        </div>
+      </div>
+      <div style="margin-top:10px;color:#888;font-size:11px">Stomach: <span style="color:#F0A830">Snack level</span> — decays in ~1h 45m</div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>BAC Model Impact</h3>
+  <ul style="color:#ccc;font-size:13px;line-height:1.7">
+    <li><strong style="color:#fff">Empty stomach:</strong> baseline (current behavior) — fastest absorption</li>
+    <li><strong style="color:#fff">Snack:</strong> ~15% peak BAC reduction, 15 min absorption delay</li>
+    <li><strong style="color:#fff">Full Meal:</strong> ~30% peak BAC reduction, 30–45 min absorption delay</li>
+    <li><strong style="color:#fff">Decay:</strong> fullness effect reduces linearly over 2–3 hrs back to Empty</li>
+    <li><strong style="color:#fff">In-event food log:</strong> resets the decay clock from that moment forward</li>
+  </ul>
+</div>
+
+<p class="subtitle" style="margin-top:20px">Does this architecture feel right? Anything to change?</p>
