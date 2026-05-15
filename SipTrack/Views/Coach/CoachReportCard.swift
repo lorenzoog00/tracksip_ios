@@ -82,6 +82,7 @@ struct CoachReportCard: View {
     @State private var showPaywall = false
 
     private var isGenerating: Bool { appState.generatingCoachReportId == report.id }
+    private var isFailed: Bool { appState.failedCoachReportIds.contains(report.id) }
     private var isPro: Bool { appState.isPro }
 
     private var sections: [ParsedSection] {
@@ -93,7 +94,13 @@ struct CoachReportCard: View {
         VStack(alignment: .leading, spacing: 0) {
             cardHeader
             accentRule(color: AppColors.accent)
-            if isGenerating || report.report == nil {
+            if isGenerating {
+                generatingState(label: "ANALYZING", color: AppColors.accent)
+            } else if isFailed {
+                failedState(label: "ANALYSIS FAILED", color: AppColors.accent) {
+                    appState.retryCoachReport(id: report.id)
+                }
+            } else if report.report == nil {
                 generatingState(label: "ANALYZING", color: AppColors.accent)
             } else {
                 ZStack {
@@ -173,6 +180,7 @@ struct ComparisonReportCard: View {
 
     private var isPro: Bool { appState.isPro }
     private var isGenerating: Bool { appState.generatingCoachReportId == report.id }
+    private var isFailed: Bool { appState.failedCoachReportIds.contains(report.id) }
 
     private var eventA: NightEvent? {
         report.eventAId.flatMap { id in appState.events.first { $0.id == id } }
@@ -191,7 +199,13 @@ struct ComparisonReportCard: View {
         VStack(alignment: .leading, spacing: 0) {
             comparisonHeader
             accentRule(color: vsColor)
-            if isGenerating || report.report == nil {
+            if isGenerating {
+                generatingState(label: "COMPARING", color: vsColor)
+            } else if isFailed {
+                failedState(label: "COMPARISON FAILED", color: vsColor) {
+                    appState.retryCoachReport(id: report.id)
+                }
+            } else if report.report == nil {
                 generatingState(label: "COMPARING", color: vsColor)
             } else {
                 ZStack {
@@ -378,6 +392,41 @@ private func generatingState(label: String, color: Color) -> some View {
                 .font(.system(size: 12))
                 .foregroundStyle(AppColors.textSecondary)
         }
+    }
+    .frame(maxWidth: .infinity)
+    .padding(.horizontal, 20)
+    .padding(.vertical, 30)
+}
+
+private func failedState(label: String, color: Color, retryAction: @escaping () -> Void) -> some View {
+    VStack(spacing: 16) {
+        Image(systemName: "exclamationmark.triangle.fill")
+            .font(.system(size: 26))
+            .foregroundStyle(Color.orange)
+        VStack(spacing: 5) {
+            Text(label)
+                .font(.system(size: 9, weight: .black))
+                .tracking(2.5)
+                .foregroundStyle(Color.orange)
+            Text("Could not reach AI service")
+                .font(.system(size: 12))
+                .foregroundStyle(AppColors.textSecondary)
+        }
+        Button(action: retryAction) {
+            HStack(spacing: 6) {
+                Image(systemName: "arrow.clockwise")
+                    .font(.system(size: 11, weight: .semibold))
+                Text("RETRY")
+                    .font(.system(size: 11, weight: .bold))
+                    .tracking(1.5)
+            }
+            .foregroundStyle(color)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 9)
+            .background(color.opacity(0.14))
+            .cornerRadius(8)
+        }
+        .buttonStyle(.plain)
     }
     .frame(maxWidth: .infinity)
     .padding(.horizontal, 20)

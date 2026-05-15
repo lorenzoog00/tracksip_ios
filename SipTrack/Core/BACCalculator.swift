@@ -256,9 +256,11 @@ struct BACCalculator {
                                   : absorbedFraction(deltaHours: hours, kA: factor.kAPerHour, durationHours: T)
             let aEff     = dose * (1.0 - fpm) * absorbed
             let raw      = (aEff / (weightKg * 1000 * r)) * 100
-            sum += max(0, raw - beta * hours)
+            sum += raw
         }
-        return sum
+        // Subtract elimination once from the first drink's timestamp, not per-drink.
+        let hoursFromFirst = sorted.first.map { max(0, time.timeIntervalSince($0.timestamp) / 3600) } ?? 0.0
+        return max(0, sum - beta * hoursFromFirst)
     }
 
     static func estimatePeakBAC(

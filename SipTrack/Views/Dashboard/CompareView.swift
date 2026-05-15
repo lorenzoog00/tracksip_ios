@@ -17,21 +17,21 @@ enum ComparePeriod: String, CaseIterable, Identifiable {
         let now = Date()
         switch self {
         case .thisWeek:
-            let s = cal.date(from: cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now))!
+            let s = cal.date(from: cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now)) ?? now
             return (s, now)
         case .lastWeek:
-            let s0 = cal.date(from: cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now))!
-            let s1 = cal.date(byAdding: .weekOfYear, value: -1, to: s0)!
+            let s0 = cal.date(from: cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now)) ?? now
+            let s1 = cal.date(byAdding: .weekOfYear, value: -1, to: s0) ?? now
             return (s1, s0)
         case .thisMonth:
-            let s = cal.date(from: cal.dateComponents([.year, .month], from: now))!
+            let s = cal.date(from: cal.dateComponents([.year, .month], from: now)) ?? now
             return (s, now)
         case .lastMonth:
-            let s0 = cal.date(from: cal.dateComponents([.year, .month], from: now))!
-            let s1 = cal.date(byAdding: .month, value: -1, to: s0)!
+            let s0 = cal.date(from: cal.dateComponents([.year, .month], from: now)) ?? now
+            let s1 = cal.date(byAdding: .month, value: -1, to: s0) ?? now
             return (s1, s0)
         case .last3M:
-            return (cal.date(byAdding: .month, value: -3, to: now)!, now)
+            return (cal.date(byAdding: .month, value: -3, to: now) ?? now, now)
         }
     }
 }

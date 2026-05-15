@@ -674,6 +674,12 @@ struct NightAnalysisCard: View {
     private var isGeneratingRecovery: Bool {
         appState.generatingRecoveryForEventId == eventId
     }
+    private var isFailedNight: Bool {
+        appState.failedReportEventIds.contains(eventId)
+    }
+    private var isFailedRecovery: Bool {
+        appState.failedRecoveryEventIds.contains(eventId)
+    }
     private var isPro: Bool { appState.isPro }
     private var hasEnded: Bool { event?.endTime != nil }
 
@@ -705,6 +711,10 @@ struct NightAnalysisCard: View {
                 freeReportLimitGate
             } else if event?.aiReport != nil {
                 cardBody
+            } else if isFailedNight {
+                analysisFailure(label: "ANALYSIS FAILED") {
+                    appState.retryNightReport(eventId: eventId)
+                }
             } else {
                 analysisLoading(label: "SCANNING", color: AppColors.accent)
             }
@@ -798,7 +808,13 @@ struct NightAnalysisCard: View {
 
             if hasEnded {
                 recoveryDivider
-                if isGeneratingRecovery || (recovery != nil && recovery?.report == nil) {
+                if isGeneratingRecovery {
+                    analysisLoading(label: "RECOVERY", color: severity.color)
+                } else if isFailedRecovery {
+                    analysisFailure(label: "RECOVERY FAILED") {
+                        appState.retryRecoveryBrief(eventId: eventId)
+                    }
+                } else if recovery != nil && recovery?.report == nil {
                     analysisLoading(label: "RECOVERY", color: severity.color)
                 } else {
                     ForEach(Array(recoverySections.enumerated()), id: \.offset) { i, section in
@@ -850,6 +866,41 @@ struct NightAnalysisCard: View {
                     .font(.system(size: 11))
                     .foregroundStyle(AppColors.textSecondary)
             }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 26)
+    }
+
+    private func analysisFailure(label: String, retryAction: @escaping () -> Void) -> some View {
+        VStack(spacing: 16) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 26))
+                .foregroundStyle(Color.orange)
+            VStack(spacing: 4) {
+                Text(label)
+                    .font(.system(size: 9, weight: .black))
+                    .tracking(2.5)
+                    .foregroundStyle(Color.orange)
+                Text("Could not reach AI service")
+                    .font(.system(size: 11))
+                    .foregroundStyle(AppColors.textSecondary)
+            }
+            Button(action: retryAction) {
+                HStack(spacing: 6) {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 11, weight: .semibold))
+                    Text("RETRY")
+                        .font(.system(size: 11, weight: .bold))
+                        .tracking(1.5)
+                }
+                .foregroundStyle(AppColors.accent)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 9)
+                .background(AppColors.accentDim)
+                .cornerRadius(8)
+            }
+            .buttonStyle(.plain)
         }
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 20)

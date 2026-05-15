@@ -16,13 +16,11 @@ struct DashboardView: View {
     }
 
     private var monthly: MonthlyStats {
-        let comps = Calendar.current.dateComponents(
-            [.year, .month],
-            from: Calendar.current.date(byAdding: .month, value: monthOffset, to: Date())!
-        )
+        let ref = Calendar.current.date(byAdding: .month, value: monthOffset, to: Date()) ?? Date()
+        let comps = Calendar.current.dateComponents([.year, .month], from: ref)
         return AnalyticsEngine.monthly(
-            year: comps.year!,
-            month: comps.month!,
+            year: comps.year ?? Calendar.current.component(.year, from: ref),
+            month: comps.month ?? Calendar.current.component(.month, from: ref),
             events: appState.events,
             entries: appState.entries,
             drinkTypes: appState.allDrinkTypes,
@@ -34,7 +32,7 @@ struct DashboardView: View {
         let cal = Calendar.current
         let fmt = DateFormatter(); fmt.dateFormat = "M/d"
         return (0..<8).map { offset in
-            let ref = cal.date(byAdding: .weekOfYear, value: offset - 7, to: Date())!
+            let ref = cal.date(byAdding: .weekOfYear, value: offset - 7, to: Date()) ?? Date()
             guard let weekStart = cal.date(from: cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: ref)),
                   let weekEnd   = cal.date(byAdding: .day, value: 6, to: weekStart) else {
                 return WeeklyBucket(label: "", drinks: 0, nights: 0)
@@ -618,7 +616,7 @@ private struct MonthlyView: View {
 
     private var monthTitle: String {
         let f = DateFormatter(); f.dateFormat = "MMMM yyyy"
-        let date = Calendar.current.date(byAdding: .month, value: offset, to: Date())!
+        let date = Calendar.current.date(byAdding: .month, value: offset, to: Date()) ?? Date()
         return f.string(from: date)
     }
 

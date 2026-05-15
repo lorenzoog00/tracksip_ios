@@ -132,13 +132,16 @@ struct CreateEventView: View {
                                 }
                             }
                             .animation(.easeInOut(duration: 0.2), value: drivingMode)
+                            .onChange(of: drivingMode) { _, isOn in if isOn { targetBAC = nil } }
 
                             Divider().background(AppColors.border)
 
-                            // Tonight's Ceiling — classy meter, no emojis
-                            GoalCeilingMeter(targetBAC: $targetBAC)
+                            if !drivingMode {
+                                // Tonight's Ceiling — classy meter, no emojis
+                                GoalCeilingMeter(targetBAC: $targetBAC)
 
-                            Divider().background(AppColors.border)
+                                Divider().background(AppColors.border)
+                            }
 
                             // Stomach state
                             VStack(alignment: .leading, spacing: 8) {

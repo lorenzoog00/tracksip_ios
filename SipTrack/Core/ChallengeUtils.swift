@@ -110,15 +110,15 @@ struct ChallengeUtils {
     static func weekBounds(for date: Date) -> (start: Date, end: Date) {
         var cal = Calendar.current
         cal.firstWeekday = 2
-        let start = cal.date(from: cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: date))!
-        let end = cal.date(byAdding: .day, value: 6, to: start)!
+        let start = cal.date(from: cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: date)) ?? date
+        let end = cal.date(byAdding: .day, value: 6, to: start) ?? start
         return (start, end)
     }
 
     static func monthBounds(for date: Date) -> (start: Date, end: Date) {
         let cal = Calendar.current
-        let start = cal.date(from: cal.dateComponents([.year, .month], from: date))!
-        let end = cal.date(byAdding: DateComponents(month: 1, day: -1), to: start)!
+        let start = cal.date(from: cal.dateComponents([.year, .month], from: date)) ?? date
+        let end = cal.date(byAdding: DateComponents(month: 1, day: -1), to: start) ?? start
         return (start, end)
     }
 

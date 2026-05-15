@@ -664,7 +664,7 @@ private struct CalendarDotsPreview: View {
         VStack(alignment: .leading, spacing: 5) {
             HStack(spacing: 4) {
                 ForEach(0..<7, id: \.self) { offset in
-                    let date = Calendar.current.date(byAdding: .day, value: -(6 - offset), to: Date())!
+                    let date = Calendar.current.date(byAdding: .day, value: -(6 - offset), to: Date()) ?? Date()
                     let hasEvent = appState.visibleEvents.contains {
                         Calendar.current.isDate($0.startTime, inSameDayAs: date)
                     }

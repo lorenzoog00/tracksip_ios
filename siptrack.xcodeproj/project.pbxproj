@@ -54,12 +54,6 @@
 		B101B4FB2F9CD648009F7DDD /* SubscriptionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4C22F9C2F32009F7DDD /* SubscriptionView.swift */; };
 		B101B4FC2F9CD648009F7DDD /* SummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4C42F9C2F32009F7DDD /* SummaryView.swift */; };
 		B101B4FD2F9CD648009F7DDD /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4C62F9C2F32009F7DDD /* RootView.swift */; };
-		B101B5062F9CD92D009F7DDD /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = B101B5052F9CD92D009F7DDD /* Auth */; };
-		B101B5082F9CD92D009F7DDD /* Functions in Frameworks */ = {isa = PBXBuildFile; productRef = B101B5072F9CD92D009F7DDD /* Functions */; };
-		B101B50A2F9CD92D009F7DDD /* PostgREST in Frameworks */ = {isa = PBXBuildFile; productRef = B101B5092F9CD92D009F7DDD /* PostgREST */; };
-		B101B50C2F9CD92D009F7DDD /* Realtime in Frameworks */ = {isa = PBXBuildFile; productRef = B101B50B2F9CD92D009F7DDD /* Realtime */; };
-		B101B50E2F9CD92D009F7DDD /* Storage in Frameworks */ = {isa = PBXBuildFile; productRef = B101B50D2F9CD92D009F7DDD /* Storage */; };
-		B101B5102F9CD92D009F7DDD /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = B101B50F2F9CD92D009F7DDD /* Supabase */; };
 		B101B5142F9EB92E009F7DDD /* GoogleMobileAds in Frameworks */ = {isa = PBXBuildFile; productRef = B101B5122F9EB92E009F7DDD /* GoogleMobileAds */; };
 		B15DA93A2FA938B200345F64 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = B15DA9392FA938B200345F64 /* PrivacyInfo.xcprivacy */; };
 		B15DA93C2FA9390900345F64 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B15DA93B2FA9390900345F64 /* Assets.xcassets */; };
@@ -304,14 +298,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				B101B50A2F9CD92D009F7DDD /* PostgREST in Frameworks */,
-				B101B5082F9CD92D009F7DDD /* Functions in Frameworks */,
-				B101B5102F9CD92D009F7DDD /* Supabase in Frameworks */,
 				B15DA98C2FAB9EED00345F64 /* GoogleSignIn in Frameworks */,
 				B1AE99082F9F37E7001DD5F8 /* StoreKit.framework in Frameworks */,
-				B101B5062F9CD92D009F7DDD /* Auth in Frameworks */,
-				B101B50E2F9CD92D009F7DDD /* Storage in Frameworks */,
-				B101B50C2F9CD92D009F7DDD /* Realtime in Frameworks */,
 				B101B5142F9EB92E009F7DDD /* GoogleMobileAds in Frameworks */,
 				B15DA98E2FAB9EED00345F64 /* GoogleSignInSwift in Frameworks */,
 				B15DA96E2FAB947B00345F64 /* FirebaseFirestore in Frameworks */,
@@ -689,12 +677,6 @@
 			);
 			name = siptrack;
 			packageProductDependencies = (
-				B101B5052F9CD92D009F7DDD /* Auth */,
-				B101B5072F9CD92D009F7DDD /* Functions */,
-				B101B5092F9CD92D009F7DDD /* PostgREST */,
-				B101B50B2F9CD92D009F7DDD /* Realtime */,
-				B101B50D2F9CD92D009F7DDD /* Storage */,
-				B101B50F2F9CD92D009F7DDD /* Supabase */,
 				B101B5122F9EB92E009F7DDD /* GoogleMobileAds */,
 				B1CC00052FA00001000CCCCC /* SipTrackActivityKit */,
 				B15DA9632FAB947B00345F64 /* FirebaseAuth */,
@@ -887,7 +869,6 @@
 			mainGroup = B101B4592F9C2B24009F7DDD;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				B101B4CD2F9C92D1009F7DDD /* XCRemoteSwiftPackageReference "supabase-swift" */,
 				B101B5112F9EB92E009F7DDD /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */,
 				B1AE996E2FA02EA5001DD5F8 /* XCLocalSwiftPackageReference "SipTrackActivityKit" */,
 				B15DA9542FAB940400345F64 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
@@ -1701,14 +1682,6 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		B101B4CD2F9C92D1009F7DDD /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/supabase/supabase-swift";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 2.5.1;
-			};
-		};
 		B101B5112F9EB92E009F7DDD /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/googleads/swift-package-manager-google-mobile-ads.git";
@@ -1736,36 +1709,6 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		B101B5052F9CD92D009F7DDD /* Auth */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = B101B4CD2F9C92D1009F7DDD /* XCRemoteSwiftPackageReference "supabase-swift" */;
-			productName = Auth;
-		};
-		B101B5072F9CD92D009F7DDD /* Functions */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = B101B4CD2F9C92D1009F7DDD /* XCRemoteSwiftPackageReference "supabase-swift" */;
-			productName = Functions;
-		};
-		B101B5092F9CD92D009F7DDD /* PostgREST */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = B101B4CD2F9C92D1009F7DDD /* XCRemoteSwiftPackageReference "supabase-swift" */;
-			productName = PostgREST;
-		};
-		B101B50B2F9CD92D009F7DDD /* Realtime */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = B101B4CD2F9C92D1009F7DDD /* XCRemoteSwiftPackageReference "supabase-swift" */;
-			productName = Realtime;
-		};
-		B101B50D2F9CD92D009F7DDD /* Storage */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = B101B4CD2F9C92D1009F7DDD /* XCRemoteSwiftPackageReference "supabase-swift" */;
-			productName = Storage;
-		};
-		B101B50F2F9CD92D009F7DDD /* Supabase */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = B101B4CD2F9C92D1009F7DDD /* XCRemoteSwiftPackageReference "supabase-swift" */;
-			productName = Supabase;
-		};
 		B101B5122F9EB92E009F7DDD /* GoogleMobileAds */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = B101B5112F9EB92E009F7DDD /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */;

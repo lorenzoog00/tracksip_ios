@@ -1022,7 +1022,7 @@ private struct SummaryShareCard: View {
         guard !timeline.isEmpty else { return [] }
         let sorted = timeline.sorted { $0.date < $1.date }
         let start = event.startTime
-        let end = event.endTime ?? sorted.last!.date
+        let end = event.endTime ?? sorted.last?.date ?? Date()
         let totalHours = max(Int(ceil(end.timeIntervalSince(start) / 3600)), 1)
         let fmt = DateFormatter()
         fmt.dateFormat = "ha"
@@ -1035,8 +1035,8 @@ private struct SummaryShareCard: View {
 
     private func interpolatedBAC(at time: Date, sorted: [BACDataPoint]) -> Double {
         guard !sorted.isEmpty else { return 0 }
-        if time <= sorted.first!.date { return sorted.first!.bac }
-        if time >= sorted.last!.date { return sorted.last!.bac }
+        if let first = sorted.first, time <= first.date { return first.bac }
+        if let last = sorted.last,  time >= last.date  { return last.bac }
         for i in 0..<(sorted.count - 1) {
             if sorted[i].date <= time && time <= sorted[i + 1].date {
                 let span = sorted[i + 1].date.timeIntervalSince(sorted[i].date)

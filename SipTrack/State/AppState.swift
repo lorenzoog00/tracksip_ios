@@ -26,10 +26,13 @@ final class AppState: ObservableObject {
     @Published var shouldShowAuth: Bool      = false
     @Published var syncFailed: Bool          = false
     @Published var generatingReportForEventId: String? = nil
+    @Published var failedReportEventIds: Set<String> = []
     @Published var coachReports: [CoachReport] = []
     @Published var generatingCoachReportId: String? = nil
+    @Published var failedCoachReportIds: Set<String> = []
     @Published var nightRecoveries: [NightRecovery] = []
     @Published var generatingRecoveryForEventId: String? = nil
+    @Published var failedRecoveryEventIds: Set<String> = []
 
     /// Fires every 10 s while an event is active. All views that show live BAC
     /// read `_ = appState.bacTick` so they recompute in sync.
@@ -92,7 +95,7 @@ final class AppState: ObservableObject {
             .filter { $0.endTime != nil && $0.userId == uid }
             .sorted { $0.startTime > $1.startTime }
         if isPro { return finished }
-        let cutoff = Calendar.current.date(byAdding: .day, value: -30, to: Date())!
+        let cutoff = Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? Date(timeIntervalSinceNow: -(30 * 24 * 3600))
         return finished.filter { $0.startTime >= cutoff }
     }
 
@@ -270,7 +273,7 @@ final class AppState: ObservableObject {
         updateUserProfile(profile)
     }
 
-    private func generateAiReport(for eventId: String) {
+    func generateAiReport(for eventId: String) {
         guard canGenerateNightReport else { return }
         guard let event = events.first(where: { $0.id == eventId }),
               let endTime = event.endTime else { return }
@@ -305,7 +308,7 @@ final class AppState: ObservableObject {
         let cals = totalCalories(for: eventId)
         let lastDrinkTime = eventEntries.max(by: { $0.timestamp < $1.timestamp })?.timestamp ?? event.startTime
         let recoveryMinutes = Int(endTime.timeIntervalSince(lastDrinkTime) / 60)
-        let thirtyDaysAgo = Calendar.current.date(byAdding: .day, value: -30, to: Date())!
+        let thirtyDaysAgo = Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? Date(timeIntervalSinceNow: -(30 * 24 * 3600))
         let recentEvents = events.filter {
             $0.userId == currentUserId && $0.endTime != nil
             && $0.id != eventId && $0.startTime >= thirtyDaysAgo
@@ -337,18 +340,19 @@ final class AppState: ObservableObject {
         if let name = event.name { params["eventName"] = name }
         if let birthYear = userProfile.birthYear { params["userAge"] = currentYear - birthYear }
 
-        // Drinking pace
+        // Drinking pace — classified by drinks per hour, not sip duration
+        let eventHours = max(0.01, (event.endTime ?? Date()).timeIntervalSince(event.startTime) / 3600)
+        let dph        = Double(drinkCount) / eventHours
+        let pace: String
+        if dph > 2.0 { pace = "fast" } else if dph >= 1.0 { pace = "moderate" } else { pace = "slow" }
+        params["drinksPerHour"] = round(dph * 10) / 10
+        params["paceSummary"]   = pace
+
         let sipResults = drinkSipDurations(entries: eventEntries, drinkTypes: allDrinkTypes)
         if !sipResults.isEmpty {
             let totalSipMin = sipResults.reduce(0) { $0 + $1.sipMinutes }
             let avgSip      = Double(totalSipMin) / Double(sipResults.count)
-            let eventHours  = max(0.01, (event.endTime ?? Date()).timeIntervalSince(event.startTime) / 3600)
-            let dph         = Double(drinkCount) / eventHours
-            let pace: String
-            if avgSip < 12 { pace = "fast" } else if avgSip < 25 { pace = "moderate" } else { pace = "slow" }
-            params["avgSipMinutes"]   = Int(avgSip)
-            params["drinksPerHour"]   = round(dph * 10) / 10
-            params["paceSummary"]     = pace
+            params["avgSipMinutes"] = Int(avgSip)
             if let f = sipResults.min(by: { $0.sipMinutes < $1.sipMinutes }) {
                 params["fastestDrinkName"] = f.drinkType?.name ?? "Unknown"
             }
@@ -367,6 +371,7 @@ final class AppState: ObservableObject {
 
         let eventDisplayName = event.displayName
         generatingReportForEventId = eventId
+        failedReportEventIds.remove(eventId)
         Task {
             defer { generatingReportForEventId = nil }
             do {
@@ -378,7 +383,7 @@ final class AppState: ObservableObject {
                     if report != nil { break }
                 }
                 guard let report else {
-                    print("❌ AI report timeout: no report after 45s")
+                    failedReportEventIds.insert(eventId)
                     return
                 }
                 if let idx = events.firstIndex(where: { $0.id == eventId }) {
@@ -388,7 +393,7 @@ final class AppState: ObservableObject {
                 incrementAiReportUsage()
                 scheduleReportReadyNotification(eventName: eventDisplayName)
             } catch {
-                print("❌ AI report error: \(error)")
+                failedReportEventIds.insert(eventId)
             }
         }
     }
@@ -509,6 +514,7 @@ final class AppState: ObservableObject {
 
         Task {
             generatingRecoveryForEventId = eventId
+            failedRecoveryEventIds.remove(eventId)
             defer { generatingRecoveryForEventId = nil }
             let payload: [String: Any] = [
                 "status": "pending",
@@ -523,14 +529,16 @@ final class AppState: ObservableObject {
                     report = await FirebaseManager.shared.fetchRecoveryBrief(eventId: eventId)
                     if report != nil { break }
                 }
-                if let report, let idx = nightRecoveries.firstIndex(where: { $0.id == eventId }) {
+                guard let report else {
+                    failedRecoveryEventIds.insert(eventId)
+                    return
+                }
+                if let idx = nightRecoveries.firstIndex(where: { $0.id == eventId }) {
                     nightRecoveries[idx].report = report
                     DataStore.shared.saveNightRecoveries(nightRecoveries)
                 }
             } catch {
-                nightRecoveries.removeAll { $0.id == eventId }
-                DataStore.shared.saveNightRecoveries(nightRecoveries)
-                print("❌ Recovery brief error: \(error)")
+                failedRecoveryEventIds.insert(eventId)
             }
         }
     }
@@ -589,23 +597,23 @@ final class AppState: ObservableObject {
         let cal = Calendar(identifier: .iso8601)
         let now = Date()
 
-        let prevWeekDate = cal.date(byAdding: .weekOfYear, value: -1, to: now)!
+        guard let prevWeekDate = cal.date(byAdding: .weekOfYear, value: -1, to: now) else { return }
         let weekId = weeklyReportId(for: prevWeekDate)
         if !coachReports.contains(where: { $0.id == weekId }) {
-            let weekStart = cal.date(from: cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: prevWeekDate))!
-            let weekEnd   = cal.date(byAdding: .day, value: 7, to: weekStart)!
+            guard let weekStart = cal.date(from: cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: prevWeekDate)),
+                  let weekEnd = cal.date(byAdding: .day, value: 7, to: weekStart) else { return }
             let hasNights = events.contains { $0.endTime != nil && $0.startTime >= weekStart && $0.startTime < weekEnd }
             if hasNights { generateWeeklyReport(for: prevWeekDate) }
         }
 
-        let prevMonth = cal.date(byAdding: .month, value: -1, to: now)!
+        guard let prevMonth = cal.date(byAdding: .month, value: -1, to: now) else { return }
         let y = cal.component(.year, from: prevMonth)
         let m = cal.component(.month, from: prevMonth)
         let monthId = "monthly-\(y)-\(String(format: "%02d", m))"
         if !coachReports.contains(where: { $0.id == monthId }) {
             let comps = DateComponents(year: y, month: m, day: 1)
-            let monthStart = cal.date(from: comps)!
-            let monthEnd   = cal.date(byAdding: .month, value: 1, to: monthStart)!
+            guard let monthStart = cal.date(from: comps),
+                  let monthEnd = cal.date(byAdding: .month, value: 1, to: monthStart) else { return }
             let hasNights  = events.contains { $0.endTime != nil && $0.startTime >= monthStart && $0.startTime < monthEnd }
             if hasNights { generateMonthlyReport(year: y, month: m) }
         }
@@ -622,8 +630,8 @@ final class AppState: ObservableObject {
         guard currentUserId != nil else { return }
         let cal = Calendar(identifier: .iso8601)
         let now = Date()
-        let weekStart = cal.date(from: cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: refDate))!
-        let weekEnd   = cal.date(byAdding: .day, value: 7, to: weekStart)!
+        guard let weekStart = cal.date(from: cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: refDate)),
+              let weekEnd   = cal.date(byAdding: .day, value: 7, to: weekStart) else { return }
         let reportId  = weeklyReportId(for: refDate)
 
         guard !coachReports.contains(where: { $0.id == reportId }) else { return }
@@ -641,6 +649,7 @@ final class AppState: ObservableObject {
 
         Task {
             generatingCoachReportId = reportId
+            failedCoachReportIds.remove(reportId)
             defer { generatingCoachReportId = nil }
             var payload: [String: Any] = [
                 "type": "weekly",
@@ -660,10 +669,11 @@ final class AppState: ObservableObject {
                     DataStore.shared.saveCoachReports(coachReports)
                     let label = payload["week_start_label"] as? String ?? "this week"
                     scheduleCoachReportNotification(type: .weekly, periodLabel: label)
+                } else {
+                    failedCoachReportIds.insert(reportId)
                 }
             } catch {
-                coachReports.removeAll { $0.id == reportId }
-                print("❌ Weekly coach report error: \(error)")
+                failedCoachReportIds.insert(reportId)
             }
         }
     }
@@ -672,7 +682,7 @@ final class AppState: ObservableObject {
         guard currentUserId != nil else { return }
         let cal = Calendar(identifier: .iso8601)
         let now = Date()
-        let prevMonth = cal.date(byAdding: .month, value: -1, to: now)!
+        guard let prevMonth = cal.date(byAdding: .month, value: -1, to: now) else { return }
         let y = year  ?? cal.component(.year,  from: prevMonth)
         let m = month ?? cal.component(.month, from: prevMonth)
         let reportId = "monthly-\(y)-\(String(format: "%02d", m))"
@@ -680,8 +690,8 @@ final class AppState: ObservableObject {
         guard !coachReports.contains(where: { $0.id == reportId }) else { return }
 
         let comps = DateComponents(year: y, month: m, day: 1)
-        let monthStart = cal.date(from: comps)!
-        let monthEnd   = cal.date(byAdding: .month, value: 1, to: monthStart)!
+        guard let monthStart = cal.date(from: comps),
+              let monthEnd   = cal.date(byAdding: .month, value: 1, to: monthStart) else { return }
 
         let data = buildMonthlyData(from: monthStart, to: monthEnd)
         guard !data.isEmpty else { return }
@@ -695,6 +705,7 @@ final class AppState: ObservableObject {
 
         Task {
             generatingCoachReportId = reportId
+            failedCoachReportIds.remove(reportId)
             defer { generatingCoachReportId = nil }
             let payload: [String: Any] = [
                 "type": "monthly",
@@ -713,10 +724,11 @@ final class AppState: ObservableObject {
                     let fmt = DateFormatter(); fmt.dateFormat = "MMMM yyyy"
                     let label = fmt.string(from: monthStart)
                     scheduleCoachReportNotification(type: .monthly, periodLabel: label)
+                } else {
+                    failedCoachReportIds.insert(reportId)
                 }
             } catch {
-                coachReports.removeAll { $0.id == reportId }
-                print("❌ Monthly coach report error: \(error)")
+                failedCoachReportIds.insert(reportId)
             }
         }
     }
@@ -750,6 +762,7 @@ final class AppState: ObservableObject {
 
         Task {
             generatingCoachReportId = reportId
+            failedCoachReportIds.remove(reportId)
             defer { generatingCoachReportId = nil }
             var requestData = userData
             requestData["eventA"] = aData
@@ -770,11 +783,42 @@ final class AppState: ObservableObject {
                 if let report, let idx = coachReports.firstIndex(where: { $0.id == reportId }) {
                     coachReports[idx].report = report
                     DataStore.shared.saveCoachReports(coachReports)
+                } else {
+                    failedCoachReportIds.insert(reportId)
                 }
             } catch {
-                coachReports.removeAll { $0.id == reportId }
-                print("❌ Comparison coach report error: \(error)")
+                failedCoachReportIds.insert(reportId)
             }
+        }
+    }
+
+    func retryNightReport(eventId: String) {
+        failedReportEventIds.remove(eventId)
+        generateAiReport(for: eventId)
+    }
+
+    func retryRecoveryBrief(eventId: String) {
+        failedRecoveryEventIds.remove(eventId)
+        generateRecoveryBrief(for: eventId)
+    }
+
+    func retryCoachReport(id: String) {
+        guard let report = coachReports.first(where: { $0.id == id }) else { return }
+        coachReports.removeAll { $0.id == id }
+        failedCoachReportIds.remove(id)
+        switch report.type {
+        case .weekly:
+            generateWeeklyReport(for: report.periodStart)
+        case .monthly:
+            let cal = Calendar(identifier: .iso8601)
+            let y = cal.component(.year,  from: report.periodStart)
+            let m = cal.component(.month, from: report.periodStart)
+            generateMonthlyReport(year: y, month: m)
+        case .comparison:
+            guard let aId = report.eventAId, let bId = report.eventBId,
+                  let eventA = events.first(where: { $0.id == aId }),
+                  let eventB = events.first(where: { $0.id == bId }) else { return }
+            generateComparisonReport(eventA: eventA, eventB: eventB)
         }
     }
 
@@ -832,7 +876,7 @@ final class AppState: ObservableObject {
         }
 
         let avgBac = bacValues.isEmpty ? 0.0 : bacValues.reduce(0, +) / Double(bacValues.count)
-        let thirtyDaysAgo = cal.date(byAdding: .day, value: -30, to: now)!
+        let thirtyDaysAgo = cal.date(byAdding: .day, value: -30, to: now) ?? Date(timeIntervalSinceNow: -(30 * 24 * 3600))
         let recentEvents = events.filter {
             $0.userId == currentUserId && $0.endTime != nil && $0.startTime >= thirtyDaysAgo
         }
@@ -854,7 +898,7 @@ final class AppState: ObservableObject {
             "userSex": userProfile.sex.rawValue,
             "userWeightKg": userProfile.weightKg,
             "weekStart": dateFmt.string(from: weekStart),
-            "weekEnd":   dateFmt.string(from: cal.date(byAdding: .day, value: -1, to: weekEnd)!),
+            "weekEnd":   dateFmt.string(from: cal.date(byAdding: .day, value: -1, to: weekEnd) ?? weekEnd),
             "nightCount": weekNights.count,
             "totalDrinks": weekTotalDrinks,
             "totalStdDrinks": weekTotalDrinks,
@@ -924,7 +968,7 @@ final class AppState: ObservableObject {
         var weekBreakdowns: [[String: Any]] = []
         var weekStart = monthStart
         while weekStart < monthEnd {
-            let weekEnd = min(cal.date(byAdding: .day, value: 7, to: weekStart)!, monthEnd)
+            let weekEnd = min(cal.date(byAdding: .day, value: 7, to: weekStart) ?? monthEnd, monthEnd)
             let wNights = monthNights.filter { $0.startTime >= weekStart && $0.startTime < weekEnd }
             let wDrinks = wNights.reduce(0) { $0 + totalDrinks(for: $1.id) }
             let wPeakBac = wNights.reduce(0.0) { (acc, event) -> Double in
@@ -939,7 +983,7 @@ final class AppState: ObservableObject {
             weekStart = weekEnd
         }
 
-        let prevMonthStart = cal.date(byAdding: .month, value: -1, to: monthStart)!
+        let prevMonthStart = cal.date(byAdding: .month, value: -1, to: monthStart) ?? monthStart
         let prevMonthNightCount = events.filter {
             $0.endTime != nil && $0.userId == currentUserId
             && $0.startTime >= prevMonthStart && $0.startTime < monthStart
