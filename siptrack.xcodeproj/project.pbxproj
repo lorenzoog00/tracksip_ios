@@ -7,8 +7,15 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0B600C73A34541F49740B136 /* FoodEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0E98F63CB724D4CB75A1270 /* FoodEntry.swift */; };
+		2A41B90C2B57482B91131763 /* CoachView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6305C2FF0C534B6ABC925280 /* CoachView.swift */; };
+		484c06b9a233439db00dc5988d74786e /* CoachReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4f3719ab9d5d455c9961490721ee331e /* CoachReport.swift */; };
+		6d03191640c54d6ca2734dfaa02ef4ac /* CoachReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4f3719ab9d5d455c9961490721ee331e /* CoachReport.swift */; };
 		81C0FDA9CF014AD68B83E825 /* CompareView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0303E6B5D734A7E92B6E68C /* CompareView.swift */; };
+		8EA9EA16F38D4163B2A7B78F /* FoodEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0E98F63CB724D4CB75A1270 /* FoodEntry.swift */; };
 		A0WB1001000000000000001A /* WatchBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0WB1002000000000000001B /* WatchBridge.swift */; };
+		A5E1F2C3D4B5009F7DDE0002 /* NightRecovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5E1F2C3D4B5009F7DDE0001 /* NightRecovery.swift */; };
+		A5E1F2C3D4B5009F7DDE0004 /* RecoveryBriefCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5E1F2C3D4B5009F7DDE0003 /* RecoveryBriefCard.swift */; };
 		B101B4D92F9CD5E0009F7DDD /* SipTrackApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4C82F9C2F32009F7DDD /* SipTrackApp.swift */; };
 		B101B4DB2F9CD648009F7DDD /* AdConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4902F9C2F32009F7DDD /* AdConfig.swift */; };
 		B101B4DC2F9CD648009F7DDD /* AdManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4912F9C2F32009F7DDD /* AdManager.swift */; };
@@ -16,16 +23,17 @@
 		B101B4DE2F9CD648009F7DDD /* NativeAdCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4932F9C2F32009F7DDD /* NativeAdCardView.swift */; };
 		B101B4DF2F9CD648009F7DDD /* AppColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4952F9C2F32009F7DDD /* AppColors.swift */; };
 		B101B4E02F9CD648009F7DDD /* Analytics.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4972F9C2F32009F7DDD /* Analytics.swift */; };
+		B1CC10052FA1000000001005 /* CountryDetectedSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1CC10062FA1000000001006 /* CountryDetectedSheet.swift */; };
 		B101B4E12F9CD648009F7DDD /* BACCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4982F9C2F32009F7DDD /* BACCalculator.swift */; };
+		B1CC10022FA1000000001002 /* LocationCountryDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1CC10012FA1000000001001 /* LocationCountryDetector.swift */; };
+		B1CC10042FA1000000001004 /* LegalBACLimit.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1CC10032FA1000000001003 /* LegalBACLimit.swift */; };
 		B101B4E22F9CD648009F7DDD /* ChallengeUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4992F9C2F32009F7DDD /* ChallengeUtils.swift */; };
 		B101B4E32F9CD648009F7DDD /* IntoxicationStage.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B49A2F9C2F32009F7DDD /* IntoxicationStage.swift */; };
 		B101B4E42F9CD648009F7DDD /* WarningSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B49B2F9C2F32009F7DDD /* WarningSystem.swift */; };
 		B101B4E52F9CD648009F7DDD /* Challenge.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B49D2F9C2F32009F7DDD /* Challenge.swift */; };
 		B101B4E62F9CD648009F7DDD /* DrinkType.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B49E2F9C2F32009F7DDD /* DrinkType.swift */; };
 		B101B4E72F9CD648009F7DDD /* NightEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B49F2F9C2F32009F7DDD /* NightEvent.swift */; };
-		0B600C73A34541F49740B136 /* FoodEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0E98F63CB724D4CB75A1270 /* FoodEntry.swift */; };
 		B101B4E82F9CD648009F7DDD /* UserProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4A02F9C2F32009F7DDD /* UserProfile.swift */; };
-		6d03191640c54d6ca2734dfaa02ef4ac /* CoachReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4f3719ab9d5d455c9961490721ee331e /* CoachReport.swift */; };
 		B101B4E92F9CD648009F7DDD /* Route.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4A22F9C2F32009F7DDD /* Route.swift */; };
 		B101B4EA2F9CD648009F7DDD /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4A42F9C2F32009F7DDD /* AppState.swift */; };
 		B101B4EB2F9CD648009F7DDD /* AppStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4A62F9C2F32009F7DDD /* AppStorage.swift */; };
@@ -66,7 +74,6 @@
 		B15DA9AA2FAC149800345F64 /* EmailVerificationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B15DA9A92FAC149800345F64 /* EmailVerificationView.swift */; };
 		B15DA9AC2FAC184E00345F64 /* ForgotPasswordView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B15DA9AB2FAC184E00345F64 /* ForgotPasswordView.swift */; };
 		B15DA9AE2FAC1A1600345F64 /* GoogleGLogo.swift in Sources */ = {isa = PBXBuildFile; fileRef = B15DA9AD2FAC1A1600345F64 /* GoogleGLogo.swift */; };
-		CC1A2B3D4E5F6A7B8C9D0E1F /* LearnView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1A2B3D4E5F6A7B8C9D0E10 /* LearnView.swift */; };
 		B15DA9B02FAC443C00345F64 /* FirebaseCrashlytics in Frameworks */ = {isa = PBXBuildFile; productRef = B15DA9AF2FAC443C00345F64 /* FirebaseCrashlytics */; };
 		B15DA9BE2FAD420300345F64 /* NightReportPDF.swift in Sources */ = {isa = PBXBuildFile; fileRef = B15DA9BD2FAD420300345F64 /* NightReportPDF.swift */; };
 		B15DA9BF2FAD420300345F64 /* AIReportCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = B15DA9BC2FAD420300345F64 /* AIReportCard.swift */; };
@@ -74,12 +81,11 @@
 		B164CFE32FA2C9EB00AA682B /* UserProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4A02F9C2F32009F7DDD /* UserProfile.swift */; };
 		B164CFE42FA2C9EB00AA682B /* Challenge.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B49D2F9C2F32009F7DDD /* Challenge.swift */; };
 		B164CFE52FA2C9EB00AA682B /* NightEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B49F2F9C2F32009F7DDD /* NightEvent.swift */; };
-		8EA9EA16F38D4163B2A7B78F /* FoodEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0E98F63CB724D4CB75A1270 /* FoodEntry.swift */; };
 		B164CFE62FA2C9EB00AA682B /* DrinkType.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B49E2F9C2F32009F7DDD /* DrinkType.swift */; };
 		B164CFE72FA2C9F800AA682B /* BACCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4982F9C2F32009F7DDD /* BACCalculator.swift */; };
 		B164CFE92FA2CA5B00AA682B /* WatchConnectivity.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B164CFE82FA2CA5B00AA682B /* WatchConnectivity.framework */; };
 		B164D0872FA2CC3300AA682B /* AppStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4A62F9C2F32009F7DDD /* AppStorage.swift */; };
-		484c06b9a233439db00dc5988d74786e /* CoachReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4f3719ab9d5d455c9961490721ee331e /* CoachReport.swift */; };
+		B18BC02F2FB69C1D00CEFB3C /* AppleSignInCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B18BC02E2FB69C1D00CEFB3C /* AppleSignInCoordinator.swift */; };
 		B1AE99082F9F37E7001DD5F8 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B1AE99072F9F37E7001DD5F8 /* StoreKit.framework */; };
 		B1AE990C2F9F4EEE001DD5F8 /* Siptrack.storekit in Resources */ = {isa = PBXBuildFile; fileRef = B1AE990B2F9F4EEE001DD5F8 /* Siptrack.storekit */; };
 		B1AE99132FA02308001DD5F8 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B1AE99122FA02308001DD5F8 /* WidgetKit.framework */; };
@@ -88,10 +94,8 @@
 		B1CC00042FA00000000BBBBB /* LiveActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1CC00022FA00000000BBBBB /* LiveActivityManager.swift */; };
 		B1CC00072FA00001000CCCCC /* SipTrackActivityKit in Frameworks */ = {isa = PBXBuildFile; productRef = B1CC00052FA00001000CCCCC /* SipTrackActivityKit */; };
 		B1CC00082FA00001000CCCCC /* SipTrackActivityKit in Frameworks */ = {isa = PBXBuildFile; productRef = B1CC00062FA00001000CCCCC /* SipTrackActivityKit */; };
-		2A41B90C2B57482B91131763 /* CoachView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6305C2FF0C534B6ABC925280 /* CoachView.swift */; };
+		CC1A2B3D4E5F6A7B8C9D0E1F /* LearnView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1A2B3D4E5F6A7B8C9D0E10 /* LearnView.swift */; };
 		EB905CE970424234994954D0 /* CoachReportCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F19FB458C03404B93011571 /* CoachReportCard.swift */; };
-		A5E1F2C3D4B5009F7DDE0002 /* NightRecovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5E1F2C3D4B5009F7DDE0001 /* NightRecovery.swift */; };
-		A5E1F2C3D4B5009F7DDE0004 /* RecoveryBriefCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5E1F2C3D4B5009F7DDE0003 /* RecoveryBriefCard.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -165,7 +169,13 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		3F19FB458C03404B93011571 /* CoachReportCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachReportCard.swift; sourceTree = "<group>"; };
+		4f3719ab9d5d455c9961490721ee331e /* CoachReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachReport.swift; sourceTree = "<group>"; };
+		6305C2FF0C534B6ABC925280 /* CoachView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachView.swift; sourceTree = "<group>"; };
+		A0E98F63CB724D4CB75A1270 /* FoodEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodEntry.swift; sourceTree = "<group>"; };
 		A0WB1002000000000000001B /* WatchBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchBridge.swift; sourceTree = "<group>"; };
+		A5E1F2C3D4B5009F7DDE0001 /* NightRecovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NightRecovery.swift; sourceTree = "<group>"; };
+		A5E1F2C3D4B5009F7DDE0003 /* RecoveryBriefCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecoveryBriefCard.swift; sourceTree = "<group>"; };
 		B101B4622F9C2B24009F7DDD /* siptrack.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = siptrack.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B101B46F2F9C2B29009F7DDD /* siptrackTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = siptrackTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B101B4792F9C2B29009F7DDD /* siptrackUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = siptrackUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -176,16 +186,14 @@
 		B101B4952F9C2F32009F7DDD /* AppColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppColors.swift; sourceTree = "<group>"; };
 		B101B4972F9C2F32009F7DDD /* Analytics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Analytics.swift; sourceTree = "<group>"; };
 		B101B4982F9C2F32009F7DDD /* BACCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BACCalculator.swift; sourceTree = "<group>"; };
+		B1CC10012FA1000000001001 /* LocationCountryDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationCountryDetector.swift; sourceTree = "<group>"; };
+		B1CC10032FA1000000001003 /* LegalBACLimit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegalBACLimit.swift; sourceTree = "<group>"; };
 		B101B4992F9C2F32009F7DDD /* ChallengeUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChallengeUtils.swift; sourceTree = "<group>"; };
 		B101B49A2F9C2F32009F7DDD /* IntoxicationStage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntoxicationStage.swift; sourceTree = "<group>"; };
 		B101B49B2F9C2F32009F7DDD /* WarningSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WarningSystem.swift; sourceTree = "<group>"; };
 		B101B49D2F9C2F32009F7DDD /* Challenge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Challenge.swift; sourceTree = "<group>"; };
-		4f3719ab9d5d455c9961490721ee331e /* CoachReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachReport.swift; sourceTree = "<group>"; };
-		A5E1F2C3D4B5009F7DDE0001 /* NightRecovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NightRecovery.swift; sourceTree = "<group>"; };
-		A5E1F2C3D4B5009F7DDE0003 /* RecoveryBriefCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecoveryBriefCard.swift; sourceTree = "<group>"; };
 		B101B49E2F9C2F32009F7DDD /* DrinkType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrinkType.swift; sourceTree = "<group>"; };
 		B101B49F2F9C2F32009F7DDD /* NightEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NightEvent.swift; sourceTree = "<group>"; };
-		A0E98F63CB724D4CB75A1270 /* FoodEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodEntry.swift; sourceTree = "<group>"; };
 		B101B4A02F9C2F32009F7DDD /* UserProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserProfile.swift; sourceTree = "<group>"; };
 		B101B4A22F9C2F32009F7DDD /* Route.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Route.swift; sourceTree = "<group>"; };
 		B101B4A42F9C2F32009F7DDD /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
@@ -202,6 +210,7 @@
 		B101B4BA2F9C2F32009F7DDD /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		B101B4BC2F9C2F32009F7DDD /* DisclaimerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisclaimerView.swift; sourceTree = "<group>"; };
 		B101B4BD2F9C2F32009F7DDD /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		B1CC10062FA1000000001006 /* CountryDetectedSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CountryDetectedSheet.swift; sourceTree = "<group>"; };
 		B101B4BF2F9C2F32009F7DDD /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		B101B4C12F9C2F32009F7DDD /* PaywallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaywallView.swift; sourceTree = "<group>"; };
 		B101B4C22F9C2F32009F7DDD /* SubscriptionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionView.swift; sourceTree = "<group>"; };
@@ -221,13 +230,13 @@
 		B15DA9A92FAC149800345F64 /* EmailVerificationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmailVerificationView.swift; sourceTree = "<group>"; };
 		B15DA9AB2FAC184E00345F64 /* ForgotPasswordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgotPasswordView.swift; sourceTree = "<group>"; };
 		B15DA9AD2FAC1A1600345F64 /* GoogleGLogo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleGLogo.swift; sourceTree = "<group>"; };
-		CC1A2B3D4E5F6A7B8C9D0E10 /* LearnView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LearnView.swift; sourceTree = "<group>"; };
 		B15DA9BC2FAD420300345F64 /* AIReportCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIReportCard.swift; sourceTree = "<group>"; };
 		B15DA9BD2FAD420300345F64 /* NightReportPDF.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NightReportPDF.swift; sourceTree = "<group>"; };
 		B164CFB72FA2C98000AA682B /* SipTrack Watch Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "SipTrack Watch Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		B164CFC32FA2C98100AA682B /* SipTrack Watch Watch AppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "SipTrack Watch Watch AppTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		B164CFCD2FA2C98100AA682B /* SipTrack Watch Watch AppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "SipTrack Watch Watch AppUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		B164CFE82FA2CA5B00AA682B /* WatchConnectivity.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WatchConnectivity.framework; path = System/Library/Frameworks/WatchConnectivity.framework; sourceTree = SDKROOT; };
+		B18BC02E2FB69C1D00CEFB3C /* AppleSignInCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleSignInCoordinator.swift; sourceTree = "<group>"; };
 		B1AE99072F9F37E7001DD5F8 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
 		B1AE990B2F9F4EEE001DD5F8 /* Siptrack.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = Siptrack.storekit; sourceTree = "<group>"; };
 		B1AE99112FA02308001DD5F8 /* SipTrackWidgetsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SipTrackWidgetsExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -235,9 +244,8 @@
 		B1AE99142FA02308001DD5F8 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		B1CC00022FA00000000BBBBB /* LiveActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityManager.swift; sourceTree = "<group>"; };
 		B2AA00012F9FF000000AAAAA /* SipTrack.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SipTrack.entitlements; sourceTree = "<group>"; };
+		CC1A2B3D4E5F6A7B8C9D0E10 /* LearnView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LearnView.swift; sourceTree = "<group>"; };
 		D0303E6B5D734A7E92B6E68C /* CompareView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompareView.swift; sourceTree = "<group>"; };
-		6305C2FF0C534B6ABC925280 /* CoachView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachView.swift; sourceTree = "<group>"; };
-		3F19FB458C03404B93011571 /* CoachReportCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachReportCard.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -427,6 +435,8 @@
 				B101B49A2F9C2F32009F7DDD /* IntoxicationStage.swift */,
 				B101B49B2F9C2F32009F7DDD /* WarningSystem.swift */,
 				B1CC00022FA00000000BBBBB /* LiveActivityManager.swift */,
+				B1CC10012FA1000000001001 /* LocationCountryDetector.swift */,
+				B1CC10032FA1000000001003 /* LegalBACLimit.swift */,
 			);
 			path = Core;
 			sourceTree = "<group>";
@@ -541,6 +551,7 @@
 			children = (
 				B101B4BC2F9C2F32009F7DDD /* DisclaimerView.swift */,
 				B101B4BD2F9C2F32009F7DDD /* OnboardingView.swift */,
+				B1CC10062FA1000000001006 /* CountryDetectedSheet.swift */,
 			);
 			path = Onboarding;
 			sourceTree = "<group>";
@@ -575,15 +586,6 @@
 				B101B4C42F9C2F32009F7DDD /* SummaryView.swift */,
 			);
 			path = Summary;
-			sourceTree = "<group>";
-		};
-		D73AFE8325134E05A20D23C9 /* Coach */ = {
-			isa = PBXGroup;
-			children = (
-				6305C2FF0C534B6ABC925280 /* CoachView.swift */,
-				3F19FB458C03404B93011571 /* CoachReportCard.swift */,
-			);
-			path = Coach;
 			sourceTree = "<group>";
 		};
 		B101B4C72F9C2F32009F7DDD /* Views */ = {
@@ -651,9 +653,19 @@
 		B15DA9862FAB993000345F64 /* Firebase */ = {
 			isa = PBXGroup;
 			children = (
+				B18BC02E2FB69C1D00CEFB3C /* AppleSignInCoordinator.swift */,
 				B15DA9852FAB993000345F64 /* FirebaseManager.swift */,
 			);
 			path = Firebase;
+			sourceTree = "<group>";
+		};
+		D73AFE8325134E05A20D23C9 /* Coach */ = {
+			isa = PBXGroup;
+			children = (
+				6305C2FF0C534B6ABC925280 /* CoachView.swift */,
+				3F19FB458C03404B93011571 /* CoachReportCard.swift */,
+			);
+			path = Coach;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -963,6 +975,7 @@
 				B101B4DD2F9CD648009F7DDD /* BannerAdView.swift in Sources */,
 				B15DA9BE2FAD420300345F64 /* NightReportPDF.swift in Sources */,
 				B15DA9BF2FAD420300345F64 /* AIReportCard.swift in Sources */,
+				B18BC02F2FB69C1D00CEFB3C /* AppleSignInCoordinator.swift in Sources */,
 				B101B4DE2F9CD648009F7DDD /* NativeAdCardView.swift in Sources */,
 				B101B4DF2F9CD648009F7DDD /* AppColors.swift in Sources */,
 				A0WB1001000000000000001A /* WatchBridge.swift in Sources */,
@@ -1011,6 +1024,9 @@
 				EB905CE970424234994954D0 /* CoachReportCard.swift in Sources */,
 				A5E1F2C3D4B5009F7DDE0002 /* NightRecovery.swift in Sources */,
 				A5E1F2C3D4B5009F7DDE0004 /* RecoveryBriefCard.swift in Sources */,
+				B1CC10022FA1000000001002 /* LocationCountryDetector.swift in Sources */,
+				B1CC10042FA1000000001004 /* LegalBACLimit.swift in Sources */,
+				B1CC10052FA1000000001005 /* CountryDetectedSheet.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
