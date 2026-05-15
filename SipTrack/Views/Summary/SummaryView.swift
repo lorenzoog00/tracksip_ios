@@ -1064,10 +1064,14 @@ private struct SummaryShareCard: View {
             VStack(spacing: 0) {
                 // Branding row
                 HStack {
-                    HStack(spacing: 5) {
-                        Image(systemName: "wineglass.fill")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(AppColors.accent)
+                    HStack(spacing: 8) {
+                        if let icon = UIImage(named: "AppIcon") {
+                            Image(uiImage: icon)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 22, height: 22)
+                                .cornerRadius(5)
+                        }
                         Text("TRACKSIP")
                             .font(.system(size: 10, weight: .bold))
                             .tracking(2.5)

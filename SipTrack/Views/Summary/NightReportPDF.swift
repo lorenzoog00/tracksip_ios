@@ -130,7 +130,13 @@ struct NightReportPDFPage: View {
             VStack(spacing: 10) {
                 // Logo + wordmark row
                 HStack(spacing: 16) {
-                    TracksipLogoMark(size: 64, foregroundColor: .white, waveColor: Color(hex: "#5BC8FF"))
+                    if let icon = UIImage(named: "AppIcon") {
+                        Image(uiImage: icon)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 64, height: 64)
+                            .cornerRadius(14)
+                    }
                     VStack(alignment: .leading, spacing: 4) {
                         Text("TRACKSIP")
                             .font(.system(size: 11, weight: .black))
@@ -347,7 +353,13 @@ struct NightReportPDFPage: View {
     private var pageFooter: some View {
         HStack {
             HStack(spacing: 8) {
-                TracksipLogoMark(size: 18, foregroundColor: NightReportPDFPage.inkLight, waveColor: Color(hex: "#5BC8FF"))
+                if let icon = UIImage(named: "AppIcon") {
+                    Image(uiImage: icon)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 18, height: 18)
+                        .cornerRadius(4)
+                }
                 Text("TRACKSIP")
                     .font(.system(size: 8, weight: .black))
                     .tracking(2.5)
