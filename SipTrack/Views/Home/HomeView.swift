@@ -231,13 +231,13 @@ struct HomeView: View {
         }
         .padding(.horizontal)
 
-        // Drinks — full-width catalog pill
+        // Drinks — full-width catalog pill (free: add/edit custom drinks)
         FeatureCardWide(
             title: "Drinks",
             subtitle: "Manage your drink catalog",
             icon: "wineglass.fill",
             accent: Color(hex: "#3DBDA7"),
-            locked: !appState.isPro,
+            locked: false,
             destination: .drinks,
             count: appState.allDrinkTypes.count,
             countLabel: "types"

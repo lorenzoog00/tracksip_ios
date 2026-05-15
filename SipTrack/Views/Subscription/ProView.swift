@@ -259,10 +259,10 @@ struct ProView: View {
             ProFeatureGroup(
                 title: "YOUR BAR",
                 rows: [
-                    ProFeature(icon: "wineglass.fill", label: "Custom drinks",        mode: .proOnly),
-                    ProFeature(icon: "flame.fill",     label: "Calorie equivalencies", mode: .proOnly),
-                    ProFeature(icon: "doc.text.fill",  label: "PDF night export",      mode: .proOnly),
-                    ProFeature(icon: "rectangle.slash", label: "Ads",                  mode: .value(free: "Shown", pro: "None")),
+                    ProFeature(icon: "wineglass.fill", label: "Custom drinks & editing", mode: .both),
+                    ProFeature(icon: "flame.fill",     label: "Calorie equivalencies",   mode: .proOnly),
+                    ProFeature(icon: "doc.text.fill",  label: "PDF night export",        mode: .proOnly),
+                    ProFeature(icon: "rectangle.slash", label: "Ads",                    mode: .value(free: "Shown", pro: "None")),
                 ]
             )
         }

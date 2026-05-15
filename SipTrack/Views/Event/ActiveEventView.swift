@@ -85,6 +85,9 @@ struct ActiveEventView: View {
                         )
                     }
 
+                    BannerAdView()
+                        .padding(.horizontal)
+
                     Color.clear.frame(height: 90)
                 }
                 .padding(.top)
