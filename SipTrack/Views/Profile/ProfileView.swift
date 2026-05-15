@@ -758,8 +758,10 @@ struct ProfileView: View {
         deleteError = nil
         if let err = await firebase.deleteAccount() {
             deleteError = err
+            deletingAccount = false
+        } else {
+            appState.shouldShowAuth = true
         }
-        deletingAccount = false
     }
 }
 
@@ -989,8 +991,6 @@ struct AuthView: View {
                             do {
                                 let credential = try await AppleSignInCoordinator.shared.signIn()
                                 try await firebase.signInWithCredential(credential)
-                                let data = await firebase.pullUserData()
-                                appState.applyCloudData(data)
                                 appState.shouldShowAuth = false
                                 dismiss()
                             } catch {
@@ -1042,8 +1042,6 @@ struct AuthView: View {
                                     accessToken: result.user.accessToken.tokenString
                                 )
                                 try await firebase.signInWithCredential(credential)
-                                let data = await firebase.pullUserData()
-                                appState.applyCloudData(data)
                                 appState.shouldShowAuth = false
                                 dismiss()
                             } catch {
@@ -1140,8 +1138,6 @@ struct AuthView: View {
         .fullScreenCover(isPresented: $showVerification) {
             EmailVerificationView(email: email, password: password) {
                 Task {
-                    let data = await firebase.pullUserData()
-                    appState.applyCloudData(data)
                     appState.shouldShowAuth = false
                     showVerification = false
                     dismiss()
@@ -1163,8 +1159,6 @@ struct AuthView: View {
                 showVerification = true
             } else {
                 try await firebase.signIn(email: email, password: password)
-                let data = await firebase.pullUserData()
-                appState.applyCloudData(data)
                 appState.shouldShowAuth = false
                 dismiss()
             }

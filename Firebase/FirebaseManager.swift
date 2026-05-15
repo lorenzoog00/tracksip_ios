@@ -5,6 +5,8 @@ import FirebaseFirestore
 import FirebaseCrashlytics
 import CryptoKit
 import Combine
+import AuthenticationServices
+import GoogleSignIn
 
 @MainActor
 final class FirebaseManager: ObservableObject {
@@ -199,6 +201,9 @@ final class FirebaseManager: ObservableObject {
         if let d = profile.disclaimerAcceptedAt { data["disclaimer_accepted_at"] = d.timeIntervalSince1970 * 1000 }
         if let p = profile.subscriptionPeriod   { data["subscription_period"]    = p.rawValue }
         if let s = profile.subscriptionStartedAt { data["subscription_started_at"] = ISO8601DateFormatter().string(from: s) }
+        if let c = profile.countryCode                           { data["country_code"]                       = c }
+        if let d = profile.countryDetectionLastDismissedCode     { data["country_detection_last_dismissed"]   = d }
+        data["country_detection_disabled"] = profile.countryDetectionDisabled
         try await db.collection("users").document(uid).collection("profiles").document(uid)
             .setData(data, merge: true)
     }
@@ -325,6 +330,9 @@ final class FirebaseManager: ObservableObject {
             if let per = d["subscription_period"] as? String, let period = SubscriptionPeriod(rawValue: per) { up.subscriptionPeriod = period }
             if let s   = d["subscription_started_at"] as? String { up.subscriptionStartedAt = iso.date(from: s) }
             if let ts  = d["disclaimer_accepted_at"] as? Double  { up.disclaimerAcceptedAt = Date(timeIntervalSince1970: ts / 1000) }
+            up.countryCode = d["country_code"] as? String
+            up.countryDetectionLastDismissedCode = d["country_detection_last_dismissed"] as? String
+            up.countryDetectionDisabled = d["country_detection_disabled"] as? Bool ?? false
             profile = up
         }
 
@@ -433,6 +441,9 @@ final class FirebaseManager: ObservableObject {
     func deleteAccount() async -> String? {
         guard let uid = currentUserId(), let user = auth.currentUser else { return "Not signed in" }
         do {
+            // Firebase requires recent auth for account deletion — re-authenticate first.
+            try await reauthenticate(user: user)
+
             for name in ["night_events", "drink_entries", "drink_types", "challenges", "profiles", "ai_coach_reports"] {
                 if let snap = try? await db.collection("users").document(uid).collection(name).getDocuments() {
                     for doc in snap.documents { try? await doc.reference.delete() }
@@ -441,8 +452,37 @@ final class FirebaseManager: ObservableObject {
             try? await db.collection("users").document(uid).delete()
             try await user.delete()
             return nil
+        } catch let error as NSError
+            where error.domain == ASAuthorizationError.errorDomain
+               && error.code == ASAuthorizationError.canceled.rawValue {
+            return nil // user cancelled the re-auth sheet — treat as no-op
         } catch {
             return error.localizedDescription
+        }
+    }
+
+    private func reauthenticate(user: FirebaseAuth.User) async throws {
+        let providerID = user.providerData.first?.providerID ?? ""
+        switch providerID {
+        case "apple.com":
+            let credential = try await AppleSignInCoordinator.shared.signIn()
+            try await user.reauthenticate(with: credential)
+        case "google.com":
+            guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                  let rootVC = windowScene.windows.first?.rootViewController else { return }
+            let plistPath = Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist")
+            let plistDict = plistPath.flatMap { NSDictionary(contentsOfFile: $0) }
+            guard let clientID = plistDict?["CLIENT_ID"] as? String else { return }
+            GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientID)
+            let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: rootVC)
+            guard let idToken = result.user.idToken?.tokenString else { return }
+            let credential = GoogleAuthProvider.credential(
+                withIDToken: idToken,
+                accessToken: result.user.accessToken.tokenString
+            )
+            try await user.reauthenticate(with: credential)
+        default:
+            break // email/password users: attempt delete anyway; Firebase will error if truly needed
         }
     }
 

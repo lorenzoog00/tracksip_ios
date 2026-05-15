@@ -1245,6 +1245,7 @@ final class AppState: ObservableObject {
     var shouldAttemptCountryDetection: Bool {
         let p = userProfile
         guard p.onboardingComplete else { return false }
+        guard currentUserId != nil else { return false }
         if p.countryDetectionDisabled { return false }
         return true
     }
@@ -1438,7 +1439,11 @@ final class AppState: ObservableObject {
         }
 
         if let cloud = data.profile {
-            updateUserProfile(cloud)
+            // Never downgrade onboardingComplete — the local write may not have
+            // reached Firebase yet when this pull was issued.
+            var merged = cloud
+            if userProfile.onboardingComplete { merged.onboardingComplete = true }
+            updateUserProfile(merged)
         } else {
             push { try await FirebaseManager.shared.pushProfile(self.userProfile) }
         }
