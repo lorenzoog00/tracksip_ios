@@ -1,1 +1,7 @@
-onee
+ now we have to fix: 'currentOrientationAnchoredAdaptiveBanner(width:)' is deprecated: Use
+  GADLargeAnchoredAdaptiveBannerAdSizeWithWidth instead. then we need to organize the pro screen we have 2 one that I
+  enter from the menuclicking in tracksip pro where we have the debug and the other one is if its free and I click
+  something, it opens an other store, so consolidate those in one store and use /frontend-design:frontend-design to
+  design a kick ass part for shopping. Make like a list of the free and the premium, also include the add drinks and
+  stuff in the free package
+
