@@ -1,6 +1,7 @@
 import SwiftUI
 import GoogleSignIn
 import FirebaseAuth
+import AuthenticationServices
 
 struct ProfileView: View {
     @EnvironmentObject var appState: AppState
@@ -979,6 +980,43 @@ struct AuthView: View {
                             .foregroundStyle(AppColors.textSecondary)
                     }
                     .padding(.top, 40)
+
+                    // MARK: Apple Sign In
+                    Button {
+                        Task {
+                            isLoading = true
+                            errorMsg = nil
+                            do {
+                                let credential = try await AppleSignInCoordinator.shared.signIn()
+                                try await firebase.signInWithCredential(credential)
+                                let data = await firebase.pullUserData()
+                                appState.applyCloudData(data)
+                                appState.shouldShowAuth = false
+                                dismiss()
+                            } catch {
+                                let nsError = error as NSError
+                                if nsError.domain != ASAuthorizationError.errorDomain
+                                    || nsError.code != ASAuthorizationError.canceled.rawValue {
+                                    errorMsg = error.localizedDescription
+                                }
+                            }
+                            isLoading = false
+                        }
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: "applelogo")
+                                .font(.system(size: 18, weight: .medium))
+                                .foregroundStyle(Color.white)
+                            Text("Continue with Apple")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(Color.white)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 50)
+                        .background(Color.black)
+                        .cornerRadius(14)
+                    }
+                    .disabled(isLoading)
 
                     // MARK: Google Sign In
                     Button {
