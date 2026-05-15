@@ -23,7 +23,7 @@ struct AIReportCard: View {
         if report != nil || isGenerating {
             cardView
                 .padding(.horizontal)
-                .sheet(isPresented: $showPaywall) { PaywallView() }
+                .sheet(isPresented: $showPaywall) { ProView(presentation: .modal) }
         }
     }
 
@@ -731,7 +731,7 @@ struct NightAnalysisCard: View {
                     lineWidth: 1
                 )
         )
-        .sheet(isPresented: $showPaywall) { PaywallView() }
+        .sheet(isPresented: $showPaywall) { ProView(presentation: .modal) }
     }
 
     // MARK: Header

@@ -501,7 +501,7 @@ private struct FeatureCard<Content: View>: View {
         }
         .buttonStyle(.plain)
         .sheet(isPresented: $showPaywall) {
-            PaywallView()
+            ProView(presentation: .modal)
         }
     }
 
@@ -594,7 +594,7 @@ private struct FeatureCardWide: View {
         }
         .buttonStyle(.plain)
         .sheet(isPresented: $showPaywall) {
-            PaywallView()
+            ProView(presentation: .modal)
         }
     }
 

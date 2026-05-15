@@ -30,7 +30,7 @@ private struct BannerAdContainer: UIViewRepresentable {
         banner.delegate = context.coordinator
         banner.rootViewController = context.coordinator.findRootVC()
         let width = UIScreen.main.bounds.width
-        banner.adSize = currentOrientationAnchoredAdaptiveBanner(width: width)
+        banner.adSize = largeAnchoredAdaptiveBanner(width: width)
         banner.load(Request())
         container.addSubview(banner)
         banner.translatesAutoresizingMaskIntoConstraints = false

@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh run *)",
+      "Bash(ssh -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=8 root@5.78.198.194 'test -d /root/apps/tracksip-policy && echo EXISTS || echo MISSING')",
+      "Bash(ls -la ~/.ssh/ 2>&1 | head -20)",
+      "Read(//c/Users/PcR/.ssh/**)",
+      "Bash(git -C \"i:/EMporium/SipTrack-iOS\" diff SipTrack/Ads/BannerAdView.swift)",
+      "Skill(frontend-design:frontend-design)",
+      "Skill(frontend-design:frontend-design:*)",
+      "Bash(git -C \"i:/EMporium/SipTrack-iOS\" status)",
+      "Bash(git -C \"i:/EMporium/SipTrack-iOS\" grep -n \"ProView\\\\|PaywallView\\\\|SubscriptionView\" -- \"*.swift\")",
+      "Bash(git -C \"i:/EMporium/SipTrack-iOS\" grep -n \"ProView.swift\\\\|PaywallView.swift\\\\|SubscriptionView.swift\" -- \"siptrack.xcodeproj/project.pbxproj\")",
+      "Bash(git -C \"i:/EMporium/SipTrack-iOS\" status --short)",
+      "Bash(git -C \"i:/EMporium/SipTrack-iOS\" diff --stat -- \"SipTrack/Views/Subscription/\" \"siptrack.xcodeproj/project.pbxproj\")"
+    ]
+  }
+}

@@ -577,7 +577,7 @@ private struct CompareLockedView: View {
             Spacer()
         }
         .sheet(isPresented: $showPaywall) {
-            PaywallView()
+            ProView(presentation: .modal)
         }
     }
 }

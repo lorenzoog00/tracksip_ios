@@ -37,7 +37,7 @@ struct RootView: View {
                             case .profile:
                                 ProfileView()
                             case .subscription:
-                                SubscriptionView()
+                                ProView(presentation: .pushed)
                             case .auth:
                                 AuthView()
                             case .coach:

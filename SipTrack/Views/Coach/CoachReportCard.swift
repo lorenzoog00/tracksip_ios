@@ -124,7 +124,7 @@ struct CoachReportCard: View {
                     lineWidth: 1
                 )
         )
-        .sheet(isPresented: $showPaywall) { PaywallView() }
+        .sheet(isPresented: $showPaywall) { ProView(presentation: .modal) }
     }
 
     // MARK: Header
@@ -229,7 +229,7 @@ struct ComparisonReportCard: View {
                     lineWidth: 1
                 )
         )
-        .sheet(isPresented: $showPaywall) { PaywallView() }
+        .sheet(isPresented: $showPaywall) { ProView(presentation: .modal) }
     }
 
     private var comparisonHeader: some View {
