@@ -1095,6 +1095,7 @@ final class AppState: ObservableObject {
         if generatingCoachReportId == id { generatingCoachReportId = nil }
     }
 
+    #if DEBUG
     func generateTestWeeklyReport() {
         let cal = Calendar(identifier: .iso8601)
         generateWeeklyReport(for: cal.date(byAdding: .day, value: -1, to: Date()) ?? Date())
@@ -1107,6 +1108,7 @@ final class AppState: ObservableObject {
         let m = cal.component(.month, from: now)
         generateMonthlyReport(year: y, month: m)
     }
+    #endif
 
     func updateEventNotes(id: String, notes: String) {
         updateEvent(id: id) { $0.notes = notes }
