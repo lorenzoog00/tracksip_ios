@@ -26,6 +26,14 @@ final class WatchState: NSObject, ObservableObject {
     @Published var isPhoneReachable = false
     @Published var isSending        = false
 
+    // Snapshot from the last phone push. The local timer derives currentBAC
+    // from these instead of showing the frozen value.
+    private var bacAtTimestamp: Double = 0
+    private var bacTimestamp:   Date   = Date()
+    private var eliminationRate: Double = 0.015   // β default until phone sends its own
+
+    private var localBACTimer: AnyCancellable?
+
     private override init() {
         super.init()
         guard WCSession.isSupported() else { return }
@@ -85,6 +93,29 @@ final class WatchState: NSObject, ObservableObject {
         }
     }
 
+    // MARK: - Local BAC timer
+
+    private func startLocalBACTimer() {
+        guard localBACTimer == nil else { return }
+        localBACTimer = Timer.publish(every: 30, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] _ in
+                guard let self else { return }
+                self.currentBAC = self.computeLocalBAC()
+            }
+    }
+
+    private func stopLocalBACTimer() {
+        localBACTimer?.cancel()
+        localBACTimer = nil
+    }
+
+    private func computeLocalBAC() -> Double {
+        guard hasActiveEvent else { return 0 }
+        let hours = Date().timeIntervalSince(bacTimestamp) / 3600
+        return max(0, bacAtTimestamp - eliminationRate * hours)
+    }
+
     // MARK: - Helpers
 
     private func send(_ message: [String: Any]) {
@@ -102,14 +133,29 @@ final class WatchState: NSObject, ObservableObject {
     }
 
     private func apply(_ ctx: [String: Any]) {
-        hasActiveEvent = ctx["hasActiveEvent"] as? Bool ?? false
-        eventId        = ctx["eventId"]    as? String ?? ""
-        eventName      = ctx["eventName"]  as? String ?? "Night Out"
-        drinkCount     = ctx["drinkCount"] as? Int    ?? 0
-        currentBAC     = ctx["currentBAC"] as? Double ?? 0
+        let hadEvent   = hasActiveEvent
+        hasActiveEvent = ctx["hasActiveEvent"] as? Bool   ?? false
+        eventId        = ctx["eventId"]        as? String ?? ""
+        eventName      = ctx["eventName"]      as? String ?? "Night Out"
+        drinkCount     = ctx["drinkCount"]     as? Int    ?? 0
+
         if let ts = ctx["eventStart"] as? Double {
             eventStart = Date(timeIntervalSince1970: ts)
         }
+
+        // Parse BAC snapshot. If the phone sends the new fields, store them
+        // and run local extrapolation. Fall back to the raw value for older builds.
+        if let bac  = ctx["currentBAC"]      as? Double,
+           let ts   = ctx["bacTimestamp"]    as? Double,
+           let beta = ctx["eliminationRate"] as? Double {
+            bacAtTimestamp  = bac
+            bacTimestamp    = Date(timeIntervalSince1970: ts)
+            eliminationRate = beta
+            currentBAC      = computeLocalBAC()
+        } else if let bac = ctx["currentBAC"] as? Double {
+            currentBAC = bac
+        }
+
         if let types = ctx["drinkTypes"] as? [[String: Any]] {
             drinkTypes = types.compactMap { d in
                 guard let id   = d["id"]   as? String,
@@ -118,6 +164,14 @@ final class WatchState: NSObject, ObservableObject {
                       let abv  = d["abv"]  as? Double else { return nil }
                 return WatchDrinkType(id: id, name: name, icon: icon, abv: abv)
             }
+        }
+
+        // Manage the local timer lifecycle.
+        if hasActiveEvent {
+            if !hadEvent { startLocalBACTimer() }
+        } else {
+            stopLocalBACTimer()
+            currentBAC = 0
         }
     }
 }

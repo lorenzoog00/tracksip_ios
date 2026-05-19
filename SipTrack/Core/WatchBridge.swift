@@ -32,13 +32,16 @@ final class WatchBridge: NSObject, WCSessionDelegate {
         ]
 
         if let event = appState.activeEvent {
-            let bac = appState.currentBAC(for: event.id)
+            let bac  = appState.currentBAC(for: event.id)
+            let beta = BACCalculator.eliminationRate(profile: appState.userProfile)
             ctx["hasActiveEvent"]  = true
             ctx["eventId"]         = event.id
             ctx["eventName"]       = event.displayName
             ctx["eventStart"]      = event.startTime.timeIntervalSince1970
             ctx["drinkCount"]      = appState.totalDrinks(for: event.id)
             ctx["currentBAC"]      = bac
+            ctx["bacTimestamp"]    = Date().timeIntervalSince1970
+            ctx["eliminationRate"] = beta
         }
 
         try? WCSession.default.updateApplicationContext(ctx)

@@ -100,8 +100,20 @@ struct SipTrackLiveActivity: Widget {
 private struct LockScreenView: View {
     let context: ActivityViewContext<SipTrackActivityAttributes>
 
+    var body: some View {
+        LockScreenContent(
+            bac: context.state.bac,
+            context: context
+        )
+    }
+}
+
+private struct LockScreenContent: View {
+    let bac: Double
+    let context: ActivityViewContext<SipTrackActivityAttributes>
+
     private var stageColor: Color { Color(hex: context.state.stageColorHex) }
-    private var barFill: Double { min(1.0, max(0.0, context.state.bac / 0.25)) }
+    private var barFill: Double { min(1.0, max(0.0, bac / 0.25)) }
     private var elapsedText: String {
         let h = context.state.elapsedMinutes / 60
         let m = context.state.elapsedMinutes % 60
@@ -138,7 +150,7 @@ private struct LockScreenView: View {
             // Row 2 — BAC (hero) + stage + stats
             HStack(alignment: .lastTextBaseline, spacing: 0) {
                 // BAC number — the hero
-                Text(String(format: "%.3f", context.state.bac))
+                Text(String(format: "%.3f", bac))
                     .font(.system(size: 46, weight: .bold, design: .monospaced))
                     .foregroundStyle(stageColor)
                 Text("%")

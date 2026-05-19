@@ -374,18 +374,33 @@ private struct BACHero: View {
     let drivingMode: Bool
     let bacLimit: Double
 
+    @State private var showLearnView = false
+
     var body: some View {
         VStack(spacing: 0) {
-            // Stage badge — no glow, just a precise label
-            Text(stage.name.uppercased())
-                .font(.system(size: 9, weight: .bold))
-                .tracking(2.8)
-                .foregroundStyle(stage.color)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(stage.color.opacity(0.12))
-                .cornerRadius(4)
-                .padding(.top, 20)
+            // Stage badge row — badge centered, info button trailing
+            ZStack {
+                Text(stage.name.uppercased())
+                    .font(.system(size: 9, weight: .bold))
+                    .tracking(2.8)
+                    .foregroundStyle(stage.color)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(stage.color.opacity(0.12))
+                    .cornerRadius(4)
+
+                HStack {
+                    Spacer()
+                    Button { showLearnView = true } label: {
+                        Image(systemName: "info.circle.fill")
+                            .font(.system(size: 17))
+                            .foregroundStyle(AppColors.textSecondary)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.trailing, 16)
+                }
+            }
+            .padding(.top, 20)
 
             // BAC — massive serif, no orb, no shadow
             HStack(alignment: .lastTextBaseline, spacing: 2) {
@@ -444,6 +459,18 @@ private struct BACHero: View {
         )
         .padding(.horizontal)
         .animation(.easeInOut(duration: 0.4), value: stage.name)
+        .sheet(isPresented: $showLearnView) {
+            NavigationStack {
+                LearnView()
+                    .navigationTitle("Alcohol & BAC Guide")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") { showLearnView = false }
+                        }
+                    }
+            }
+        }
     }
 }
 
