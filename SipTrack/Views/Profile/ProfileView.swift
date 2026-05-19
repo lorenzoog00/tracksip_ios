@@ -726,9 +726,10 @@ struct ProfileView: View {
         saveState = .saving
         var profile = appState.userProfile
         profile.sex              = sex
-        profile.weightKg         = Double(weightStr) ?? profile.weightKg
-        profile.heightCm         = Double(heightStr)
-        profile.birthYear        = Int(birthYearStr)
+        if let w = Double(weightStr), w >= 30, w <= 300 { profile.weightKg = w }
+        if let h = Double(heightStr), h >= 100, h <= 250 { profile.heightCm = h } else if heightStr.isEmpty { profile.heightCm = nil }
+        let currentYear = Calendar.current.component(.year, from: Date())
+        if let y = Int(birthYearStr), y > 1900, y < currentYear { profile.birthYear = y } else if birthYearStr.isEmpty { profile.birthYear = nil }
         profile.bacLimit         = bacLimit
         profile.countryCode      = countryCode
         profile.driverType       = driverType

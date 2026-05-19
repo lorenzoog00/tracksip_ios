@@ -58,11 +58,11 @@ struct EditEntryView: View {
                                 .foregroundStyle(AppColors.text)
                                 .frame(minWidth: 40)
                             Button {
-                                quantity += 1
+                                if quantity < 20 { quantity += 1 }
                             } label: {
                                 Image(systemName: "plus.circle.fill")
                                     .font(.system(size: 28))
-                                    .foregroundStyle(AppColors.accent)
+                                    .foregroundStyle(quantity < 20 ? AppColors.accent : AppColors.border)
                             }
                         }
                         .frame(maxWidth: .infinity)
@@ -93,10 +93,11 @@ struct EditEntryView: View {
                             .font(.system(size: 16, weight: .semibold))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
-                            .background(AppColors.accent)
-                            .foregroundStyle(.black)
+                            .background(canSave ? AppColors.accent : AppColors.border)
+                            .foregroundStyle(canSave ? Color.black : AppColors.textTertiary)
                             .cornerRadius(14)
                     }
+                    .disabled(!canSave)
                 }
                 .padding()
             }
@@ -126,11 +127,26 @@ struct EditEntryView: View {
         }
     }
 
+    private var volumeValid: Bool {
+        guard !volumeStr.isEmpty else { return true }
+        if let v = Double(volumeStr) { return v >= 1 && v <= 2000 }
+        return false
+    }
+
+    private var abvValid: Bool {
+        guard !abvStr.isEmpty else { return true }
+        if let a = Double(abvStr) { return a > 0 && a <= 100 }
+        return false
+    }
+
+    private var canSave: Bool { volumeValid && abvValid }
+
     private func save() {
+        guard canSave else { return }
         var updated = entry
         updated.quantity         = quantity
-        updated.volumeOverrideMl = Double(volumeStr)
-        updated.abvOverride      = Double(abvStr)
+        updated.volumeOverrideMl = volumeStr.isEmpty ? nil : Double(volumeStr).map { min(max($0, 1), 2000) }
+        updated.abvOverride      = abvStr.isEmpty ? nil : Double(abvStr).map { min(max($0, 0.1), 100) }
         updated.comment          = comment.isEmpty ? nil : comment
         appState.updateEntry(updated)
         dismiss()

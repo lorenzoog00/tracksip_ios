@@ -1389,7 +1389,8 @@ final class AppState: ObservableObject {
             totalCalories: calories,
             previousStage: IntoxicationStage.stage(for: prevBAC),
             currentStage: IntoxicationStage.stage(for: bac),
-            prefs: userProfile.notifications
+            prefs: userProfile.notifications,
+            eliminationRate: BACCalculator.eliminationRate(profile: userProfile)
         )
         let warnings = buildWarnings(context: ctx)
         if !warnings.isEmpty {

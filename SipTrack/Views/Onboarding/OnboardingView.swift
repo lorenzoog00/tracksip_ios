@@ -41,7 +41,7 @@ struct OnboardingView: View {
                         }
 
                         // Weight
-                        VStack(alignment: .leading, spacing: 8) {
+                        VStack(alignment: .leading, spacing: 6) {
                             Label("Weight (kg)", systemImage: "scalemass.fill")
                                 .font(.system(size: 13, weight: .medium))
                                 .foregroundStyle(AppColors.textSecondary)
@@ -50,8 +50,13 @@ struct OnboardingView: View {
                                 .padding(12)
                                 .background(AppColors.surface)
                                 .cornerRadius(10)
-                                .overlay(RoundedRectangle(cornerRadius: 10).stroke(AppColors.border, lineWidth: 1))
+                                .overlay(RoundedRectangle(cornerRadius: 10).stroke(weightError != nil ? AppColors.danger : AppColors.border, lineWidth: 1))
                                 .foregroundStyle(AppColors.text)
+                            if let err = weightError {
+                                Text(err)
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(AppColors.danger)
+                            }
                         }
 
                         // Height
@@ -122,15 +127,26 @@ struct OnboardingView: View {
         }
     }
 
-    private var isValid: Bool {
-        Double(weightKg) != nil
+    private var weightValue: Double? {
+        guard let w = Double(weightKg), w >= 30, w <= 300 else { return nil }
+        return w
+    }
+
+    private var isValid: Bool { weightValue != nil }
+
+    private var weightError: String? {
+        guard !weightKg.isEmpty else { return nil }
+        if Double(weightKg) == nil { return "Enter a number" }
+        if (Double(weightKg) ?? 0) < 30 { return "Must be at least 30 kg" }
+        if (Double(weightKg) ?? 0) > 300 { return "Must be under 300 kg" }
+        return nil
     }
 
     private func completeOnboarding() {
         var profile = appState.userProfile
         profile.sex = sex
-        profile.weightKg = Double(weightKg) ?? 70
-        if let h = Double(heightCm), h > 0 { profile.heightCm = h }
+        profile.weightKg = weightValue ?? 70
+        if let h = Double(heightCm), h >= 100, h <= 250 { profile.heightCm = h }
         let currentYear = Calendar.current.component(.year, from: Date())
         if let y = Int(birthYear), y > 1900, y < currentYear { profile.birthYear = y }
         profile.disclaimerAcceptedAt = Date()

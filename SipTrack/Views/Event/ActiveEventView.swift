@@ -39,7 +39,7 @@ struct ActiveEventView: View {
 
                     // DO NOT DRIVE banner
                     if overLimit {
-                        DriveWarningBanner(bac: currentBAC, bacLimit: bacLimit)
+                        DriveWarningBanner(bac: currentBAC, bacLimit: bacLimit, beta: BACCalculator.eliminationRate(profile: appState.userProfile))
                     }
 
                     // BAC Hero
@@ -272,9 +272,10 @@ struct PendingDrinkWarning: Identifiable {
 private struct DriveWarningBanner: View {
     let bac: Double
     let bacLimit: Double
+    let beta: Double
 
     private var hoursRemaining: Double {
-        max(0, (bac - bacLimit) / 0.015)
+        max(0, (bac - bacLimit) / max(beta, 0.005))
     }
 
     var body: some View {

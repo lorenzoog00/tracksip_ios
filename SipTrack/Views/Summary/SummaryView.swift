@@ -181,7 +181,8 @@ struct SummaryView: View {
                 if peakBAC > 0 {
                     RecoveryProjectionCard(
                         peakBAC: peakBAC,
-                        peakTime: timeline.max(by: { $0.bac < $1.bac })?.date ?? event.startTime
+                        peakTime: timeline.max(by: { $0.bac < $1.bac })?.date ?? event.startTime,
+                        beta: BACCalculator.eliminationRate(profile: appState.userProfile)
                     )
                 }
 
@@ -886,6 +887,7 @@ private struct DrinkingPaceCard: View {
 private struct RecoveryProjectionCard: View {
     let peakBAC: Double
     let peakTime: Date
+    let beta: Double
 
     private struct Milestone: Identifiable {
         let id: Int
@@ -909,8 +911,9 @@ private struct RecoveryProjectionCard: View {
 
         raw.append((name: "Zero", bac: 0, color: IntoxicationStage.all[0].color))
 
+        let rate = max(beta, 0.005)
         return raw.enumerated().map { i, m in
-            let hours = (peakBAC - m.bac) / 0.015
+            let hours = (peakBAC - m.bac) / rate
             return Milestone(id: i, name: m.name, bac: m.bac,
                              time: peakTime.addingTimeInterval(hours * 3600), color: m.color)
         }

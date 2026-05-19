@@ -24,11 +24,31 @@ struct WarningContext {
     let previousStage: IntoxicationStage
     let currentStage: IntoxicationStage
     let prefs: NotificationPreferences
+    let eliminationRate: Double
 }
 
 func buildWarnings(context: WarningContext) -> [DrinkWarning] {
-    guard context.prefs.enabled else { return [] }
     var warnings: [DrinkWarning] = []
+
+    // Driving limit crossed — always warn, even if notifications are off
+    if context.drivingMode {
+        let limit = context.bacLimit
+        if context.previousBAC < limit && context.currentBAC >= limit {
+            let hoursUntilSafe = (context.currentBAC - limit) / max(context.eliminationRate, 0.005)
+            let safeDate = Date().addingTimeInterval(hoursUntilSafe * 3600)
+            let tf = DateFormatter()
+            tf.dateStyle = .none
+            tf.timeStyle = .short
+            warnings.append(DrinkWarning(
+                kind: .bacExceeded,
+                title: "Do Not Drive",
+                message: "Your BAC (\(String(format: "%.3f", context.currentBAC))%) is over your limit. Safe to drive around \(tf.string(from: safeDate)).",
+                severity: .danger
+            ))
+        }
+    }
+
+    guard context.prefs.enabled else { return warnings }
 
     if context.drinksLastHour >= context.prefs.drinksPerHour {
         warnings.append(DrinkWarning(
@@ -50,20 +70,7 @@ func buildWarnings(context: WarningContext) -> [DrinkWarning] {
 
     if context.drivingMode {
         let limit = context.bacLimit
-        if context.previousBAC < limit && context.currentBAC >= limit {
-            // This drink crossed the driving limit — always warn, regardless of prefs.
-            let hoursUntilSafe = (context.currentBAC - limit) / 0.015
-            let safeDate = Date().addingTimeInterval(hoursUntilSafe * 3600)
-            let tf = DateFormatter()
-            tf.dateStyle = .none
-            tf.timeStyle = .short
-            warnings.append(DrinkWarning(
-                kind: .bacExceeded,
-                title: "Do Not Drive",
-                message: "This drink pushed your BAC to \(String(format: "%.3f", context.currentBAC))% — above your limit. You should be safe to drive around \(tf.string(from: safeDate)).",
-                severity: .danger
-            ))
-        } else if context.prefs.bacApproachWarning && context.currentBAC >= limit * 0.8 && context.currentBAC < limit {
+        if context.prefs.bacApproachWarning && context.currentBAC >= limit * 0.8 && context.currentBAC < limit {
             warnings.append(DrinkWarning(
                 kind: .bacApproach,
                 title: "Approaching Your Limit",
