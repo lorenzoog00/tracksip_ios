@@ -48,7 +48,7 @@ enum SubscriptionPeriod: String, Codable {
 }
 
 struct NotificationPreferences: Codable {
-    var enabled: Bool          = false
+    var enabled: Bool          = true
     var drinksPerHour: Int     = 2
     var caloriesPerNight: Int  = 800
     var bacApproachWarning: Bool = true

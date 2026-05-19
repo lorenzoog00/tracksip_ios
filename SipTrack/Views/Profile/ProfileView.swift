@@ -335,7 +335,7 @@ struct ProfileView: View {
                             ProfileDivider()
                             stepperRow(label: "Drinks per hour limit", value: $drinksPerHour, range: 1...10)
                             ProfileDivider()
-                            stepperRow(label: "Calories per night limit", value: $caloriesPerNight, range: 200...2000)
+                            stepperRow(label: "Calories per night limit", value: $caloriesPerNight, range: 200...2000, step: 10)
                             ProfileDivider()
                             Toggle(isOn: $bacApproachWarning) {
                                 Text("BAC approach warning")
@@ -691,13 +691,13 @@ struct ProfileView: View {
     }
 
     @ViewBuilder
-    private func stepperRow(label: String, value: Binding<Int>, range: ClosedRange<Int>) -> some View {
+    private func stepperRow(label: String, value: Binding<Int>, range: ClosedRange<Int>, step: Int = 1) -> some View {
         HStack {
             Text(label)
                 .font(.system(size: 14))
                 .foregroundStyle(AppColors.text)
             Spacer()
-            Stepper("\(value.wrappedValue)", value: value, in: range)
+            Stepper("\(value.wrappedValue)", value: value, in: range, step: step)
                 .foregroundStyle(AppColors.text)
         }
     }
