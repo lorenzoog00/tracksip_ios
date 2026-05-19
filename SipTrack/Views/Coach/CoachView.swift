@@ -18,7 +18,6 @@ struct CoachView: View {
 
     @State private var selectedTab: CoachTab = .weekly
     @State private var showNewComparison = false
-    @State private var showTestMenu = false
 
     private var weeklyReports: [CoachReport] {
         appState.coachReports.filter { $0.type == .weekly }.sorted { $0.createdAt > $1.createdAt }
@@ -80,25 +79,11 @@ struct CoachView: View {
                     .foregroundStyle(AppColors.text)
             }
             Spacer()
-            HStack(spacing: 10) {
-                Button {
-                    showTestMenu = true
-                } label: {
-                    Image(systemName: "flask.fill")
-                        .font(.system(size: 14))
-                        .foregroundStyle(AppColors.textTertiary)
-                }
-                .confirmationDialog("Generate Test Report", isPresented: $showTestMenu) {
-                    Button("Test Weekly (this week)") { appState.generateTestWeeklyReport() }
-                    Button("Test Monthly (this month)") { appState.generateTestMonthlyReport() }
-                    Button("Cancel", role: .cancel) {}
-                }
-                Image(uiImage: UIImage(named: "AppIcon") ?? UIImage())
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 38, height: 38)
-                    .cornerRadius(9)
-            }
+            Image(uiImage: UIImage(named: "AppIcon") ?? UIImage())
+                .resizable()
+                .scaledToFit()
+                .frame(width: 38, height: 38)
+                .cornerRadius(9)
         }
         .padding(.horizontal, 20)
         .padding(.top, 8)
