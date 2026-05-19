@@ -24,8 +24,6 @@ struct ProView: View {
     @State private var errorMessage: String? = nil
     @State private var heroBreath = false
     @State private var scrollY: CGFloat = 0
-    @State private var debugExpanded = false
-
     init(presentation: Presentation) {
         self.presentation = presentation
     }
@@ -216,12 +214,6 @@ struct ProView: View {
 
             pricingBlock
                 .padding(.horizontal)
-
-            #if DEBUG
-            debugBlock
-                .padding(.horizontal)
-                .padding(.top, 8)
-            #endif
         }
     }
 
@@ -391,12 +383,6 @@ struct ProView: View {
 
             proUtilityButtons
                 .padding(.horizontal)
-
-            #if DEBUG
-            debugBlock
-                .padding(.horizontal)
-                .padding(.top, 8)
-            #endif
         }
     }
 
@@ -557,63 +543,6 @@ struct ProView: View {
         case .lifetime: return "Lifetime"
         }
     }
-
-    // MARK: - Debug block
-
-    #if DEBUG
-    private var debugBlock: some View {
-        DisclosureGroup(isExpanded: $debugExpanded) {
-            VStack(alignment: .leading, spacing: 8) {
-                Button("Unlock Pro") {
-                    store.debugUnlockPro()
-                    appState.syncSubscriptionFromStore()
-                    if presentation == .modal { dismiss() }
-                }
-                Button("Simulate Free User (0/5 used)") {
-                    store.debugDowngradeFree()
-                    var p = appState.userProfile
-                    p.subscriptionTier = .free
-                    p.subscriptionPeriod = nil
-                    p.subscriptionStartedAt = nil
-                    p.aiReportsUsedThisMonth = 0
-                    p.aiReportMonthKey = ""
-                    appState.updateUserProfile(p)
-                }
-                Button("Simulate Limit Reached (5/5)") {
-                    store.debugDowngradeFree()
-                    var p = appState.userProfile
-                    p.subscriptionTier = .free
-                    p.subscriptionPeriod = nil
-                    p.subscriptionStartedAt = nil
-                    let cal = Calendar.current
-                    let y = cal.component(.year, from: Date())
-                    let m = cal.component(.month, from: Date())
-                    p.aiReportMonthKey = String(format: "%04d-%02d", y, m)
-                    p.aiReportsUsedThisMonth = AppState.freeMonthlyReportLimit
-                    appState.updateUserProfile(p)
-                }
-            }
-            .font(.system(size: 12))
-            .foregroundStyle(AppColors.textTertiary)
-            .padding(.top, 10)
-        } label: {
-            HStack(spacing: 6) {
-                Image(systemName: "ladybug.fill")
-                    .font(.system(size: 10))
-                Text("DEBUG")
-                    .font(.system(size: 10, weight: .semibold))
-                    .tracking(1.4)
-            }
-            .foregroundStyle(AppColors.textTertiary.opacity(0.7))
-        }
-        .tint(AppColors.textTertiary)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .background(AppColors.surface.opacity(0.5))
-        .cornerRadius(10)
-        .overlay(RoundedRectangle(cornerRadius: 10).stroke(AppColors.border.opacity(0.5), lineWidth: 1))
-    }
-    #endif
 
     // MARK: - Helpers
 

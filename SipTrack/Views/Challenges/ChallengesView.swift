@@ -3,6 +3,7 @@ import SwiftUI
 struct ChallengesView: View {
     @EnvironmentObject var appState: AppState
     @State private var showCreate = false
+    @State private var showPaywall = false
 
     private var progresses: [ChallengeProgress] {
         appState.challenges.map {
@@ -20,13 +21,88 @@ struct ChallengesView: View {
     private var history: [ChallengeProgress] { progresses.filter { $0.status != .active } }
 
     var body: some View {
+        Group {
+            if !appState.isPro {
+                challengesPaywall
+            } else if progresses.isEmpty {
+                ZStack {
+                    AppColors.background.ignoresSafeArea()
+                    EmptyGoalsView { showCreate = true }
+                }
+            } else {
+                challengesList
+            }
+        }
+        .navigationTitle("Goals")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                if appState.isPro {
+                    Button { showCreate = true } label: {
+                        Image(systemName: "plus")
+                            .foregroundStyle(AppColors.accent)
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $showCreate) { CreateGoalSheet() }
+        .sheet(isPresented: $showPaywall) { ProView(presentation: .modal) }
+    }
+
+    private var challengesPaywall: some View {
         ZStack {
             AppColors.background.ignoresSafeArea()
+            VStack(spacing: 24) {
+                Spacer()
+                ZStack {
+                    Circle()
+                        .fill(AppColors.accent.opacity(0.12))
+                        .frame(width: 80, height: 80)
+                    Image(systemName: "trophy.fill")
+                        .font(.system(size: 36))
+                        .foregroundStyle(AppColors.accent)
+                }
 
-            if progresses.isEmpty {
-                EmptyGoalsView { showCreate = true }
-            } else {
-                List {
+                VStack(spacing: 8) {
+                    Text("Challenges & Goals")
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundStyle(AppColors.text)
+                    Text("Set weekly drink limits, dry weeks, calorie caps, and more. Track your progress over time.")
+                        .font(.system(size: 14))
+                        .foregroundStyle(AppColors.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 32)
+                }
+
+                Button { showPaywall = true } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "crown.fill")
+                            .font(.system(size: 13))
+                        Text("Unlock with Pro")
+                            .font(.system(size: 16, weight: .bold))
+                    }
+                    .foregroundStyle(.black)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(
+                        LinearGradient(
+                            colors: [AppColors.accentWarm, AppColors.accent],
+                            startPoint: .leading, endPoint: .trailing
+                        )
+                    )
+                    .cornerRadius(14)
+                    .shadow(color: AppColors.accent.opacity(0.45), radius: 12, y: 5)
+                }
+                .padding(.horizontal, 32)
+                Spacer()
+            }
+        }
+    }
+
+    private var challengesList: some View {
+        ZStack {
+            AppColors.background.ignoresSafeArea()
+            List {
                     if !active.isEmpty {
                         Section {
                             ForEach(active, id: \.challenge.id) { prog in
@@ -68,19 +144,6 @@ struct ChallengesView: View {
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
             }
-        }
-        .navigationTitle("Goals")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button { showCreate = true } label: {
-                    Image(systemName: "plus")
-                        .foregroundStyle(AppColors.accent)
-                }
-            }
-        }
-        .sheet(isPresented: $showCreate) {
-            CreateGoalSheet()
         }
     }
 }

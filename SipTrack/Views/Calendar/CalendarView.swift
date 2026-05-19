@@ -4,6 +4,7 @@ struct CalendarView: View {
     @EnvironmentObject var appState: AppState
     @State private var displayMonth = Date()
     @State private var selectedDay: Date? = nil
+    @State private var showPaywall = false
 
     private let cal = Calendar.current
     private let weekdayLetters = ["M", "T", "W", "T", "F", "S", "S"]
@@ -46,6 +47,69 @@ struct CalendarView: View {
     }
 
     var body: some View {
+        Group {
+            if appState.isPro {
+                calendarContent
+            } else {
+                calendarPaywall
+            }
+        }
+        .sheet(isPresented: $showPaywall) { ProView(presentation: .modal) }
+        .navigationTitle("Calendar")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var calendarPaywall: some View {
+        ZStack {
+            AppColors.background.ignoresSafeArea()
+            VStack(spacing: 24) {
+                Spacer()
+                ZStack {
+                    Circle()
+                        .fill(AppColors.accent.opacity(0.12))
+                        .frame(width: 80, height: 80)
+                    Image(systemName: "calendar.badge.clock")
+                        .font(.system(size: 36))
+                        .foregroundStyle(AppColors.accent)
+                }
+
+                VStack(spacing: 8) {
+                    Text("Calendar Heatmap")
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundStyle(AppColors.text)
+                    Text("See every night mapped on a calendar with BAC colour coding, monthly stats, and trend history.")
+                        .font(.system(size: 14))
+                        .foregroundStyle(AppColors.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 32)
+                }
+
+                Button { showPaywall = true } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "crown.fill")
+                            .font(.system(size: 13))
+                        Text("Unlock with Pro")
+                            .font(.system(size: 16, weight: .bold))
+                    }
+                    .foregroundStyle(.black)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(
+                        LinearGradient(
+                            colors: [AppColors.accentWarm, AppColors.accent],
+                            startPoint: .leading, endPoint: .trailing
+                        )
+                    )
+                    .cornerRadius(14)
+                    .shadow(color: AppColors.accent.opacity(0.45), radius: 12, y: 5)
+                }
+                .padding(.horizontal, 32)
+                Spacer()
+            }
+        }
+    }
+
+    private var calendarContent: some View {
         ZStack {
             AppColors.background.ignoresSafeArea()
 
@@ -318,8 +382,6 @@ struct CalendarView: View {
                 .padding(.top, 4)
             }
         }
-        .navigationTitle("Calendar")
-        .navigationBarTitleDisplayMode(.inline)
         .animation(.easeInOut(duration: 0.22), value: selectedDay)
         .animation(.easeInOut(duration: 0.18), value: displayMonth)
     }
