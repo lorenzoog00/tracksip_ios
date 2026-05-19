@@ -143,7 +143,6 @@ struct ChallengesView: View {
                 }
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
-            }
         }
     }
 }
