@@ -1022,8 +1022,7 @@ final class AppState: ObservableObject {
                     let midPoint = event.startTime.addingTimeInterval(duration / 2)
                     let firstHalf = evEntries.filter { $0.timestamp <= midPoint }
                         .reduce(0) { $0 + $1.quantity }
-                    let evTotal = evEntries.reduce(0) { $0 + $1.quantity }
-                    if evTotal > 0 && Double(firstHalf) / Double(evTotal) > 0.6 {
+                    if drinkCount > 0 && Double(firstHalf) / Double(drinkCount) > 0.6 {
                         frontLoadedNights += 1
                     }
                 }
