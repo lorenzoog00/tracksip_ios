@@ -10,6 +10,7 @@
 		E2E812588FC9455192A150D0 /* siptrackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAF9F98AA68F4B26B64B7E55 /* siptrackTests.swift */; };
 		EFB0728D3D5C4E0EB8F0A888 /* BACCalculatorFoodTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05D89EE3EAB14D6EB6AF92BD /* BACCalculatorFoodTests.swift */; };
 		19A3D1F4240845CD897E3D12 /* BACCalculatorCoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94366D3F8A174A8A9ED74019 /* BACCalculatorCoreTests.swift */; };
+		A1B2C3D4E5F6A7B8C9D0E1F2 /* AIInsightsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E1F3 /* AIInsightsTests.swift */; };
 		0B600C73A34541F49740B136 /* FoodEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0E98F63CB724D4CB75A1270 /* FoodEntry.swift */; };
 		2A41B90C2B57482B91131763 /* CoachView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6305C2FF0C534B6ABC925280 /* CoachView.swift */; };
 		484c06b9a233439db00dc5988d74786e /* CoachReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4f3719ab9d5d455c9961490721ee331e /* CoachReport.swift */; };
@@ -168,6 +169,7 @@
 		CAF9F98AA68F4B26B64B7E55 /* siptrackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = siptrackTests.swift; sourceTree = "<group>"; };
 		05D89EE3EAB14D6EB6AF92BD /* BACCalculatorFoodTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BACCalculatorFoodTests.swift; sourceTree = "<group>"; };
 		94366D3F8A174A8A9ED74019 /* BACCalculatorCoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BACCalculatorCoreTests.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6A7B8C9D0E1F3 /* AIInsightsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIInsightsTests.swift; sourceTree = "<group>"; };
 		3F19FB458C03404B93011571 /* CoachReportCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachReportCard.swift; sourceTree = "<group>"; };
 		4f3719ab9d5d455c9961490721ee331e /* CoachReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachReport.swift; sourceTree = "<group>"; };
 		6305C2FF0C534B6ABC925280 /* CoachView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachView.swift; sourceTree = "<group>"; };
@@ -666,6 +668,7 @@
 				CAF9F98AA68F4B26B64B7E55 /* siptrackTests.swift */,
 				05D89EE3EAB14D6EB6AF92BD /* BACCalculatorFoodTests.swift */,
 				94366D3F8A174A8A9ED74019 /* BACCalculatorCoreTests.swift */,
+				A1B2C3D4E5F6A7B8C9D0E1F3 /* AIInsightsTests.swift */,
 			);
 			path = siptrackTests;
 			sourceTree = "<group>";
@@ -1031,6 +1034,7 @@
 				E2E812588FC9455192A150D0 /* siptrackTests.swift in Sources */,
 				EFB0728D3D5C4E0EB8F0A888 /* BACCalculatorFoodTests.swift in Sources */,
 				19A3D1F4240845CD897E3D12 /* BACCalculatorCoreTests.swift in Sources */,
+				A1B2C3D4E5F6A7B8C9D0E1F2 /* AIInsightsTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

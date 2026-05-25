@@ -88,3 +88,15 @@ extension DrinkType {
         return result
     }
 }
+
+extension DrinkType {
+    var drinkCategory: String {
+        switch icon {
+        case "beer-outline", "beer": return "beer"
+        case "wine", "wine-sharp", "champagne", "sparkles": return "wine"
+        case "flask", "flask-outline":
+            return (id == "tequila" || id == "mezcal") ? "agave" : "spirits"
+        default: return "cocktails"
+        }
+    }
+}
