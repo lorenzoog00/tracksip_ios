@@ -868,6 +868,8 @@ final class AppState: ObservableObject {
         var bacValues: [Double] = []
         var bestNight = ""; var worstNight = ""; var bestCount = Int.max; var worstCount = 0
         var drivingNights = 0; var drivingExceeded = 0
+        var bestHydrationNight = ""; var bestHydrationCount = 0
+        var bestBACNight = ""; var bestBACValue = Double.infinity
 
         for event in weekNights {
             let evEntries = entries.filter { $0.eventId == event.id }
@@ -890,10 +892,36 @@ final class AppState: ObservableObject {
             if drinkCount < bestCount  { bestCount = drinkCount;  bestNight  = event.displayName }
             if drinkCount > worstCount { worstCount = drinkCount; worstNight = event.displayName }
 
+            if evWater.count > bestHydrationCount {
+                bestHydrationCount = evWater.count
+                bestHydrationNight = event.displayName
+            }
+            if nightPeak > 0 && nightPeak < bestBACValue {
+                bestBACValue = nightPeak
+                bestBACNight = event.displayName
+            }
+
             if event.drivingMode {
                 drivingNights += 1
                 if nightPeak > (event.bacLimit ?? 0.08) { drivingExceeded += 1 }
             }
+        }
+
+        let bestBehaviorType: String
+        let bestBehaviorNight: String
+        let bestBehaviorDetail: String
+        if bestHydrationCount >= 4 {
+            bestBehaviorType = "hydration"
+            bestBehaviorNight = bestHydrationNight
+            bestBehaviorDetail = "\(bestHydrationCount) glasses of water"
+        } else if !bestBACNight.isEmpty {
+            bestBehaviorType = "pace"
+            bestBehaviorNight = bestBACNight
+            bestBehaviorDetail = String(format: "%.3f peak BAC", bestBACValue)
+        } else {
+            bestBehaviorType = "none"
+            bestBehaviorNight = ""
+            bestBehaviorDetail = ""
         }
 
         let avgBac = bacValues.isEmpty ? 0.0 : bacValues.reduce(0, +) / Double(bacValues.count)
@@ -931,6 +959,9 @@ final class AppState: ObservableObject {
             "avg30DayDrinksPerNight": avg30,
             "bestNight": bestNight,
             "worstNight": worstNight,
+            "bestBehaviorType": bestBehaviorType,
+            "bestBehaviorNight": bestBehaviorNight,
+            "bestBehaviorDetail": bestBehaviorDetail,
             "drinkBreakdown": drinkBreakdown,
             "drivingNights": drivingNights,
             "drivingExceededBACLimit": drivingExceeded,
