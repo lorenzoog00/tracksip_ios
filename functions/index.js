@@ -37,15 +37,9 @@ exports.generateNightReport = onDocumentUpdated({
   console.log("Generating report for event", event.params.eventId);
 
   const {
-    eventName, durationMinutes, drinks,
-    peakBac, peakBacTime, minutesAboveLimit,
-    waterCount, hydrationLevel, totalCalories,
-    recoveryMinutes, userSex, userWeightKg, userAge,
-    avgDrinksLast30Days, dayOfWeek,
-    stomachState, foodEntryCount,
-    avgSipMinutes, paceSummary, drinksPerHourParam,
-    fastestDrinkName, slowestDrinkName,
-    targetBAC, exceededTarget, minutesOverTarget,
+    durationMinutes, drinks,
+    peakBac,
+    waterCount,
   } = d;
 
   const totalDrinksCount = drinks.reduce((s, dr) => s + dr.quantity, 0);
@@ -56,37 +50,16 @@ exports.generateNightReport = onDocumentUpdated({
       .map((dr) => `${dr.quantity}x ${dr.name}`)
       .join(", ");
 
-  const nightName = eventName || `${dayOfWeek} night`;
-  const avg = (avgDrinksLast30Days || 0).toFixed(1);
   const peak = (peakBac || 0).toFixed(3);
-  const cals = Math.round(totalCalories || 0);
   const soberNight = totalDrinksCount === 0;
   const drinkSummary = soberNight ?
     "None — non-alcoholic night" :
     `${drinkList} (${drinksPerHour} drinks/hour)`;
-  const stomach = stomachState || "empty";
-  const foodLogged = parseInt(foodEntryCount || 0);
-  const emptyStomach = stomach === "empty" && !soberNight;
-  const foodSummary = `Stomach: ${stomach}${foodLogged > 0 ? ` · ${foodLogged} food log${foodLogged > 1 ? "s" : ""} during night` : ""}`;
-
-  // Pace line (from new iOS params)
-  const pace = paceSummary || null;
-  const paceLine = avgSipMinutes != null ?
-    `Pace: ${pace} · ${avgSipMinutes} min avg/drink` +
-    (fastestDrinkName ? ` · fastest: ${fastestDrinkName}` : "") +
-    (slowestDrinkName && slowestDrinkName !== fastestDrinkName ?
-      ` · slowest: ${slowestDrinkName}` : "") : "";
-
-  // Goal line
-  const goalLine = targetBAC != null ?
-    `Tonight's goal: ${(targetBAC * 100).toFixed(0)}% BAC · ` +
-    (exceededTarget ?
-      `exceeded (${minutesOverTarget || 0} min over)` :
-      "stayed within goal") : "";
 
   const dominantDrinkType = d.dominantDrinkType || "mixed";
   const nightOutcome = d.nightOutcome || "heavy";
 
+  /* eslint-disable max-len */
   const drinkContext = {
     beer: "Beer is filling and moderate — the morning is usually manageable.",
     wine: "Wine dehydrates faster than it feels — you'll notice it in your mouth and head when you wake up.",
@@ -111,11 +84,13 @@ exports.generateNightReport = onDocumentUpdated({
     `(water? food? timing? nothing generic). ` +
     `(2) One thing to skip or watch for tomorrow morning, specific to ${dominantDrinkType}. ` +
     `(3) One smarter option for next time — a named swap or pacing move, NOT "drink less".`;
+  /* eslint-enable max-len */
 
-  const instruction = nightOutcome === "sober" ? soberPrompt
-    : nightOutcome === "solid" ? solidPrompt
-    : heavyPrompt;
+  const instruction = nightOutcome === "sober" ? soberPrompt :
+    nightOutcome === "solid" ? solidPrompt :
+    heavyPrompt;
 
+  /* eslint-disable max-len */
   const prompt = [
     "You are a knowledgeable friend, not a doctor or a counselor.",
     "Output: 1 paragraph, 2-3 sentences, plain text, second person.",
@@ -124,6 +99,7 @@ exports.generateNightReport = onDocumentUpdated({
     `Drinks tonight: ${drinkSummary} · Peak BAC: ${peak} · Water: ${waterCount} glasses\n`,
     instruction,
   ].filter(Boolean).join("\n");
+  /* eslint-enable max-len */
 
   const client = new anthropic.Anthropic({
     apiKey: process.env.CLAUDE_API_KEY,
@@ -163,10 +139,11 @@ function buildWeeklyPrompt(d) {
     drivingNights, drivingExceededBACLimit,
   } = d;
 
-  const drivingWarning = drivingExceededBACLimit > 0
-    ? `SAFETY: On ${drivingExceededBACLimit} night(s) the user said they would drive but BAC exceeded ` +
-      `the legal limit. Address this directly in THE WEEK — name it, don't lecture.`
-    : "";
+  /* eslint-disable max-len */
+  const drivingWarning = drivingExceededBACLimit > 0 ?
+    `SAFETY: On ${drivingExceededBACLimit} night(s) the user said they would drive but BAC exceeded ` +
+      `the legal limit. Address this directly in THE WEEK — name it, don't lecture.` :
+    "";
 
   const bestBehaviorLine = (() => {
     if (bestBehaviorType === "hydration") {
@@ -191,14 +168,15 @@ function buildWeeklyPrompt(d) {
     `User: ${userSex}, ${userWeightKg}kg, age ${userAge || "unknown"}.`,
     `Week: ${weekStart} to ${weekEnd} · ${nightCount} nights out.`,
     worstNight ? `Heaviest night: ${worstNight}.` : "",
-    drivingNights > 0
-      ? `Driving nights: ${drivingNights} (${drivingExceededBACLimit} above legal limit).`
-      : "",
+    drivingNights > 0 ?
+      `Driving nights: ${drivingNights} (${drivingExceededBACLimit} above legal limit).` :
+      "",
     drivingWarning, // placed before THE WEEK so the model sees it before writing that section
     "\nTHE WEEK: What actually happened — name the standout night and say what made it different " +
     "from the rest. 2-3 sentences. Honest, not preachy.",
     "\nWHAT YOU NAILED: " + bestBehaviorLine + " 1-2 sentences. Make them want to repeat it.",
   ].filter(Boolean).join("\n");
+  /* eslint-enable max-len */
 }
 
 // eslint-disable-next-line require-jsdoc
@@ -217,26 +195,27 @@ function buildMonthlyPrompt(d) {
 
   const weeklyLimit = userSex === "male" ? 14 : 7;
   const monthlyLimit = weeklyLimit * 4;
-  const trend = prevMonthNightCount != null
-    ? (nightCount > prevMonthNightCount ? "up"
-      : nightCount < prevMonthNightCount ? "down" : "flat")
-    : "unknown";
-  const physique = userHeightCm
-    ? `${userWeightKg}kg, ${userHeightCm}cm (BMI ${userBMI})`
-    : `${userWeightKg}kg`;
+  const trend = prevMonthNightCount != null ?
+    (nightCount > prevMonthNightCount ? "up" :
+      nightCount < prevMonthNightCount ? "down" : "flat") :
+    "unknown";
+  const physique = userHeightCm ?
+    `${userWeightKg}kg, ${userHeightCm}cm (BMI ${userBMI})` :
+    `${userWeightKg}kg`;
 
+  /* eslint-disable max-len */
   const weeks = (weekBreakdowns || [])
-    .map((w, i) => `  Week ${i + 1}: ${w.nights} nights, ${w.drinks} drinks, peak BAC ${(w.peakBac || 0).toFixed(3)}`)
-    .join("\n");
+      .map((w, i) => `  Week ${i + 1}: ${w.nights} nights, ${w.drinks} drinks, peak BAC ${(w.peakBac || 0).toFixed(3)}`)
+      .join("\n");
 
-  const drivingLine = drivingNights > 0
-    ? `Driving nights: ${drivingNights} (${drivingExceededBACLimit} above legal BAC limit)`
-    : "";
+  const drivingLine = drivingNights > 0 ?
+    `Driving nights: ${drivingNights} (${drivingExceededBACLimit} above legal BAC limit)` :
+    "";
 
-  const drivingWarning = drivingExceededBACLimit > 0
-    ? `SAFETY: On ${drivingExceededBACLimit} night(s) this month the user said they would drive ` +
-      `but BAC exceeded the legal limit. Address this in BEHAVIORAL INSIGHT.`
-    : "";
+  const drivingWarning = drivingExceededBACLimit > 0 ?
+    `SAFETY: On ${drivingExceededBACLimit} night(s) this month the user said they would drive ` +
+      `but BAC exceeded the legal limit. Address this in BEHAVIORAL INSIGHT.` :
+    "";
 
   const signatureMoveLine = (() => {
     switch (signatureMove) {
@@ -255,10 +234,10 @@ function buildMonthlyPrompt(d) {
     }
   })();
 
-  const bestNightLine = bestMonthNight
-    ? `Best night of the month: ${bestMonthNight} had the lowest peak BAC. Close this section by ` +
-      `calling it out — name it as the standard worth repeating next month.`
-    : "";
+  const bestNightLine = bestMonthNight ?
+    `Best night of the month: ${bestMonthNight} had the lowest peak BAC. Close this section by ` +
+      `calling it out — name it as the standard worth repeating next month.` :
+    "";
 
   return [
     coachPersona,
@@ -287,6 +266,7 @@ function buildMonthlyPrompt(d) {
     "Do not moralize or recommend drinking less.",
     drivingWarning,
   ].filter(Boolean).join("\n");
+  /* eslint-enable max-len */
 }
 
 // eslint-disable-next-line require-jsdoc
@@ -379,6 +359,7 @@ exports.generateRecoveryBrief = onDocumentCreated({
     "Give one concrete tip to improve next time. Mention that " +
     "Tracksip's water reminders help them stay on track. 1-2 sentences.";
 
+  /* eslint-disable max-len */
   const prompt = [
     "You are a morning-after recovery coach.",
     "Tailor advice to what they actually drank — beer, wine, and spirits need different fixes.",
@@ -394,6 +375,7 @@ exports.generateRecoveryBrief = onDocumentCreated({
     "(e.g., 'try spacing each drink at least 20 minutes apart next time') rather than",
     "a vague 'drink less'. Keep this to one short sentence.",
   ].join("\n");
+  /* eslint-enable max-len */
 
   const client = new anthropic.Anthropic({
     apiKey: process.env.CLAUDE_API_KEY,
