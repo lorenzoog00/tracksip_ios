@@ -8,15 +8,8 @@ struct AIReportCard: View {
     let isPro: Bool
     @State private var showPaywall = false
 
-    private static let sectionLabels = ["OVERVIEW", "PHYSIOLOGY", "INSIGHT"]
-
-    private var paragraphs: [String] {
-        guard let text = report else { return [] }
-        let parts = text
-            .components(separatedBy: "\n\n")
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-        return parts.count >= 2 ? parts : [text]
+    private var reportText: String? {
+        report?.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     var body: some View {
@@ -139,35 +132,16 @@ struct AIReportCard: View {
     private var reportSections: some View {
         ZStack(alignment: .center) {
             VStack(alignment: .leading, spacing: 0) {
-                ForEach(Array(paragraphs.enumerated()), id: \.offset) { i, para in
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack(spacing: 8) {
-                            Capsule()
-                                .fill(AppColors.accent)
-                                .frame(width: 3, height: 14)
-                            if i < AIReportCard.sectionLabels.count {
-                                Text(AIReportCard.sectionLabels[i])
-                                    .font(.system(size: 9, weight: .black))
-                                    .tracking(2.5)
-                                    .foregroundStyle(AppColors.accent)
-                            }
-                        }
-
-                        Text(para)
-                            .font(.system(size: 14, design: .serif))
-                            .foregroundStyle(AppColors.text)
-                            .lineSpacing(5)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 14)
-
-                    if i < paragraphs.count - 1 {
-                        DashedDivider()
-                            .padding(.horizontal, 16)
-                    }
+                if let text = reportText {
+                    Text(text)
+                        .font(.system(size: 14, design: .serif))
+                        .foregroundStyle(AppColors.text)
+                        .lineSpacing(5)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 16)
+                        .padding(.bottom, isPro ? 6 : 0)
                 }
-                .padding(.bottom, isPro ? 6 : 0)
             }
             .blur(radius: isPro ? 0 : 9)
             .allowsHitTesting(isPro)
