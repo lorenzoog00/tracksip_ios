@@ -139,8 +139,8 @@ struct AIReportCard: View {
                         .lineSpacing(5)
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.horizontal, 16)
-                        .padding(.vertical, 16)
-                        .padding(.bottom, isPro ? 6 : 0)
+                        .padding(.top, 16)
+                        .padding(.bottom, isPro ? 22 : 16)
                 }
             }
             .blur(radius: isPro ? 0 : 9)
@@ -290,23 +290,6 @@ private struct EKGScanLine: View {
     }
 }
 
-// MARK: - Dashed Divider
-
-private struct DashedDivider: View {
-    var body: some View {
-        Canvas { ctx, size in
-            var path = Path()
-            path.move(to: CGPoint(x: 0, y: 0))
-            path.addLine(to: CGPoint(x: size.width, y: 0))
-            ctx.stroke(
-                path,
-                with: .color(.white.opacity(0.12)),
-                style: StrokeStyle(lineWidth: 1, dash: [4, 5])
-            )
-        }
-        .frame(height: 1)
-    }
-}
 
 // MARK: - Tracksip Logo Mark (coupe glass + BAC wave, pure SwiftUI)
 
