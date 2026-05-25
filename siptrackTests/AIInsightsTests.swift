@@ -52,4 +52,38 @@ final class AIInsightsTests: XCTestCase {
         let margarita = try XCTUnwrap(DrinkType.presets.first { $0.id == "margarita" }, "Preset 'margarita' not found")
         XCTAssertEqual(margarita.drinkCategory, "cocktails")
     }
+
+    // MARK: - dominantDrinkCategory helper
+
+    func test_dominantCategory_singleType_returnsThatType() {
+        // 3 tequila entries
+        let types = DrinkType.presets
+        let tequila = types.first { $0.id == "tequila" }!
+        let counts: [String: Int] = [tequila.drinkCategory: 3]
+        XCTAssertEqual(dominantCategory(counts, total: 3), "agave")
+    }
+
+    func test_dominantCategory_mixed_returnsMixed() {
+        let counts: [String: Int] = ["beer": 2, "agave": 2]
+        XCTAssertEqual(dominantCategory(counts, total: 4), "mixed")
+    }
+
+    func test_dominantCategory_60percentThreshold() {
+        // 3 beer out of 5 = 60% → dominant
+        let counts: [String: Int] = ["beer": 3, "spirits": 2]
+        XCTAssertEqual(dominantCategory(counts, total: 5), "beer")
+    }
+
+    func test_dominantCategory_belowThreshold_returnsMixed() {
+        // 2 beer out of 5 = 40% → mixed
+        let counts: [String: Int] = ["beer": 2, "spirits": 3]
+        // spirits is 60% → dominant
+        XCTAssertEqual(dominantCategory(counts, total: 5), "spirits")
+    }
+
+    private func dominantCategory(_ counts: [String: Int], total: Int) -> String {
+        guard !counts.isEmpty, total > 0 else { return "mixed" }
+        guard let top = counts.max(by: { $0.value < $1.value }) else { return "mixed" }
+        return Double(top.value) / Double(total) >= 0.6 ? top.key : "mixed"
+    }
 }

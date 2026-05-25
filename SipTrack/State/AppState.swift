@@ -301,6 +301,24 @@ final class AppState: ObservableObject {
                 return ["name": dt.name, "quantity": es.reduce(0) { $0 + $1.quantity }]
             }
         let drinkCount = eventEntries.reduce(0) { $0 + $1.quantity }
+
+        // Pre-computed insights for AI prompt
+        var drinkCategoryCounts: [String: Int] = [:]
+        for entry in eventEntries {
+            guard let dt = allDrinkTypes.first(where: { $0.id == entry.drinkTypeId }) else { continue }
+            drinkCategoryCounts[dt.drinkCategory, default: 0] += entry.quantity
+        }
+        let dominantDrinkType: String = {
+            guard !drinkCategoryCounts.isEmpty, drinkCount > 0 else { return "mixed" }
+            guard let top = drinkCategoryCounts.max(by: { $0.value < $1.value }) else { return "mixed" }
+            return Double(top.value) / Double(drinkCount) >= 0.6 ? top.key : "mixed"
+        }()
+        let nightOutcome: String = {
+            if drinkCount == 0 { return "sober" }
+            if let target = event.targetBAC { return peakBAC <= target ? "solid" : "heavy" }
+            return peakBAC <= 0.06 ? "solid" : "heavy"
+        }()
+
         let limit = 0.08
         let minutesAboveLimit = timeline.filter { $0.bac > limit }.count * 5
         let waterCount = eventWater.count
@@ -339,6 +357,8 @@ final class AppState: ObservableObject {
         ]
         if let name = event.name { params["eventName"] = name }
         if let birthYear = userProfile.birthYear { params["userAge"] = currentYear - birthYear }
+        params["dominantDrinkType"] = dominantDrinkType
+        params["nightOutcome"] = nightOutcome
 
         // Drinking pace — classified by drinks per hour, not sip duration
         let eventHours = max(0.01, (event.endTime ?? Date()).timeIntervalSince(event.startTime) / 3600)
