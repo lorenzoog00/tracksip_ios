@@ -270,7 +270,7 @@ function buildMonthlyPrompt(d) {
     `Monthly guideline: ${monthlyLimit} standard drinks.\n`,
     `Month: ${monthName} ${year}`,
     `Nights out: ${nightCount} | Sober days: ${soberDays} | Trend vs last month: ${trend}`,
-    `Total: ${totalDrinks} drinks (${(totalStdDrinks || totalDrinks).toFixed(1)} std)`,
+    `Total: ${totalDrinks} drinks (${((totalStdDrinks ?? totalDrinks) ?? 0).toFixed(1)} std)`,
     `Total calories: ${Math.round(totalCalories || 0)} kcal`,
     `Peak BAC: ${(peakBac || 0).toFixed(3)} on ${peakBacNight || "unknown"}`,
     `Avg BAC/night: ${(avgBacPerNight || 0).toFixed(3)}`,
@@ -450,7 +450,7 @@ exports.generateCoachReport = onDocumentCreated({
     maxTokens = 400;
   } else if (type === "monthly") {
     prompt = buildMonthlyPrompt(d);
-    maxTokens = 550;
+    maxTokens = 650;
   } else if (type === "comparison") {
     prompt = buildComparisonPrompt(d);
     maxTokens = 400;
