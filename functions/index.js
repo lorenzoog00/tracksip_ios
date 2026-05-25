@@ -156,63 +156,48 @@ const coachPersona = [
 // eslint-disable-next-line require-jsdoc
 function buildWeeklyPrompt(d) {
   const {
-    userSex, userWeightKg, userAge, userHeightCm, userBMI,
+    userSex, userWeightKg, userAge,
     weekStart, weekEnd,
-    nightCount, totalDrinks, totalStdDrinks, totalCalories,
-    peakBac, peakBacNight, avgBacPerNight,
-    totalWater, avg30DayDrinksPerNight,
-    bestNight, worstNight, drinkBreakdown,
+    nightCount, worstNight,
+    bestBehaviorType, bestBehaviorNight, bestBehaviorDetail,
     drivingNights, drivingExceededBACLimit,
   } = d;
 
-  const weeklyLimit = userSex === "male" ? 14 : 7;
-  const avg30 = (avg30DayDrinksPerNight || 0).toFixed(1);
-  const physique = userHeightCm ?
-    `${userWeightKg}kg, ${userHeightCm}cm (BMI ${userBMI})` :
-    `${userWeightKg}kg`;
+  const drivingWarning = drivingExceededBACLimit > 0
+    ? `SAFETY: On ${drivingExceededBACLimit} night(s) the user said they would drive but BAC exceeded ` +
+      `the legal limit. Address this directly in THE WEEK — name it, don't lecture.`
+    : "";
 
-  const drivingLine = drivingNights > 0 ?
-    `Driving nights: ${drivingNights}` +
-    ` (${drivingExceededBACLimit} above legal BAC limit)` : "";
-
-  const drivingWarning = drivingExceededBACLimit > 0 ?
-    `SAFETY: On ${drivingExceededBACLimit} night(s) the user said they` +
-    " would drive but BAC exceeded the legal limit." +
-    " Address this directly in BEHAVIORAL INSIGHT." : "";
+  const bestBehaviorLine = (() => {
+    if (bestBehaviorType === "hydration") {
+      return `Best behavior this week: ${bestBehaviorNight} — they stayed on top of water ` +
+        `(${bestBehaviorDetail}). Call this out specifically and tell them to keep doing it.`;
+    }
+    if (bestBehaviorType === "pace") {
+      return `Best behavior this week: ${bestBehaviorNight} was their cleanest night ` +
+        `(${bestBehaviorDetail}). Name it and explain why it's worth repeating.`;
+    }
+    return "No single standout positive behavior this week — find something small they did right " +
+      "and call it out honestly. Even 'you ended at a reasonable time' counts.";
+  })();
 
   return [
-    coachPersona,
-    "Write exactly 3 paragraphs separated by a blank line.",
-    "No markdown, no bullets. Second person. Plain text only.",
-    "Each paragraph MUST start with its label in ALL CAPS + colon.\n",
-    `User: ${userSex}, ${physique}, age ${userAge || "unknown"}.`,
-    `Weekly guideline: ${weeklyLimit} standard drinks.\n`,
-    `Week: ${weekStart} to ${weekEnd}`,
-    `Nights out: ${nightCount} | Total drinks: ${totalDrinks}`,
-    `Std drinks: ${(totalStdDrinks || totalDrinks).toFixed(1)}`,
-    `Total calories: ${Math.round(totalCalories || 0)} kcal`,
-    `Peak BAC: ${(peakBac || 0).toFixed(3)} on ${peakBacNight || "unknown"}`,
-    `Avg BAC/night: ${(avgBacPerNight || 0).toFixed(3)}`,
-    `Water glasses total: ${totalWater || 0}`,
-    `30-day avg drinks/night: ${avg30}`,
-    `Best night (fewest drinks): ${bestNight || "n/a"}`,
-    `Hardest night (most drinks): ${worstNight || "n/a"}`,
-    drinkBreakdown ? `Drink breakdown: ${drinkBreakdown}` : "",
-    drivingLine,
-    "\nMEDICAL ANALYSIS: Medical picture of the week — BAC peaks,",
-    "back-to-back nights, organ load. Reference physique. Concise.\n",
-    "NUTRITION & METABOLISM: Nutritional and metabolic impact of",
-    "the specific drinks consumed. One concrete tip for next week.\n",
-    "BEHAVIORAL INSIGHT: Identify the dominant pace pattern this week — were",
-    "drinks spread across the night or front-loaded? If pace was fast (high",
-    "drinks/hour), name ONE specific technique for next time: e.g.,",
-    "'finish each drink in 20+ minutes', 'set your drink down between sips',",
-    "'drink a full glass of water before your second drink'. If pacing was",
-    "good, say so explicitly — it's worth reinforcing. End with one",
-    "measurable commitment: a target drinks/hour, a cutoff time, or a",
-    "water-per-drink rule.",
+    "You are a knowledgeable friend looking back at the user's week.",
+    "Write exactly 2 paragraphs separated by a blank line.",
+    "Each paragraph MUST start with its label in ALL CAPS + colon.",
+    "Do NOT recap stats — the user already sees the numbers. Tell the story.",
+    "Never advise to drink less. No forward-looking advice for next week.\n",
+    `User: ${userSex}, ${userWeightKg}kg, age ${userAge || "unknown"}.`,
+    `Week: ${weekStart} to ${weekEnd} · ${nightCount} nights out.`,
+    worstNight ? `Heaviest night: ${worstNight}.` : "",
+    drivingNights > 0
+      ? `Driving nights: ${drivingNights} (${drivingExceededBACLimit} above legal limit).`
+      : "",
+    "\nTHE WEEK: What actually happened — name the standout night and say what made it different " +
+    "from the rest. 2-3 sentences. Honest, not preachy.",
+    "\nWHAT YOU NAILED: " + bestBehaviorLine + " 1-2 sentences. Make them want to repeat it.",
     drivingWarning,
-  ].join("\n");
+  ].filter(Boolean).join("\n");
 }
 
 // eslint-disable-next-line require-jsdoc
