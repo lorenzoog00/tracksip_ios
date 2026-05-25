@@ -92,7 +92,7 @@ extension DrinkType {
 extension DrinkType {
     var drinkCategory: String {
         switch icon {
-        case "beer-outline", "beer": return "beer"
+        case "beer-outline", "beer", "snow": return "beer"
         case "wine", "wine-sharp", "champagne", "sparkles": return "wine"
         case "flask", "flask-outline":
             return (id == "tequila" || id == "mezcal") ? "agave" : "spirits"
