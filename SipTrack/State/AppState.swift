@@ -868,7 +868,7 @@ final class AppState: ObservableObject {
         var bacValues: [Double] = []
         var bestNight = ""; var worstNight = ""; var bestCount = Int.max; var worstCount = 0
         var drivingNights = 0; var drivingExceeded = 0
-        var bestHydrationNight = ""; var bestHydrationCount = 0
+        var bestHydrationNight = ""; var bestHydrationCount = 0 // one WaterEntry == one logged glass
         var bestBACNight = ""; var bestBACValue = Double.infinity
 
         for event in weekNights {
@@ -910,7 +910,7 @@ final class AppState: ObservableObject {
         let bestBehaviorType: String
         let bestBehaviorNight: String
         let bestBehaviorDetail: String
-        if bestHydrationCount >= 4 {
+        if bestHydrationCount >= 2 {
             bestBehaviorType = "hydration"
             bestBehaviorNight = bestHydrationNight
             bestBehaviorDetail = "\(bestHydrationCount) glasses of water"
