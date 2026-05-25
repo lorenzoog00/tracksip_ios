@@ -177,7 +177,8 @@ function buildWeeklyPrompt(d) {
       return `Best behavior this week: ${bestBehaviorNight} was their cleanest night ` +
         `(${bestBehaviorDetail}). Name it and explain why it's worth repeating.`;
     }
-    return "No single standout positive behavior this week — find something small they did right " +
+    return `No single standout positive behavior this week — they showed up for ${nightCount} nights ` +
+      "and that's data worth working with. Find something small they did right " +
       "and call it out honestly. Even 'you ended at a reasonable time' counts.";
   })();
 
@@ -193,10 +194,10 @@ function buildWeeklyPrompt(d) {
     drivingNights > 0
       ? `Driving nights: ${drivingNights} (${drivingExceededBACLimit} above legal limit).`
       : "",
+    drivingWarning, // placed before THE WEEK so the model sees it before writing that section
     "\nTHE WEEK: What actually happened — name the standout night and say what made it different " +
     "from the rest. 2-3 sentences. Honest, not preachy.",
     "\nWHAT YOU NAILED: " + bestBehaviorLine + " 1-2 sentences. Make them want to repeat it.",
-    drivingWarning,
   ].filter(Boolean).join("\n");
 }
 
