@@ -307,63 +307,36 @@ private extension ComparisonReportCard {
     var cardBackground: some View { _cardBackground() }
 }
 
-// MARK: - Collapsible Section Row
+// MARK: - Section Row (always open, pill label)
 
 private struct SectionRow: View {
     let section: ParsedSection
-    @State private var collapsed = true
 
     var body: some View {
-        HStack(alignment: .top, spacing: 0) {
-            Rectangle()
-                .fill(section.kind.color)
-                .frame(width: 3)
-                .cornerRadius(1.5)
-                .padding(.vertical, 14)
-                .padding(.leading, 16)
-
-            VStack(alignment: .leading, spacing: 8) {
-                Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                        collapsed.toggle()
-                    }
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: section.kind.icon)
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(section.kind.color)
-                        Text(section.kind.title)
-                            .font(.system(size: 9, weight: .black))
-                            .tracking(2)
-                            .foregroundStyle(section.kind.color)
-                        Spacer()
-                        Image(systemName: "chevron.down")
-                            .font(.system(size: 9, weight: .semibold))
-                            .foregroundStyle(section.kind.color.opacity(0.6))
-                            .rotationEffect(.degrees(collapsed ? -90 : 0))
-                    }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 5)
-                    .background(section.kind.color.opacity(0.12))
-                    .cornerRadius(5)
-                }
-                .buttonStyle(.plain)
-
-                if !collapsed {
-                    Text(section.body)
-                        .font(.system(size: 13, design: .serif))
-                        .foregroundStyle(AppColors.text)
-                        .lineSpacing(5)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .transition(.opacity.combined(with: .move(edge: .top)))
-                }
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: section.kind.icon)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(section.kind.color)
+                Text(section.kind.title)
+                    .font(.system(size: 9, weight: .black))
+                    .tracking(2)
+                    .foregroundStyle(section.kind.color)
             }
-            .padding(.leading, 12)
-            .padding(.trailing, 16)
-            .padding(.top, 14)
-            .padding(.bottom, collapsed ? 10 : 14)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(section.kind.color.opacity(0.12))
+            .clipShape(Capsule())
+
+            Text(section.body)
+                .font(.system(size: 13, design: .serif))
+                .foregroundStyle(AppColors.text)
+                .lineSpacing(5)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: collapsed)
+        .padding(.horizontal, 16)
+        .padding(.top, 14)
+        .padding(.bottom, 14)
     }
 }
 
