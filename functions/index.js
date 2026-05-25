@@ -84,21 +84,6 @@ exports.generateNightReport = onDocumentUpdated({
       `exceeded (${minutesOverTarget || 0} min over)` :
       "stayed within goal") : "";
 
-  const emptyStomachInstruction = emptyStomach ?
-    "IMPORTANT: The user drank on an empty stomach. In Para 2, make this your primary tip — drinking without eating first dramatically accelerates absorption and spikes BAC faster. Be direct and specific, not preachy." :
-    "";
-
-  // Para 2 instruction — pace-aware
-  const para2Instruction = (() => {
-    if (pace === "fast" && avgSipMinutes != null) {
-      return `Para 2 — Pace was fast (avg ${avgSipMinutes} min/drink). Give ONE concrete pacing technique the user can use next time — name a specific action like "put the drink down between sips", "set a 20-minute timer per beer", or "finish each drink only after checking in with yourself". Do not say 'drink slower' in the abstract. 1 sentence.`;
-    }
-    if (pace === "slow") {
-      return `Para 2 — The user paced themselves well (avg ${avgSipMinutes}+ min/drink), which genuinely reduces peak BAC. Briefly acknowledge this as a smart habit${exceededTarget ? ", then note one other area to improve" : ""}. 1 sentence.`;
-    }
-    return "Para 2 — One specific, actionable tip for next time. Not 'drink less' — a concrete behavior: timing, food, water, or pacing. 1 sentence.";
-  })();
-
   const dominantDrinkType = d.dominantDrinkType || "mixed";
   const nightOutcome = d.nightOutcome || "heavy";
 
@@ -146,7 +131,7 @@ exports.generateNightReport = onDocumentUpdated({
 
   const message = await client.messages.create({
     model: "claude-haiku-4-5-20251001",
-    max_tokens: 180,
+    max_tokens: 250,
     messages: [{role: "user", content: prompt}],
   });
 
