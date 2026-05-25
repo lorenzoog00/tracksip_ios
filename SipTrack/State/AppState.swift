@@ -987,6 +987,8 @@ final class AppState: ObservableObject {
         var bacValues: [Double] = []
         var nightDates = Set<Int>()
         var drivingNights = 0; var drivingExceeded = 0
+        var bestMonthBACNight = ""; var bestMonthBACValue = Double.infinity
+        var frontLoadedNights = 0; var lateDrinkNights = 0; var mixingNights = 0
 
         for event in monthNights {
             let evEntries = entries.filter { $0.eventId == event.id }
@@ -1007,11 +1009,55 @@ final class AppState: ObservableObject {
             bacValues.append(nightPeak)
             if nightPeak > peakBac { peakBac = nightPeak; peakBacNight = event.displayName }
 
+            // Best night (lowest non-zero peak BAC)
+            if nightPeak > 0 && nightPeak < bestMonthBACValue {
+                bestMonthBACValue = nightPeak
+                bestMonthBACNight = event.displayName
+            }
+
+            // Front-loading detection (>60% of drinks in first half of night)
+            if let evEnd = event.endTime {
+                let duration = evEnd.timeIntervalSince(event.startTime)
+                if duration > 0 {
+                    let midPoint = event.startTime.addingTimeInterval(duration / 2)
+                    let firstHalf = evEntries.filter { $0.timestamp <= midPoint }
+                        .reduce(0) { $0 + $1.quantity }
+                    let evTotal = evEntries.reduce(0) { $0 + $1.quantity }
+                    if evTotal > 0 && Double(firstHalf) / Double(evTotal) > 0.6 {
+                        frontLoadedNights += 1
+                    }
+                }
+            }
+
+            // Late drinker detection (last drink between midnight and 5am)
+            if let lastEntry = evEntries.max(by: { $0.timestamp < $1.timestamp }) {
+                let hour = Calendar.current.component(.hour, from: lastEntry.timestamp)
+                if hour < 5 { lateDrinkNights += 1 }
+            }
+
+            // Mixing detection (beer/wine AND spirits/agave in same night)
+            var hasBeerWine = false; var hasSpirits = false
+            for entry in evEntries {
+                if let dt = allDrinkTypes.first(where: { $0.id == entry.drinkTypeId }) {
+                    let cat = dt.drinkCategory
+                    if cat == "beer" || cat == "wine" { hasBeerWine = true }
+                    if cat == "spirits" || cat == "agave" { hasSpirits = true }
+                }
+            }
+            if hasBeerWine && hasSpirits { mixingNights += 1 }
+
             if event.drivingMode {
                 drivingNights += 1
                 if nightPeak > (event.bacLimit ?? 0.08) { drivingExceeded += 1 }
             }
         }
+
+        let nightCountM = monthNights.count
+        let signatureMove: String
+        if frontLoadedNights > nightCountM / 2 { signatureMove = "front_loads" }
+        else if lateDrinkNights > nightCountM / 2 { signatureMove = "late_drinker" }
+        else if mixingNights > nightCountM / 2 { signatureMove = "mixes_drinks" }
+        else { signatureMove = "none" }
 
         let daysInMonth = cal.range(of: .day, in: .month, for: monthStart)?.count ?? 30
         let soberDays = daysInMonth - nightDates.count
@@ -1070,6 +1116,8 @@ final class AppState: ObservableObject {
             "prevMonthNightCount": prevMonthNightCount,
             "weekBreakdowns": weekBreakdowns,
             "drinkBreakdown": drinkBreakdown,
+            "signatureMove": signatureMove,
+            "bestMonthNight": bestMonthBACNight,
             "drivingNights": drivingNights,
             "drivingExceededBACLimit": drivingExceeded,
         ]
