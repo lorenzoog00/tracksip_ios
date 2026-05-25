@@ -99,29 +99,45 @@ exports.generateNightReport = onDocumentUpdated({
     return "Para 2 — One specific, actionable tip for next time. Not 'drink less' — a concrete behavior: timing, food, water, or pacing. 1 sentence.";
   })();
 
+  const dominantDrinkType = d.dominantDrinkType || "mixed";
+  const nightOutcome = d.nightOutcome || "heavy";
+
+  const drinkContext = {
+    beer: "Beer is filling and moderate — the morning is usually manageable.",
+    wine: "Wine dehydrates faster than it feels — you'll notice it in your mouth and head when you wake up.",
+    agave: "Tequila and mezcal tend to peak the next morning, around 6-8am. That's just how agave spirits work.",
+    spirits: "Straight spirits absorb fast — the peak has passed but the morning will remind you it happened.",
+    cocktails: "Cocktails are sneaky — the sugar masks how much you actually had.",
+    mixed: "Mixing different types tonight means your body is clearing them at different rates — the morning can be unpredictable.",
+  };
+
+  const soberPrompt =
+    "The user had a sober night. 1-2 sentences: name one real benefit of a sober night for the body " +
+    "(sleep, recovery, hydration reset) and tell them it counts. Warm, not preachy.";
+
+  const solidPrompt =
+    "The user had a solid night — they paced well or stayed within goal. " +
+    "1 sentence of genuine praise naming what worked (drink choice, pacing, hydration, or BAC control). " +
+    "1 sentence reinforcing the habit so they repeat it. Warm, not sycophantic.";
+
+  const heavyPrompt =
+    `The user had a heavy night. Write 2-3 sentences: ` +
+    `(1) Drink-specific right now — what to do before sleep given they drank ${dominantDrinkType} ` +
+    `(water? food? timing? nothing generic). ` +
+    `(2) One thing to skip or watch for tomorrow morning, specific to ${dominantDrinkType}. ` +
+    `(3) One smarter option for next time — a named swap or pacing move, NOT "drink less".`;
+
+  const instruction = nightOutcome === "sober" ? soberPrompt
+    : nightOutcome === "solid" ? solidPrompt
+    : heavyPrompt;
+
   const prompt = [
-    "You are a harm-reduction coach — direct like a doctor, warm like a friend.",
-    "The user already sees their stats. Do not restate them.",
-    "Output: 2 paragraphs, plain text, second person, blank line between.",
-    "No headers, no bullets, no filler, no moralizing.\n",
-    "=== PROFILE ===",
-    `${userSex} · ${userWeightKg}kg · age ${userAge || "unknown"}`,
-    `30-day avg: ${avg} drinks/night\n`,
-    "=== TONIGHT ===",
-    `${nightName} · ${durationMinutes} min · ${drinkSummary}`,
-    `Peak BAC ${peak} at ${peakBacTime || "N/A"} · ${minutesAboveLimit} min above 0.08`,
-    `Water: ${waterCount} glasses (${hydrationLevel}) · ${cals} kcal`,
-    `Recovery: ${recoveryMinutes} min after last drink`,
-    foodSummary,
-    paceLine,
-    goalLine,
-    "\n",
-    emptyStomachInstruction,
-    soberNight ?
-      "Para 1 — What one sober night actually does for the body: sleep depth, liver clearance, hydration reset. 2 sentences.\n" +
-      "Para 2 — One thing to build on or protect going forward. 1 sentence." :
-      "Para 1 — Physiology: what this BAC curve did to their body given their weight/sex. Mention pace if it amplified the BAC spike. 2 sentences.\n" +
-      para2Instruction,
+    "You are a knowledgeable friend, not a doctor or a counselor.",
+    "Output: 1 paragraph, 2-3 sentences, plain text, second person.",
+    "No bullets, no labels, no moralizing. Never tell the user to drink less or cut back.\n",
+    `Drink context: ${drinkContext[dominantDrinkType] || drinkContext.mixed}`,
+    `Drinks tonight: ${drinkSummary} · Peak BAC: ${peak} · Water: ${waterCount} glasses\n`,
+    instruction,
   ].filter(Boolean).join("\n");
 
   const client = new anthropic.Anthropic({
