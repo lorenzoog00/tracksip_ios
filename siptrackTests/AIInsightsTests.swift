@@ -74,10 +74,9 @@ final class AIInsightsTests: XCTestCase {
         XCTAssertEqual(dominantCategory(counts, total: 5), "beer")
     }
 
-    func test_dominantCategory_belowThreshold_returnsMixed() {
-        // 2 beer out of 5 = 40% → mixed
+    func test_dominantCategory_60percent_picksDominantNotRunner() {
+        // spirits = 3/5 = 60% → wins; beer = 40% → loses
         let counts: [String: Int] = ["beer": 2, "spirits": 3]
-        // spirits is 60% → dominant
         XCTAssertEqual(dominantCategory(counts, total: 5), "spirits")
     }
 

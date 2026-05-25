@@ -302,7 +302,8 @@ final class AppState: ObservableObject {
             }
         let drinkCount = eventEntries.reduce(0) { $0 + $1.quantity }
 
-        // Pre-computed insights for AI prompt
+        // Pre-computed insights for AI prompt.
+        // Note: custom drink types with unrecognised icons fall to "cocktails" via drinkCategory's default case.
         var drinkCategoryCounts: [String: Int] = [:]
         for entry in eventEntries {
             guard let dt = allDrinkTypes.first(where: { $0.id == entry.drinkTypeId }) else { continue }
