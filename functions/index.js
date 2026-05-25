@@ -212,31 +212,53 @@ function buildMonthlyPrompt(d) {
     prevMonthNightCount,
     weekBreakdowns, drinkBreakdown,
     drivingNights, drivingExceededBACLimit,
+    signatureMove, bestMonthNight,
   } = d;
 
   const weeklyLimit = userSex === "male" ? 14 : 7;
   const monthlyLimit = weeklyLimit * 4;
-  const trend = prevMonthNightCount != null ?
-    (nightCount > prevMonthNightCount ? "up" :
-      nightCount < prevMonthNightCount ? "down" : "flat") : "unknown";
-  const physique = userHeightCm ?
-    `${userWeightKg}kg, ${userHeightCm}cm (BMI ${userBMI})` :
-    `${userWeightKg}kg`;
+  const trend = prevMonthNightCount != null
+    ? (nightCount > prevMonthNightCount ? "up"
+      : nightCount < prevMonthNightCount ? "down" : "flat")
+    : "unknown";
+  const physique = userHeightCm
+    ? `${userWeightKg}kg, ${userHeightCm}cm (BMI ${userBMI})`
+    : `${userWeightKg}kg`;
 
   const weeks = (weekBreakdowns || [])
-      .map((w, i) => `  Week ${i + 1}: ${w.nights} nights,` +
-          ` ${w.drinks} drinks,` +
-          ` peak BAC ${(w.peakBac || 0).toFixed(3)}`)
-      .join("\n");
+    .map((w, i) => `  Week ${i + 1}: ${w.nights} nights, ${w.drinks} drinks, peak BAC ${(w.peakBac || 0).toFixed(3)}`)
+    .join("\n");
 
-  const drivingLine = drivingNights > 0 ?
-    `Driving nights: ${drivingNights}` +
-    ` (${drivingExceededBACLimit} above legal BAC limit)` : "";
+  const drivingLine = drivingNights > 0
+    ? `Driving nights: ${drivingNights} (${drivingExceededBACLimit} above legal BAC limit)`
+    : "";
 
-  const drivingWarning = drivingExceededBACLimit > 0 ?
-    `SAFETY: On ${drivingExceededBACLimit} night(s) this month the user` +
-    " said they would drive but BAC exceeded the legal limit." +
-    " Address this in BEHAVIORAL INSIGHT." : "";
+  const drivingWarning = drivingExceededBACLimit > 0
+    ? `SAFETY: On ${drivingExceededBACLimit} night(s) this month the user said they would drive ` +
+      `but BAC exceeded the legal limit. Address this in BEHAVIORAL INSIGHT.`
+    : "";
+
+  const signatureMoveLine = (() => {
+    switch (signatureMove) {
+      case "front_loads":
+        return "Pattern detected: the user consistently front-loads — most drinks come in the first " +
+          "half of their nights. Name this pattern directly and explain how it affects their BAC curve.";
+      case "late_drinker":
+        return "Pattern detected: the user's nights consistently run late — last drinks after midnight. " +
+          "Name this as their signature and say what it does to sleep and recovery quality.";
+      case "mixes_drinks":
+        return "Pattern detected: the user regularly mixes beer/wine and spirits in the same night. " +
+          "Name this as their move and explain why mixing complicates how the body clears alcohol.";
+      default:
+        return "No single dominant pattern detected — if the numbers were reasonable, say so: " +
+          "consistency itself is a form of control worth naming.";
+    }
+  })();
+
+  const bestNightLine = bestMonthNight
+    ? `Best night of the month: ${bestMonthNight} had the lowest peak BAC. Close this section by ` +
+      `calling it out — name it as the standard worth repeating next month.`
+    : "";
 
   return [
     coachPersona,
@@ -247,34 +269,24 @@ function buildMonthlyPrompt(d) {
     `User: ${userSex}, ${physique}, age ${userAge || "unknown"}.`,
     `Monthly guideline: ${monthlyLimit} standard drinks.\n`,
     `Month: ${monthName} ${year}`,
-    `Nights out: ${nightCount} | Sober days: ${soberDays}`,
-    `Total: ${totalDrinks} drinks`,
-    `(${(totalStdDrinks || totalDrinks).toFixed(1)} std)`,
+    `Nights out: ${nightCount} | Sober days: ${soberDays} | Trend vs last month: ${trend}`,
+    `Total: ${totalDrinks} drinks (${(totalStdDrinks || totalDrinks).toFixed(1)} std)`,
     `Total calories: ${Math.round(totalCalories || 0)} kcal`,
     `Peak BAC: ${(peakBac || 0).toFixed(3)} on ${peakBacNight || "unknown"}`,
     `Avg BAC/night: ${(avgBacPerNight || 0).toFixed(3)}`,
-    `Trend vs prev month: ${trend}`,
     `Water: ${totalWater || 0} glasses total`,
     drinkBreakdown ? `Drink breakdown: ${drinkBreakdown}` : "",
     drivingLine,
     weeks ? `\nWeek-by-week:\n${weeks}` : "",
-    "\nMEDICAL ANALYSIS: Full-month medical picture. Cumulative BAC",
-    "exposure, organ load, any red flags. Reference physique.\n",
-    "NUTRITION & METABOLISM: Nutritional impact of the specific",
-    "drinks consumed. Caloric total, hydration pattern,",
-    "one actionable goal for next month.\n",
-    "BEHAVIORAL INSIGHT: Identify the dominant pace or timing pattern across",
-    "the month — were nights consistently front-loaded, or well-spread?",
-    "If fast pace was a pattern (high drinks/hour, short nights with many",
-    "drinks), name ONE technique to carry into next month with a concrete",
-    "target: e.g., 'one drink per 20 minutes', 'no more than 2 drinks in",
-    "the first hour'. If the user paced well this month, explicitly",
-    "acknowledge it as a habit worth protecting. Close with one SMART goal",
-    "(specific number, action, and timeframe).",
-    drivingWarning + "\n",
-    "OVERALL SYNTHESIS: Two sentences tying all three together.",
-    "Honest and motivating.",
-  ].join("\n");
+    "\nMEDICAL ANALYSIS: Full-month medical picture. Cumulative BAC exposure, organ load, " +
+    "any red flags. Reference physique. Clinical and direct — this section earns its formality.\n",
+    "NUTRITION & METABOLISM: Nutritional impact of the specific drinks consumed. " +
+    "Caloric total, hydration pattern, one actionable goal for next month.\n",
+    "BEHAVIORAL INSIGHT: " + signatureMoveLine + (bestNightLine ? " " + bestNightLine : "") + "\n",
+    "OVERALL SYNTHESIS: Two sentences tying all three together. Honest and motivating. " +
+    "Do not moralize or recommend drinking less.",
+    drivingWarning,
+  ].filter(Boolean).join("\n");
 }
 
 // eslint-disable-next-line require-jsdoc
