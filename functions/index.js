@@ -432,7 +432,7 @@ exports.generateCoachReport = onDocumentCreated({
     maxTokens = 400;
   } else if (type === "monthly") {
     prompt = buildMonthlyPrompt(d);
-    maxTokens = 650;
+    maxTokens = 700;
   } else if (type === "comparison") {
     prompt = buildComparisonPrompt(d);
     maxTokens = 400;

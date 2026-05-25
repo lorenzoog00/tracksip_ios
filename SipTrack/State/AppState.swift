@@ -866,7 +866,7 @@ final class AppState: ObservableObject {
         var weekTotalDrinks = 0; var totalCals = 0.0; var totalWater = 0
         var peakBac = 0.0; var peakBacNight = ""
         var bacValues: [Double] = []
-        var bestNight = ""; var worstNight = ""; var bestCount = Int.max; var worstCount = 0
+        var worstNight = ""; var worstCount = 0
         var drivingNights = 0; var drivingExceeded = 0
         var bestHydrationNight = ""; var bestHydrationCount = 0 // one WaterEntry == one logged glass
         var bestBACNight = ""; var bestBACValue = Double.infinity
@@ -889,7 +889,6 @@ final class AppState: ObservableObject {
             bacValues.append(nightPeak)
             if nightPeak > peakBac { peakBac = nightPeak; peakBacNight = event.displayName }
 
-            if drinkCount < bestCount  { bestCount = drinkCount;  bestNight  = event.displayName }
             if drinkCount > worstCount { worstCount = drinkCount; worstNight = event.displayName }
 
             if evWater.count > bestHydrationCount {
@@ -957,7 +956,6 @@ final class AppState: ObservableObject {
             "avgBacPerNight": avgBac,
             "totalWater": totalWater,
             "avg30DayDrinksPerNight": avg30,
-            "bestNight": bestNight,
             "worstNight": worstNight,
             "bestBehaviorType": bestBehaviorType,
             "bestBehaviorNight": bestBehaviorNight,
@@ -985,7 +983,7 @@ final class AppState: ObservableObject {
         var monthTotalDrinks = 0; var totalCals = 0.0; var totalWater = 0
         var peakBac = 0.0; var peakBacNight = ""
         var bacValues: [Double] = []
-        var nightDates = Set<Int>()
+        var nightDates = Set<Date>()
         var drivingNights = 0; var drivingExceeded = 0
         var bestMonthBACNight = ""; var bestMonthBACValue = Double.infinity
         var frontLoadedNights = 0; var lateDrinkNights = 0; var mixingNights = 0
@@ -997,7 +995,7 @@ final class AppState: ObservableObject {
             monthTotalDrinks += drinkCount
             totalCals   += totalCalories(for: event.id)
             totalWater  += evWater.count
-            nightDates.insert(cal.ordinality(of: .day, in: .era, for: event.startTime) ?? 0)
+            nightDates.insert(cal.startOfDay(for: event.startTime))
 
             let timeline = BACCalculator.bacTimeline(
                 entries: evEntries,
