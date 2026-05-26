@@ -133,14 +133,21 @@ struct AIReportCard: View {
         ZStack(alignment: .center) {
             VStack(alignment: .leading, spacing: 0) {
                 if let text = reportText {
-                    Text(text)
-                        .font(.system(size: 14, design: .serif))
-                        .foregroundStyle(AppColors.text)
-                        .lineSpacing(5)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.horizontal, 16)
-                        .padding(.top, 16)
-                        .padding(.bottom, isPro ? 22 : 16)
+                    let sections = NightReportParser.parse(text)
+                    if sections.isEmpty {
+                        Text(text)
+                            .font(.system(size: 14, design: .serif))
+                            .foregroundStyle(AppColors.text)
+                            .lineSpacing(5)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 16)
+                    } else {
+                        ForEach(Array(sections.enumerated()), id: \.offset) { i, section in
+                            AnalysisSectionRow(section: section)
+                            if i < sections.count - 1 { reportDashedDivider }
+                        }
+                    }
                 }
             }
             .blur(radius: isPro ? 0 : 9)
@@ -149,6 +156,18 @@ struct AIReportCard: View {
             if !isPro { proGate }
         }
         .clipped()
+    }
+
+    private var reportDashedDivider: some View {
+        Canvas { ctx, size in
+            var path = Path()
+            path.move(to: CGPoint(x: 0, y: 0))
+            path.addLine(to: CGPoint(x: size.width, y: 0))
+            ctx.stroke(path, with: .color(.white.opacity(0.08)),
+                       style: StrokeStyle(lineWidth: 1, dash: [4, 5]))
+        }
+        .frame(height: 1)
+        .padding(.horizontal, 16)
     }
 
     private var proGate: some View {
@@ -404,6 +423,7 @@ extension RecoverySeverity {
 struct AnalysisSection {
     enum Kind {
         case physiology, insight
+        case tonight, tomorrow
         case recovery, hydration
         case unknown
 
@@ -411,6 +431,8 @@ struct AnalysisSection {
             switch self {
             case .physiology: return "PHYSIOLOGY"
             case .insight:    return "NEXT TIME"
+            case .tonight:    return "TONIGHT"
+            case .tomorrow:   return "TOMORROW"
             case .recovery:   return "RECOVERY"
             case .hydration:  return "HYDRATION"
             case .unknown:    return "ANALYSIS"
@@ -421,6 +443,8 @@ struct AnalysisSection {
             switch self {
             case .physiology: return "waveform.path.ecg"
             case .insight:    return "brain.head.profile"
+            case .tonight:    return "moon.stars.fill"
+            case .tomorrow:   return "sunrise.fill"
             case .recovery:   return "cross.case.fill"
             case .hydration:  return "drop.fill"
             case .unknown:    return "sparkles"
@@ -431,6 +455,8 @@ struct AnalysisSection {
             switch self {
             case .physiology: return Color(hex: "#5BC8FF")
             case .insight:    return Color(hex: "#BF5AF2")
+            case .tonight:    return Color(hex: "#5BC8FF")
+            case .tomorrow:   return Color(hex: "#F0A830")
             case .recovery:   return Color(hex: "#4CD964")
             case .hydration:  return AppColors.water
             case .unknown:    return AppColors.accent
@@ -445,23 +471,29 @@ struct AnalysisSection {
 // MARK: - Parsers
 
 enum NightReportParser {
-    private static let order: [AnalysisSection.Kind] = [.physiology, .insight]
+    private static let labelMap: [(String, AnalysisSection.Kind)] = [
+        ("TONIGHT",    .tonight),
+        ("TOMORROW",   .tomorrow),
+        ("NEXT TIME",  .insight),
+        ("GREAT CALL", .insight),
+        ("KEEP IT UP", .physiology),
+        ("BODY RESET", .physiology),
+        ("IT COUNTS",  .insight),
+    ]
 
     static func parse(_ text: String) -> [AnalysisSection] {
-        let paras = text.components(separatedBy: "\n\n")
+        text.components(separatedBy: "\n\n")
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
-        return paras.enumerated().map { i, para in
-            let body: String
-            if let colon = para.range(of: ":") {
-                body = String(para[colon.upperBound...])
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-            } else {
-                body = para
+            .map { para -> AnalysisSection in
+                guard let colon = para.range(of: ":") else {
+                    return AnalysisSection(kind: .unknown, body: para)
+                }
+                let label = String(para[para.startIndex..<colon.lowerBound]).uppercased()
+                let body  = String(para[colon.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
+                let kind  = labelMap.first { label.contains($0.0) }?.1 ?? .unknown
+                return AnalysisSection(kind: kind, body: body.isEmpty ? para : body)
             }
-            let kind = i < order.count ? order[i] : .unknown
-            return AnalysisSection(kind: kind, body: body.isEmpty ? para : body)
-        }
     }
 }
 
@@ -492,7 +524,7 @@ enum RecoveryAnalysisParser {
 
 private struct AnalysisSectionRow: View {
     let section: AnalysisSection
-    @State private var collapsed = true
+    @State private var collapsed = false
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {

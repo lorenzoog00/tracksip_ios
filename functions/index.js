@@ -69,21 +69,22 @@ exports.generateNightReport = onDocumentUpdated({
     mixed: "Mixing different types tonight means your body is clearing them at different rates — the morning can be unpredictable.",
   };
 
+  /* eslint-disable max-len */
   const soberPrompt =
-    "The user had a sober night. 1-2 sentences: name one real benefit of a sober night for the body " +
-    "(sleep, recovery, hydration reset) and tell them it counts. Warm, not preachy.";
+    "Output exactly 2 short labeled paragraphs, separated by a blank line. Second person. 1 sentence each.\n" +
+    "BODY RESET: One real benefit of a sober night for the body (sleep, recovery, or hydration). Specific, not generic.\n\n" +
+    "IT COUNTS: Tell them it counts. Warm, not preachy.";
 
   const solidPrompt =
-    "The user had a solid night — they paced well or stayed within goal. " +
-    "1 sentence of genuine praise naming what worked (drink choice, pacing, hydration, or BAC control). " +
-    "1 sentence reinforcing the habit so they repeat it. Warm, not sycophantic.";
+    "Output exactly 2 short labeled paragraphs, separated by a blank line. Second person. 1 sentence each.\n" +
+    "GREAT CALL: Genuine praise naming what specifically worked (drink choice, pacing, hydration, or BAC control). Warm, not sycophantic.\n\n" +
+    "KEEP IT UP: One sentence reinforcing the habit so they repeat it.";
 
   const heavyPrompt =
-    `The user had a heavy night. Write 2-3 sentences: ` +
-    `(1) Drink-specific right now — what to do before sleep given they drank ${dominantDrinkType} ` +
-    `(water? food? timing? nothing generic). ` +
-    `(2) One thing to skip or watch for tomorrow morning, specific to ${dominantDrinkType}. ` +
-    `(3) One smarter option for next time — a named swap or pacing move, NOT "drink less".`;
+    `Output exactly 3 short labeled paragraphs, separated by blank lines. Second person. 1 sentence each.\n` +
+    `TONIGHT: What to do before sleep — drink-specific to ${dominantDrinkType} (water? food? timing?). Not generic.\n\n` +
+    `TOMORROW: One thing to watch for or skip in the morning, specific to ${dominantDrinkType}.\n\n` +
+    `NEXT TIME: One smarter swap or pacing move — a named action, not "drink less".`;
   /* eslint-enable max-len */
 
   const instruction = nightOutcome === "sober" ? soberPrompt :
@@ -93,8 +94,7 @@ exports.generateNightReport = onDocumentUpdated({
   /* eslint-disable max-len */
   const prompt = [
     "You are a knowledgeable friend, not a doctor or a counselor.",
-    "Output: 1 paragraph, 2-3 sentences, plain text, second person.",
-    "No bullets, no labels, no moralizing. Never tell the user to drink less or cut back.\n",
+    "Never tell the user to drink less or cut back.\n",
     `Drink context: ${drinkContext[dominantDrinkType] || drinkContext.mixed}`,
     `Drinks tonight: ${drinkSummary} · Peak BAC: ${peak} · Water: ${waterCount} glasses\n`,
     instruction,
@@ -107,7 +107,7 @@ exports.generateNightReport = onDocumentUpdated({
 
   const message = await client.messages.create({
     model: "claude-haiku-4-5-20251001",
-    max_tokens: 250,
+    max_tokens: 300,
     messages: [{role: "user", content: prompt}],
   });
 
