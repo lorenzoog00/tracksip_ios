@@ -38,6 +38,7 @@ struct DisclaimerView: View {
                 Divider().background(AppColors.border)
 
                 Button {
+                    dismiss()
                     onAccept()
                 } label: {
                     Text("I Understand — Continue")
