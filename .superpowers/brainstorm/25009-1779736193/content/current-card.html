@@ -1,0 +1,112 @@
+<h2>Current card — what stays, what goes?</h2>
+<p class="subtitle">Select the elements you want to KEEP. Everything unselected is up for redesign.</p>
+
+<div style="display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap">
+
+  <!-- Annotated card mockup -->
+  <div style="flex:1;min-width:260px">
+    <div style="background:#1a1a2e;border-radius:18px;border:1px solid rgba(244,201,122,0.4);overflow:hidden;font-family:monospace">
+
+      <!-- Header -->
+      <div style="padding:14px 16px 12px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="background:rgba(244,201,122,0.15);color:#f4c97a;font-size:8px;letter-spacing:2.5px;font-weight:900;padding:3px 7px;border-radius:4px;display:inline-block">WEEKLY</div>
+          <div style="color:#e0e0e0;font-size:13px;font-weight:600;margin-top:4px">Jun 1 – Jun 7</div>
+        </div>
+        <div style="width:34px;height:34px;background:#2a2a3e;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px">🥃</div>
+      </div>
+
+      <!-- Gold rule -->
+      <div style="height:1px;background:linear-gradient(to right, #f4c97a, rgba(244,201,122,0.3), transparent)"></div>
+
+      <!-- Section 1 -->
+      <div style="display:flex;padding:14px 16px 10px">
+        <div style="width:3px;background:#5BC8FF;border-radius:2px;margin-right:12px;flex-shrink:0"></div>
+        <div style="flex:1">
+          <div style="background:rgba(91,200,255,0.12);border-radius:5px;padding:5px 8px;display:flex;align-items:center;gap:6px">
+            <span style="font-size:10px">🩺</span>
+            <span style="color:#5BC8FF;font-size:9px;letter-spacing:2px;font-weight:900">MEDICAL ANALYSIS</span>
+            <span style="margin-left:auto;color:#5BC8FF;opacity:0.6;font-size:10px">›</span>
+          </div>
+          <div style="color:#e0e0e0;font-size:13px;font-family:Georgia,serif;line-height:1.7;margin-top:8px;opacity:0.7;font-style:italic">(collapsed — tap to expand)</div>
+        </div>
+      </div>
+
+      <!-- Dashed divider -->
+      <div style="margin:0 16px;border-top:1px dashed rgba(255,255,255,0.1)"></div>
+
+      <!-- Section 2 expanded -->
+      <div style="display:flex;padding:14px 16px">
+        <div style="width:3px;background:#4CD964;border-radius:2px;margin-right:12px;flex-shrink:0"></div>
+        <div style="flex:1">
+          <div style="background:rgba(76,217,100,0.12);border-radius:5px;padding:5px 8px;display:flex;align-items:center;gap:6px">
+            <span style="font-size:10px">🌿</span>
+            <span style="color:#4CD964;font-size:9px;letter-spacing:2px;font-weight:900">NUTRITION & METABOLISM</span>
+            <span style="margin-left:auto;color:#4CD964;opacity:0.6;font-size:10px">⌄</span>
+          </div>
+          <div style="color:#e0e0e0;font-size:13px;font-family:Georgia,serif;line-height:1.7;margin-top:8px">Saturday ran away from you — that one night was most of your week. The rest of it was actually pretty clean.</div>
+        </div>
+      </div>
+
+    </div>
+    <p style="color:rgba(255,255,255,0.4);font-size:11px;margin-top:8px;text-align:center">Current card (simplified)</p>
+  </div>
+
+  <!-- Element picker -->
+  <div style="flex:1;min-width:260px">
+    <div class="options" data-multiselect style="flex-direction:column;gap:10px">
+
+      <div class="option" data-choice="header" onclick="toggleSelect(this)" style="flex-direction:row">
+        <div class="letter" style="min-width:32px;height:32px;font-size:11px">H</div>
+        <div class="content">
+          <h3>Header (WEEKLY badge + period + app icon)</h3>
+          <p style="font-size:12px">The top bar with the label, date range, and icon in the corner.</p>
+        </div>
+      </div>
+
+      <div class="option" data-choice="goldrule" onclick="toggleSelect(this)" style="flex-direction:row">
+        <div class="letter" style="min-width:32px;height:32px;font-size:11px">G</div>
+        <div class="content">
+          <h3>Gold gradient rule</h3>
+          <p style="font-size:12px">The gold line that separates the header from the content.</p>
+        </div>
+      </div>
+
+      <div class="option" data-choice="coloredborder" onclick="toggleSelect(this)" style="flex-direction:row">
+        <div class="letter" style="min-width:32px;height:32px;font-size:11px">C</div>
+        <div class="content">
+          <h3>Colored left border per section</h3>
+          <p style="font-size:12px">Each section gets its own color (blue = medical, green = nutrition, purple = behavioral).</p>
+        </div>
+      </div>
+
+      <div class="option" data-choice="collapsible" onclick="toggleSelect(this)" style="flex-direction:row">
+        <div class="letter" style="min-width:32px;height:32px;font-size:11px">X</div>
+        <div class="content">
+          <h3>Collapsible sections</h3>
+          <p style="font-size:12px">Sections start collapsed, tap to expand. Keeps the card compact.</p>
+        </div>
+      </div>
+
+      <div class="option" data-choice="seriftext" onclick="toggleSelect(this)" style="flex-direction:row">
+        <div class="letter" style="min-width:32px;height:32px;font-size:11px">T</div>
+        <div class="content">
+          <h3>Serif body text</h3>
+          <p style="font-size:12px">Report body uses a serif font (Georgia). Feels editorial/medical.</p>
+        </div>
+      </div>
+
+      <div class="option" data-choice="ekg" onclick="toggleSelect(this)" style="flex-direction:row">
+        <div class="letter" style="min-width:32px;height:32px;font-size:11px">E</div>
+        <div class="content">
+          <h3>EKG animation while loading</h3>
+          <p style="font-size:12px">The scanning heartbeat line shown while the AI generates.</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<p class="subtitle" style="margin-top:16px">Select what you want to KEEP. Tell me in the terminal what's missing or off.</p>

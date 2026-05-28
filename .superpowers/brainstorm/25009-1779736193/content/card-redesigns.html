@@ -1,0 +1,82 @@
+<h2>Card layout — pick a direction</h2>
+<p class="subtitle">Same header, same serif text, same EKG. What changes is how sections are presented.</p>
+
+<div class="cards">
+
+  <!-- Option A: Open / no collapse -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#1a1a2e;padding:14px;border-radius:10px;font-family:Georgia,serif">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div>
+          <div style="background:rgba(244,201,122,0.15);color:#f4c97a;font-size:7px;letter-spacing:2px;font-weight:900;padding:2px 6px;border-radius:3px;display:inline-block">WEEKLY</div>
+          <div style="color:#e0e0e0;font-size:11px;font-weight:600;margin-top:3px">Jun 1 – Jun 7</div>
+        </div>
+        <div style="font-size:16px">🥃</div>
+      </div>
+      <div style="height:1px;background:rgba(255,255,255,0.08);margin-bottom:12px"></div>
+      <div style="color:rgba(255,255,255,0.4);font-size:7px;letter-spacing:2px;margin-bottom:4px">🩺 MEDICAL</div>
+      <div style="color:#e0e0e0;font-size:11px;line-height:1.6;margin-bottom:12px">"Your peak was higher than usual this week but you kept it short."</div>
+      <div style="height:1px;background:rgba(255,255,255,0.06);margin-bottom:12px"></div>
+      <div style="color:rgba(255,255,255,0.4);font-size:7px;letter-spacing:2px;margin-bottom:4px">🌿 NUTRITION</div>
+      <div style="color:#e0e0e0;font-size:11px;line-height:1.6">"Saturday you mixed — that's a tougher combo to bounce back from."</div>
+    </div>
+    <div class="card-body">
+      <h3>A — Open & flowing</h3>
+      <p>All sections always visible. No collapse, no borders. Clean divider between sections. Reads top to bottom like a letter.</p>
+    </div>
+  </div>
+
+  <!-- Option B: Pill section headers -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#1a1a2e;padding:14px;border-radius:10px;font-family:Georgia,serif">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div>
+          <div style="background:rgba(244,201,122,0.15);color:#f4c97a;font-size:7px;letter-spacing:2px;font-weight:900;padding:2px 6px;border-radius:3px;display:inline-block">WEEKLY</div>
+          <div style="color:#e0e0e0;font-size:11px;font-weight:600;margin-top:3px">Jun 1 – Jun 7</div>
+        </div>
+        <div style="font-size:16px">🥃</div>
+      </div>
+      <div style="height:1px;background:rgba(255,255,255,0.08);margin-bottom:12px"></div>
+      <div style="background:rgba(91,200,255,0.15);border-radius:20px;padding:4px 10px;display:inline-block;margin-bottom:6px">
+        <span style="color:#5BC8FF;font-size:7px;letter-spacing:1.5px;font-weight:900">🩺 MEDICAL</span>
+      </div>
+      <div style="color:#e0e0e0;font-size:11px;line-height:1.6;margin-bottom:12px">"Your peak was higher than usual this week but you kept it short."</div>
+      <div style="background:rgba(76,217,100,0.15);border-radius:20px;padding:4px 10px;display:inline-block;margin-bottom:6px">
+        <span style="color:#4CD964;font-size:7px;letter-spacing:1.5px;font-weight:900">🌿 NUTRITION</span>
+      </div>
+      <div style="color:#e0e0e0;font-size:11px;line-height:1.6">"Saturday you mixed — that's a tougher combo to bounce back from."</div>
+    </div>
+    <div class="card-body">
+      <h3>B — Colored pill labels</h3>
+      <p>Sections stay open, but labels become colored pills instead of full-width bars. Keeps the color coding, lighter visually.</p>
+    </div>
+  </div>
+
+  <!-- Option C: Full width colored section headers -->
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#1a1a2e;border-radius:10px;overflow:hidden;font-family:Georgia,serif">
+      <div style="padding:12px 14px 10px;display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="background:rgba(244,201,122,0.15);color:#f4c97a;font-size:7px;letter-spacing:2px;font-weight:900;padding:2px 6px;border-radius:3px;display:inline-block">WEEKLY</div>
+          <div style="color:#e0e0e0;font-size:11px;font-weight:600;margin-top:3px">Jun 1 – Jun 7</div>
+        </div>
+        <div style="font-size:16px">🥃</div>
+      </div>
+      <div style="background:rgba(91,200,255,0.1);padding:6px 14px;border-top:1px solid rgba(91,200,255,0.2)">
+        <span style="color:#5BC8FF;font-size:7px;letter-spacing:2px;font-weight:900">🩺 MEDICAL ANALYSIS</span>
+      </div>
+      <div style="padding:10px 14px 12px;color:#e0e0e0;font-size:11px;line-height:1.6">"Your peak was higher than usual this week but you kept it short."</div>
+      <div style="background:rgba(76,217,100,0.1);padding:6px 14px;border-top:1px solid rgba(76,217,100,0.2)">
+        <span style="color:#4CD964;font-size:7px;letter-spacing:2px;font-weight:900">🌿 NUTRITION & METABOLISM</span>
+      </div>
+      <div style="padding:10px 14px 12px;color:#e0e0e0;font-size:11px;line-height:1.6">"Saturday you mixed — that's a tougher combo to bounce back from."</div>
+    </div>
+    <div class="card-body">
+      <h3>C — Full-width section bands</h3>
+      <p>Each section gets a full-width colored header band. Bold visual separation. Medical/structured feel without collapsing.</p>
+    </div>
+  </div>
+
+</div>
+
+<p class="subtitle" style="margin-top:16px">All three keep EKG, serif text, and the header. Pick the one that feels most like your app.</p>

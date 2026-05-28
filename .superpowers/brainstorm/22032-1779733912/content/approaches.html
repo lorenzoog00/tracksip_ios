@@ -1,0 +1,44 @@
+<h2>How should the AI get smart enough to do this?</h2>
+<p class="subtitle">The current system sends this week's numbers. For signature move + best night, it needs more. Pick your approach.</p>
+
+<div class="options">
+
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Rewrite prompts only</h3>
+      <p>Change the tone and structure of existing prompts. Faster voice, friend tone, no lectures. <strong>But</strong>: signature move and best night need historical data the current system doesn't pass — this option skips those for now.</p>
+      <div class="pros-cons" style="margin-top:8px">
+        <div class="pros"><h4>Pros</h4><ul><li>Ship in one session</li><li>Zero backend changes</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>No signature move</li><li>No real best night</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Pass more history to the AI — let it figure out patterns</h3>
+      <p>iOS app sends last 8–12 weeks of night summaries with the monthly prompt. Claude reads the history and surfaces the signature move + best night itself.</p>
+      <div class="pros-cons" style="margin-top:8px">
+        <div class="pros"><h4>Pros</h4><ul><li>Signature move works</li><li>Best night works</li><li>Minimal new backend code</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Bigger prompt = more tokens</li><li>AI may still miss subtle patterns</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Pre-compute insights in code, AI just narrates</h3>
+      <p>iOS or Firebase function finds the best night, detects the pattern (e.g. "always accelerates after midnight"), then hands those facts to Claude to write naturally. AI never has to "figure it out" — it just makes it sound good.</p>
+      <div class="pros-cons" style="margin-top:8px">
+        <div class="pros"><h4>Pros</h4><ul><li>Most reliable insights</li><li>AI output is sharper</li><li>Cheaper tokens</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>More Swift/JS code to write</li><li>More planning</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<p class="subtitle" style="margin-top:16px">My recommendation: <strong>C</strong> — code finds the facts, AI tells the story. That's the cleanest split and gives the sharpest output.</p>
