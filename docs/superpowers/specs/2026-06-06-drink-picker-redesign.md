@@ -143,16 +143,21 @@ Rules for generating facts (computed client-side from session data, no AI call):
 
 **Section 4 — Tonight's Timeline**
 
-Chronological list of every `DrinkEntry` and water log for the current event. Each entry shows:
-- Colored dot on a vertical gradient line (left side)
-- SF Symbol icon + drink name
-- Time (formatted as "9:47 PM")
-- ABV and calories
-- BAC contribution at the time of that drink (computed as the marginal BAC added by that single drink, not cumulative)
+Chronological list (oldest first) of every `DrinkEntry` and water log for the current event.
 
-Water entries appear in the timeline with a blue dot and "Hydration ✓" label.
+**Visual structure per entry:**
+- Vertical gradient line on the left connecting all dots (gradient shifts color as BAC rises: green → amber → red)
+- Colored dot at the entry's position on the line (color = drink type color)
+- Card with a **thin BAC progress bar** at the very top (2px height, spans card width, fills left-to-right proportional to cumulative BAC ÷ 0.08 limit, color gradient: green → amber → red)
+- SF Symbol icon (drink's color, tinted background)
+- Drink name (left) + cumulative BAC at that moment right-aligned (e.g. "BAC 0.049"), colored by severity
+- Time + calories on the second line
 
-Most recent entry at the bottom (chronological order, oldest first).
+**Between entries:** A small time-gap label ("35 min ↓") in muted color shows exactly how long between drinks. This immediately visualizes pacing — clustered entries show a fast stretch, wide gaps show a controlled pace.
+
+**Water entries:** Blue dot, blue card tint, no BAC bar, "Hydration ✓" label instead of BAC.
+
+**Empty state:** "No drinks logged yet — your night starts here." centered in the section.
 
 ---
 
