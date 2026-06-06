@@ -1376,6 +1376,19 @@ final class AppState: ObservableObject {
         }
     }
 
+    func isFavorite(_ drinkId: String) -> Bool {
+        userProfile.favoriteDrinkIds.contains(drinkId)
+    }
+
+    func toggleFavoriteDrink(id: String) {
+        if userProfile.favoriteDrinkIds.contains(id) {
+            userProfile.favoriteDrinkIds.removeAll { $0 == id }
+        } else {
+            userProfile.favoriteDrinkIds.append(id)
+        }
+        updateUserProfile(userProfile)
+    }
+
     // MARK: - Country detection
     //
     // Detection runs on every cold start (post-onboarding). The location is

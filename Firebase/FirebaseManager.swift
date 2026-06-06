@@ -204,6 +204,7 @@ final class FirebaseManager: ObservableObject {
         if let c = profile.countryCode                           { data["country_code"]                       = c }
         if let d = profile.countryDetectionLastDismissedCode     { data["country_detection_last_dismissed"]   = d }
         data["country_detection_disabled"] = profile.countryDetectionDisabled
+        data["favorite_drink_ids"] = profile.favoriteDrinkIds
         try await db.collection("users").document(uid).collection("profiles").document(uid)
             .setData(data, merge: true)
     }
@@ -333,6 +334,7 @@ final class FirebaseManager: ObservableObject {
             up.countryCode = d["country_code"] as? String
             up.countryDetectionLastDismissedCode = d["country_detection_last_dismissed"] as? String
             up.countryDetectionDisabled = d["country_detection_disabled"] as? Bool ?? false
+            up.favoriteDrinkIds = d["favorite_drink_ids"] as? [String] ?? []
             profile = up
         }
 
