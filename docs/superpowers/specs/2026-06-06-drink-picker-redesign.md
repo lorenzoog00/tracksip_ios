@@ -124,7 +124,24 @@ Three tiles in a row:
 - 💧 → water count (use SF Symbol `drop.fill`, blue)
 - 🔥 → total calories (use SF Symbol `flame.fill`)
 
-**Section 3 — Tonight's Timeline**
+**Section 3 — Interesting Facts**
+
+1–3 contextual insight cards generated from the current session data. Each card is a single sentence, styled like a callout chip. Examples:
+
+- "At this pace you'll hit your BAC limit in ~40 min" (pace + current BAC + limit)
+- "Your BAC peaked 20 minutes ago — it's dropping now" (peak BAC time vs now)
+- "3 tequilas in 90 min — your fastest stretch tonight" (dominant drink + pace spike)
+- "You've burned ~620 cal — about the same as a cheeseburger" (calorie comparison)
+- "2 waters tonight — on track for solid hydration" (positive reinforcement)
+- "This is your heaviest hour of the night so far" (drinks/hr this hour vs average)
+
+Rules for generating facts (computed client-side from session data, no AI call):
+- Always show at least 1 fact, max 3
+- Priority: safety-relevant first (pace toward limit), then behavioral (peak BAC, fastest stretch), then fun (calorie equivalent)
+- If BAC is 0.00 (sober night), show a sober-positive fact instead
+- Facts update live as new drinks are added
+
+**Section 4 — Tonight's Timeline**
 
 Chronological list of every `DrinkEntry` and water log for the current event. Each entry shows:
 - Colored dot on a vertical gradient line (left side)
