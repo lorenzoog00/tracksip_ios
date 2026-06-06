@@ -65,17 +65,17 @@ struct NightStatsSheet: View {
     }
 
     private var peakBACInfo: (peakBAC: Double, minutesAgo: Int) {
+        // Approximate: cumulative BAC peaks after the last drink.
+        // Use the highest marginal drink as a proxy for peak magnitude,
+        // and the most recent entry timestamp as the time it likely peaked.
+        guard let lastEntry = entries.last else { return (0, 0) }
         var peak: Double = 0
-        var peakTime: Date = Date()
         for entry in entries {
             guard let dt = appState.allDrinkTypes.first(where: { $0.id == entry.drinkTypeId }) else { continue }
             let bac = marginalBAC(drinkType: dt, profile: appState.userProfile) * Double(entry.quantity)
-            if bac > peak {
-                peak = bac
-                peakTime = entry.timestamp
-            }
+            peak += bac
         }
-        let minutesAgo = Int(Date().timeIntervalSince(peakTime) / 60)
+        let minutesAgo = max(0, Int(Date().timeIntervalSince(lastEntry.timestamp) / 60))
         return (peak, minutesAgo)
     }
 

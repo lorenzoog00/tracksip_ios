@@ -24,7 +24,7 @@ func computeNightFacts(
     // 1. Safety: approaching limit
     if currentBAC > 0 && currentBAC < bacLimit {
         let remainingBAC = bacLimit - currentBAC
-        let hoursToLimit = remainingBAC / 0.018  // avg 1 drink ≈ 0.018 BAC
+        let hoursToLimit = remainingBAC / 0.018  // ~0.018 BAC/hr accumulation at 1 drink/hr pace
         if hoursToLimit < 1.5 && drinkCount > 0 {
             let mins = Int(hoursToLimit * 60)
             facts.append(NightFact(

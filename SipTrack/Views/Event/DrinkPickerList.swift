@@ -144,8 +144,12 @@ struct DrinkPickerList: View {
             // Content
             VStack(spacing: 5) {
                 if filter == .all && searchText.isEmpty && !recentDrinkTypes.isEmpty {
+                    let recentIds = Set(recentDrinkTypes.map(\.id))
+                    let allMinusRecent = filteredDrinks.filter { !recentIds.contains($0.id) }
                     pickerSection(label: "RECENTLY ADDED", color: AppColors.accent, drinks: recentDrinkTypes, showTimestamp: true)
-                    pickerSection(label: "ALL DRINKS", color: AppColors.textTertiary, drinks: filteredDrinks, showTimestamp: false)
+                    if !allMinusRecent.isEmpty {
+                        pickerSection(label: "ALL DRINKS", color: AppColors.textTertiary, drinks: allMinusRecent, showTimestamp: false)
+                    }
                 } else if filteredDrinks.isEmpty {
                     emptyState
                 } else {
