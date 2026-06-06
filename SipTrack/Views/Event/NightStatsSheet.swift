@@ -454,9 +454,3 @@ struct NightStatsSheet: View {
     }
 }
 
-// MARK: - Preview
-
-#Preview {
-    NightStatsSheet(eventId: "preview")
-        .environmentObject(AppState())
-}
