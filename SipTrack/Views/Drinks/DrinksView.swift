@@ -57,16 +57,26 @@ struct DrinksView: View {
                                 onDelete: { deleteConfirm = dt }
                             )
                         }
-                        createButton
                     }
                     .padding(.horizontal)
                     .padding(.top, 10)
-                    .padding(.bottom, 32)
+                    .padding(.bottom, 16)
+                    .animation(.default, value: filter)
                 }
+                createButton
+                    .padding(.horizontal)
+                    .padding(.bottom, 12)
             }
         }
         .navigationTitle("Drinks")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button { showCreate = true } label: {
+                    Image(systemName: "plus").foregroundStyle(AppColors.accent)
+                }
+            }
+        }
         .sheet(item: $editingDrink) { EditDrinkView(existing: $0) }
         .sheet(isPresented: $showCreate) { EditDrinkView(existing: nil) }
         .confirmationDialog(
@@ -93,7 +103,7 @@ struct DrinksView: View {
                             .padding(.horizontal, 12)
                             .padding(.vertical, 7)
                             .background(filter == f ? AppColors.accent : AppColors.surface)
-                            .foregroundStyle(filter == f ? Color.black : AppColors.textSecondary)
+                            .foregroundStyle(filter == f ? AppColors.background : AppColors.textSecondary)
                             .clipShape(Capsule())
                             .overlay(Capsule().stroke(filter == f ? AppColors.accent : AppColors.border, lineWidth: 1))
                     }
@@ -118,7 +128,7 @@ struct DrinksView: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
             .background(AppColors.accent.opacity(0.08))
-            .cornerRadius(12)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
             .overlay(RoundedRectangle(cornerRadius: 12).stroke(AppColors.accent.opacity(0.3), lineWidth: 1))
         }
         .buttonStyle(.plain)
@@ -176,7 +186,7 @@ private struct DrinkRow: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .background(AppColors.surface)
-        .cornerRadius(12)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(AppColors.border, lineWidth: 1))
         .contextMenu {
             Button { onEdit() } label: { Label("Edit", systemImage: "pencil") }
