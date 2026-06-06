@@ -51,6 +51,7 @@
 		B101B4F32F9CD648009F7DDD /* EditEntryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4B52F9C2F32009F7DDD /* EditEntryView.swift */; };
 		B101B4F42F9CD648009F7DDD /* ActiveEventView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4B72F9C2F32009F7DDD /* ActiveEventView.swift */; };
 		B2D1A0012F9CD648009F7DDD /* DrinkPickerList.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2D1A0002F9CD648009F7DDD /* DrinkPickerList.swift */; };
+		B2D1A0032F9CD648009F7DDD /* NightFacts.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2D1A0022F9CD648009F7DDD /* NightFacts.swift */; };
 		B101B4F52F9CD648009F7DDD /* CreateEventView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4B82F9C2F32009F7DDD /* CreateEventView.swift */; };
 		B101B4F62F9CD648009F7DDD /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4BA2F9C2F32009F7DDD /* HomeView.swift */; };
 		B101B4F72F9CD648009F7DDD /* DisclaimerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4BC2F9C2F32009F7DDD /* DisclaimerView.swift */; };
@@ -211,6 +212,7 @@
 		B101B4B52F9C2F32009F7DDD /* EditEntryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditEntryView.swift; sourceTree = "<group>"; };
 		B101B4B72F9C2F32009F7DDD /* ActiveEventView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveEventView.swift; sourceTree = "<group>"; };
 		B2D1A0002F9CD648009F7DDD /* DrinkPickerList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrinkPickerList.swift; sourceTree = "<group>"; };
+		B2D1A0022F9CD648009F7DDD /* NightFacts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NightFacts.swift; sourceTree = "<group>"; };
 		B101B4B82F9C2F32009F7DDD /* CreateEventView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateEventView.swift; sourceTree = "<group>"; };
 		B101B4BA2F9C2F32009F7DDD /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		B101B4BC2F9C2F32009F7DDD /* DisclaimerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisclaimerView.swift; sourceTree = "<group>"; };
@@ -534,6 +536,7 @@
 				B101B4B72F9C2F32009F7DDD /* ActiveEventView.swift */,
 				B101B4B82F9C2F32009F7DDD /* CreateEventView.swift */,
 				B2D1A0002F9CD648009F7DDD /* DrinkPickerList.swift */,
+				B2D1A0022F9CD648009F7DDD /* NightFacts.swift */,
 			);
 			path = Event;
 			sourceTree = "<group>";
@@ -1008,6 +1011,7 @@
 				B101B4F32F9CD648009F7DDD /* EditEntryView.swift in Sources */,
 				B101B4F42F9CD648009F7DDD /* ActiveEventView.swift in Sources */,
 				B2D1A0012F9CD648009F7DDD /* DrinkPickerList.swift in Sources */,
+				B2D1A0032F9CD648009F7DDD /* NightFacts.swift in Sources */,
 				B15DA9AA2FAC149800345F64 /* EmailVerificationView.swift in Sources */,
 				B101B4F52F9CD648009F7DDD /* CreateEventView.swift in Sources */,
 				B15DA9872FAB993000345F64 /* FirebaseManager.swift in Sources */,
