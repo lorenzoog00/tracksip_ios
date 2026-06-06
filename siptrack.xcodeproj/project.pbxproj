@@ -69,6 +69,7 @@
 		B15DA9642FAB947B00345F64 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = B15DA9632FAB947B00345F64 /* FirebaseAuth */; };
 		B15DA96E2FAB947B00345F64 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = B15DA96D2FAB947B00345F64 /* FirebaseFirestore */; };
 		B15DA9872FAB993000345F64 /* FirebaseManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B15DA9852FAB993000345F64 /* FirebaseManager.swift */; };
+		C3A1B0012FAB993000345F64 /* FirebaseErrorMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3A1B0002FAB993000345F64 /* FirebaseErrorMapper.swift */; };
 		B15DA98C2FAB9EED00345F64 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = B15DA98B2FAB9EED00345F64 /* GoogleSignIn */; };
 		B15DA98E2FAB9EED00345F64 /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = B15DA98D2FAB9EED00345F64 /* GoogleSignInSwift */; };
 		B15DA9A82FABAC1600345F64 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = B15DA9A72FABAC1600345F64 /* GoogleService-Info.plist */; };
@@ -234,6 +235,7 @@
 		B15DA9482FA9733900345F64 /* WaterReminderManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaterReminderManager.swift; sourceTree = "<group>"; };
 		B15DA94A2FAABF7600345F64 /* ConsentManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConsentManager.swift; sourceTree = "<group>"; };
 		B15DA9852FAB993000345F64 /* FirebaseManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirebaseManager.swift; sourceTree = "<group>"; };
+		C3A1B0002FAB993000345F64 /* FirebaseErrorMapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirebaseErrorMapper.swift; sourceTree = "<group>"; };
 		B15DA9A72FABAC1600345F64 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		B15DA9A92FAC149800345F64 /* EmailVerificationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmailVerificationView.swift; sourceTree = "<group>"; };
 		B15DA9AB2FAC184E00345F64 /* ForgotPasswordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgotPasswordView.swift; sourceTree = "<group>"; };
@@ -660,6 +662,7 @@
 			children = (
 				B18BC02E2FB69C1D00CEFB3C /* AppleSignInCoordinator.swift */,
 				B15DA9852FAB993000345F64 /* FirebaseManager.swift */,
+				C3A1B0002FAB993000345F64 /* FirebaseErrorMapper.swift */,
 			);
 			path = Firebase;
 			sourceTree = "<group>";
@@ -1019,6 +1022,7 @@
 				B15DA9AA2FAC149800345F64 /* EmailVerificationView.swift in Sources */,
 				B101B4F52F9CD648009F7DDD /* CreateEventView.swift in Sources */,
 				B15DA9872FAB993000345F64 /* FirebaseManager.swift in Sources */,
+				C3A1B0012FAB993000345F64 /* FirebaseErrorMapper.swift in Sources */,
 				B101B4F62F9CD648009F7DDD /* HomeView.swift in Sources */,
 				B101B4F72F9CD648009F7DDD /* DisclaimerView.swift in Sources */,
 				B15DA9AC2FAC184E00345F64 /* ForgotPasswordView.swift in Sources */,
