@@ -5,6 +5,7 @@ import SwiftUI
 struct NightStatsSheet: View {
     let eventId: String
     @EnvironmentObject var appState: AppState
+    @Environment(\.dismiss) private var dismiss
 
     private var event: NightEvent? { appState.events.first { $0.id == eventId } }
     private var entries: [DrinkEntry] {
@@ -24,7 +25,7 @@ struct NightStatsSheet: View {
     private var totalCalories: Int {
         entries.reduce(0) { sum, entry in
             guard let dt = appState.allDrinkTypes.first(where: { $0.id == entry.drinkTypeId }) else { return sum }
-            return sum + (Int(dt.caloriesPerServing) * entry.quantity)
+            return sum + Int(dt.caloriesPerServing * Double(entry.quantity))
         }
     }
     private var drinksPerHour: Double { Double(drinkCount) / hoursElapsed }
@@ -120,7 +121,7 @@ struct NightStatsSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { }
+                    Button("Done") { dismiss() }
                 }
             }
         }
@@ -234,7 +235,7 @@ struct NightStatsSheet: View {
                 .foregroundStyle(AppColors.textTertiary)
                 .padding(.horizontal, 16)
 
-            ForEach(Array(facts.enumerated()), id: \.offset) { _, fact in
+            ForEach(facts, id: \.text) { fact in
                 factRow(fact)
                     .padding(.horizontal, 16)
             }
@@ -392,17 +393,16 @@ struct NightStatsSheet: View {
 
         return VStack(alignment: .leading, spacing: 0) {
             // BAC progress bar
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Rectangle()
-                        .fill(AppColors.border.opacity(0.4))
+            Rectangle()
+                .fill(AppColors.border.opacity(0.4))
+                .overlay(alignment: .leading) {
                     Rectangle()
                         .fill(progressColor)
-                        .frame(width: geo.size.width * progress)
+                        .frame(maxWidth: .infinity)
+                        .scaleEffect(x: progress, anchor: .leading)
                 }
-            }
-            .frame(height: 2)
-            .clipShape(RoundedRectangle(cornerRadius: 1))
+                .frame(height: 2)
+                .clipShape(RoundedRectangle(cornerRadius: 1))
 
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
