@@ -204,6 +204,12 @@ struct DrinkPickerList: View {
             .frame(maxWidth: .infinity)
     }
 
+    private let gridColumns = [
+        GridItem(.flexible(), spacing: 10),
+        GridItem(.flexible(), spacing: 10),
+        GridItem(.flexible(), spacing: 10)
+    ]
+
     @ViewBuilder
     private func pickerSection(label: String?, color: Color, drinks: [DrinkType], showTimestamp: Bool) -> some View {
         if let label {
@@ -213,19 +219,21 @@ struct DrinkPickerList: View {
                 .foregroundStyle(color)
                 .padding(.horizontal, 4)
         }
-        ForEach(drinks) { dt in
-            PickerRow(
-                drinkType: dt,
-                recentTimestamp: showTimestamp ? latestTimestampByDrinkId[dt.id] : nil,
-                onPick: { onPick(dt) }
-            )
+        LazyVGrid(columns: gridColumns, spacing: 10) {
+            ForEach(drinks) { dt in
+                DrinkTile(
+                    drinkType: dt,
+                    recentTimestamp: showTimestamp ? latestTimestampByDrinkId[dt.id] : nil,
+                    onPick: { onPick(dt) }
+                )
+            }
         }
     }
 }
 
-// MARK: - Row
+// MARK: - Grid Tile
 
-private struct PickerRow: View {
+private struct DrinkTile: View {
     let drinkType: DrinkType
     let recentTimestamp: Date?
     let onPick: () -> Void
@@ -239,57 +247,49 @@ private struct PickerRow: View {
         return f
     }()
 
-    private var metaText: String {
-        if let ts = recentTimestamp {
-            return "added \(PickerRow.timeFormatter.string(from: ts))"
-        }
-        return String(format: "%.1f%% · %dml · %d cal",
-                      drinkType.defaultAbv,
-                      Int(drinkType.defaultVolumeMl),
-                      Int(drinkType.caloriesPerServing))
-    }
+    private var isRecent: Bool { recentTimestamp != nil }
 
     var body: some View {
         Button {
             haptic.impactOccurred()
             onPick()
         } label: {
-            HStack(spacing: 12) {
+            VStack(spacing: 8) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(drinkType.color.opacity(recentTimestamp != nil ? 0.2 : 0.12))
-                        .frame(width: 34, height: 34)
+                    Circle()
+                        .fill(drinkType.color.opacity(isRecent ? 0.22 : 0.14))
+                        .frame(width: 52, height: 52)
                     Image(systemName: drinkType.sfSymbol)
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.system(size: 22, weight: .medium))
                         .foregroundStyle(drinkType.color)
                 }
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(drinkType.name)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(AppColors.text)
-                    Text(metaText)
+                Text(drinkType.name)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(AppColors.text)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+                    .minimumScaleFactor(0.8)
+
+                if let ts = recentTimestamp {
+                    Text(DrinkTile.timeFormatter.string(from: ts))
                         .font(.system(size: 9))
-                        .foregroundStyle(recentTimestamp != nil ? AppColors.accent : AppColors.textTertiary)
+                        .foregroundStyle(AppColors.accent)
+                } else {
+                    Text(String(format: "%.1f%%", drinkType.defaultAbv))
+                        .font(.system(size: 9))
+                        .foregroundStyle(AppColors.textTertiary)
                 }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(AppColors.border)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .background(
-                recentTimestamp != nil ? Color(hex: "#141820") : AppColors.surface
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 11))
+            .frame(maxWidth: .infinity)
+            .frame(height: 115)
+            .background(isRecent ? Color(hex: "#141820") : AppColors.surface)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
             .overlay(
-                RoundedRectangle(cornerRadius: 11)
-                    .stroke(recentTimestamp != nil ? AppColors.accent.opacity(0.2) : AppColors.border, lineWidth: 1)
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(isRecent ? AppColors.accent.opacity(0.3) : AppColors.border, lineWidth: 1)
             )
-            .scaleEffect(pressed ? 0.97 : 1.0)
+            .scaleEffect(pressed ? 0.93 : 1.0)
             .animation(.spring(response: 0.2, dampingFraction: 0.65), value: pressed)
         }
         .buttonStyle(.plain)
@@ -299,7 +299,7 @@ private struct PickerRow: View {
                     pressed = true
                     haptic.prepare()
                 }
-                .onEnded   { _ in pressed = false }
+                .onEnded { _ in pressed = false }
         )
     }
 }
