@@ -385,72 +385,92 @@ struct NightStatsSheet: View {
     }
 
     private func drinkCard(_ entry: DrinkEntry) -> some View {
-        let dt = appState.allDrinkTypes.first(where: { $0.id == entry.drinkTypeId })
-        let bac = dt.map { marginalBAC(drinkType: $0, profile: appState.userProfile) * Double(entry.quantity) } ?? 0
-        let progress = min(1.0, bac / max(0.001, bacLimit))
-        let progressColor = progressColor(for: progress)
-        let cals = Int((dt?.caloriesPerServing ?? 0) * Double(entry.quantity))
-
-        return VStack(alignment: .leading, spacing: 0) {
-            // BAC progress bar
-            Rectangle()
-                .fill(AppColors.border.opacity(0.4))
-                .overlay(alignment: .leading) {
-                    Rectangle()
-                        .fill(progressColor)
-                        .frame(maxWidth: .infinity)
-                        .scaleEffect(x: progress, anchor: .leading)
-                }
-                .frame(height: 2)
-                .clipShape(RoundedRectangle(cornerRadius: 1))
-
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    if let dt = dt {
-                        Text(dt.name)
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(AppColors.text)
-                    } else {
-                        Text("Unknown Drink")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(AppColors.text)
-                    }
-                    Spacer()
-                    Text(String(format: "+%.3f BAC", bac))
-                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(progressColor)
-                }
-                HStack {
-                    Text(entry.timestamp, format: .dateTime.hour().minute())
-                        .font(.system(size: 11, design: .monospaced))
-                        .foregroundStyle(AppColors.textTertiary)
-                    Spacer()
-                    if cals > 0 {
-                        Text("\(cals) cal")
-                            .font(.system(size: 11))
-                            .foregroundStyle(AppColors.textTertiary)
-                    }
-                }
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-        }
-        .background(AppColors.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 10))
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(AppColors.border.opacity(0.5), lineWidth: 1)
-        )
+        DrinkTimelineCard(entry: entry, appState: appState, bacLimit: bacLimit)
     }
 
     private func progressColor(for progress: Double) -> Color {
         if progress < 0.5 {
             return AppColors.success
         } else if progress < 0.8 {
-            return Color(hex: "#FFB347")  // amber
+            return Color(hex: "#FFB347")
         } else {
             return AppColors.danger
         }
+    }
+}
+
+// MARK: - Drink Timeline Card (extracted to avoid type-check timeout)
+
+private struct DrinkTimelineCard: View {
+    let entry: DrinkEntry
+    let appState: AppState
+    let bacLimit: Double
+
+    private var dt: DrinkType? {
+        appState.allDrinkTypes.first(where: { $0.id == entry.drinkTypeId })
+    }
+
+    private var marginalBAC: Double {
+        guard let dt else { return 0 }
+        let alcoholGrams = (dt.defaultVolumeMl / 1000.0) * (dt.defaultAbv / 100.0) * 789.0
+        let r: Double = appState.userProfile.sex == .female ? 0.55 : 0.68
+        return (alcoholGrams / (appState.userProfile.weightKg * r * 10.0)) * Double(entry.quantity)
+    }
+
+    private var barProgress: Double { min(1.0, marginalBAC / max(0.001, bacLimit)) }
+
+    private var barColor: Color {
+        if barProgress < 0.5 { return AppColors.success }
+        if barProgress < 0.8 { return Color(hex: "#FFB347") }
+        return AppColors.danger
+    }
+
+    private var calories: Int {
+        Int((dt?.caloriesPerServing ?? 0) * Double(entry.quantity))
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Rectangle()
+                .fill(AppColors.border.opacity(0.4))
+                .overlay(alignment: .leading) {
+                    Rectangle()
+                        .fill(barColor)
+                        .frame(maxWidth: .infinity)
+                        .scaleEffect(x: barProgress, anchor: .leading)
+                }
+                .frame(height: 2)
+                .clipShape(RoundedRectangle(cornerRadius: 1))
+
+            HStack {
+                Text(dt?.name ?? "Unknown Drink")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(AppColors.text)
+                Spacer()
+                Text(String(format: "+%.3f BAC", marginalBAC))
+                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(barColor)
+            }
+            .padding(.horizontal, 10)
+            .padding(.top, 8)
+
+            HStack {
+                Text(entry.timestamp, format: .dateTime.hour().minute())
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(AppColors.textTertiary)
+                Spacer()
+                if calories > 0 {
+                    Text("\(calories) cal")
+                        .font(.system(size: 11))
+                        .foregroundStyle(AppColors.textTertiary)
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.bottom, 8)
+        }
+        .background(AppColors.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(AppColors.border.opacity(0.5), lineWidth: 1))
     }
 }
 
