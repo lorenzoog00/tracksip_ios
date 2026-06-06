@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - Filter enum
 
-enum PickerFilter: CaseIterable {
+enum PickerFilter: Hashable, CaseIterable {
     case favorites, all, beer, wine, spirits, cocktail
 
     var label: String {
@@ -43,6 +43,16 @@ struct DrinkPickerList: View {
         drinkTypes.contains { appState.isFavorite($0.id) }
     }
 
+    private var latestTimestampByDrinkId: [String: Date] {
+        var result: [String: Date] = [:]
+        for entry in appState.entries where entry.eventId == event.id {
+            if result[entry.drinkTypeId] == nil || entry.timestamp > result[entry.drinkTypeId]! {
+                result[entry.drinkTypeId] = entry.timestamp
+            }
+        }
+        return result
+    }
+
     // Drinks added during this session, most recent first, capped at 5
     private var recentDrinkTypes: [DrinkType] {
         let sessionEntries = appState.entries
@@ -78,7 +88,7 @@ struct DrinkPickerList: View {
                     .foregroundStyle(AppColors.textTertiary)
                 TextField("Search drinks…", text: $searchText)
                     .font(.system(size: 14))
-                    .foregroundStyle(AppColors.text)
+                    .foregroundColor(AppColors.text)
                 if !searchText.isEmpty {
                     Button { searchText = "" } label: {
                         Image(systemName: "xmark.circle.fill")
@@ -102,8 +112,8 @@ struct DrinkPickerList: View {
                         Button {
                             withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
                                 filter = f
+                                searchText = ""
                             }
-                            searchText = ""
                         } label: {
                             Text(f.label)
                                 .font(.system(size: 10, weight: .bold))
@@ -192,11 +202,7 @@ struct DrinkPickerList: View {
         ForEach(drinks) { dt in
             PickerRow(
                 drinkType: dt,
-                recentTimestamp: showTimestamp
-                    ? appState.entries
-                        .filter { $0.eventId == event.id && $0.drinkTypeId == dt.id }
-                        .max(by: { $0.timestamp < $1.timestamp })?.timestamp
-                    : nil,
+                recentTimestamp: showTimestamp ? latestTimestampByDrinkId[dt.id] : nil,
                 onPick: { onPick(dt) }
             )
         }
@@ -211,12 +217,17 @@ private struct PickerRow: View {
     let onPick: () -> Void
 
     @State private var pressed = false
+    private let haptic = UIImpactFeedbackGenerator(style: .medium)
+
+    private static let timeFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.timeStyle = .short
+        return f
+    }()
 
     private var metaText: String {
         if let ts = recentTimestamp {
-            let fmt = DateFormatter()
-            fmt.timeStyle = .short
-            return "added \(fmt.string(from: ts))"
+            return "added \(PickerRow.timeFormatter.string(from: ts))"
         }
         return String(format: "%.1f%% · %dml · %d cal",
                       drinkType.defaultAbv,
@@ -226,7 +237,7 @@ private struct PickerRow: View {
 
     var body: some View {
         Button {
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            haptic.impactOccurred()
             onPick()
         } label: {
             HStack(spacing: 12) {
@@ -270,7 +281,10 @@ private struct PickerRow: View {
         .buttonStyle(.plain)
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
-                .onChanged { _ in pressed = true }
+                .onChanged { _ in
+                    pressed = true
+                    haptic.prepare()
+                }
                 .onEnded   { _ in pressed = false }
         )
     }
