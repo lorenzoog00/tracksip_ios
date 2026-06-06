@@ -1591,8 +1591,3 @@ struct OverLimitWarningSheet: View {
     }
 }
 
-// TEMPORARY STUB — replaced in Task 6
-private struct NightStatsSheet: View {
-    let eventId: String
-    var body: some View { Text("Stats coming soon") }
-}
