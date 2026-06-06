@@ -51,12 +51,12 @@ func computeNightFacts(
     }
 
     // 4. Calorie comparison
-    if facts.count < 3 && totalCalories > 300 {
+    if facts.count < 3 && totalCalories > 0 {
         let comparison: String
         switch totalCalories {
-        case 0..<250:   comparison = "a bag of chips"
-        case 250..<450: comparison = "a slice of pizza"
-        case 450..<700: comparison = "a cheeseburger"
+        case 0..<300:   comparison = "a bag of chips"
+        case 300..<500: comparison = "a slice of pizza"
+        case 500..<700: comparison = "a cheeseburger"
         default:        comparison = "a full burger meal"
         }
         facts.append(NightFact(
