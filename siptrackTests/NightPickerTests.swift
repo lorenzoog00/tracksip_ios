@@ -3,9 +3,8 @@ import XCTest
 
 final class NightPickerTests: XCTestCase {
 
-    func test_isFavorite_falseByDefault() {
-        let profile = UserProfile()
-        XCTAssertFalse(profile.favoriteDrinkIds.contains("beer"))
+    func test_favoriteDrinkIds_emptyByDefault() {
+        XCTAssertTrue(UserProfile().favoriteDrinkIds.isEmpty)
     }
 
     func test_favoriteDrinkIds_roundtripsJSON() throws {
@@ -14,5 +13,17 @@ final class NightPickerTests: XCTestCase {
         let data = try JSONEncoder().encode(profile)
         let decoded = try JSONDecoder().decode(UserProfile.self, from: data)
         XCTAssertEqual(decoded.favoriteDrinkIds, ["beer", "tequila"])
+    }
+
+    func test_toggleFavoriteDrink_addsAndRemovesId() {
+        var profile = UserProfile()
+        // Add
+        if !profile.favoriteDrinkIds.contains("beer") {
+            profile.favoriteDrinkIds.append("beer")
+        }
+        XCTAssertTrue(profile.favoriteDrinkIds.contains("beer"))
+        // Remove
+        profile.favoriteDrinkIds.removeAll { $0 == "beer" }
+        XCTAssertFalse(profile.favoriteDrinkIds.contains("beer"))
     }
 }
