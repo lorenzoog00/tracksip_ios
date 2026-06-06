@@ -1,0 +1,240 @@
+<h2>Timeline — pick a direction</h2>
+<p class="subtitle">Same data, three different visual treatments.</p>
+
+<style>
+  .sf { width:30px; height:30px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .cards { display:flex; flex-direction:column; gap:20px; }
+  .card { cursor:pointer; }
+  .phone { max-width:300px; margin:0 auto; background:#0a0a12; border-radius:18px; border:1px solid #1a1a24; padding:14px 14px 18px; }
+  .phone-label { font-size:9px; font-weight:800; letter-spacing:2px; text-align:center; margin-bottom:12px; }
+</style>
+
+<div class="cards">
+
+  <!-- Option A: Dot + gradient line, spaced by time -->
+  <div class="card" data-choice="spaced" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#0a0a12; padding:20px; border-radius:12px 12px 0 0;">
+      <div class="phone-label" style="color:#F0A830;">A — TIME-SPACED DOTS (gaps = real time)</div>
+      <div class="phone">
+        <div style="font-size:11px; font-weight:800; color:#e0e0e0; margin-bottom:14px;">Tonight's Timeline</div>
+
+        <div style="position:relative; padding-left:20px;">
+          <!-- Line -->
+          <div style="position:absolute; left:7px; top:10px; bottom:10px; width:2px; background:linear-gradient(to bottom,#F0A830 0%,#BF5AF2 40%,#5BC8FF 70%,#4CD964 100%); border-radius:1px; opacity:0.5;"></div>
+
+          <!-- Entry 1 — 9:47 PM -->
+          <div style="position:relative; margin-bottom:6px;">
+            <div style="position:absolute; left:-16px; top:9px; width:10px; height:10px; background:#F0A830; border-radius:50%; border:2px solid #0a0a12;"></div>
+            <div style="background:#14181f; border:1px solid #F0A83033; border-radius:10px; padding:9px 11px; display:flex; align-items:center; gap:9px;">
+              <div class="sf" style="background:#F0A83018;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#F0A830" stroke-width="2"><path d="M5 3h14l-1.5 9h-11L5 3z"/><path d="M9 12v9m6-9v9M6 21h12"/><path d="M4 7h16"/></svg></div>
+              <div style="flex:1;"><div style="font-size:11px;font-weight:700;color:#e0e0e0;">Beer</div><div style="font-size:8px;color:#F0A830;">9:47 PM · +0.018 BAC · 150 cal</div></div>
+            </div>
+          </div>
+
+          <!-- Time gap label -->
+          <div style="margin:0 0 6px 4px; font-size:8px; color:#333; font-weight:600;">— 35 min later —</div>
+
+          <!-- Entry 2 — 10:22 PM -->
+          <div style="position:relative; margin-bottom:6px;">
+            <div style="position:absolute; left:-16px; top:9px; width:10px; height:10px; background:#BF5AF2; border-radius:50%; border:2px solid #0a0a12;"></div>
+            <div style="background:#14181f; border:1px solid #BF5AF233; border-radius:10px; padding:9px 11px; display:flex; align-items:center; gap:9px;">
+              <div class="sf" style="background:#BF5AF218;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#BF5AF2" stroke-width="2"><path d="M8 3l4 8 4-8"/><path d="M6 8s0 13 6 13 6-13 6-13"/></svg></div>
+              <div style="flex:1;"><div style="font-size:11px;font-weight:700;color:#e0e0e0;">Tequila Shot</div><div style="font-size:8px;color:#BF5AF2;">10:22 PM · +0.031 BAC · 97 cal</div></div>
+            </div>
+          </div>
+
+          <!-- Time gap label -->
+          <div style="margin:0 0 6px 4px; font-size:8px; color:#333; font-weight:600;">— 23 min later —</div>
+
+          <!-- Water -->
+          <div style="position:relative; margin-bottom:6px;">
+            <div style="position:absolute; left:-16px; top:9px; width:10px; height:10px; background:#5BC8FF; border-radius:50%; border:2px solid #0a0a12;"></div>
+            <div style="background:#0e1420; border:1px solid #5BC8FF22; border-radius:10px; padding:9px 11px; display:flex; align-items:center; gap:9px;">
+              <div class="sf" style="background:#5BC8FF18;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#5BC8FF" stroke-width="2"><path d="M12 2C6 10 6 14 12 22c6-8 6-12 0-20z"/></svg></div>
+              <div style="flex:1;"><div style="font-size:11px;font-weight:700;color:#5BC8FF;">Water</div><div style="font-size:8px;color:#5BC8FF;">10:45 PM · hydration ✓</div></div>
+            </div>
+          </div>
+
+          <!-- Time gap label -->
+          <div style="margin:0 0 6px 4px; font-size:8px; color:#333; font-weight:600;">— 45 min later —</div>
+
+          <!-- Entry 4 -->
+          <div style="position:relative;">
+            <div style="position:absolute; left:-16px; top:9px; width:10px; height:10px; background:#4CD964; border-radius:50%; border:2px solid #0a0a12;"></div>
+            <div style="background:#14181f; border:1px solid #4CD96433; border-radius:10px; padding:9px 11px; display:flex; align-items:center; gap:9px;">
+              <div class="sf" style="background:#4CD96418;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#4CD964" stroke-width="2"><path d="M12 3c-4 4-4 8 0 10s4 6 0 8"/><path d="M8 15h8"/></svg></div>
+              <div style="flex:1;"><div style="font-size:11px;font-weight:700;color:#e0e0e0;">Margarita</div><div style="font-size:8px;color:#4CD964;">11:30 PM · +0.022 BAC · 280 cal</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Time-spaced with gap labels</h3>
+      <p>Dots connected by a gradient line. Text labels between entries show how long between drinks. Color matches the drink type. Immediately shows if you were pacing fast or slow.</p>
+    </div>
+  </div>
+
+  <!-- Option B: BAC bar embedded in each row -->
+  <div class="card" data-choice="bac" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#0a0a12; padding:20px; border-radius:12px 12px 0 0;">
+      <div class="phone-label" style="color:#5BC8FF;">B — BAC TRAIL ON EACH ROW</div>
+      <div class="phone">
+        <div style="font-size:11px; font-weight:800; color:#e0e0e0; margin-bottom:14px;">Tonight's Timeline</div>
+
+        <div style="position:relative; padding-left:20px;">
+          <div style="position:absolute; left:7px; top:10px; bottom:10px; width:2px; background:#1e1e2a; border-radius:1px;"></div>
+
+          <!-- Entry with BAC bar -->
+          <div style="position:relative; margin-bottom:8px;">
+            <div style="position:absolute; left:-16px; top:10px; width:10px; height:10px; background:#F0A830; border-radius:50%; border:2px solid #0a0a12;"></div>
+            <div style="background:#12121a; border:1px solid #1e1e2a; border-radius:10px; overflow:hidden;">
+              <!-- BAC fill bar at top -->
+              <div style="height:2px; width:22%; background:linear-gradient(90deg,#4CD964,#F0A830);"></div>
+              <div style="padding:9px 11px; display:flex; align-items:center; gap:9px;">
+                <div class="sf" style="background:#F0A83018;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#F0A830" stroke-width="2"><path d="M5 3h14l-1.5 9h-11L5 3z"/><path d="M9 12v9m6-9v9M6 21h12"/><path d="M4 7h16"/></svg></div>
+                <div style="flex:1;">
+                  <div style="display:flex;justify-content:space-between;align-items:baseline;">
+                    <div style="font-size:11px;font-weight:700;color:#e0e0e0;">Beer</div>
+                    <div style="font-size:10px;font-weight:800;color:#F0A830;">0.018</div>
+                  </div>
+                  <div style="font-size:8px;color:#555;">9:47 PM · 150 cal</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style="position:relative; margin-bottom:8px;">
+            <div style="position:absolute; left:-16px; top:10px; width:10px; height:10px; background:#FF6B6B; border-radius:50%; border:2px solid #0a0a12;"></div>
+            <div style="background:#12121a; border:1px solid #1e1e2a; border-radius:10px; overflow:hidden;">
+              <div style="height:2px; width:55%; background:linear-gradient(90deg,#F0A830,#FF6B6B);"></div>
+              <div style="padding:9px 11px; display:flex; align-items:center; gap:9px;">
+                <div class="sf" style="background:#BF5AF218;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#BF5AF2" stroke-width="2"><path d="M8 3l4 8 4-8"/><path d="M6 8s0 13 6 13 6-13 6-13"/></svg></div>
+                <div style="flex:1;">
+                  <div style="display:flex;justify-content:space-between;align-items:baseline;">
+                    <div style="font-size:11px;font-weight:700;color:#e0e0e0;">Tequila Shot</div>
+                    <div style="font-size:10px;font-weight:800;color:#FF6B6B;">0.049</div>
+                  </div>
+                  <div style="font-size:8px;color:#555;">10:22 PM · 97 cal</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style="position:relative; margin-bottom:8px;">
+            <div style="position:absolute; left:-16px; top:10px; width:10px; height:10px; background:#5BC8FF; border-radius:50%; border:2px solid #0a0a12;"></div>
+            <div style="background:#0e1420; border:1px solid #5BC8FF15; border-radius:10px; padding:9px 11px; display:flex; align-items:center; gap:9px;">
+              <div class="sf" style="background:#5BC8FF18;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#5BC8FF" stroke-width="2"><path d="M12 2C6 10 6 14 12 22c6-8 6-12 0-20z"/></svg></div>
+              <div style="flex:1;"><div style="font-size:11px;font-weight:700;color:#5BC8FF;">Water</div><div style="font-size:8px;color:#555;">10:45 PM</div></div>
+            </div>
+          </div>
+
+          <div style="position:relative;">
+            <div style="position:absolute; left:-16px; top:10px; width:10px; height:10px; background:#F0A830; border-radius:50%; border:2px solid #0a0a12;"></div>
+            <div style="background:#12121a; border:1px solid #1e1e2a; border-radius:10px; overflow:hidden;">
+              <div style="height:2px; width:78%; background:linear-gradient(90deg,#FF6B6B,#F0A830);"></div>
+              <div style="padding:9px 11px; display:flex; align-items:center; gap:9px;">
+                <div class="sf" style="background:#4CD96418;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#4CD964" stroke-width="2"><path d="M12 3c-4 4-4 8 0 10s4 6 0 8"/><path d="M8 15h8"/></svg></div>
+                <div style="flex:1;">
+                  <div style="display:flex;justify-content:space-between;align-items:baseline;">
+                    <div style="font-size:11px;font-weight:700;color:#e0e0e0;">Margarita</div>
+                    <div style="font-size:10px;font-weight:800;color:#F0A830;">0.065</div>
+                  </div>
+                  <div style="font-size:8px;color:#555;">11:30 PM · 280 cal</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Cumulative BAC bar on each card</h3>
+      <p>A thin colored bar at the top of each card shows BAC at that moment — fills left to right toward the 0.08 limit. You watch it grow across the night. Color shifts green → amber → red as BAC rises.</p>
+    </div>
+  </div>
+
+  <!-- Option C: Both — gap labels + BAC bar -->
+  <div class="card" data-choice="both" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#0a0a12; padding:20px; border-radius:12px 12px 0 0;">
+      <div class="phone-label" style="color:#BF5AF2;">C — COMBINED (gap labels + BAC bar)</div>
+      <div class="phone">
+        <div style="font-size:11px; font-weight:800; color:#e0e0e0; margin-bottom:14px;">Tonight's Timeline</div>
+
+        <div style="position:relative; padding-left:20px;">
+          <div style="position:absolute; left:7px; top:10px; bottom:10px; width:2px; background:linear-gradient(to bottom,#F0A830,#BF5AF2,#5BC8FF,#4CD964); border-radius:1px; opacity:0.4;"></div>
+
+          <div style="position:relative; margin-bottom:4px;">
+            <div style="position:absolute; left:-16px; top:10px; width:10px; height:10px; background:#F0A830; border-radius:50%; border:2px solid #0a0a12;"></div>
+            <div style="background:#12121a; border:1px solid #F0A83025; border-radius:10px; overflow:hidden;">
+              <div style="height:2px; width:22%; background:linear-gradient(90deg,#4CD964,#F0A830);"></div>
+              <div style="padding:9px 11px; display:flex; align-items:center; gap:9px;">
+                <div class="sf" style="background:#F0A83018;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#F0A830" stroke-width="2"><path d="M5 3h14l-1.5 9h-11L5 3z"/><path d="M9 12v9m6-9v9M6 21h12"/><path d="M4 7h16"/></svg></div>
+                <div style="flex:1;">
+                  <div style="display:flex;justify-content:space-between;align-items:baseline;">
+                    <div style="font-size:11px;font-weight:700;color:#e0e0e0;">Beer</div>
+                    <div style="font-size:10px;font-weight:700;color:#F0A830;">BAC 0.018</div>
+                  </div>
+                  <div style="font-size:8px;color:#555;">9:47 PM · 150 cal</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin:4px 0 4px 6px; font-size:8px; color:#2a2a3a; font-weight:700; letter-spacing:0.5px;">35 min ↓</div>
+
+          <div style="position:relative; margin-bottom:4px;">
+            <div style="position:absolute; left:-16px; top:10px; width:10px; height:10px; background:#BF5AF2; border-radius:50%; border:2px solid #0a0a12;"></div>
+            <div style="background:#12121a; border:1px solid #BF5AF225; border-radius:10px; overflow:hidden;">
+              <div style="height:2px; width:52%; background:linear-gradient(90deg,#F0A830,#FF6B6B);"></div>
+              <div style="padding:9px 11px; display:flex; align-items:center; gap:9px;">
+                <div class="sf" style="background:#BF5AF218;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#BF5AF2" stroke-width="2"><path d="M8 3l4 8 4-8"/><path d="M6 8s0 13 6 13 6-13 6-13"/></svg></div>
+                <div style="flex:1;">
+                  <div style="display:flex;justify-content:space-between;align-items:baseline;">
+                    <div style="font-size:11px;font-weight:700;color:#e0e0e0;">Tequila Shot</div>
+                    <div style="font-size:10px;font-weight:700;color:#FF6B6B;">BAC 0.049</div>
+                  </div>
+                  <div style="font-size:8px;color:#555;">10:22 PM · 97 cal</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin:4px 0 4px 6px; font-size:8px; color:#2a2a3a; font-weight:700; letter-spacing:0.5px;">23 min ↓</div>
+
+          <div style="position:relative; margin-bottom:4px;">
+            <div style="position:absolute; left:-16px; top:10px; width:10px; height:10px; background:#5BC8FF; border-radius:50%; border:2px solid #0a0a12;"></div>
+            <div style="background:#0e1420; border:1px solid #5BC8FF15; border-radius:10px; padding:9px 11px; display:flex; align-items:center; gap:9px;">
+              <div class="sf" style="background:#5BC8FF18;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#5BC8FF" stroke-width="2"><path d="M12 2C6 10 6 14 12 22c6-8 6-12 0-20z"/></svg></div>
+              <div style="flex:1;"><div style="font-size:11px;font-weight:700;color:#5BC8FF;">Water</div><div style="font-size:8px;color:#555;">10:45 PM · hydration ✓</div></div>
+            </div>
+          </div>
+
+          <div style="margin:4px 0 4px 6px; font-size:8px; color:#2a2a3a; font-weight:700; letter-spacing:0.5px;">45 min ↓</div>
+
+          <div style="position:relative;">
+            <div style="position:absolute; left:-16px; top:10px; width:10px; height:10px; background:#4CD964; border-radius:50%; border:2px solid #0a0a12;"></div>
+            <div style="background:#12121a; border:1px solid #4CD96425; border-radius:10px; overflow:hidden;">
+              <div style="height:2px; width:78%; background:linear-gradient(90deg,#FF6B6B,#F0A830);"></div>
+              <div style="padding:9px 11px; display:flex; align-items:center; gap:9px;">
+                <div class="sf" style="background:#4CD96418;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#4CD964" stroke-width="2"><path d="M12 3c-4 4-4 8 0 10s4 6 0 8"/><path d="M8 15h8"/></svg></div>
+                <div style="flex:1;">
+                  <div style="display:flex;justify-content:space-between;align-items:baseline;">
+                    <div style="font-size:11px;font-weight:700;color:#e0e0e0;">Margarita</div>
+                    <div style="font-size:10px;font-weight:700;color:#F0A830;">BAC 0.065</div>
+                  </div>
+                  <div style="font-size:8px;color:#555;">11:30 PM · 280 cal</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Combined: gap labels + BAC trail</h3>
+      <p>Best of both — you see how long between drinks AND how BAC was building at each moment. The bar shifts from green to red as the night progresses. Most information, slightly busier.</p>
+    </div>
+  </div>
+
+</div>

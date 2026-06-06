@@ -1,0 +1,162 @@
+<h2>What we're building</h2>
+<p class="subtitle">Confirm the scope before we go deeper — select anything that's wrong or missing.</p>
+
+<div style="display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-start;">
+
+  <!-- Feature 1: Drink Picker Sheet -->
+  <div style="flex:1; min-width:260px;">
+    <div class="label" style="color:#F0A830;">Feature 1 — New Drink Picker</div>
+    <div style="background:#0e0e14; border:1px solid #2a2a3a; border-radius:12px; padding:14px; margin-top:8px;">
+
+      <!-- Active night screen -->
+      <div style="font-size:8px; color:#555; margin-bottom:6px;">ACTIVE NIGHT SCREEN</div>
+      <div style="display:flex; gap:6px; margin-bottom:10px;">
+        <div style="flex:1; background:#12121a; border-radius:8px; height:32px;"></div>
+        <div style="background:linear-gradient(90deg,#e8902a,#F0A830); border-radius:8px; padding:0 14px; height:32px; display:flex; align-items:center;">
+          <span style="font-size:10px; font-weight:800; color:#000;">+ ADD DRINK</span>
+        </div>
+      </div>
+
+      <!-- Sheet -->
+      <div style="background:#16161e; border:1px solid #333; border-radius:10px; padding:10px;">
+        <div style="font-size:8px; color:#555; margin-bottom:6px;">↑ SHEET SLIDES UP</div>
+
+        <!-- Search -->
+        <div style="background:#1a1a24; border:1px solid #3a3a4a; border-radius:6px; padding:5px 8px; margin-bottom:6px; font-size:10px; color:#444;">🔍 Search drinks…</div>
+
+        <!-- Category pills -->
+        <div style="display:flex; gap:4px; margin-bottom:8px; flex-wrap:wrap;">
+          <span style="background:#F0A830; color:#000; font-size:7px; font-weight:700; padding:2px 7px; border-radius:20px;">Recent</span>
+          <span style="background:#1a1a24; color:#888; font-size:7px; padding:2px 7px; border-radius:20px; border:1px solid #333;">🍺 Beer</span>
+          <span style="background:#1a1a24; color:#888; font-size:7px; padding:2px 7px; border-radius:20px; border:1px solid #333;">🍷 Wine</span>
+          <span style="background:#1a1a24; color:#888; font-size:7px; padding:2px 7px; border-radius:20px; border:1px solid #333;">🥃 Spirits</span>
+          <span style="background:#1a1a24; color:#888; font-size:7px; padding:2px 7px; border-radius:20px; border:1px solid #333;">🍸 Cocktail</span>
+        </div>
+
+        <!-- Drink rows -->
+        <div style="display:flex; flex-direction:column; gap:5px;">
+          <div style="background:#1a2030; border:1px solid #F0A830; border-radius:7px; padding:8px; display:flex; align-items:center; gap:8px;">
+            <span style="font-size:16px;">🍺</span>
+            <div style="flex:1;"><div style="font-size:10px; color:#e0e0e0; font-weight:600;">Beer</div><div style="font-size:8px; color:#F0A830;">5% · 355ml · 150 cal</div></div>
+            <span style="font-size:18px; color:#F0A830; font-weight:300;">+</span>
+          </div>
+          <div style="background:#1a1a24; border:1px solid #2a2a3a; border-radius:7px; padding:8px; display:flex; align-items:center; gap:8px;">
+            <span style="font-size:16px;">🥃</span>
+            <div style="flex:1;"><div style="font-size:10px; color:#e0e0e0; font-weight:600;">Tequila</div><div style="font-size:8px; color:#888;">40% · 45ml · 97 cal</div></div>
+            <span style="font-size:18px; color:#555; font-weight:300;">+</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:10px;">
+      <div style="font-size:11px; color:#aaa; margin-bottom:4px;"><b style="color:#F0A830;">✓</b> Bottom sheet with search</div>
+      <div style="font-size:11px; color:#aaa; margin-bottom:4px;"><b style="color:#F0A830;">✓</b> Category filter pills (Beer / Wine / Spirits / Cocktails)</div>
+      <div style="font-size:11px; color:#aaa; margin-bottom:4px;"><b style="color:#F0A830;">✓</b> Recent drinks tab (most used this session, or all-time)</div>
+      <div style="font-size:11px; color:#aaa; margin-bottom:4px;"><b style="color:#F0A830;">✓</b> ABV · volume · calories on every row</div>
+      <div style="font-size:11px; color:#aaa;"><b style="color:#F0A830;">✓</b> Drinks grouped/labeled by category in the list</div>
+    </div>
+  </div>
+
+  <!-- Feature 2: Stats Panel -->
+  <div style="flex:1; min-width:260px;">
+    <div class="label" style="color:#5BC8FF;">Feature 2 — Night Stats Panel</div>
+    <div style="background:#0e0e14; border:1px solid #2a2a3a; border-radius:12px; padding:14px; margin-top:8px;">
+
+      <!-- Stats button -->
+      <div style="font-size:8px; color:#555; margin-bottom:6px;">ACTIVE NIGHT SCREEN</div>
+      <div style="display:flex; gap:6px; margin-bottom:10px;">
+        <div style="background:linear-gradient(90deg,#e8902a,#F0A830); border-radius:8px; padding:0 12px; height:32px; display:flex; align-items:center; flex:1;">
+          <span style="font-size:10px; font-weight:800; color:#000;">+ ADD DRINK</span>
+        </div>
+        <div style="background:#1a2030; border:1px solid #5BC8FF; border-radius:8px; padding:0 12px; height:32px; display:flex; align-items:center;">
+          <span style="font-size:10px; font-weight:700; color:#5BC8FF;">📊 STATS</span>
+        </div>
+      </div>
+
+      <!-- Stats sheet -->
+      <div style="background:#16161e; border:1px solid #333; border-radius:10px; padding:10px;">
+        <div style="font-size:8px; color:#555; margin-bottom:8px;">↑ STATS SHEET</div>
+
+        <!-- BAC gauge -->
+        <div style="background:#12121a; border-radius:8px; padding:10px; margin-bottom:6px; text-align:center;">
+          <div style="font-size:8px; color:#5BC8FF; letter-spacing:1px; margin-bottom:2px;">CURRENT BAC</div>
+          <div style="font-size:22px; font-weight:900; color:#F0A830; font-variant-numeric:tabular-nums;">0.065</div>
+          <div style="font-size:8px; color:#888;">Sober in ~2h 20min</div>
+        </div>
+
+        <!-- Stats row -->
+        <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:5px; margin-bottom:6px;">
+          <div style="background:#12121a; border-radius:6px; padding:7px; text-align:center;">
+            <div style="font-size:13px;">🍺</div>
+            <div style="font-size:11px; font-weight:700; color:#e0e0e0;">4</div>
+            <div style="font-size:7px; color:#666;">drinks</div>
+          </div>
+          <div style="background:#12121a; border-radius:6px; padding:7px; text-align:center;">
+            <div style="font-size:13px;">💧</div>
+            <div style="font-size:11px; font-weight:700; color:#5BC8FF;">2</div>
+            <div style="font-size:7px; color:#666;">waters</div>
+          </div>
+          <div style="background:#12121a; border-radius:6px; padding:7px; text-align:center;">
+            <div style="font-size:13px;">🔥</div>
+            <div style="font-size:11px; font-weight:700; color:#e0e0e0;">620</div>
+            <div style="font-size:7px; color:#666;">calories</div>
+          </div>
+        </div>
+
+        <!-- Drink breakdown -->
+        <div style="background:#12121a; border-radius:8px; padding:8px;">
+          <div style="font-size:7px; color:#555; margin-bottom:5px;">TONIGHT'S BREAKDOWN</div>
+          <div style="display:flex; align-items:center; gap:6px; margin-bottom:3px;">
+            <span style="font-size:9px;">🍺</span>
+            <div style="flex:1; height:5px; background:#2a2a3a; border-radius:3px; overflow:hidden;"><div style="width:60%; height:100%; background:#F0A830; border-radius:3px;"></div></div>
+            <span style="font-size:8px; color:#888;">2</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span style="font-size:9px;">🥃</span>
+            <div style="flex:1; height:5px; background:#2a2a3a; border-radius:3px; overflow:hidden;"><div style="width:40%; height:100%; background:#BF5AF2; border-radius:3px;"></div></div>
+            <span style="font-size:8px; color:#888;">2</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:10px;">
+      <div style="font-size:11px; color:#aaa; margin-bottom:4px;"><b style="color:#5BC8FF;">✓</b> STATS button next to ADD DRINK</div>
+      <div style="font-size:11px; color:#aaa; margin-bottom:4px;"><b style="color:#5BC8FF;">✓</b> Current BAC + time to sober</div>
+      <div style="font-size:11px; color:#aaa; margin-bottom:4px;"><b style="color:#5BC8FF;">✓</b> Drink count · water count · calories</div>
+      <div style="font-size:11px; color:#aaa; margin-bottom:4px;"><b style="color:#5BC8FF;">✓</b> Breakdown by drink category (bar chart)</div>
+      <div style="font-size:11px; color:#aaa;"><b style="color:#5BC8FF;">?</b> Drinks/hour pace · goal tracking?</div>
+    </div>
+  </div>
+
+</div>
+
+<div style="margin-top:20px; padding:14px; background:#0a0a12; border:1px solid #2a2a3a; border-radius:10px;">
+  <div class="label">One question before we design details</div>
+  <p style="font-size:13px; color:#ccc; margin-top:6px;">For the <b style="color:#5BC8FF;">Stats panel</b> — what's the most important thing a user needs to know in the moment?</p>
+
+  <div class="options">
+    <div class="option" data-choice="bac_focus" onclick="toggleSelect(this)">
+      <div class="letter">A</div>
+      <div class="content">
+        <h3>BAC front and center</h3>
+        <p>Big number, time to sober, driving status. Everything else is secondary.</p>
+      </div>
+    </div>
+    <div class="option" data-choice="pace_focus" onclick="toggleSelect(this)">
+      <div class="letter">B</div>
+      <div class="content">
+        <h3>Pace and progress</h3>
+        <p>Am I on track with my goal? Drinks/hour, how tonight compares to my usual.</p>
+      </div>
+    </div>
+    <div class="option" data-choice="full_dashboard" onclick="toggleSelect(this)">
+      <div class="letter">C</div>
+      <div class="content">
+        <h3>Full dashboard</h3>
+        <p>BAC + pace + breakdown + calories + water — the whole picture at once.</p>
+      </div>
+    </div>
+  </div>
+</div>

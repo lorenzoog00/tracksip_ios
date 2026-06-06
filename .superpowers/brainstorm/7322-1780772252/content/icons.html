@@ -1,0 +1,257 @@
+<h2>Replace emojis with what?</h2>
+<p class="subtitle">Same drink list, three different icon treatments — all denser than before. Pick the one that feels right.</p>
+
+<style>
+  .drink-list { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
+  .pill-row { display: flex; align-items: center; gap: 10px; background: #12121a; border: 1px solid #1e1e2a; border-radius: 10px; padding: 9px 12px; }
+  .pill-row.recent { background: #141820; border-color: #F0A83044; }
+  .drink-info { flex: 1; }
+  .drink-name { font-size: 12px; font-weight: 700; color: #e0e0e0; margin-bottom: 1px; }
+  .drink-meta { font-size: 9px; color: #666; }
+  .drink-meta.recent { color: #F0A830; }
+  .add-btn { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 900; line-height: 1; flex-shrink: 0; }
+  .add-btn.active { background: #F0A830; color: #000; }
+  .add-btn.inactive { background: #1a1a24; border: 1px solid #2a2a3a; color: #555; }
+
+  /* Option A: SF Symbol style icon */
+  .sf-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 15px; }
+
+  /* Option B: Colored monogram */
+  .mono-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 11px; font-weight: 900; letter-spacing: -0.5px; }
+
+  /* Option C: Color bar only */
+  .bar-icon { width: 4px; height: 36px; border-radius: 2px; flex-shrink: 0; }
+
+  .option-label { font-size: 8px; font-weight: 800; letter-spacing: 2px; color: #555; margin-bottom: 8px; }
+  .recent-label { font-size: 7px; font-weight: 800; letter-spacing: 1.5px; color: #F0A830; margin-bottom: 6px; }
+  .section-label { font-size: 7px; font-weight: 800; letter-spacing: 1.5px; color: #444; margin: 8px 0 5px; }
+
+  /* Search + pills */
+  .search-bar { background: #0e0e14; border: 1px solid #2a2a3a; border-radius: 9px; padding: 8px 12px; font-size: 11px; color: #333; display: flex; align-items: center; gap: 7px; margin-bottom: 8px; }
+  .cat-pills { display: flex; gap: 5px; margin-bottom: 10px; overflow-x: auto; }
+  .cat-pill { font-size: 8px; font-weight: 700; padding: 4px 10px; border-radius: 20px; white-space: nowrap; }
+  .cat-pill.active { background: #F0A830; color: #000; }
+  .cat-pill.inactive { background: #12121a; color: #888; border: 1px solid #1e1e2a; }
+</style>
+
+<div class="cards">
+
+  <!-- Option A: SF Symbol icons with color -->
+  <div class="card" data-choice="sf" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#0a0a12; padding:16px; border-radius:10px 10px 0 0;">
+      <div style="max-width:300px; margin:0 auto;">
+        <div class="option-label">OPTION A — COLORED SF ICONS</div>
+
+        <div class="search-bar">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#444" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <span>Search drinks…</span>
+        </div>
+        <div class="cat-pills">
+          <span class="cat-pill active">Recent</span>
+          <span class="cat-pill inactive">Beer</span>
+          <span class="cat-pill inactive">Wine</span>
+          <span class="cat-pill inactive">Spirits</span>
+          <span class="cat-pill inactive">Cocktail</span>
+        </div>
+
+        <div class="recent-label">⏱ RECENT</div>
+        <div class="drink-list">
+          <div class="pill-row recent">
+            <div class="sf-icon" style="background:#F0A83022;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="#F0A830"><path d="M5 3h14l-2 12H7L5 3zm3 4h8M6 7H4m16 0h-2"/><rect x="7" y="18" width="10" height="3" rx="1.5"/></svg>
+            </div>
+            <div class="drink-info"><div class="drink-name">Beer</div><div class="drink-meta recent">5% · 355ml · 150 cal</div></div>
+            <div class="add-btn active">+</div>
+          </div>
+          <div class="pill-row recent">
+            <div class="sf-icon" style="background:#BF5AF222;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#BF5AF2" stroke-width="2"><path d="M8 3l4 8 4-8M6 8s0 13 6 13 6-13 6-13"/></svg>
+            </div>
+            <div class="drink-info"><div class="drink-name">Tequila Shot</div><div class="drink-meta recent">40% · 45ml · 97 cal</div></div>
+            <div class="add-btn active">+</div>
+          </div>
+        </div>
+
+        <div class="section-label">ALL DRINKS</div>
+        <div class="drink-list">
+          <div class="pill-row">
+            <div class="sf-icon" style="background:#FF6B6B22;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF6B6B" stroke-width="2"><path d="M8 3c0 4.5 8 4.5 8 9a8 8 0 0 1-16 0 8 8 0 0 1 8-9z"/></svg>
+            </div>
+            <div class="drink-info"><div class="drink-name">Red Wine</div><div class="drink-meta">13% · 150ml · 125 cal</div></div>
+            <div class="add-btn inactive">+</div>
+          </div>
+          <div class="pill-row">
+            <div class="sf-icon" style="background:#4CD96422;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4CD964" stroke-width="2"><path d="M12 3c-4 4-4 8 0 10s4 6 0 8m-4-6h8"/></svg>
+            </div>
+            <div class="drink-info"><div class="drink-name">Margarita</div><div class="drink-meta">15% · 250ml · 280 cal</div></div>
+            <div class="add-btn inactive">+</div>
+          </div>
+          <div class="pill-row">
+            <div class="sf-icon" style="background:#5BC8FF22;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5BC8FF" stroke-width="2"><path d="M8 3h8l1 8H7L8 3zm-2 8h12l-2 10H6L4 11z"/></svg>
+            </div>
+            <div class="drink-info"><div class="drink-name">Light Beer</div><div class="drink-meta">4.2% · 355ml · 110 cal</div></div>
+            <div class="add-btn inactive">+</div>
+          </div>
+          <div class="pill-row">
+            <div class="sf-icon" style="background:#F0A83022;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F0A830" stroke-width="2"><path d="M5 3h14M6 3l3 8h6l3-8M9 11v10m6-10v10M7 21h10"/></svg>
+            </div>
+            <div class="drink-info"><div class="drink-name">Whiskey</div><div class="drink-meta">40% · 45ml · 97 cal</div></div>
+            <div class="add-btn inactive">+</div>
+          </div>
+          <div class="pill-row">
+            <div class="sf-icon" style="background:#FF6B6B22;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF6B6B" stroke-width="2"><path d="M12 3l-4 6h8l-4-6zm-4 6v4a4 4 0 0 0 8 0V9M8 21h8"/></svg>
+            </div>
+            <div class="drink-info"><div class="drink-name">Rosé</div><div class="drink-meta">12% · 150ml · 120 cal</div></div>
+            <div class="add-btn inactive">+</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Colored SF Symbol icons</h3>
+      <p>Each drink gets its existing app color as a tinted icon on a dim background pill. Matches the rest of the app's design language. Already wired up in the codebase.</p>
+    </div>
+  </div>
+
+  <!-- Option B: Monogram letters -->
+  <div class="card" data-choice="mono" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#0a0a12; padding:16px; border-radius:10px 10px 0 0;">
+      <div style="max-width:300px; margin:0 auto;">
+        <div class="option-label">OPTION B — COLOR + INITIAL MONOGRAM</div>
+
+        <div class="search-bar">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#444" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <span>Search drinks…</span>
+        </div>
+        <div class="cat-pills">
+          <span class="cat-pill active">Recent</span>
+          <span class="cat-pill inactive">Beer</span>
+          <span class="cat-pill inactive">Wine</span>
+          <span class="cat-pill inactive">Spirits</span>
+          <span class="cat-pill inactive">Cocktail</span>
+        </div>
+
+        <div class="recent-label">⏱ RECENT</div>
+        <div class="drink-list">
+          <div class="pill-row recent">
+            <div class="mono-icon" style="background:#F0A830; color:#000;">BE</div>
+            <div class="drink-info"><div class="drink-name">Beer</div><div class="drink-meta recent">5% · 355ml · 150 cal</div></div>
+            <div class="add-btn active">+</div>
+          </div>
+          <div class="pill-row recent">
+            <div class="mono-icon" style="background:#BF5AF2; color:#fff;">TQ</div>
+            <div class="drink-info"><div class="drink-name">Tequila Shot</div><div class="drink-meta recent">40% · 45ml · 97 cal</div></div>
+            <div class="add-btn active">+</div>
+          </div>
+        </div>
+
+        <div class="section-label">ALL DRINKS</div>
+        <div class="drink-list">
+          <div class="pill-row">
+            <div class="mono-icon" style="background:#FF6B6B; color:#fff;">RW</div>
+            <div class="drink-info"><div class="drink-name">Red Wine</div><div class="drink-meta">13% · 150ml · 125 cal</div></div>
+            <div class="add-btn inactive">+</div>
+          </div>
+          <div class="pill-row">
+            <div class="mono-icon" style="background:#4CD964; color:#000;">MG</div>
+            <div class="drink-info"><div class="drink-name">Margarita</div><div class="drink-meta">15% · 250ml · 280 cal</div></div>
+            <div class="add-btn inactive">+</div>
+          </div>
+          <div class="pill-row">
+            <div class="mono-icon" style="background:#5BC8FF; color:#000;">LB</div>
+            <div class="drink-info"><div class="drink-name">Light Beer</div><div class="drink-meta">4.2% · 355ml · 110 cal</div></div>
+            <div class="add-btn inactive">+</div>
+          </div>
+          <div class="pill-row">
+            <div class="mono-icon" style="background:#F0A830; color:#000;">WH</div>
+            <div class="drink-info"><div class="drink-name">Whiskey</div><div class="drink-meta">40% · 45ml · 97 cal</div></div>
+            <div class="add-btn inactive">+</div>
+          </div>
+          <div class="pill-row">
+            <div class="mono-icon" style="background:#FF6B6B; color:#fff;">RS</div>
+            <div class="drink-info"><div class="drink-name">Rosé</div><div class="drink-meta">12% · 150ml · 120 cal</div></div>
+            <div class="add-btn inactive">+</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Colored monogram</h3>
+      <p>Solid color block with 2-letter abbreviation. Bold and scannable — color tells you the category at a glance, letters confirm the drink.</p>
+    </div>
+  </div>
+
+  <!-- Option C: Left color bar, no icon -->
+  <div class="card" data-choice="bar" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#0a0a12; padding:16px; border-radius:10px 10px 0 0;">
+      <div style="max-width:300px; margin:0 auto;">
+        <div class="option-label">OPTION C — COLOR BAR ONLY (most minimal)</div>
+
+        <div class="search-bar">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#444" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <span>Search drinks…</span>
+        </div>
+        <div class="cat-pills">
+          <span class="cat-pill active">Recent</span>
+          <span class="cat-pill inactive">Beer</span>
+          <span class="cat-pill inactive">Wine</span>
+          <span class="cat-pill inactive">Spirits</span>
+          <span class="cat-pill inactive">Cocktail</span>
+        </div>
+
+        <div class="recent-label">⏱ RECENT</div>
+        <div class="drink-list">
+          <div class="pill-row recent" style="gap:12px;">
+            <div class="bar-icon" style="background:#F0A830;"></div>
+            <div class="drink-info"><div class="drink-name">Beer</div><div class="drink-meta recent">5% · 355ml · 150 cal</div></div>
+            <div class="add-btn active">+</div>
+          </div>
+          <div class="pill-row recent" style="gap:12px;">
+            <div class="bar-icon" style="background:#BF5AF2;"></div>
+            <div class="drink-info"><div class="drink-name">Tequila Shot</div><div class="drink-meta recent">40% · 45ml · 97 cal</div></div>
+            <div class="add-btn active">+</div>
+          </div>
+        </div>
+
+        <div class="section-label">ALL DRINKS</div>
+        <div class="drink-list">
+          <div class="pill-row" style="gap:12px;">
+            <div class="bar-icon" style="background:#FF6B6B;"></div>
+            <div class="drink-info"><div class="drink-name">Red Wine</div><div class="drink-meta">13% · 150ml · 125 cal</div></div>
+            <div class="add-btn inactive">+</div>
+          </div>
+          <div class="pill-row" style="gap:12px;">
+            <div class="bar-icon" style="background:#4CD964;"></div>
+            <div class="drink-info"><div class="drink-name">Margarita</div><div class="drink-meta">15% · 250ml · 280 cal</div></div>
+            <div class="add-btn inactive">+</div>
+          </div>
+          <div class="pill-row" style="gap:12px;">
+            <div class="bar-icon" style="background:#5BC8FF;"></div>
+            <div class="drink-info"><div class="drink-name">Light Beer</div><div class="drink-meta">4.2% · 355ml · 110 cal</div></div>
+            <div class="add-btn inactive">+</div>
+          </div>
+          <div class="pill-row" style="gap:12px;">
+            <div class="bar-icon" style="background:#F0A830;"></div>
+            <div class="drink-info"><div class="drink-name">Whiskey</div><div class="drink-meta">40% · 45ml · 97 cal</div></div>
+            <div class="add-btn inactive">+</div>
+          </div>
+          <div class="pill-row" style="gap:12px;">
+            <div class="bar-icon" style="background:#FF6B6B;"></div>
+            <div class="drink-info"><div class="drink-name">Rosé</div><div class="drink-meta">12% · 150ml · 120 cal</div></div>
+            <div class="add-btn inactive">+</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Color bar only</h3>
+      <p>Thin colored left bar, no icon at all. The name and ABV info carry all the weight. Ultra minimal — fastest to scan, most drinks visible per screen.</p>
+    </div>
+  </div>
+
+</div>

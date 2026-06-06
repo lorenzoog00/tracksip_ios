@@ -1,0 +1,233 @@
+<h2>Tap the row = drink added</h2>
+<p class="subtitle">No + button. No heart in the picker. Just tap. Favorites live in the Drinks screen.</p>
+
+<style>
+  .phone { max-width: 300px; margin: 0 auto; background: #0a0a12; border-radius: 18px; overflow: hidden; border: 1px solid #1a1a24; padding: 14px; }
+  .drink-row { display: flex; align-items: center; gap: 10px; border-radius: 10px; padding: 11px 13px; margin-bottom: 5px; cursor: pointer; transition: opacity 0.1s; }
+  .drink-row:active { opacity: 0.7; }
+  .drink-row.fav  { background: #151a20; border: 1px solid #FF6B6B33; }
+  .drink-row.all  { background: #12121a; border: 1px solid #1e1e2a; }
+  .drink-row.rec  { background: #141820; border: 1px solid #ffffff0d; }
+  .sf-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .drink-info { flex: 1; min-width: 0; }
+  .dname { font-size: 13px; font-weight: 700; color: #e0e0e0; }
+  .dmeta { font-size: 9px; color: #555; margin-top: 1px; }
+  .dmeta.gold { color: #F0A830; }
+  .sec { font-size: 7px; font-weight: 800; letter-spacing: 1.5px; margin: 10px 0 6px; }
+  .pills { display: flex; gap: 5px; margin-bottom: 12px; flex-wrap: nowrap; overflow-x: auto; }
+  .pill { font-size: 8px; font-weight: 700; padding: 5px 10px; border-radius: 20px; white-space: nowrap; }
+  .pill.fav  { background: #FF6B6B; color: #fff; }
+  .pill.all  { background: #F0A830; color: #000; }
+  .pill.off  { background: #12121a; color: #777; border: 1px solid #1e1e2a; }
+  .search { background: #0e0e14; border: 1px solid #2a2a3a; border-radius: 9px; padding: 8px 12px; font-size: 11px; color: #333; display: flex; align-items: center; gap: 7px; margin-bottom: 9px; }
+  .drag { width: 36px; height: 3px; background: #2a2a3a; border-radius: 2px; margin: 0 auto 14px; }
+
+  /* Drinks screen */
+  .drinks-row { display: flex; align-items: center; gap: 10px; background: #12121a; border: 1px solid #1e1e2a; border-radius: 10px; padding: 11px 13px; margin-bottom: 5px; }
+  .heart-btn { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .heart-btn.on  { background: #FF6B6B22; }
+  .heart-btn.off { background: #1a1a24; }
+</style>
+
+<div style="display:flex; gap:20px; flex-wrap:wrap; align-items:flex-start;">
+
+  <!-- PICKER: tap to add -->
+  <div style="flex:1; min-width:280px;">
+    <div style="font-size:9px; font-weight:800; letter-spacing:2px; color:#F0A830; margin-bottom:12px; text-align:center;">PICKER — TAP ANYWHERE ON THE ROW</div>
+    <div class="phone">
+      <div class="drag"></div>
+      <div class="search">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#444" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <span>Search…</span>
+      </div>
+      <div class="pills">
+        <span class="pill fav">♥ Favorites</span>
+        <span class="pill off">All</span>
+        <span class="pill off">Beer</span>
+        <span class="pill off">Wine</span>
+        <span class="pill off">Spirits</span>
+      </div>
+
+      <div class="sec" style="color:#FF6B6B;">♥ YOUR FAVORITES</div>
+
+      <!-- Tappable rows — no button -->
+      <div class="drink-row fav">
+        <div class="sf-icon" style="background:#F0A83020;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#F0A830" stroke-width="2"><path d="M5 3h14l-1.5 9h-11L5 3z"/><path d="M9 12v9m6-9v9M6 21h12"/><path d="M4 7h16"/></svg>
+        </div>
+        <div class="drink-info">
+          <div class="dname">Beer</div>
+          <div class="dmeta gold">5% · 355ml · 150 cal</div>
+        </div>
+        <!-- No button — the whole row is the tap target -->
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2a2a3a" stroke-width="1.5"><path d="M9 18l6-6-6-6"/></svg>
+      </div>
+
+      <div class="drink-row fav">
+        <div class="sf-icon" style="background:#BF5AF220;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#BF5AF2" stroke-width="2"><path d="M8 3l4 8 4-8"/><path d="M6 8s0 13 6 13 6-13 6-13"/></svg>
+        </div>
+        <div class="drink-info">
+          <div class="dname">Tequila Shot</div>
+          <div class="dmeta gold">40% · 45ml · 97 cal</div>
+        </div>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2a2a3a" stroke-width="1.5"><path d="M9 18l6-6-6-6"/></svg>
+      </div>
+
+      <div class="drink-row fav">
+        <div class="sf-icon" style="background:#4CD96420;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#4CD964" stroke-width="2"><path d="M12 3c-4 4-4 8 0 10s4 6 0 8"/><path d="M8 15h8"/></svg>
+        </div>
+        <div class="drink-info">
+          <div class="dname">Margarita</div>
+          <div class="dmeta gold">15% · 250ml · 280 cal</div>
+        </div>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2a2a3a" stroke-width="1.5"><path d="M9 18l6-6-6-6"/></svg>
+      </div>
+
+      <div class="drink-row fav">
+        <div class="sf-icon" style="background:#FF6B6B20;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#FF6B6B" stroke-width="2"><path d="M8 3c0 4.5 8 4.5 8 9a8 8 0 0 1-16 0 8 8 0 0 1 8-9z"/></svg>
+        </div>
+        <div class="drink-info">
+          <div class="dname">Red Wine</div>
+          <div class="dmeta gold">13% · 150ml · 125 cal</div>
+        </div>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2a2a3a" stroke-width="1.5"><path d="M9 18l6-6-6-6"/></svg>
+      </div>
+
+    </div>
+    <div style="margin-top:12px; background:#0a0a12; border-radius:10px; padding:12px; border:1px solid #1a1a24;">
+      <div style="font-size:10px; color:#aaa; line-height:1.6;">
+        <b style="color:#F0A830;">Tap anywhere on the row</b> → drink added instantly + haptic<br>
+        <b style="color:#5BC8FF;">Subtle chevron</b> → visual hint that rows are tappable<br>
+        <b style="color:#888;">No + button</b> → cleaner, faster, less visual noise
+      </div>
+    </div>
+  </div>
+
+  <!-- DRINKS SCREEN: manage favorites -->
+  <div style="flex:1; min-width:280px;">
+    <div style="font-size:9px; font-weight:800; letter-spacing:2px; color:#FF6B6B; margin-bottom:12px; text-align:center;">DRINKS SCREEN — MANAGE FAVORITES HERE</div>
+    <div class="phone" style="padding-bottom:16px;">
+
+      <div style="font-size:15px; font-weight:800; color:#e0e0e0; margin-bottom:12px; padding-top:4px;">My Drinks</div>
+
+      <!-- Filter pills with Favorites filter -->
+      <div class="pills" style="margin-bottom:12px;">
+        <span class="pill all">All</span>
+        <span class="pill off">♥ Favorites</span>
+        <span class="pill off">Beer</span>
+        <span class="pill off">Wine</span>
+        <span class="pill off">Spirits</span>
+        <span class="pill off">Cocktail</span>
+      </div>
+
+      <!-- Drinks with heart toggle on each -->
+      <div class="drinks-row">
+        <div class="sf-icon" style="background:#F0A83020;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#F0A830" stroke-width="2"><path d="M5 3h14l-1.5 9h-11L5 3z"/><path d="M9 12v9m6-9v9M6 21h12"/><path d="M4 7h16"/></svg>
+        </div>
+        <div class="drink-info">
+          <div class="dname">Beer</div>
+          <div class="dmeta">5% · 355ml</div>
+        </div>
+        <div class="heart-btn on">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="#FF6B6B" stroke="#FF6B6B" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        </div>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </div>
+
+      <div class="drinks-row">
+        <div class="sf-icon" style="background:#BF5AF220;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#BF5AF2" stroke-width="2"><path d="M8 3l4 8 4-8"/><path d="M6 8s0 13 6 13 6-13 6-13"/></svg>
+        </div>
+        <div class="drink-info">
+          <div class="dname">Tequila Shot</div>
+          <div class="dmeta">40% · 45ml</div>
+        </div>
+        <div class="heart-btn on">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="#FF6B6B" stroke="#FF6B6B" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        </div>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </div>
+
+      <div class="drinks-row">
+        <div class="sf-icon" style="background:#FF6B6B20;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#FF6B6B" stroke-width="2"><path d="M8 3c0 4.5 8 4.5 8 9a8 8 0 0 1-16 0 8 8 0 0 1 8-9z"/></svg>
+        </div>
+        <div class="drink-info">
+          <div class="dname">Red Wine</div>
+          <div class="dmeta">13% · 150ml</div>
+        </div>
+        <div class="heart-btn off">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        </div>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </div>
+
+      <div class="drinks-row">
+        <div class="sf-icon" style="background:#4CD96420;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#4CD964" stroke-width="2"><path d="M12 3c-4 4-4 8 0 10s4 6 0 8"/><path d="M8 15h8"/></svg>
+        </div>
+        <div class="drink-info">
+          <div class="dname">Margarita</div>
+          <div class="dmeta">15% · 250ml</div>
+        </div>
+        <div class="heart-btn on">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="#FF6B6B" stroke="#FF6B6B" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        </div>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </div>
+
+      <div class="drinks-row">
+        <div class="sf-icon" style="background:#F0A83020;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#F0A830" stroke-width="2"><path d="M5 3h14M6 3l3 8h6l3-8M9 11v10m6-10v10M7 21h10"/></svg>
+        </div>
+        <div class="drink-info">
+          <div class="dname">Whiskey</div>
+          <div class="dmeta">40% · 45ml</div>
+        </div>
+        <div class="heart-btn off">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        </div>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </div>
+
+      <!-- Add drink button -->
+      <div style="margin-top:10px; background:#F0A83015; border:1px dashed #F0A83055; border-radius:10px; padding:11px; text-align:center;">
+        <span style="font-size:12px; font-weight:700; color:#F0A830;">+ Create new drink</span>
+      </div>
+    </div>
+
+    <div style="margin-top:12px; background:#0a0a12; border-radius:10px; padding:12px; border:1px solid #1a1a24;">
+      <div style="font-size:10px; color:#aaa; line-height:1.6;">
+        <b style="color:#FF6B6B;">Heart on each row</b> → tap to favorite/unfavorite<br>
+        <b style="color:#F0A830;">♥ Favorites filter</b> → see only your starred drinks<br>
+        <b style="color:#888;">Chevron →</b> opens edit screen (ABV, volume, color, name)
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Confirm -->
+<div style="background:#0a0a12; border:1px solid #2a2a3a; border-radius:12px; padding:16px; margin-top:24px;">
+  <div style="font-size:9px; font-weight:800; letter-spacing:2px; color:#555; margin-bottom:12px;">DOES THIS SPLIT MAKE SENSE?</div>
+  <div class="options">
+    <div class="option" data-choice="yes" onclick="toggleSelect(this)">
+      <div class="letter">✓</div>
+      <div class="content">
+        <h3>Yes — write the spec</h3>
+        <p>Picker = tap to add · Drinks screen = manage favorites with heart toggle + filter</p>
+      </div>
+    </div>
+    <div class="option" data-choice="tweak" onclick="toggleSelect(this)">
+      <div class="letter">~</div>
+      <div class="content">
+        <h3>One more thing</h3>
+        <p>Tell me in the terminal.</p>
+      </div>
+    </div>
+  </div>
+</div>

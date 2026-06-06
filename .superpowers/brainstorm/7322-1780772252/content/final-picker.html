@@ -1,0 +1,154 @@
+<h2>Final drink picker design</h2>
+<p class="subtitle">SF icons · Favorites · Recents · Categories · Search. Tap the heart to favorite, tap + to add.</p>
+
+<style>
+  .phone { max-width: 320px; margin: 0 auto; background: #0a0a12; border-radius: 20px; overflow: hidden; border: 1px solid #1a1a24; }
+  .drink-row { display: flex; align-items: center; gap: 10px; background: #12121a; border: 1px solid #1e1e2a; border-radius: 10px; padding: 9px 11px; }
+  .drink-row.fav { background: #151a20; border-color: #F0A83033; }
+  .drink-row.recent { background: #141820; border-color: #ffffff11; }
+  .sf-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .drink-info { flex: 1; min-width: 0; }
+  .drink-name { font-size: 12px; font-weight: 700; color: #e0e0e0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .drink-meta { font-size: 9px; color: #555; margin-top: 1px; }
+  .drink-meta.gold { color: #F0A830; }
+  .heart { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .add-circle { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 900; line-height: 1; flex-shrink: 0; }
+  .add-circle.on { background: #F0A830; color: #000; }
+  .add-circle.off { background: #1a1a24; border: 1px solid #2a2a3a; color: #444; }
+  .row-gap { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
+  .sec-label { font-size: 7px; font-weight: 800; letter-spacing: 1.5px; margin-bottom: 6px; }
+  .search-bar { background: #0e0e14; border: 1px solid #2a2a3a; border-radius: 9px; padding: 8px 12px; font-size: 11px; color: #333; display: flex; align-items: center; gap: 7px; margin-bottom: 9px; }
+  .pills { display: flex; gap: 5px; margin-bottom: 12px; overflow-x: auto; }
+  .pill { font-size: 8px; font-weight: 700; padding: 5px 11px; border-radius: 20px; white-space: nowrap; cursor: pointer; }
+  .pill.active { background: #F0A830; color: #000; }
+  .pill.fav-active { background: #FF6B6B; color: #fff; }
+  .pill.off { background: #12121a; color: #777; border: 1px solid #1e1e2a; }
+</style>
+
+<!-- The full picker -->
+<div style="background:#0e0e14; border:1px solid #F0A830; border-radius:16px; padding:20px; margin-bottom:28px;">
+  <div style="font-size:9px; font-weight:800; letter-spacing:2px; color:#F0A830; margin-bottom:16px;">DRINK PICKER — DEFAULT STATE (Favorites tab selected)</div>
+
+  <div class="phone">
+    <!-- drag handle -->
+    <div style="padding:12px 0 0; text-align:center;"><div style="width:36px; height:3px; background:#2a2a3a; border-radius:2px; display:inline-block;"></div></div>
+    <div style="padding:14px 14px 16px;">
+
+      <!-- Search -->
+      <div class="search-bar">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#444" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <span>Search drinks…</span>
+      </div>
+
+      <!-- Pills: Favorites first -->
+      <div class="pills">
+        <span class="pill fav-active">♥ Favorites</span>
+        <span class="pill off">⏱ Recent</span>
+        <span class="pill off">Beer</span>
+        <span class="pill off">Wine</span>
+        <span class="pill off">Spirits</span>
+        <span class="pill off">Cocktail</span>
+      </div>
+
+      <!-- Favorites section -->
+      <div class="sec-label" style="color:#FF6B6B;">♥ YOUR FAVORITES</div>
+      <div class="row-gap">
+        <div class="drink-row fav">
+          <div class="sf-icon" style="background:#F0A83020;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#F0A830" stroke-width="2"><path d="M5 3h14l-1.5 9h-11L5 3z"/><path d="M9 12v9m6-9v9M6 21h12"/><path d="M4 7h16"/></svg>
+          </div>
+          <div class="drink-info"><div class="drink-name">Beer</div><div class="drink-meta gold">5% · 355ml · 150 cal</div></div>
+          <div class="heart">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="#FF6B6B" stroke="#FF6B6B" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          </div>
+          <div class="add-circle on">+</div>
+        </div>
+        <div class="drink-row fav">
+          <div class="sf-icon" style="background:#BF5AF220;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#BF5AF2" stroke-width="2"><path d="M8 3l4 8 4-8"/><path d="M6 8s0 13 6 13 6-13 6-13"/></svg>
+          </div>
+          <div class="drink-info"><div class="drink-name">Tequila Shot</div><div class="drink-meta gold">40% · 45ml · 97 cal</div></div>
+          <div class="heart">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="#FF6B6B" stroke="#FF6B6B" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          </div>
+          <div class="add-circle on">+</div>
+        </div>
+        <div class="drink-row fav">
+          <div class="sf-icon" style="background:#4CD96420;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#4CD964" stroke-width="2"><path d="M12 3c-4 4-4 8 0 10s4 6 0 8"/><path d="M8 15h8"/></svg>
+          </div>
+          <div class="drink-info"><div class="drink-name">Margarita</div><div class="drink-meta gold">15% · 250ml · 280 cal</div></div>
+          <div class="heart">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="#FF6B6B" stroke="#FF6B6B" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          </div>
+          <div class="add-circle on">+</div>
+        </div>
+      </div>
+
+      <!-- Browse rest -->
+      <div class="sec-label" style="color:#444;">ALL OTHER DRINKS</div>
+      <div class="row-gap">
+        <div class="drink-row">
+          <div class="sf-icon" style="background:#FF6B6B20;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#FF6B6B" stroke-width="2"><path d="M8 3c0 4.5 8 4.5 8 9a8 8 0 0 1-16 0 8 8 0 0 1 8-9z"/></svg>
+          </div>
+          <div class="drink-info"><div class="drink-name">Red Wine</div><div class="drink-meta">13% · 150ml · 125 cal</div></div>
+          <div class="heart">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          </div>
+          <div class="add-circle off">+</div>
+        </div>
+        <div class="drink-row">
+          <div class="sf-icon" style="background:#5BC8FF20;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#5BC8FF" stroke-width="2"><path d="M5 3h14l-1.5 9h-11L5 3z"/><path d="M9 12v9m6-9v9M6 21h12"/></svg>
+          </div>
+          <div class="drink-info"><div class="drink-name">Light Beer</div><div class="drink-meta">4.2% · 355ml · 110 cal</div></div>
+          <div class="heart">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          </div>
+          <div class="add-circle off">+</div>
+        </div>
+        <div class="drink-row">
+          <div class="sf-icon" style="background:#F0A83020;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#F0A830" stroke-width="2"><path d="M5 3h14M6 3l3 8h6l3-8M9 11v10m6-10v10M7 21h10"/></svg>
+          </div>
+          <div class="drink-info"><div class="drink-name">Whiskey</div><div class="drink-meta">40% · 45ml · 97 cal</div></div>
+          <div class="heart">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          </div>
+          <div class="add-circle off">+</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Callouts -->
+  <div style="margin-top:16px; display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+    <div style="font-size:11px; color:#aaa; padding:8px 10px; background:#0a0a12; border-radius:8px; border-left:3px solid #FF6B6B;">♥ heart taps to favorite/unfavorite — persists across sessions</div>
+    <div style="font-size:11px; color:#aaa; padding:8px 10px; background:#0a0a12; border-radius:8px; border-left:3px solid #F0A830;">+ adds drink instantly, no confirmation</div>
+    <div style="font-size:11px; color:#aaa; padding:8px 10px; background:#0a0a12; border-radius:8px; border-left:3px solid #5BC8FF;">Favorites tab = default if user has any saved</div>
+    <div style="font-size:11px; color:#aaa; padding:8px 10px; background:#0a0a12; border-radius:8px; border-left:3px solid #BF5AF2;">Recent tab = default for new users with no favorites yet</div>
+  </div>
+</div>
+
+<!-- Confirm -->
+<div style="background:#0a0a12; border:1px solid #2a2a3a; border-radius:12px; padding:16px;">
+  <div style="font-size:9px; font-weight:800; letter-spacing:2px; color:#555; margin-bottom:12px;">LOCK THIS IN?</div>
+  <div class="options">
+    <div class="option" data-choice="yes" onclick="toggleSelect(this)">
+      <div class="letter">✓</div>
+      <div class="content">
+        <h3>Yes — write the spec</h3>
+        <p>This is the design. Let's get the implementation plan going.</p>
+      </div>
+    </div>
+    <div class="option" data-choice="tweak" onclick="toggleSelect(this)">
+      <div class="letter">~</div>
+      <div class="content">
+        <h3>One more change</h3>
+        <p>Tell me in the terminal what to adjust.</p>
+      </div>
+    </div>
+  </div>
+</div>

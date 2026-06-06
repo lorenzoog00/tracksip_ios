@@ -1,0 +1,94 @@
+<h2>Current Drink Picker</h2>
+<p class="subtitle">What's the biggest pain point for you right now?</p>
+
+<div style="display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap;">
+
+  <!-- Current mockup -->
+  <div class="mockup" style="flex: 1; min-width: 260px; max-width: 340px;">
+    <div class="mockup-header">Current — Active Event Screen</div>
+    <div class="mockup-body" style="background: #0e0e14; padding: 16px; border-radius: 8px;">
+
+      <div style="font-size: 9px; font-weight: 800; letter-spacing: 2px; color: #F0A830; margin-bottom: 12px;">QUICK ADD</div>
+
+      <!-- 3-col grid -->
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
+
+        <div style="background: #1a1a24; border: 1px solid #2a2a3a; border-radius: 10px; padding: 10px 6px; text-align: center;">
+          <div style="font-size: 18px; margin-bottom: 4px;">🍺</div>
+          <div style="font-size: 10px; font-weight: 600; color: #e0e0e0;">Beer</div>
+        </div>
+        <div style="background: #1a1a24; border: 1px solid #2a2a3a; border-radius: 10px; padding: 10px 6px; text-align: center;">
+          <div style="font-size: 18px; margin-bottom: 4px;">🍺</div>
+          <div style="font-size: 10px; font-weight: 600; color: #e0e0e0;">Light Beer</div>
+        </div>
+        <div style="background: #1a1a24; border: 1px solid #2a2a3a; border-radius: 10px; padding: 10px 6px; text-align: center;">
+          <div style="font-size: 18px; margin-bottom: 4px;">🍷</div>
+          <div style="font-size: 10px; font-weight: 600; color: #e0e0e0;">Red Wine</div>
+        </div>
+        <div style="background: #1a1a24; border: 1px solid #2a2a3a; border-radius: 10px; padding: 10px 6px; text-align: center;">
+          <div style="font-size: 18px; margin-bottom: 4px;">🥂</div>
+          <div style="font-size: 10px; font-weight: 600; color: #e0e0e0;">Champagne</div>
+        </div>
+        <div style="background: #1a1a24; border: 1px solid #2a2a3a; border-radius: 10px; padding: 10px 6px; text-align: center;">
+          <div style="font-size: 18px; margin-bottom: 4px;">🥃</div>
+          <div style="font-size: 10px; font-weight: 600; color: #e0e0e0;">Whiskey</div>
+        </div>
+        <div style="background: #1a1a24; border: 1px solid #2a2a3a; border-radius: 10px; padding: 10px 6px; text-align: center;">
+          <div style="font-size: 18px; margin-bottom: 4px;">🥃</div>
+          <div style="font-size: 10px; font-weight: 600; color: #e0e0e0;">Tequila</div>
+        </div>
+        <div style="background: #1a1a24; border: 1px solid #2a2a3a; border-radius: 10px; padding: 10px 6px; text-align: center;">
+          <div style="font-size: 18px; margin-bottom: 4px;">🍸</div>
+          <div style="font-size: 10px; font-weight: 600; color: #e0e0e0;">Martini</div>
+        </div>
+        <div style="background: #1a1a24; border: 1px solid #2a2a3a; border-radius: 10px; padding: 10px 6px; text-align: center;">
+          <div style="font-size: 18px; margin-bottom: 4px;">🍹</div>
+          <div style="font-size: 10px; font-weight: 600; color: #e0e0e0;">Margarita</div>
+        </div>
+        <div style="background: #1a1a24; border: 1px solid #2a2a3a; border-radius: 10px; padding: 10px 6px; text-align: center;">
+          <div style="font-size: 18px; margin-bottom: 4px;">🍾</div>
+          <div style="font-size: 10px; font-weight: 600; color: #999;">↓ scroll...</div>
+        </div>
+
+      </div>
+      <div style="margin-top: 8px; font-size: 9px; color: #555; text-align: center;">No search · No categories · 16+ drinks, all shown equally</div>
+    </div>
+  </div>
+
+  <!-- Pain points -->
+  <div style="flex: 1; min-width: 240px;">
+    <p class="label">What bothers you most?</p>
+    <div class="options" data-multiselect>
+      <div class="option" data-choice="find" onclick="toggleSelect(this)">
+        <div class="letter">A</div>
+        <div class="content">
+          <h3>Hard to find a specific drink</h3>
+          <p>Too many tiles, have to scroll and hunt for the one you want</p>
+        </div>
+      </div>
+      <div class="option" data-choice="info" onclick="toggleSelect(this)">
+        <div class="letter">B</div>
+        <div class="content">
+          <h3>Tiles don't show enough info</h3>
+          <p>No ABV, no volume — can't tell what you're picking</p>
+        </div>
+      </div>
+      <div class="option" data-choice="recents" onclick="toggleSelect(this)">
+        <div class="letter">C</div>
+        <div class="content">
+          <h3>Same drinks every session, still have to scroll</h3>
+          <p>Drink the same 2–3 things but they're buried in the list</p>
+        </div>
+      </div>
+      <div class="option" data-choice="size" onclick="toggleSelect(this)">
+        <div class="letter">D</div>
+        <div class="content">
+          <h3>Tiles are too small / hard to tap</h3>
+          <p>3-column layout is cramped, easy to mis-tap</p>
+        </div>
+      </div>
+    </div>
+    <p style="font-size: 12px; color: #888; margin-top: 12px;">Select all that apply, then tell me in the terminal too.</p>
+  </div>
+
+</div>

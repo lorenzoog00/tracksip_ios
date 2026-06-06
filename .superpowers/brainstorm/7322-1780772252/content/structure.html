@@ -1,0 +1,126 @@
+<h2>Where does the picker live?</h2>
+<p class="subtitle">This is the core structural decision — everything else follows from it.</p>
+
+<div class="split" style="gap: 20px; align-items: flex-start;">
+
+  <!-- Option A: Enhanced inline -->
+  <div class="card" data-choice="inline" onclick="toggleSelect(this)" style="cursor:pointer; flex:1;">
+    <div class="card-image" style="background:#0e0e14; padding: 14px; border-radius:8px 8px 0 0;">
+
+      <div style="font-size:8px; font-weight:800; letter-spacing:2px; color:#F0A830; margin-bottom:8px;">QUICK ADD</div>
+
+      <!-- Search bar -->
+      <div style="background:#1a1a24; border:1px solid #3a3a4a; border-radius:8px; padding:7px 10px; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+        <span style="color:#555; font-size:12px;">🔍</span>
+        <span style="color:#444; font-size:12px;">Search drinks…</span>
+      </div>
+
+      <!-- Category pills -->
+      <div style="display:flex; gap:5px; margin-bottom:8px; flex-wrap:wrap;">
+        <span style="background:#F0A830; color:#000; font-size:8px; font-weight:700; padding:3px 8px; border-radius:20px;">All</span>
+        <span style="background:#1a1a24; color:#888; font-size:8px; padding:3px 8px; border-radius:20px; border:1px solid #2a2a3a;">🍺 Beer</span>
+        <span style="background:#1a1a24; color:#888; font-size:8px; padding:3px 8px; border-radius:20px; border:1px solid #2a2a3a;">🍷 Wine</span>
+        <span style="background:#1a1a24; color:#888; font-size:8px; padding:3px 8px; border-radius:20px; border:1px solid #2a2a3a;">🥃 Spirits</span>
+      </div>
+
+      <!-- Recents row -->
+      <div style="font-size:8px; color:#555; letter-spacing:1px; margin-bottom:5px;">RECENT</div>
+      <div style="display:flex; gap:6px; margin-bottom:8px;">
+        <div style="background:#1a2030; border:1px solid #F0A830; border-radius:8px; padding:8px 10px; text-align:center; flex:1;">
+          <div style="font-size:14px;">🍺</div>
+          <div style="font-size:9px; color:#e0e0e0; margin-top:2px;">Beer</div>
+          <div style="font-size:8px; color:#F0A830;">5%</div>
+        </div>
+        <div style="background:#1a2030; border:1px solid #F0A830; border-radius:8px; padding:8px 10px; text-align:center; flex:1;">
+          <div style="font-size:14px;">🥃</div>
+          <div style="font-size:9px; color:#e0e0e0; margin-top:2px;">Tequila</div>
+          <div style="font-size:8px; color:#F0A830;">40%</div>
+        </div>
+        <div style="background:#1a2030; border:1px solid #F0A830; border-radius:8px; padding:8px 10px; text-align:center; flex:1;">
+          <div style="font-size:14px;">🍸</div>
+          <div style="font-size:9px; color:#e0e0e0; margin-top:2px;">Margarita</div>
+          <div style="font-size:8px; color:#F0A830;">15%</div>
+        </div>
+      </div>
+
+      <!-- Grid below -->
+      <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:6px;">
+        <div style="background:#1a1a24; border:1px solid #2a2a3a; border-radius:8px; padding:8px 4px; text-align:center;">
+          <div style="font-size:14px;">🍺</div>
+          <div style="font-size:9px; color:#e0e0e0;">Beer</div>
+          <div style="font-size:8px; color:#666;">5% · 355ml</div>
+        </div>
+        <div style="background:#1a1a24; border:1px solid #2a2a3a; border-radius:8px; padding:8px 4px; text-align:center;">
+          <div style="font-size:14px;">🍷</div>
+          <div style="font-size:9px; color:#e0e0e0;">Red Wine</div>
+          <div style="font-size:8px; color:#666;">13% · 150ml</div>
+        </div>
+        <div style="background:#1a1a24; border:1px solid #2a2a3a; border-radius:8px; padding:8px 4px; text-align:center;">
+          <div style="font-size:14px;">🥃</div>
+          <div style="font-size:9px; color:#e0e0e0;">Whiskey</div>
+          <div style="font-size:8px; color:#666;">40% · 45ml</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Enhanced inline grid</h3>
+      <p>Search bar + category pills + recents row added above the existing grid. ABV/volume visible on every tile. No extra tap needed — always visible as you scroll.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>Zero extra taps to add</li><li>Always visible</li><li>Familiar flow</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Makes the event screen taller</li><li>Search keyboard pushes layout</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Option B: Bottom sheet -->
+  <div class="card" data-choice="sheet" onclick="toggleSelect(this)" style="cursor:pointer; flex:1;">
+    <div class="card-image" style="background:#0e0e14; padding: 14px; border-radius:8px 8px 0 0; position:relative; min-height:220px;">
+
+      <!-- Event screen behind -->
+      <div style="font-size:9px; color:#444; text-align:center; padding: 16px 0 8px;">— active event stats —</div>
+      <div style="height:40px; background:#12121a; border-radius:8px; margin-bottom:8px;"></div>
+      <div style="height:40px; background:#12121a; border-radius:8px; margin-bottom:16px;"></div>
+
+      <!-- Big add button -->
+      <div style="background: linear-gradient(90deg,#e8902a,#F0A830); border-radius:12px; padding:12px; text-align:center; margin-bottom:0;">
+        <span style="font-size:13px; font-weight:800; color:#000; letter-spacing:1px;">+ ADD DRINK</span>
+      </div>
+
+      <!-- Sheet preview -->
+      <div style="background:#16161e; border-radius:12px 12px 0 0; border:1px solid #2a2a3a; padding:12px; margin-top:6px;">
+        <div style="width:32px; height:3px; background:#444; border-radius:2px; margin:0 auto 10px;"></div>
+        <div style="background:#1a1a24; border:1px solid #3a3a4a; border-radius:8px; padding:6px 10px; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+          <span style="color:#555; font-size:11px;">🔍</span>
+          <span style="color:#444; font-size:11px;">Search or browse…</span>
+        </div>
+        <div style="display:flex; gap:4px; margin-bottom:8px;">
+          <span style="background:#F0A830; color:#000; font-size:7px; font-weight:700; padding:2px 7px; border-radius:20px;">Recent</span>
+          <span style="background:#1a1a24; color:#888; font-size:7px; padding:2px 7px; border-radius:20px; border:1px solid #333;">Beer</span>
+          <span style="background:#1a1a24; color:#888; font-size:7px; padding:2px 7px; border-radius:20px; border:1px solid #333;">Wine</span>
+          <span style="background:#1a1a24; color:#888; font-size:7px; padding:2px 7px; border-radius:20px; border:1px solid #333;">Spirits</span>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:6px;">
+          <div style="background:#1a2030; border:1px solid #F0A830; border-radius:8px; padding:10px; display:flex; align-items:center; gap:8px;">
+            <span style="font-size:16px;">🍺</span>
+            <div><div style="font-size:10px; color:#e0e0e0; font-weight:600;">Beer</div><div style="font-size:9px; color:#F0A830;">5% · 355ml</div></div>
+          </div>
+          <div style="background:#1a2030; border:1px solid #F0A830; border-radius:8px; padding:10px; display:flex; align-items:center; gap:8px;">
+            <span style="font-size:16px;">🥃</span>
+            <div><div style="font-size:10px; color:#e0e0e0; font-weight:600;">Tequila</div><div style="font-size:9px; color:#F0A830;">40% · 45ml</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Bottom sheet picker</h3>
+      <p>One big "+ Add Drink" button on the event screen. Tapping it slides up a full sheet with search, category tabs, recents, and a 2-column grid with ABV/volume. Event view stays clean.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>Full screen to browse/search</li><li>Event screen stays focused</li><li>More room for info on tiles</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>One extra tap every time</li><li>More engineering work</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<p style="font-size:12px; color:#888; margin-top:16px; text-align:center;">Click your preferred structure, then tell me in the terminal.</p>
