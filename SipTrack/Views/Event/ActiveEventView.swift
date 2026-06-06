@@ -124,26 +124,7 @@ struct ActiveEventView: View {
         .navigationTitle(event.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(false)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Button {
-                    showStats = true
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "chart.bar.fill")
-                            .font(.system(size: 12, weight: .semibold))
-                        Text("STATS")
-                            .font(.system(size: 11, weight: .bold))
-                            .tracking(0.5)
-                    }
-                    .foregroundStyle(Color(hex: "#5BC8FF"))
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(Color(hex: "#5BC8FF").opacity(0.12))
-                    .cornerRadius(20)
-                }
-            }
-        }
+        .toolbar { ToolbarItem(placement: .navigationBarTrailing) { statsButton } }
         .sheet(item: $showEditEntry) { entry in
             EditEntryView(entry: entry)
         }
@@ -228,9 +209,27 @@ struct ActiveEventView: View {
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
         }
-        .sheet(isPresented: $showStats) {
-            NightStatsSheet(eventId: eventId)
-                .environmentObject(appState)
+        .sheet(isPresented: $showStats, content: statsSheet)
+    }
+
+    private func statsSheet() -> some View {
+        NightStatsSheet(eventId: eventId).environmentObject(appState)
+    }
+
+    private var statsButton: some View {
+        Button { showStats = true } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "chart.bar.fill")
+                    .font(.system(size: 12, weight: .semibold))
+                Text("STATS")
+                    .font(.system(size: 11, weight: .bold))
+                    .tracking(0.5)
+            }
+            .foregroundStyle(Color(hex: "#5BC8FF"))
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(Color(hex: "#5BC8FF").opacity(0.12))
+            .clipShape(RoundedRectangle(cornerRadius: 20))
         }
     }
 
