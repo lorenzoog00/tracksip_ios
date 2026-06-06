@@ -9,6 +9,7 @@ struct ActiveEventView: View {
     @State private var showFoodSheet      = false
     @State private var showEditEntry: DrinkEntry? = nil
     @State private var pendingDrink: PendingDrinkWarning? = nil
+    @State private var showStats          = false
 
     private var event: NightEvent? { appState.events.first { $0.id == eventId } }
     private var eventEntries: [DrinkEntry] { appState.entries.filter { $0.eventId == eventId }.sorted { $0.timestamp > $1.timestamp } }
@@ -64,7 +65,7 @@ struct ActiveEventView: View {
                     StatsRow(eventId: eventId, waterEntries: eventWater)
 
                     // Quick Add — inline, always visible
-                    QuickAddGrid(event: event, drinkTypes: appState.allDrinkTypes) { dt in
+                    DrinkPickerList(event: event, drinkTypes: appState.allDrinkTypes) { dt in
                         handleDrinkTap(dt, event: event, bacLimit: bacLimit)
                     }
 
@@ -123,6 +124,26 @@ struct ActiveEventView: View {
         .navigationTitle(event.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(false)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
+                    showStats = true
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "chart.bar.fill")
+                            .font(.system(size: 12, weight: .semibold))
+                        Text("STATS")
+                            .font(.system(size: 11, weight: .bold))
+                            .tracking(0.5)
+                    }
+                    .foregroundStyle(Color(hex: "#5BC8FF"))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Color(hex: "#5BC8FF").opacity(0.12))
+                    .cornerRadius(20)
+                }
+            }
+        }
         .sheet(item: $showEditEntry) { entry in
             EditEntryView(entry: entry)
         }
@@ -206,6 +227,10 @@ struct ActiveEventView: View {
             )
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $showStats) {
+            NightStatsSheet(eventId: eventId)
+                .environmentObject(appState)
         }
     }
 
@@ -1564,4 +1589,10 @@ struct OverLimitWarningSheet: View {
         }
         .buttonStyle(.plain)
     }
+}
+
+// TEMPORARY STUB — replaced in Task 6
+private struct NightStatsSheet: View {
+    let eventId: String
+    var body: some View { Text("Stats coming soon") }
 }
