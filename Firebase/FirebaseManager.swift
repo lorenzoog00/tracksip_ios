@@ -457,7 +457,7 @@ final class FirebaseManager: ObservableObject {
                && error.code == ASAuthorizationError.canceled.rawValue {
             return nil // user cancelled the re-auth sheet — treat as no-op
         } catch {
-            return error.localizedDescription
+            return friendlyAuthError(error)
         }
     }
 

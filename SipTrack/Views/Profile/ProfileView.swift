@@ -998,7 +998,7 @@ struct AuthView: View {
                                 let nsError = error as NSError
                                 if nsError.domain != ASAuthorizationError.errorDomain
                                     || nsError.code != ASAuthorizationError.canceled.rawValue {
-                                    errorMsg = error.localizedDescription
+                                    errorMsg = friendlyAuthError(error)
                                 }
                             }
                             isLoading = false
@@ -1046,7 +1046,7 @@ struct AuthView: View {
                                 appState.shouldShowAuth = false
                                 dismiss()
                             } catch {
-                                errorMsg = error.localizedDescription
+                                errorMsg = friendlyAuthError(error)
                             }
                             isLoading = false
                         }
@@ -1164,7 +1164,7 @@ struct AuthView: View {
                 dismiss()
             }
         } catch {
-            let msg = error.localizedDescription
+            let msg = friendlyAuthError(error)
             if msg.contains("verify your email") {
                 showVerification = true
             } else {

@@ -109,7 +109,7 @@ struct ForgotPasswordView: View {
             try await firebase.resetPassword(email: email)
             sent = true
         } catch {
-            errorMsg = error.localizedDescription
+            errorMsg = friendlyAuthError(error)
         }
         isLoading = false
     }
