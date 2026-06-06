@@ -77,6 +77,26 @@ struct DrinkPickerList: View {
         return base.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
     }
 
+    // Pre-computed to avoid let-in-ViewBuilder type-check issues
+    private var allMinusRecent: [DrinkType] {
+        let recentIds = Set(recentDrinkTypes.map(\.id))
+        return filteredDrinks.filter { !recentIds.contains($0.id) }
+    }
+
+    private var showBothSections: Bool {
+        filter == .all && searchText.isEmpty && !recentDrinkTypes.isEmpty
+    }
+
+    private func pillBackground(_ f: PickerFilter) -> Color {
+        guard filter == f else { return AppColors.surface }
+        return f == .favorites ? Color(hex: "#FF6B6B") : AppColors.accent
+    }
+
+    private func pillBorderColor(_ f: PickerFilter) -> Color {
+        guard filter == f else { return AppColors.border }
+        return f == .favorites ? Color(hex: "#FF6B6B") : AppColors.accent
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             sectionHeader
@@ -119,21 +139,10 @@ struct DrinkPickerList: View {
                                 .font(.system(size: 10, weight: .bold))
                                 .padding(.horizontal, 11)
                                 .padding(.vertical, 6)
-                                .background(
-                                    filter == f
-                                        ? (f == .favorites ? Color(hex: "#FF6B6B") : AppColors.accent)
-                                        : AppColors.surface
-                                )
-                                .foregroundStyle(
-                                    filter == f ? AppColors.background : AppColors.textSecondary
-                                )
+                                .background(pillBackground(f))
+                                .foregroundStyle(filter == f ? AppColors.background : AppColors.textSecondary)
                                 .clipShape(Capsule())
-                                .overlay(Capsule().stroke(
-                                    filter == f
-                                        ? (f == .favorites ? Color(hex: "#FF6B6B") : AppColors.accent)
-                                        : AppColors.border,
-                                    lineWidth: 1
-                                ))
+                                .overlay(Capsule().stroke(pillBorderColor(f), lineWidth: 1))
                         }
                         .buttonStyle(.plain)
                     }
@@ -143,9 +152,7 @@ struct DrinkPickerList: View {
 
             // Content
             VStack(spacing: 5) {
-                if filter == .all && searchText.isEmpty && !recentDrinkTypes.isEmpty {
-                    let recentIds = Set(recentDrinkTypes.map(\.id))
-                    let allMinusRecent = filteredDrinks.filter { !recentIds.contains($0.id) }
+                if showBothSections {
                     pickerSection(label: "RECENTLY ADDED", color: AppColors.accent, drinks: recentDrinkTypes, showTimestamp: true)
                     if !allMinusRecent.isEmpty {
                         pickerSection(label: "ALL DRINKS", color: AppColors.textTertiary, drinks: allMinusRecent, showTimestamp: false)
@@ -153,9 +160,12 @@ struct DrinkPickerList: View {
                 } else if filteredDrinks.isEmpty {
                     emptyState
                 } else {
-                    let sectionLabel: String? = filter == .favorites ? "YOUR FAVORITES" : nil
-                    let sectionColor: Color = filter == .favorites ? Color(hex: "#FF6B6B") : AppColors.textTertiary
-                    pickerSection(label: sectionLabel, color: sectionColor, drinks: filteredDrinks, showTimestamp: false)
+                    pickerSection(
+                        label: filter == .favorites ? "YOUR FAVORITES" : nil,
+                        color: filter == .favorites ? Color(hex: "#FF6B6B") : AppColors.textTertiary,
+                        drinks: filteredDrinks,
+                        showTimestamp: false
+                    )
                 }
             }
             .padding(.horizontal)
