@@ -74,18 +74,6 @@ struct ActiveEventView: View {
                         DrinkChips(entries: eventEntries, drinkTypes: appState.allDrinkTypes)
                     }
 
-                    // Timeline
-                    if !eventEntries.isEmpty || !eventWater.isEmpty || !eventFood.isEmpty {
-                        TimelineSection(
-                            entries: eventEntries,
-                            waterEntries: eventWater,
-                            foodEntries: eventFood,
-                            drinkTypes: appState.allDrinkTypes,
-                            onDeleteEntry: { appState.deleteEntry($0) },
-                            onDeleteWater: { appState.deleteWaterEntry($0) }
-                        )
-                    }
-
                     BannerAdView()
                         .padding(.horizontal)
 
@@ -1266,42 +1254,48 @@ private struct BottomBar: View {
     var body: some View {
         HStack(spacing: 10) {
             Button(action: onAddWater) {
-                HStack(spacing: 6) {
+                VStack(spacing: 5) {
                     Image(systemName: "drop.fill")
-                        .font(.system(size: 13))
+                        .font(.system(size: 18, weight: .semibold))
                     Text("Water")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(size: 12, weight: .semibold))
                 }
                 .foregroundStyle(AppColors.water)
-                .frame(width: 90, height: 48)
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(AppColors.water.opacity(0.35), lineWidth: 1))
+                .frame(maxWidth: .infinity)
+                .frame(height: 62)
+                .background(AppColors.water.opacity(0.10))
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(AppColors.water.opacity(0.3), lineWidth: 1))
             }
 
             Button(action: onAddFood) {
-                HStack(spacing: 6) {
-                    Text("🍟")
-                        .font(.system(size: 13))
+                VStack(spacing: 5) {
+                    Image(systemName: "fork.knife")
+                        .font(.system(size: 18, weight: .semibold))
                     Text("Food")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(size: 12, weight: .semibold))
                 }
                 .foregroundStyle(AppColors.accent)
-                .frame(width: 90, height: 48)
-                .overlay(RoundedRectangle(cornerRadius: 12)
-                    .stroke(AppColors.accent.opacity(0.35), lineWidth: 1))
+                .frame(maxWidth: .infinity)
+                .frame(height: 62)
+                .background(AppColors.accent.opacity(0.10))
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(AppColors.accent.opacity(0.3), lineWidth: 1))
             }
 
             Button(action: onEnd) {
-                HStack(spacing: 6) {
+                VStack(spacing: 5) {
                     Image(systemName: "stop.fill")
-                        .font(.system(size: 12))
+                        .font(.system(size: 18, weight: .semibold))
                     Text("End Night")
-                        .font(.system(size: 14, weight: .semibold))
-                        .tracking(0.2)
+                        .font(.system(size: 12, weight: .semibold))
                 }
                 .foregroundStyle(AppColors.danger)
                 .frame(maxWidth: .infinity)
-                .frame(height: 48)
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(AppColors.danger.opacity(0.35), lineWidth: 1))
+                .frame(height: 62)
+                .background(AppColors.danger.opacity(0.10))
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(AppColors.danger.opacity(0.3), lineWidth: 1))
             }
         }
         .padding(.horizontal)
