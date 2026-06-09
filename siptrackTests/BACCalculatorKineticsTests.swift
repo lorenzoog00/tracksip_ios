@@ -98,4 +98,55 @@ struct BACCalculatorKineticsTests {
         let beta = BACCalculator.eliminationRate(profile: profile)
         #expect(abs(slopePerHour - beta) / beta < 0.05)
     }
+
+    // MARK: - Mitchell 2014 peak fixtures (kA(ABV) calibration gate)
+
+    private func studyDrink(abv: Double, volumeForFortyGrams: Double) -> DrinkType {
+        // 0.5 g/kg over 20 min, empty stomach (Mitchell 2014 protocol).
+        DrinkType(id: "study-\(Int(abv))", name: "study", defaultVolumeMl: volumeForFortyGrams,
+                  defaultAbv: abv, caloriesPerServing: 0, isPreset: false, icon: "flask",
+                  defaultDrinkingDurationMinutes: 20)
+    }
+
+    private func peakAndTmax(abv: Double) -> (cmax: Double, tmaxMin: Double) {
+        let profile = maleProfile(weight: 80)
+        // vol so 40 g ethanol: g = vol·(abv/100)·0.789  ⇒  vol = 40 / (abv/100 · 0.789)
+        let vol = 40.0 / ((abv / 100) * 0.789)
+        let type = studyDrink(abv: abv, volumeForFortyGrams: vol)
+        let start = Date()
+        let entry = DrinkEntry(id: "s", eventId: "e", drinkTypeId: type.id, timestamp: start,
+                               quantity: 1, comment: nil, volumeOverrideMl: nil, abvOverride: nil)
+        let curve = BACCalculator.bacTimeline(
+            entries: [entry], drinkTypes: [type], profile: profile, eventStart: start
+        )
+        let peak = curve.max(by: { $0.bac < $1.bac })!
+        return (peak.bac, peak.date.timeIntervalSince(start) / 60)
+    }
+
+    @Test func mitchell_cmaxOrdering_spiritsGtWineGtBeer() {
+        let spirits = peakAndTmax(abv: 20).cmax
+        let wine    = peakAndTmax(abv: 12.5).cmax
+        let beer    = peakAndTmax(abv: 5).cmax
+        #expect(spirits > wine)
+        #expect(wine > beer)
+    }
+
+    @Test func mitchell_cmaxMagnitudes_withinTwentyPercent() {
+        // Mitchell mean Cmax: spirits 0.077, wine 0.062, beer 0.050 (g/100mL).
+        #expect(abs(peakAndTmax(abv: 20).cmax   - 0.077) / 0.077 < 0.20)
+        #expect(abs(peakAndTmax(abv: 12.5).cmax - 0.062) / 0.062 < 0.20)
+        #expect(abs(peakAndTmax(abv: 5).cmax    - 0.050) / 0.050 < 0.20)
+    }
+
+    @Test func mitchell_tmaxOrdering_andRange() {
+        let spirits = peakAndTmax(abv: 20).tmaxMin
+        let wine    = peakAndTmax(abv: 12.5).tmaxMin
+        let beer    = peakAndTmax(abv: 5).tmaxMin
+        // Mitchell: spirits 36, wine 54, beer 60 min. Order strict, each within ±15 min.
+        #expect(spirits < wine)
+        #expect(wine < beer)
+        #expect(abs(spirits - 36) <= 15)
+        #expect(abs(wine - 54) <= 15)
+        #expect(abs(beer - 60) <= 15)
+    }
 }
