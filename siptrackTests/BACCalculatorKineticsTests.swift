@@ -149,4 +149,28 @@ struct BACCalculatorKineticsTests {
         #expect(abs(wine - 54) <= 15)
         #expect(abs(beer - 60) <= 15)
     }
+
+    // MARK: - Gulp instant-absorption invariant (preserved UX)
+
+    @Test func gulp_secondDrinkInsideWindow_spikesImmediately() {
+        // Two beers 1 min apart: the first beer's 20-min drinking window is interrupted by
+        // the second, so it is "gulped" → its full ~14 g (≈0.0247 BAC) must register almost
+        // immediately. Without the gulp branch, first-order absorption would show <0.001 at
+        // 2 min, so the >0.02 threshold sharply verifies the instant-absorption invariant.
+        let profile = maleProfile(weight: 80)
+        let beerType = DrinkType.presets.first { $0.id == "beer" }!  // 355 mL @ 5%, 20-min window
+        let start = Date()
+        let gulpedPair = [
+            beer("a", at: start),
+            beer("b", at: start.addingTimeInterval(60))
+        ]
+        let at2min = start.addingTimeInterval(120)
+        let curve = BACCalculator.bacTimeline(
+            entries: gulpedPair, drinkTypes: [beerType], profile: profile, eventStart: start
+        )
+        let bacAt2 = curve.min(by: {
+            abs($0.date.timeIntervalSince(at2min)) < abs($1.date.timeIntervalSince(at2min))
+        })?.bac ?? 0
+        #expect(bacAt2 > 0.02)
+    }
 }
