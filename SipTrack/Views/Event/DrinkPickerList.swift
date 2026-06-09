@@ -35,6 +35,7 @@ struct DrinkPickerList: View {
     let event: NightEvent
     let drinkTypes: [DrinkType]
     let onPick: (DrinkType) -> Void
+    let onPickSized: (DrinkType, ServingSizeOption) -> Void
 
     @State private var filter: PickerFilter = .all
     @State private var searchText = ""
@@ -224,7 +225,8 @@ struct DrinkPickerList: View {
                 DrinkTile(
                     drinkType: dt,
                     recentTimestamp: showTimestamp ? latestTimestampByDrinkId[dt.id] : nil,
-                    onPick: { onPick(dt) }
+                    onPick: { onPick(dt) },
+                    onPickSized: { onPickSized(dt, $0) }
                 )
             }
         }
@@ -237,6 +239,7 @@ private struct DrinkTile: View {
     let drinkType: DrinkType
     let recentTimestamp: Date?
     let onPick: () -> Void
+    let onPickSized: (ServingSizeOption) -> Void
 
     @State private var pressed = false
     private let haptic = UIImpactFeedbackGenerator(style: .medium)
@@ -301,5 +304,15 @@ private struct DrinkTile: View {
                 }
                 .onEnded { _ in pressed = false }
         )
+        .contextMenu {
+            Text("Pour size")
+            ForEach(drinkType.servingSizeOptions) { opt in
+                Button {
+                    onPickSized(opt)
+                } label: {
+                    Label("\(opt.label) · \(Int(opt.volumeMl)) mL", systemImage: "drop.fill")
+                }
+            }
+        }
     }
 }

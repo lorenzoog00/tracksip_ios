@@ -65,9 +65,14 @@ struct ActiveEventView: View {
                     StatsRow(eventId: eventId, waterEntries: eventWater)
 
                     // Quick Add — inline, always visible
-                    DrinkPickerList(event: event, drinkTypes: appState.allDrinkTypes) { dt in
-                        handleDrinkTap(dt, event: event, bacLimit: bacLimit)
-                    }
+                    DrinkPickerList(
+                        event: event,
+                        drinkTypes: appState.allDrinkTypes,
+                        onPick: { dt in handleDrinkTap(dt, event: event, bacLimit: bacLimit) },
+                        onPickSized: { dt, size in
+                            handleSizedDrinkTap(dt, size: size, event: event, bacLimit: bacLimit)
+                        }
+                    )
 
                     // Drink breakdown chips (summary of what was had)
                     if !eventEntries.isEmpty {
@@ -261,6 +266,20 @@ struct ActiveEventView: View {
             waitMinutes: waitMinutes
         )
         UINotificationFeedbackGenerator().notificationOccurred(.warning)
+    }
+
+    // Logs a specific pour size chosen from the tile's context menu. A standard-size pick
+    // logs with no override/label (keeps the timeline clean); a larger pour stores its real
+    // volume in volumeOverrideMl so the dose math reflects what was actually drunk.
+    private func handleSizedDrinkTap(_ dt: DrinkType, size: ServingSizeOption,
+                                     event: NightEvent, bacLimit: Double) {
+        let isStandard = abs(size.volumeMl - dt.defaultVolumeMl) < 0.1
+        appState.addDrink(
+            eventId: event.id,
+            drinkTypeId: dt.id,
+            volumeOverride: isStandard ? nil : size.volumeMl,
+            servingSizeLabel: isStandard ? nil : size.label
+        )
     }
 
 
