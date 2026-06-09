@@ -180,4 +180,19 @@ struct BACCalculatorKineticsTests {
         })?.bac ?? 0
         #expect(bacAt2 > 0.02)
     }
+
+    // MARK: - M-M-consistent time-to-sober
+
+    @Test func hoursToZeroBAC_isLongerThanLinear() {
+        // The M-M tail means clearing the last stretch takes longer than ΔC/β.
+        let beta = 0.015
+        let mm = BACCalculator.hoursToReduceBAC(from: 0.08, to: BACCalculator.michaelisKm, beta: beta)
+        let linear = (0.08 - BACCalculator.michaelisKm) / beta
+        #expect(mm > linear)
+    }
+
+    @Test func hoursToZeroBAC_belowFloor_returnsZero() {
+        #expect(BACCalculator.hoursToZeroBAC(0) == 0)
+        #expect(BACCalculator.hoursToZeroBAC(0.0003) == 0)
+    }
 }

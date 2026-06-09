@@ -453,12 +453,27 @@ struct BACCalculator {
 
     // MARK: - Time / Status helpers
 
+    // Hours for BAC to fall from `from` to `to` under Michaelis–Menten elimination —
+    // the closed-form integral of dC/dt = −Vmax·C/(Km+C). Assumes no further absorption
+    // (same assumption as the old linear estimate, but the correct nonlinear curve). The
+    // M-M tail makes this LONGER than the linear `ΔC/β` near sobriety — so "time until
+    // safe/sober" no longer reads too short.
+    static func hoursToReduceBAC(from c0: Double, to c1: Double, beta: Double) -> Double {
+        guard c0 > c1, c1 > 0 else { return 0 }
+        let vMax = vmax(beta: beta)
+        guard vMax > 0 else { return 0 }
+        return ((c0 - c1) + michaelisKm * Foundation.log(c0 / c1)) / vMax
+    }
+
+    // Time until "sober" (BAC falls to the display floor; true zero is an M-M asymptote).
     static func hoursToZeroBAC(_ bac: Double, sex: Sex = .preferNotToSay) -> Double {
-        bac / eliminationRate(sex: sex)
+        guard bac > bacFloor else { return 0 }
+        return hoursToReduceBAC(from: bac, to: bacFloor, beta: eliminationRate(sex: sex))
     }
 
     static func hoursToZeroBAC(_ bac: Double, profile: UserProfile) -> Double {
-        bac / eliminationRate(profile: profile)
+        guard bac > bacFloor else { return 0 }
+        return hoursToReduceBAC(from: bac, to: bacFloor, beta: eliminationRate(profile: profile))
     }
 
     static func getBACStatus(bac: Double, limit: Double) -> BACStatus {
