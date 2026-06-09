@@ -482,26 +482,6 @@ struct BACCalculator {
         return .green
     }
 
-    // MARK: - Drive verdict (never affirmative)
-
-    // Impairment relative to driving. The legal limit is a prosecution line, not a safety
-    // line: impairment is documented from 0.02 and significant by 0.05 (NHTSA; WHO
-    // recommends a 0.05 limit). The app never reports an affirmative "safe to drive".
-    enum ImpairmentTier { case minimal, mild, impaired, overLegal }
-
-    // Conservative BAC for the drive decision: the upper edge of the ±20% band, or the
-    // projected peak if BAC is still rising — whichever is higher. Never optimistic.
-    static func driveVerdictBAC(current: Double, projectedPeak: Double) -> Double {
-        max(current * (1 + bacCV), projectedPeak)
-    }
-
-    static func impairmentTier(verdictBAC: Double, legalLimit: Double) -> ImpairmentTier {
-        if verdictBAC >= legalLimit { return .overLegal }
-        if verdictBAC >= 0.05 { return .impaired }
-        if verdictBAC >= 0.02 { return .mild }
-        return .minimal
-    }
-
     // MARK: - Hydration (UI/coaching only — does NOT modify BAC)
 
     static func computeHydrationRatio(waterEntries: [WaterEntry], drinkCount: Int) -> Double {

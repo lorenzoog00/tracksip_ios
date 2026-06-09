@@ -32,23 +32,15 @@ struct ActiveEventView: View {
 
     private func content(event: NightEvent) -> some View {
         let bacLimit = event.bacLimit ?? appState.userProfile.resolvedBACLimit
-        let drive = appState.driveStatus(for: eventId, limit: bacLimit)
-        let showDriveWarning = event.drivingMode &&
-            (drive.tier == .overLegal || drive.tier == .impaired)
+        let overLimit = event.drivingMode && currentBAC >= bacLimit
 
         return ZStack(alignment: .bottom) {
             ScrollView {
                 VStack(spacing: 16) {
 
-                    // DO NOT DRIVE banner — triggered by the conservative verdict BAC
-                    // (upper band / projected peak), and at the 0.05 impairment floor even
-                    // when the legal limit is higher. Never shows an affirmative "OK to drive".
-                    if showDriveWarning {
-                        DriveWarningBanner(bac: drive.verdictBAC, bacLimit: min(0.05, bacLimit), beta: BACCalculator.eliminationRate(profile: appState.userProfile))
-                    } else if event.drivingMode && drive.tier == .mild {
-                        DriveCautionNote(text: "Impairment has begun — the app can't confirm it's safe to drive.")
-                    } else if event.drivingMode {
-                        DriveCautionNote(text: "Effects may still be present. This app can't tell you it's safe to drive.")
+                    // DO NOT DRIVE banner
+                    if overLimit {
+                        DriveWarningBanner(bac: currentBAC, bacLimit: bacLimit, beta: BACCalculator.eliminationRate(profile: appState.userProfile))
                     }
 
                     // BAC Hero
@@ -60,12 +52,6 @@ struct ActiveEventView: View {
                         drivingMode: event.drivingMode,
                         bacLimit: bacLimit
                     )
-
-                    Text("You may feel more impaired than your BAC suggests — especially while it's rising. When in doubt, don't drive.")
-                        .font(.system(size: 10))
-                        .foregroundStyle(AppColors.textTertiary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 24)
 
                     // Current drink in progress
                     CurrentDrinkCard(entries: eventEntries, drinkTypes: appState.allDrinkTypes, now: appState.bacTick)
@@ -320,9 +306,7 @@ private struct DriveWarningBanner: View {
     let beta: Double
 
     private var hoursRemaining: Double {
-        // Michaelis–Menten time for BAC to fall to the target — longer than linear near
-        // sobriety, so the countdown never reads too short.
-        BACCalculator.hoursToReduceBAC(from: bac, to: bacLimit, beta: beta)
+        max(0, (bac - bacLimit) / max(beta, 0.005))
     }
 
     var body: some View {
@@ -357,7 +341,7 @@ private struct DriveWarningBanner: View {
                     .font(.system(size: 20, weight: .medium))
                     .padding(.bottom, 4)
                 Spacer()
-                Text("until below\nimpairment")
+                Text("until safe\nto drive")
                     .font(.system(size: 12))
                     .foregroundStyle(AppColors.danger.opacity(0.6))
                     .multilineTextAlignment(.trailing)
@@ -370,29 +354,6 @@ private struct DriveWarningBanner: View {
         .background(AppColors.danger.opacity(0.1))
         .cornerRadius(14)
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(AppColors.danger.opacity(0.35), lineWidth: 1))
-        .padding(.horizontal)
-    }
-}
-
-// MARK: - Drive Caution Note (sub-limit, never affirmative)
-
-private struct DriveCautionNote: View {
-    let text: String
-    var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 12, weight: .semibold))
-            Text(text)
-                .font(.system(size: 12))
-                .multilineTextAlignment(.leading)
-            Spacer(minLength: 0)
-        }
-        .foregroundStyle(AppColors.textSecondary)
-        .padding(12)
-        .frame(maxWidth: .infinity)
-        .background(AppColors.surface)
-        .cornerRadius(12)
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(AppColors.border, lineWidth: 1))
         .padding(.horizontal)
     }
 }

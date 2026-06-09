@@ -1494,19 +1494,17 @@ final class AppState: ObservableObject {
             return sum + (dt?.caloriesPerServing ?? 0) * Double(e.quantity)
         }
 
-        let limit = event.bacLimit ?? userProfile.resolvedBACLimit
         let ctx = WarningContext(
             currentBAC: bac,
             previousBAC: prevBAC,
             drivingMode: event.drivingMode,
-            bacLimit: limit,
+            bacLimit: event.bacLimit ?? userProfile.resolvedBACLimit,
             drinksLastHour: BACCalculator.drinksInLastHour(entries: eventEntries),
             totalCalories: calories,
             previousStage: IntoxicationStage.stage(for: prevBAC),
             currentStage: IntoxicationStage.stage(for: bac),
             prefs: userProfile.notifications,
-            eliminationRate: BACCalculator.eliminationRate(profile: userProfile),
-            verdictBAC: driveStatus(for: eventId, limit: limit).verdictBAC
+            eliminationRate: BACCalculator.eliminationRate(profile: userProfile)
         )
         let warnings = buildWarnings(context: ctx)
         if !warnings.isEmpty {
@@ -1671,37 +1669,6 @@ final class AppState: ObservableObject {
             stomachStateTimestamp: event.stomachStateTimestamp ?? event.startTime,
             foodEntries: eventFood
         )
-    }
-
-    struct DriveStatus {
-        let verdictBAC: Double
-        let tier: BACCalculator.ImpairmentTier
-        let currentBAC: Double
-    }
-
-    /// Conservative drive verdict for an event: current BAC plus the projected peak from
-    /// now (in case BAC is still rising), combined into the verdict BAC and impairment tier.
-    /// Never affirmative.
-    func driveStatus(for eventId: String, limit: Double) -> DriveStatus {
-        guard let event = events.first(where: { $0.id == eventId }) else {
-            return DriveStatus(verdictBAC: 0, tier: .minimal, currentBAC: 0)
-        }
-        let now = Date()
-        let current = currentBAC(for: eventId)
-        let eventEntries = entries.filter { $0.eventId == eventId }
-        let eventFood    = foodEntries.filter { $0.eventId == eventId }
-        let timeline = BACCalculator.bacTimeline(
-            entries: eventEntries, drinkTypes: allDrinkTypes, profile: userProfile,
-            eventStart: event.startTime,
-            stomachState: event.stomachState ?? .empty,
-            stomachStateTimestamp: event.stomachStateTimestamp ?? event.startTime,
-            foodEntries: eventFood)
-        let projectedPeak = timeline.filter { $0.date >= now }.map(\.bac).max() ?? current
-        let verdict = BACCalculator.driveVerdictBAC(current: current, projectedPeak: projectedPeak)
-        return DriveStatus(
-            verdictBAC: verdict,
-            tier: BACCalculator.impairmentTier(verdictBAC: verdict, legalLimit: limit),
-            currentBAC: current)
     }
 
     func totalDrinks(for eventId: String) -> Int {
