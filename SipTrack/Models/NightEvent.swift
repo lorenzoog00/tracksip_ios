@@ -35,6 +35,7 @@ struct DrinkEntry: Codable, Identifiable, Hashable {
     var comment: String?
     var volumeOverrideMl: Double?
     var abvOverride: Double?
+    var servingSizeLabel: String? = nil   // display only; volumeOverrideMl carries the dose
 }
 
 struct WaterEntry: Codable, Identifiable, Hashable {

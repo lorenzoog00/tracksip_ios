@@ -100,3 +100,40 @@ extension DrinkType {
         }
     }
 }
+
+// MARK: - Serving sizes (dose fidelity)
+
+struct ServingSizeOption: Identifiable, Hashable {
+    let label: String
+    let volumeMl: Double
+    var id: String { label }
+}
+
+extension DrinkType {
+    // Real-world pour options per category. The "standard" option equals the type's
+    // default volume; others capture the common under-counted pours (home double, pint,
+    // large wine). Selecting one stores its volume in DrinkEntry.volumeOverrideMl, so the
+    // dose math (calculateAlcohol / integrateBAC) is untouched.
+    var servingSizeOptions: [ServingSizeOption] {
+        switch drinkCategory {
+        case "spirits", "agave":
+            return [.init(label: "Single", volumeMl: 44),
+                    .init(label: "Double", volumeMl: 88),
+                    .init(label: "Triple", volumeMl: 132)]
+        case "wine":
+            return [.init(label: "Small",    volumeMl: 100),
+                    .init(label: "Standard", volumeMl: 150),
+                    .init(label: "Large",    volumeMl: 250)]
+        case "beer":
+            return [.init(label: "Bottle/Can", volumeMl: 355),
+                    .init(label: "Pint",       volumeMl: 568),
+                    .init(label: "Tallboy",    volumeMl: 473)]
+        case "cocktails":
+            return [.init(label: "Single", volumeMl: 240),
+                    .init(label: "Strong", volumeMl: 360)]
+        default:
+            return [.init(label: "Standard", volumeMl: defaultVolumeMl),
+                    .init(label: "Double",   volumeMl: defaultVolumeMl * 2)]
+        }
+    }
+}
