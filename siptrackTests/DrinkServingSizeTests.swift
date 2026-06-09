@@ -6,7 +6,7 @@
 //
 
 import Testing
-@testable import siptrack
+@testable import SipTrack
 
 struct DrinkServingSizeTests {
 
