@@ -90,6 +90,12 @@ struct BACCalculator {
     // 1-minute integration step for the forward ODE solver.
     private static let integrationStepHours = 1.0 / 60.0
 
+    // BAC below this (g/100mL) is treated as zero: M-M elimination decays asymptotically
+    // and never reaches exactly 0, so without a floor the curve would never terminate and
+    // "sober" reads would return ~1e-14. 0.0005 rounds to 0.000 at display precision and
+    // is below endogenous BAC.
+    private static let bacFloor = 0.0005
+
     // MARK: - Elimination rate β
 
     static func eliminationRate(sex: Sex) -> Double {
@@ -328,7 +334,8 @@ struct BACCalculator {
 
         while tH <= endHours + 1e-9 {
             if tH + 1e-9 >= nextSample {
-                out.append(BACDataPoint(date: firstTs.addingTimeInterval(tH * 3600), bac: max(0, c)))
+                let shown = c < bacFloor ? 0 : c
+                out.append(BACDataPoint(date: firstTs.addingTimeInterval(tH * 3600), bac: shown))
                 nextSample += sampleH
             }
             if let u = untilHours, tH + 1e-9 >= u { break }
@@ -346,7 +353,10 @@ struct BACCalculator {
             c = max(0, c + dCin - dCout)
             tH = tNext
 
-            if untilHours == nil, tH > lastStart, c <= 0 {
+            // Terminate once fully eliminated after the last drink (M-M never hits exactly
+            // 0). Applies to both the full timeline and single-instant `until` queries —
+            // BAC stays ~0 thereafter, so the last sample (0) is the correct answer.
+            if tH > lastStart, c < bacFloor {
                 out.append(BACDataPoint(date: firstTs.addingTimeInterval(tH * 3600), bac: 0))
                 break
             }
