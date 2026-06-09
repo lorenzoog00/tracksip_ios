@@ -1131,7 +1131,8 @@ private struct TLDrinkCard: View {
                                 .background(tint.opacity(0.15))
                                 .cornerRadius(4)
                         }
-                        Text(drinkType?.name ?? "Drink")
+                        Text(entry.servingSizeLabel.map { "\(drinkType?.name ?? "Drink") · \($0)" }
+                             ?? (drinkType?.name ?? "Drink"))
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(AppColors.text)
                     }
