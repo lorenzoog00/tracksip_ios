@@ -140,6 +140,104 @@ struct NightStatsSheet: View {
         return max(0, min(1.0, pt.timeIntervalSince(start) / totalElapsed))
     }
 
+    // MARK: - BAC Intelligence Helpers
+
+    private var phaseColor: Color {
+        switch bacPhase {
+        case .absorbing:   return Color(hex: "#FF6B6B")
+        case .atPeak:      return Color(hex: "#F0A830")
+        case .eliminating: return Color(hex: "#4CD964")
+        }
+    }
+
+    private var phaseLabel: String {
+        switch bacPhase {
+        case .absorbing:   return "▲ Still absorbing"
+        case .atPeak:      return "▲ At your peak"
+        case .eliminating: return "▼ Eliminating — BAC dropping"
+        }
+    }
+
+    private var soberInTile: some View {
+        let h = Int(hoursToZeroBAC)
+        let m = Int((hoursToZeroBAC - Double(h)) * 60)
+        let soberTime = Calendar.current.date(byAdding: .minute, value: Int(hoursToZeroBAC * 60), to: Date())
+        return VStack(alignment: .leading, spacing: 4) {
+            Text("SOBER IN")
+                .font(.system(size: 8, weight: .black))
+                .tracking(1.5)
+                .foregroundStyle(Color(hex: "#5BC8FF"))
+            Text(currentBAC < 0.005 ? "Now" : "\(h)h \(String(format: "%02d", m))m")
+                .font(.system(size: 22, weight: .black, design: .monospaced))
+                .foregroundStyle(Color(hex: "#5BC8FF"))
+            if let st = soberTime, currentBAC >= 0.005 {
+                Text("~ \(st, format: .dateTime.hour().minute())")
+                    .font(.system(size: 10))
+                    .foregroundStyle(AppColors.textTertiary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(AppColors.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color(hex: "#5BC8FF").opacity(0.2), lineWidth: 1))
+    }
+
+    private var bacArcBar: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("BAC ACROSS THE NIGHT")
+                .font(.system(size: 7, weight: .black))
+                .tracking(1.5)
+                .foregroundStyle(AppColors.textTertiary)
+
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Rectangle()
+                        .fill(AppColors.border.opacity(0.4))
+                        .frame(height: 8)
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
+
+                    if !bacTimelinePoints.isEmpty {
+                        Rectangle()
+                            .fill(LinearGradient(
+                                colors: [Color(hex: "#4CD964"), Color(hex: "#F0A830"), Color(hex: "#FF6B6B"), Color(hex: "#F0A830")],
+                                startPoint: .leading, endPoint: .trailing
+                            ))
+                            .frame(height: 8)
+                            .clipShape(RoundedRectangle(cornerRadius: 4))
+                    }
+
+                    if peakBAC > 0.001 && !bacTimelinePoints.isEmpty {
+                        Rectangle()
+                            .fill(Color.white.opacity(0.8))
+                            .frame(width: 2, height: 14)
+                            .clipShape(RoundedRectangle(cornerRadius: 1))
+                            .offset(x: max(0, geo.size.width * peakFraction - 1))
+                            .offset(y: -3)
+                    }
+                }
+            }
+            .frame(height: 8)
+            .padding(.top, 4)
+
+            HStack {
+                Text("start")
+                    .font(.system(size: 8))
+                    .foregroundStyle(AppColors.textTertiary)
+                Spacer()
+                if peakBAC > 0.001 {
+                    Text("↑ peak")
+                        .font(.system(size: 8, weight: .semibold))
+                        .foregroundStyle(Color(hex: "#FF6B6B"))
+                }
+                Spacer()
+                Text("now")
+                    .font(.system(size: 8))
+                    .foregroundStyle(AppColors.textTertiary)
+            }
+        }
+    }
+
     private var drinksThisHour: Int {
         let cutoff = Date().addingTimeInterval(-3600)
         return entries.filter { $0.timestamp >= cutoff }.count
@@ -170,6 +268,7 @@ struct NightStatsSheet: View {
                 ScrollView {
                     VStack(spacing: 16) {
                         paceSection
+                        bacIntelligenceSection
                         totalsSection
                         if !facts.isEmpty { factsSection }
                         timelineSection
@@ -186,6 +285,119 @@ struct NightStatsSheet: View {
                 }
             }
         }
+    }
+
+    // MARK: - Section: BAC Intelligence
+
+    private var bacIntelligenceSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            // Phase badge
+            HStack {
+                Text(phaseLabel)
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(phaseColor)
+                Spacer()
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(phaseColor.opacity(0.10))
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(phaseColor.opacity(0.25), lineWidth: 1))
+
+            // Peak + Current BAC tiles
+            HStack(spacing: 10) {
+                peakBACTile
+                currentBACTile
+            }
+
+            // Arc bar
+            bacArcBar
+
+            // Driving-mode only
+            if event?.drivingMode == true {
+                HStack(spacing: 10) {
+                    soberInTile
+                    aboveLimitTile
+                }
+            }
+        }
+        .padding(.horizontal, 16)
+    }
+
+    private var peakBACTile: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("PEAK BAC")
+                .font(.system(size: 8, weight: .black))
+                .tracking(1.5)
+                .foregroundStyle(Color(hex: "#FF6B6B"))
+            if peakBAC > 0.001 {
+                Text(String(format: "%.3f", peakBAC))
+                    .font(.system(size: 26, weight: .black, design: .monospaced))
+                    .foregroundStyle(Color(hex: "#FF6B6B"))
+                if let pt = peakTime {
+                    Text("at \(pt, format: .dateTime.hour().minute())")
+                        .font(.system(size: 10))
+                        .foregroundStyle(AppColors.textTertiary)
+                }
+            } else {
+                Text("—")
+                    .font(.system(size: 26, weight: .black, design: .monospaced))
+                    .foregroundStyle(AppColors.textTertiary)
+                Text("still rising")
+                    .font(.system(size: 10))
+                    .foregroundStyle(AppColors.textTertiary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(AppColors.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color(hex: "#FF6B6B").opacity(0.2), lineWidth: 1))
+    }
+
+    private var currentBACTile: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("CURRENT BAC")
+                .font(.system(size: 8, weight: .black))
+                .tracking(1.5)
+                .foregroundStyle(Color(hex: "#F0A830"))
+            Text(String(format: "%.3f", currentBAC))
+                .font(.system(size: 26, weight: .black, design: .monospaced))
+                .foregroundStyle(Color(hex: "#F0A830"))
+            Text(bacPhase == .eliminating && peakBAC > 0
+                 ? String(format: "↓ %.3f from peak", peakBAC - currentBAC)
+                 : "↑ rising")
+                .font(.system(size: 10))
+                .foregroundStyle(AppColors.textTertiary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(AppColors.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color(hex: "#F0A830").opacity(0.2), lineWidth: 1))
+    }
+
+    private var aboveLimitTile: some View {
+        let exceeded = minutesAboveLimit > 0
+        return VStack(alignment: .leading, spacing: 4) {
+            Text("ABOVE LIMIT")
+                .font(.system(size: 8, weight: .black))
+                .tracking(1.5)
+                .foregroundStyle(exceeded ? Color(hex: "#FF6B6B") : AppColors.textTertiary)
+            Text("\(minutesAboveLimit) min")
+                .font(.system(size: 22, weight: .black, design: .monospaced))
+                .foregroundStyle(exceeded ? Color(hex: "#FF6B6B") : Color(hex: "#4CD964"))
+            Text("tonight so far")
+                .font(.system(size: 10))
+                .foregroundStyle(AppColors.textTertiary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(AppColors.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(
+            exceeded ? Color(hex: "#FF6B6B").opacity(0.2) : AppColors.border,
+            lineWidth: 1))
     }
 
     // MARK: - Section 1: Pace + Duration
