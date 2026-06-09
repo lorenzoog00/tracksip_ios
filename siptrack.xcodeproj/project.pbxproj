@@ -12,6 +12,8 @@
 		19A3D1F4240845CD897E3D12 /* BACCalculatorCoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94366D3F8A174A8A9ED74019 /* BACCalculatorCoreTests.swift */; };
 		A1B2C3D4E5F6A7B8C9D0E1F2 /* AIInsightsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E1F3 /* AIInsightsTests.swift */; };
 		B2C3D4E5F6A7B8C9D0E1F2A3 /* NightPickerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F6A7B8C9D0E1F2A4 /* NightPickerTests.swift */; };
+		C4D5E6F7A8B9C0D1E2F3A4B5 /* BACCalculatorKineticsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D5E6F7A8B9C0D1E2F3A4B6 /* BACCalculatorKineticsTests.swift */; };
+		D5E6F7A8B9C0D1E2F3A4B5C6 /* DrinkServingSizeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5E6F7A8B9C0D1E2F3A4B5C7 /* DrinkServingSizeTests.swift */; };
 		0B600C73A34541F49740B136 /* FoodEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0E98F63CB724D4CB75A1270 /* FoodEntry.swift */; };
 		2A41B90C2B57482B91131763 /* CoachView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6305C2FF0C534B6ABC925280 /* CoachView.swift */; };
 		484c06b9a233439db00dc5988d74786e /* CoachReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4f3719ab9d5d455c9961490721ee331e /* CoachReport.swift */; };
@@ -176,6 +178,8 @@
 		94366D3F8A174A8A9ED74019 /* BACCalculatorCoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BACCalculatorCoreTests.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6A7B8C9D0E1F3 /* AIInsightsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIInsightsTests.swift; sourceTree = "<group>"; };
 		B2C3D4E5F6A7B8C9D0E1F2A4 /* NightPickerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NightPickerTests.swift; sourceTree = "<group>"; };
+		C4D5E6F7A8B9C0D1E2F3A4B6 /* BACCalculatorKineticsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BACCalculatorKineticsTests.swift; sourceTree = "<group>"; };
+		D5E6F7A8B9C0D1E2F3A4B5C7 /* DrinkServingSizeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrinkServingSizeTests.swift; sourceTree = "<group>"; };
 		3F19FB458C03404B93011571 /* CoachReportCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachReportCard.swift; sourceTree = "<group>"; };
 		4f3719ab9d5d455c9961490721ee331e /* CoachReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachReport.swift; sourceTree = "<group>"; };
 		6305C2FF0C534B6ABC925280 /* CoachView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachView.swift; sourceTree = "<group>"; };
@@ -684,6 +688,8 @@
 				94366D3F8A174A8A9ED74019 /* BACCalculatorCoreTests.swift */,
 				A1B2C3D4E5F6A7B8C9D0E1F3 /* AIInsightsTests.swift */,
 				B2C3D4E5F6A7B8C9D0E1F2A4 /* NightPickerTests.swift */,
+				C4D5E6F7A8B9C0D1E2F3A4B6 /* BACCalculatorKineticsTests.swift */,
+				D5E6F7A8B9C0D1E2F3A4B5C7 /* DrinkServingSizeTests.swift */,
 			);
 			path = siptrackTests;
 			sourceTree = "<group>";
@@ -1055,6 +1061,8 @@
 				19A3D1F4240845CD897E3D12 /* BACCalculatorCoreTests.swift in Sources */,
 				A1B2C3D4E5F6A7B8C9D0E1F2 /* AIInsightsTests.swift in Sources */,
 				B2C3D4E5F6A7B8C9D0E1F2A3 /* NightPickerTests.swift in Sources */,
+				C4D5E6F7A8B9C0D1E2F3A4B5 /* BACCalculatorKineticsTests.swift in Sources */,
+				D5E6F7A8B9C0D1E2F3A4B5C6 /* DrinkServingSizeTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
