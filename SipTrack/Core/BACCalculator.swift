@@ -363,6 +363,12 @@ struct BACCalculator {
                 break
             }
         }
+        // When `until` falls within the first integration step (drink just logged),
+        // the loop exits before sampling the post-step `c`. Emit a trailing point so
+        // the live BAC meter shows a nonzero value immediately rather than 0.
+        if let u = untilHours, c > bacFloor, (out.last?.bac ?? 0) < bacFloor {
+            out.append(BACDataPoint(date: firstTs.addingTimeInterval(u * 3600), bac: c))
+        }
         return out
     }
 
