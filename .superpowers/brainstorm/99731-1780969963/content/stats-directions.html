@@ -1,0 +1,153 @@
+<h2>What kind of stats do you want more of?</h2>
+<p class="subtitle">All of these are computable from data the app already tracks. Pick what feels most useful in the moment.</p>
+
+<style>
+  .mock { background: #0a0a12; border-radius: 12px; padding: 14px; margin-top: 10px; }
+  .stat-row { display: flex; gap: 8px; margin-bottom: 8px; }
+  .stat-box { background: #12121a; border: 1px solid #2a2a3a; border-radius: 10px; padding: 10px; flex: 1; text-align: center; }
+  .stat-label { font-size: 7px; font-weight: 800; letter-spacing: 1.5px; color: #555; margin-bottom: 4px; }
+  .stat-val { font-size: 18px; font-weight: 900; line-height: 1; }
+  .stat-sub { font-size: 8px; color: #666; margin-top: 3px; }
+  .bar-track { background: #1a1a24; border-radius: 3px; height: 6px; overflow: hidden; margin-top: 6px; }
+  .bar-fill { height: 100%; border-radius: 3px; }
+  .tag { display: inline-block; font-size: 8px; font-weight: 700; padding: 3px 8px; border-radius: 20px; }
+</style>
+
+<div class="options">
+
+  <!-- A: BAC Intelligence -->
+  <div class="option" data-choice="bac" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>BAC Intelligence</h3>
+      <p>Deeper insight into where your BAC actually is and where it's going.</p>
+      <div class="mock">
+        <div class="stat-row">
+          <div class="stat-box">
+            <div class="stat-label">PEAK BAC</div>
+            <div class="stat-val" style="color:#FF6B6B;">0.112</div>
+            <div class="stat-sub">at 11:47 PM</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">NOW</div>
+            <div class="stat-val" style="color:#F0A830;">0.079</div>
+            <div class="stat-sub">↓ dropping</div>
+          </div>
+        </div>
+        <div class="stat-row">
+          <div class="stat-box">
+            <div class="stat-label">SAFE TO DRIVE</div>
+            <div class="stat-val" style="color:#5BC8FF; font-size:14px;">2h 18m</div>
+            <div class="stat-sub">~ 2:30 AM</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">ABOVE LIMIT</div>
+            <div class="stat-val" style="color:#FF6B6B; font-size:14px;">47 min</div>
+            <div class="stat-sub">tonight so far</div>
+          </div>
+        </div>
+        <div style="font-size:8px;color:#555;margin-top:4px;">Phase: 🔴 Still eliminating · Sober ~4:45 AM</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- B: Body Load -->
+  <div class="option" data-choice="body" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Body Load</h3>
+      <p>How much alcohol your body has actually processed — standard drinks, weekly guidelines, calorie breakdown.</p>
+      <div class="mock">
+        <div class="stat-row">
+          <div class="stat-box">
+            <div class="stat-label">STD DRINKS</div>
+            <div class="stat-val" style="color:#F0A830;">4.2</div>
+            <div class="stat-sub">tonight</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">WEEKLY LIMIT</div>
+            <div class="stat-val" style="color:#BF5AF2; font-size:14px;">30%</div>
+            <div class="stat-sub">of 14 std drinks</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">AVG / DRINK</div>
+            <div class="stat-val" style="color:#e0e0e0; font-size:14px;">155</div>
+            <div class="stat-sub">cal each</div>
+          </div>
+        </div>
+        <div style="font-size:8px;color:#F0A830;margin:6px 0 3px;">Weekly budget used:</div>
+        <div class="bar-track"><div class="bar-fill" style="width:30%;background:linear-gradient(90deg,#4CD964,#F0A830);"></div></div>
+        <div style="font-size:7px;color:#555;margin-top:3px;">4.2 of 14 standard drinks this week</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- C: Pace & Patterns -->
+  <div class="option" data-choice="pace" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Pace & Patterns</h3>
+      <p>How your drinking speed has changed across the night — are you slowing down or accelerating?</p>
+      <div class="mock">
+        <div class="stat-row">
+          <div class="stat-box">
+            <div class="stat-label">FIRST HOUR</div>
+            <div class="stat-val" style="color:#FF6B6B; font-size:16px;">2.1/hr</div>
+            <div class="stat-sub">🔴 fast start</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">LAST HOUR</div>
+            <div class="stat-val" style="color:#4CD964; font-size:16px;">0.8/hr</div>
+            <div class="stat-sub">✓ slowing down</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">TREND</div>
+            <div class="stat-val" style="color:#4CD964; font-size:22px;">↓</div>
+            <div class="stat-sub">good pacing</div>
+          </div>
+        </div>
+        <div style="font-size:8px;color:#555;margin:6px 0 3px;">Drink timing:</div>
+        <div style="display:flex;gap:3px;align-items:flex-end;height:28px;">
+          <div style="flex:1;background:#FF6B6B;border-radius:2px 2px 0 0;height:90%;"></div>
+          <div style="flex:1;background:#F0A830;border-radius:2px 2px 0 0;height:100%;"></div>
+          <div style="flex:1;background:#F0A830;border-radius:2px 2px 0 0;height:70%;"></div>
+          <div style="flex:1;background:#4CD964;border-radius:2px 2px 0 0;height:40%;"></div>
+          <div style="flex:1;background:#4CD964;border-radius:2px 2px 0 0;height:30%;"></div>
+          <div style="flex:1;background:#2a2a3a;border-radius:2px 2px 0 0;height:15%;"></div>
+        </div>
+        <div style="font-size:7px;color:#555;margin-top:2px;">drinks per 30-min window →</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- D: Hydration Score -->
+  <div class="option" data-choice="hydration" onclick="toggleSelect(this)">
+    <div class="letter">D</div>
+    <div class="content">
+      <h3>Hydration Score</h3>
+      <p>Water-to-drink ratio, hydration grade, and what it means for tomorrow morning.</p>
+      <div class="mock">
+        <div style="text-align:center;padding:8px 0;">
+          <div style="font-size:9px;font-weight:800;letter-spacing:2px;color:#5BC8FF;margin-bottom:6px;">HYDRATION SCORE</div>
+          <div style="font-size:36px;font-weight:900;color:#5BC8FF;">B+</div>
+          <div style="font-size:10px;color:#888;margin-top:4px;">1 water per 2 drinks · solid</div>
+        </div>
+        <div class="stat-row">
+          <div class="stat-box">
+            <div class="stat-label">RATIO</div>
+            <div class="stat-val" style="color:#5BC8FF;font-size:16px;">1:2</div>
+            <div class="stat-sub">water : drinks</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">MORNING</div>
+            <div class="stat-val" style="color:#4CD964;font-size:13px;">Mild</div>
+            <div class="stat-sub">likely feeling</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<p style="font-size:12px;color:#888;margin-top:16px;text-align:center;">Select all that interest you — can combine multiple. Tell me in the terminal too.</p>

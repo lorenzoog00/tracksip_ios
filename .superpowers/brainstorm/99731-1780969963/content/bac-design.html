@@ -1,0 +1,160 @@
+<h2>BAC Intelligence — where it lives</h2>
+<p class="subtitle">New section added right after the pace/duration tiles, before totals. Everything else stays.</p>
+
+<style>
+  .phone { max-width: 320px; margin: 0 auto; background: #0a0a12; border-radius: 20px; border: 1px solid #1a1a24; padding: 16px; }
+  .section-gap { height: 12px; }
+  .label { font-size: 8px; font-weight: 800; letter-spacing: 2px; color: #555; margin-bottom: 8px; }
+  .tile-row { display: flex; gap: 10px; margin-bottom: 10px; }
+  .tile { background: #12121a; border: 1px solid #2a2a3a; border-radius: 12px; padding: 12px; flex: 1; }
+  .tile-label { font-size: 7px; font-weight: 800; letter-spacing: 1.5px; margin-bottom: 4px; }
+  .tile-val { font-size: 22px; font-weight: 900; line-height: 1; }
+  .tile-sub { font-size: 9px; color: #666; margin-top: 3px; }
+  .divider { height: 1px; background: #1a1a24; margin: 12px 0; }
+  .badge { display: inline-flex; align-items: center; gap: 4px; font-size: 9px; font-weight: 700; padding: 4px 10px; border-radius: 20px; margin-bottom: 8px; }
+  .bac-bar-track { background: #1a1a24; border-radius: 4px; height: 8px; overflow: hidden; margin: 8px 0 4px; position: relative; }
+  .bac-bar-fill { height: 100%; border-radius: 4px; }
+  .bac-bar-marker { position: absolute; top: -4px; width: 2px; height: 16px; background: #fff; opacity: 0.6; border-radius: 1px; }
+  .new-section { background: #0e101a; border: 1px solid #F0A830; border-radius: 14px; padding: 14px; margin-bottom: 10px; }
+  .existing { opacity: 0.45; filter: grayscale(0.3); }
+</style>
+
+<div style="display:flex; gap:20px; flex-wrap:wrap; align-items:flex-start;">
+
+  <!-- Full panel view -->
+  <div style="flex:2; min-width:280px;">
+    <div style="font-size:9px;font-weight:800;letter-spacing:2px;color:#F0A830;text-align:center;margin-bottom:12px;">FULL STATS PANEL (scroll)</div>
+    <div class="phone">
+
+      <div style="font-size:14px;font-weight:800;color:#e0e0e0;margin-bottom:14px;">How am I going?</div>
+
+      <!-- Existing: Pace + Duration -->
+      <div class="existing">
+        <div class="label">EXISTING</div>
+        <div class="tile-row">
+          <div class="tile">
+            <div class="tile-label" style="color:#5BC8FF;">PACE</div>
+            <div class="tile-val" style="color:#e0e0e0;">1.3</div>
+            <div class="tile-sub">drinks / hr</div>
+          </div>
+          <div class="tile">
+            <div class="tile-label" style="color:#BF5AF2;">TIME OUT</div>
+            <div class="tile-val" style="color:#e0e0e0;">3h05</div>
+            <div class="tile-sub">since 9:45 PM</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- NEW: BAC Intelligence -->
+      <div class="new-section">
+        <div class="tile-label" style="color:#F0A830;margin-bottom:10px;">⚡ BAC INTELLIGENCE — NEW</div>
+
+        <!-- Phase badge -->
+        <div class="badge" style="background:#FF6B6B22;color:#FF6B6B;border:1px solid #FF6B6B33;">
+          <span>▼</span> Eliminating — BAC dropping
+        </div>
+
+        <!-- Peak vs Now -->
+        <div class="tile-row">
+          <div class="tile" style="border-color:#FF6B6B33;">
+            <div class="tile-label" style="color:#FF6B6B;">PEAK BAC</div>
+            <div class="tile-val" style="color:#FF6B6B;">0.112</div>
+            <div class="tile-sub">at 11:47 PM</div>
+          </div>
+          <div class="tile" style="border-color:#F0A83033;">
+            <div class="tile-label" style="color:#F0A830;">CURRENT BAC</div>
+            <div class="tile-val" style="color:#F0A830;">0.079</div>
+            <div class="tile-sub">↓ 0.033 from peak</div>
+          </div>
+        </div>
+
+        <!-- BAC timeline bar -->
+        <div style="font-size:8px;color:#555;margin-bottom:4px;">BAC across the night:</div>
+        <div class="bac-bar-track">
+          <div class="bac-bar-fill" style="width:70%;background:linear-gradient(90deg,#4CD964 0%,#F0A830 45%,#FF6B6B 60%,#F0A830 100%);"></div>
+          <div class="bac-bar-marker" style="left:59%;"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:7px;color:#444;">
+          <span>start</span><span style="color:#FF6B6B;">↑ peak</span><span>now</span>
+        </div>
+
+        <!-- Safe to drive + above limit — only when driving mode on -->
+        <div class="tile-row" style="margin-top:8px;">
+          <div class="tile" style="border-color:#5BC8FF33;">
+            <div class="tile-label" style="color:#5BC8FF;">SOBER IN</div>
+            <div class="tile-val" style="color:#5BC8FF;font-size:17px;">4h 32m</div>
+            <div class="tile-sub">~ 5:15 AM</div>
+          </div>
+          <div class="tile" style="border-color:#FF6B6B33;">
+            <div class="tile-label" style="color:#FF6B6B;">ABOVE LIMIT</div>
+            <div class="tile-val" style="color:#FF6B6B;font-size:17px;">47 min</div>
+            <div class="tile-sub">tonight so far</div>
+          </div>
+        </div>
+
+        <div style="font-size:8px;color:#444;margin-top:4px;font-style:italic;">* "Above limit" + "Safe to drive" only shown in driving mode</div>
+      </div>
+
+      <!-- Existing: Totals -->
+      <div class="existing">
+        <div class="label">EXISTING — TOTALS</div>
+        <div class="tile-row">
+          <div class="tile"><div class="tile-label" style="color:#F0A830;">DRINKS</div><div class="tile-val" style="color:#e0e0e0;font-size:18px;">4</div></div>
+          <div class="tile"><div class="tile-label" style="color:#5BC8FF;">WATER</div><div class="tile-val" style="color:#5BC8FF;font-size:18px;">2</div></div>
+          <div class="tile"><div class="tile-label" style="color:#FF6B6B;">CAL</div><div class="tile-val" style="color:#e0e0e0;font-size:18px;">620</div></div>
+        </div>
+      </div>
+
+      <div class="existing" style="margin-top:8px;">
+        <div class="label">EXISTING — FACTS + TIMELINE below...</div>
+        <div style="height:20px;background:#12121a;border-radius:8px;"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- What's new breakdown -->
+  <div style="flex:1; min-width:220px;">
+    <div style="font-size:9px;font-weight:800;letter-spacing:2px;color:#F0A830;margin-bottom:12px;">WHAT'S NEW</div>
+
+    <div style="background:#0a0a12;border-radius:12px;padding:14px;margin-bottom:10px;">
+      <div style="font-size:10px;font-weight:700;color:#e0e0e0;margin-bottom:6px;">Phase badge</div>
+      <div style="font-size:11px;color:#aaa;line-height:1.5;">Rising 🔴 / At peak ⚠️ / Eliminating ↓ — tells you which direction BAC is moving right now</div>
+    </div>
+
+    <div style="background:#0a0a12;border-radius:12px;padding:14px;margin-bottom:10px;">
+      <div style="font-size:10px;font-weight:700;color:#e0e0e0;margin-bottom:6px;">Peak BAC + time</div>
+      <div style="font-size:11px;color:#aaa;line-height:1.5;">Highest BAC reached tonight + the exact time it happened. Computed from BAC timeline (5-min intervals)</div>
+    </div>
+
+    <div style="background:#0a0a12;border-radius:12px;padding:14px;margin-bottom:10px;">
+      <div style="font-size:10px;font-weight:700;color:#e0e0e0;margin-bottom:6px;">BAC arc bar</div>
+      <div style="font-size:11px;color:#aaa;line-height:1.5;">Color-coded bar showing BAC across the night. Green → amber → red → dropping. Marker shows the peak.</div>
+    </div>
+
+    <div style="background:#0a0a12;border-radius:12px;padding:14px;margin-bottom:10px;">
+      <div style="font-size:10px;font-weight:700;color:#e0e0e0;margin-bottom:6px;">Sober in + Above limit</div>
+      <div style="font-size:11px;color:#aaa;line-height:1.5;">Only shown when driving mode is on. "Above limit" counts minutes where BAC exceeded the legal limit.</div>
+    </div>
+
+    <div class="options" style="margin-top:16px;">
+      <div class="option" data-choice="yes" onclick="toggleSelect(this)">
+        <div class="letter">✓</div>
+        <div class="content">
+          <h3>Yes, build this</h3>
+          <p>Looks good, write the spec</p>
+        </div>
+      </div>
+      <div class="option" data-choice="tweak" onclick="toggleSelect(this)">
+        <div class="letter">~</div>
+        <div class="content">
+          <h3>Change something</h3>
+          <p>Tell me in the terminal</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
