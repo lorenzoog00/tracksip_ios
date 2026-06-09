@@ -25,26 +25,52 @@ struct WarningContext {
     let currentStage: IntoxicationStage
     let prefs: NotificationPreferences
     let eliminationRate: Double
+    let verdictBAC: Double
+}
+
+func formatHours(_ hours: Double) -> String {
+    guard hours > 0 else { return "0m" }
+    let h = Int(hours)
+    let m = Int((hours - Double(h)) * 60)
+    return h > 0 ? "\(h)h \(m)m" : "\(m)m"
 }
 
 func buildWarnings(context: WarningContext) -> [DrinkWarning] {
     var warnings: [DrinkWarning] = []
 
-    // Driving limit crossed — always warn, even if notifications are off
+    // Impairment / driving — always evaluated, even if notifications are off. Driven by the
+    // conservative verdict BAC (upper band or projected peak), and never affirmative: the
+    // legal limit is a prosecution line, not a safety line.
     if context.drivingMode {
-        let limit = context.bacLimit
-        if context.previousBAC < limit && context.currentBAC >= limit {
-            let hoursUntilSafe = (context.currentBAC - limit) / max(context.eliminationRate, 0.005)
-            let safeDate = Date().addingTimeInterval(hoursUntilSafe * 3600)
-            let tf = DateFormatter()
-            tf.dateStyle = .none
-            tf.timeStyle = .short
+        let tier = BACCalculator.impairmentTier(verdictBAC: context.verdictBAC,
+                                                legalLimit: context.bacLimit)
+        switch tier {
+        case .overLegal:
+            let hrs = BACCalculator.hoursToReduceBAC(from: context.verdictBAC,
+                                                     to: context.bacLimit,
+                                                     beta: context.eliminationRate)
             warnings.append(DrinkWarning(
                 kind: .bacExceeded,
                 title: "Do Not Drive",
-                message: "Your BAC (\(String(format: "%.3f", context.currentBAC))%) is over your limit. Safe to drive around \(tf.string(from: safeDate)).",
+                message: "Estimated BAC \(String(format: "%.3f", context.verdictBAC))% is over your legal limit. Earliest legal in ~\(formatHours(hrs)) — impairment lasts longer.",
                 severity: .danger
             ))
+        case .impaired:
+            warnings.append(DrinkWarning(
+                kind: .bacExceeded,
+                title: "Do Not Drive",
+                message: "Estimated BAC \(String(format: "%.3f", context.verdictBAC))% — you're impaired well before the legal limit. Don't drive.",
+                severity: .danger
+            ))
+        case .mild:
+            warnings.append(DrinkWarning(
+                kind: .bacApproach,
+                title: "Impairment Has Begun",
+                message: "Even at \(String(format: "%.3f", context.verdictBAC))% your reaction time is affected. The app can't confirm it's safe to drive.",
+                severity: .warn
+            ))
+        case .minimal:
+            break  // never an affirmative "safe to drive"
         }
     }
 
@@ -66,18 +92,6 @@ func buildWarnings(context: WarningContext) -> [DrinkWarning] {
             message: "You've reached \(Int(context.totalCalories)) calories tonight.",
             severity: .info
         ))
-    }
-
-    if context.drivingMode {
-        let limit = context.bacLimit
-        if context.prefs.bacApproachWarning && context.currentBAC >= limit * 0.8 && context.currentBAC < limit {
-            warnings.append(DrinkWarning(
-                kind: .bacApproach,
-                title: "Approaching Your Limit",
-                message: "Your estimated BAC (\(String(format: "%.3f", context.currentBAC))%) is nearing your driving limit.",
-                severity: .warn
-            ))
-        }
     }
 
     if context.prefs.stageChangeWarning &&

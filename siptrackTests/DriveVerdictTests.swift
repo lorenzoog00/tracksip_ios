@@ -27,4 +27,31 @@ struct DriveVerdictTests {
         #expect(BACCalculator.impairmentTier(verdictBAC: 0.03, legalLimit: 0.08) == .mild)
         #expect(BACCalculator.impairmentTier(verdictBAC: 0.01, legalLimit: 0.08) == .minimal)
     }
+
+    private func ctx(verdict: Double, current: Double, prev: Double, limit: Double = 0.08) -> WarningContext {
+        WarningContext(
+            currentBAC: current, previousBAC: prev, drivingMode: true, bacLimit: limit,
+            drinksLastHour: 1, totalCalories: 0,
+            previousStage: IntoxicationStage.stage(for: prev),
+            currentStage: IntoxicationStage.stage(for: current),
+            prefs: NotificationPreferences(), eliminationRate: 0.015, verdictBAC: verdict)
+    }
+
+    @Test func warnings_neverAffirmSafeToDrive_belowImpairment() {
+        let ws = buildWarnings(context: ctx(verdict: 0.012, current: 0.01, prev: 0.0))
+        // No "Do Not Drive" and no danger-level affirmation; minimal tier stays silent here.
+        #expect(!ws.contains { $0.kind == .bacExceeded })
+        #expect(!ws.contains { $0.message.localizedCaseInsensitiveContains("safe to drive at") })
+    }
+
+    @Test func warnings_fivePercentUnderLegal_isDoNotDrive() {
+        let ws = buildWarnings(context: ctx(verdict: 0.06, current: 0.05, prev: 0.04))
+        #expect(ws.contains { $0.title == "Do Not Drive" })
+    }
+
+    @Test func warnings_mildTier_warnsButDoesNotAffirm() {
+        let ws = buildWarnings(context: ctx(verdict: 0.03, current: 0.025, prev: 0.0))
+        #expect(ws.contains { $0.title == "Impairment Has Begun" })
+        #expect(!ws.contains { $0.title == "Do Not Drive" })
+    }
 }
