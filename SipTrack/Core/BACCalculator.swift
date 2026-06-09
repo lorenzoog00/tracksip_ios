@@ -353,10 +353,12 @@ struct BACCalculator {
             c = max(0, c + dCin - dCout)
             tH = tNext
 
-            // Terminate once fully eliminated after the last drink (M-M never hits exactly
-            // 0). Applies to both the full timeline and single-instant `until` queries —
-            // BAC stays ~0 thereafter, so the last sample (0) is the correct answer.
-            if tH > lastStart, c < bacFloor {
+            // Terminate once ALL alcohol is absorbed (no further input this step) AND the
+            // blood has cleared below the floor. Gating on `dCin == 0` is essential: during
+            // the rising limb `c` is briefly below the floor while still climbing, so a
+            // floor-only test would truncate the curve at the first minute. M-M elimination
+            // decays asymptotically and never reaches exactly 0, hence the floor.
+            if dCin < 1e-9, c < bacFloor, tH > lastStart {
                 out.append(BACDataPoint(date: firstTs.addingTimeInterval(tH * 3600), bac: 0))
                 break
             }
