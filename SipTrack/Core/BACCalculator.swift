@@ -69,6 +69,18 @@ struct BACCalculator {
     // Population coefficient of variation for combined Widmark output (Searle 2015).
     private static let bacCV = 0.20
 
+    // MARK: - Michaelis–Menten elimination constants
+
+    // Michaelis constant: BAC at which elimination runs at half Vmax. Human curve-fit
+    // midpoint (Toxics 2023 0.02 g/L; pop-PK 0.038 g/L; Vestal in-vitro 0.06 g/L).
+    static let michaelisKm = 0.004   // g/100mL (0.04 g/L)
+
+    // BAC at which the published zero-order β was empirically measured (descending limb).
+    private static let betaRefBAC = 0.08  // g/100mL
+
+    // 1-minute integration step for the forward ODE solver.
+    private static let integrationStepHours = 1.0 / 60.0
+
     // MARK: - Elimination rate β
 
     static func eliminationRate(sex: Sex) -> Double {
@@ -491,5 +503,32 @@ struct BACCalculator {
             if r.fpm > best.fpm { best.fpm = r.fpm }
         }
         return (kAPerHour: best.kA, firstPassFraction: best.fpm)
+    }
+
+    // MARK: - Kinetics helpers
+
+    // The published β is the *observed* descending-limb slope at C ≈ betaRefBAC, not the
+    // true Vmax. Back-calibrate Vmax so the M-M rate equals β at that reference, then
+    // M-M only bends slower below ~0.02 (the evidence-based tail correction).
+    static func vmax(beta: Double) -> Double {
+        beta * (michaelisKm + betaRefBAC) / betaRefBAC
+    }
+
+    // Empty-stomach gut absorption constant (1/h) as a function of beverage strength.
+    // Gastric emptying is rate-limiting and fastest near ~20% v/v; dilute (beer) and very
+    // strong (neat spirits) empty slower. Anchors calibrated so the integrated model
+    // reproduces Mitchell 2014 Tmax at 0.5 g/kg (see BACCalculatorKineticsTests).
+    static func absorptionRateEmpty(abv: Double) -> Double {
+        let anchors: [(abv: Double, kA: Double)] = [
+            (0, 1.5), (5, 3.5), (12.5, 4.3), (20, 10.0), (40, 6.0), (100, 4.0)
+        ]
+        if abv <= anchors.first!.abv { return anchors.first!.kA }
+        if abv >= anchors.last!.abv  { return anchors.last!.kA }
+        for i in 1..<anchors.count where abv <= anchors[i].abv {
+            let lo = anchors[i - 1], hi = anchors[i]
+            let t = (abv - lo.abv) / (hi.abv - lo.abv)
+            return lo.kA + t * (hi.kA - lo.kA)
+        }
+        return anchors.last!.kA
     }
 }
