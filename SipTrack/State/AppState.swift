@@ -1236,7 +1236,8 @@ final class AppState: ObservableObject {
         quantity: Int = 1,
         comment: String? = nil,
         volumeOverride: Double? = nil,
-        abvOverride: Double? = nil
+        abvOverride: Double? = nil,
+        servingSizeLabel: String? = nil
     ) {
         let entry = DrinkEntry(
             id: generateId(),
@@ -1246,7 +1247,8 @@ final class AppState: ObservableObject {
             quantity: quantity,
             comment: comment,
             volumeOverrideMl: volumeOverride,
-            abvOverride: abvOverride
+            abvOverride: abvOverride,
+            servingSizeLabel: servingSizeLabel
         )
         DataStore.shared.addEntry(entry)
         entries.append(entry)
@@ -1624,7 +1626,8 @@ final class AppState: ObservableObject {
     // MARK: - BAC helpers (for active event view)
 
     /// BAC that would result from logging `drinkTypeId` right now into `eventId`.
-    func projectedBAC(forEventId eventId: String, addingDrinkTypeId dtId: String) -> Double {
+    func projectedBAC(forEventId eventId: String, addingDrinkTypeId dtId: String,
+                      volumeOverrideMl: Double? = nil) -> Double {
         guard let event = events.first(where: { $0.id == eventId }) else { return 0 }
         let existing    = entries.filter { $0.eventId == eventId }
         let eventWater  = waterEntries.filter { $0.eventId == eventId }
@@ -1636,11 +1639,9 @@ final class AppState: ObservableObject {
             timestamp: Date(),
             quantity: 1,
             comment: nil,
-            volumeOverrideMl: nil,
+            volumeOverrideMl: volumeOverrideMl,
             abvOverride: nil
         )
-        let r    = BACCalculator.profileR(profile: userProfile)
-        let beta = BACCalculator.eliminationRate(profile: userProfile)
         return BACCalculator.currentBAC(
             entries: existing + [hypothetical],
             waterEntries: eventWater,
