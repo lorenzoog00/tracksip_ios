@@ -205,7 +205,57 @@ struct BACCalculator {
         stomachStateTimestamp: Date,
         foodEntries: [FoodEntry]
     ) -> Double {
-        guard weightKg > 0, r > 0 else { return 0 }
+        let points = integrateBAC(
+            entries: entries, drinkTypes: drinkTypes, weightKg: weightKg, r: r,
+            beta: beta, sex: sex, stomachState: stomachState,
+            stomachStateTimestamp: stomachStateTimestamp, foodEntries: foodEntries,
+            until: time, sampleSeconds: 60
+        )
+        return points.last?.bac ?? 0
+    }
+
+    // MARK: - Forward integration
+
+    // Per-drink static data prepared once before the integration loop.
+    //
+    // Gulp detection (rapid pace): if the next drink starts before this one's typical
+    // drinking time elapses, the drink is "gulped" and treated as instantly fully
+    // absorbed at its timestamp (absorbed = 1.0). Pharmacologically gulping accelerates
+    // Cmax / shortens Tmax but does not bypass gut transit (Mitchell 2014; Sjögren 1996);
+    // this instant-absorption is a deliberate UX choice so the live meter visibly spikes
+    // when a fast-paced drink is logged. See research doc §9. Non-gulped drinks use the
+    // concentration-dependent first-order absorption curve.
+    private struct PreparedDrink {
+        let startHours: Double      // hours after the first drink
+        let dose: Double            // grams ethanol
+        let fpm: Double             // first-pass fraction removed
+        let kA: Double              // absorption constant (1/h), concentration + food adjusted
+        let drinkingHours: Double   // T (0 if gulped)
+        let gulped: Bool
+    }
+
+    // Marches the one-compartment BAC ODE forward in 1-minute steps from the first drink
+    // to `until` (or until BAC≈0 after the last drink when `until` is nil). Each step adds
+    // newly-absorbed alcohol (per-drink first-order absorption over duration T; gulp =
+    // instant) and subtracts Michaelis–Menten elimination on the current blood level.
+    // Returns samples every `sampleSeconds`. Replaces the closed-form `sum − β·t`.
+    private static func integrateBAC(
+        entries: [DrinkEntry],
+        drinkTypes: [DrinkType],
+        weightKg: Double,
+        r: Double,
+        beta: Double,
+        sex: Sex,
+        stomachState: StomachState,
+        stomachStateTimestamp: Date,
+        foodEntries: [FoodEntry],
+        until: Date?,
+        sampleSeconds: TimeInterval = 300
+    ) -> [BACDataPoint] {
+        guard weightKg > 0, r > 0 else { return [] }
+        let sorted = entries.sorted { $0.timestamp < $1.timestamp }
+        guard let firstTs = sorted.first?.timestamp else { return [] }
+
         // Female gastric ADH activity ≈ 25% lower than male → less first-pass metabolism
         // → higher peak BAC for same dose. (Frezza NEJM 1990.)
         let fpmSexMultiplier: Double
@@ -214,65 +264,85 @@ struct BACCalculator {
         case .preferNotToSay: fpmSexMultiplier = 0.875
         case .male:           fpmSexMultiplier = 1.0
         }
-        let sorted = entries.sorted { $0.timestamp < $1.timestamp }
-        var sum = 0.0
+        let emptyKA = kinetics(for: .empty).kAPerHour  // baseline for the food-slowing ratio
+
+        var prepared: [PreparedDrink] = []
         for i in sorted.indices {
-            let entry = sorted[i]
-            let dt    = drinkTypes.first { $0.id == entry.drinkTypeId }
-            let vol   = entry.volumeOverrideMl ?? dt?.defaultVolumeMl ?? 0
-            let abv   = entry.abvOverride ?? dt?.defaultAbv ?? 0
-            let dose  = calculateAlcohol(volumeMl: vol, abv: abv, quantity: entry.quantity)
-            guard dose > 0, time >= entry.timestamp else { continue }
+            let e   = sorted[i]
+            let dt  = drinkTypes.first { $0.id == e.drinkTypeId }
+            let vol = e.volumeOverrideMl ?? dt?.defaultVolumeMl ?? 0
+            let abv = e.abvOverride ?? dt?.defaultAbv ?? 0
+            let dose = calculateAlcohol(volumeMl: vol, abv: abv, quantity: e.quantity)
+            guard dose > 0 else { continue }
 
             let factor = computeStomachFactor(
-                at: entry.timestamp,
-                stomachState: stomachState,
-                stomachStateTimestamp: stomachStateTimestamp,
-                foodEntries: foodEntries
+                at: e.timestamp, stomachState: stomachState,
+                stomachStateTimestamp: stomachStateTimestamp, foodEntries: foodEntries
             )
             let fpm = min(0.40, factor.firstPassFraction * fpmSexMultiplier)
+            // Concentration-based empty kA, slowed by food in proportion to the stomach
+            // factor (1.0 empty → 0.25 full meal). Preserves food deceleration while
+            // making absorption speed depend on beverage strength.
+            let foodSlowing = factor.kAPerHour / emptyKA
+            let kA = absorptionRateEmpty(abv: abv) * foodSlowing
 
-            // Effective drinking duration in hours. Scales with quantity (3 beers = 3×
-            // the typical time). If the next drink starts before this one's typical
-            // drinking time elapses, the user gulped this drink: we treat the full
-            // dose as already absorbed at the entry timestamp (instant Widmark) so
-            // the live BAC visibly spikes the moment a fast-paced drink is logged.
-            //
-            // PK background: gulping accelerates Cmax and shortens Tmax but does
-            // not bypass gut absorption — Mitchell 2014 (acer.12355) measured Tmax
-            // 36 ± 10 min for vodka, 54 ± 14 min wine, 62 ± 23 min beer at 0.5 g/kg
-            // over 20 min on an empty stomach; Sjögren 1996 found 77% of social
-            // drinkers complete absorption within 60 min. A pharmacologically
-            // correct implementation collapses T → 0 and lets the first-order
-            // curve with kA from `kinetics(for:)` run (Jones 2010; Norberg 2003;
-            // Plawecki 2008 PBPK). We deliberately deviate: users read the slow
-            // first-order rise as "the calculator isn't reacting" and lose trust.
-            // Setting `absorbed = 1.0` makes the gulped drink's contribution land
-            // in plasma at its timestamp, matching the intuitive model and the
-            // bolus assumption used by classic Widmark forensic estimation.
-            // See .planning/research/BAC-ACCURACY-RESEARCH.md §9 for the full
-            // rationale and the alternatives considered.
             let perServing = Double(dt?.effectiveDrinkingMinutes ?? 15)
-            var T = perServing * Double(max(1, entry.quantity)) / 60.0
+            var T = perServing * Double(max(1, e.quantity)) / 60.0
             var gulped = false
             if i + 1 < sorted.count {
-                let gap = sorted[i + 1].timestamp.timeIntervalSince(entry.timestamp) / 3600
-                if gap >= 0, gap < T {
-                    T = 0
-                    gulped = true
-                }
+                let gap = sorted[i + 1].timestamp.timeIntervalSince(e.timestamp) / 3600
+                if gap >= 0, gap < T { T = 0; gulped = true }
             }
-
-            let hours    = time.timeIntervalSince(entry.timestamp) / 3600
-            let absorbed = gulped ? 1.0
-                                  : absorbedFraction(deltaHours: hours, kA: factor.kAPerHour, durationHours: T)
-            let aEff     = dose * (1.0 - fpm) * absorbed
-            let raw      = (aEff / (weightKg * 1000 * r)) * 100
-            sum += raw
+            prepared.append(PreparedDrink(
+                startHours: e.timestamp.timeIntervalSince(firstTs) / 3600,
+                dose: dose, fpm: fpm, kA: kA, drinkingHours: T, gulped: gulped
+            ))
         }
-        // Subtract elimination once from the first drink's timestamp, not per-drink.
-        let hoursFromFirst = sorted.first.map { max(0, time.timeIntervalSince($0.timestamp) / 3600) } ?? 0.0
-        return max(0, sum - beta * hoursFromFirst)
+        guard !prepared.isEmpty else { return [] }
+
+        let vMax = vmax(beta: beta)
+        let lastStart = prepared.map(\.startHours).max() ?? 0
+        let untilHours = until.map { max(0, $0.timeIntervalSince(firstTs) / 3600) }
+        let endHours = untilHours ?? (lastStart + 24)
+
+        func absorbed(_ p: PreparedDrink, since: Double) -> Double {
+            guard since > 0 else { return 0 }
+            if p.gulped { return 1.0 }
+            return absorbedFraction(deltaHours: since, kA: p.kA, durationHours: p.drinkingHours)
+        }
+
+        var c = 0.0
+        var tH = 0.0
+        let sampleH = sampleSeconds / 3600
+        var nextSample = 0.0
+        var out: [BACDataPoint] = []
+
+        while tH <= endHours + 1e-9 {
+            if tH + 1e-9 >= nextSample {
+                out.append(BACDataPoint(date: firstTs.addingTimeInterval(tH * 3600), bac: max(0, c)))
+                nextSample += sampleH
+            }
+            if let u = untilHours, tH + 1e-9 >= u { break }
+
+            let tNext = tH + integrationStepHours
+            var dCin = 0.0
+            for p in prepared {
+                let s1 = tNext - p.startHours
+                guard s1 > 0 else { continue }
+                let dA = max(0, absorbed(p, since: s1) - absorbed(p, since: tH - p.startHours))
+                dCin += p.dose * (1 - p.fpm) * dA
+            }
+            dCin = dCin / (weightKg * 1000 * r) * 100
+            let dCout = vMax * c / (michaelisKm + c) * integrationStepHours
+            c = max(0, c + dCin - dCout)
+            tH = tNext
+
+            if untilHours == nil, tH > lastStart, c <= 0 {
+                out.append(BACDataPoint(date: firstTs.addingTimeInterval(tH * 3600), bac: 0))
+                break
+            }
+        }
+        return out
     }
 
     static func estimatePeakBAC(
