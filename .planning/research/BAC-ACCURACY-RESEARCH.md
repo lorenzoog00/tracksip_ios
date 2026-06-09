@@ -26,6 +26,12 @@ File: `SipTrack/Core/BACCalculator.swift`
 
 **The math is solid as a baseline (Widmark + Watson is what most forensic labs use), but several parameters are point estimates with no uncertainty band, and the absorption/elimination model is the simplest one in the literature.**
 
+> **Implemented (2026-06, `BACCalculator`):** the snapshot above describes the original closed-form model. The accuracy overhaul (`docs/superpowers/specs/2026-06-06-bac-accuracy-overhaul-design.md`, Plan 1) replaced it with a **forward-integrated one-compartment model**:
+> - **Elimination is Michaelis–Menten**, not zero-order: `rate = Vmax·C/(Km+C)`, `Km = 0.004 g/100mL`, `Vmax = β·(Km+0.08)/0.08 ≈ 1.05·β` (calibrated so M-M = β at the 0.08 reference). M-M ≈ β above ~0.05 and slows the tail below ~0.02 — the corrected descending limb (supersedes §2.1's instantaneous/zero-order assumptions; see §2.5).
+> - **Absorption `kA` depends on beverage strength** (`absorptionRateEmpty(abv:)`), peaking near ~20% v/v and slower for dilute beer / neat spirits, slowed further by food. Anchors are calibrated so the integrated curve reproduces the Mitchell 2014 Tmax/Cmax table (§9.1 / §10): spirits 36 min / 0.077, wine 54 min / 0.062, beer 60 min / 0.050 (supersedes §4's single fast `kA`).
+> - **Gulp instant-absorption (§9) is preserved** as a deliberate UX override.
+> Validated by `siptrackTests/BACCalculatorKineticsTests.swift`.
+
 ---
 
 ## 2. Core Equations Used in the Field

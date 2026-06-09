@@ -10,12 +10,21 @@ struct BACDataPoint: Identifiable {
 
 // BAC model for SipTrack.
 //
-// Architecture: Widmark distribution + Watson/Forrest individualisation of `r`,
-// first-order gut absorption with food-dependent rate constant `kA`,
-// gender-corrected first-pass metabolism, sex-specific elimination β. Multi-
-// dose intake is modeled as parallel first-order inputs summed in plasma —
-// the standard PBPK approach (Plawecki 2008; Ramchandani group). Each drink
+// Architecture: one-compartment model solved by forward numeric integration
+// (`integrateBAC`, 1-min steps). Widmark distribution with Watson/Forrest
+// individualisation of `r`; gender-corrected first-pass metabolism; per-drink
+// first-order gut absorption whose rate constant `kA` depends on beverage
+// strength (`absorptionRateEmpty(abv:)`, calibrated to Mitchell 2014 Tmax/Cmax:
+// spirits 36 / wine 54 / beer 60 min) and is slowed further by food. Each drink
 // owns its own absorption curve with `T` = effective drinking duration.
+//
+// Elimination is **Michaelis–Menten** (not zero-order): rate = Vmax·C/(Km+C),
+// with Km = 0.004 g/100mL and Vmax back-calibrated from the published β so the
+// M-M rate equals β at the reference 0.08 (`vmax(beta:)`). This reproduces the
+// near-linear descending limb at high BAC and the slower, longer tail below
+// ~0.02 g/100mL where ADH is no longer saturated (Wilkinson 1977; Jones BCP;
+// Toxics 2023). Each step adds newly-absorbed alcohol and subtracts M-M
+// elimination on the *current* blood level.
 //
 // "Gulp detection" (rapid-pace deviation): when a follow-up drink arrives
 // inside the previous drink's expected drinking time, the previous drink is
