@@ -1,5 +1,19 @@
 import SwiftUI
 
+private struct BACIntelligenceData {
+    let timeline: [BACDataPoint]
+    let peakPoint: BACDataPoint?
+    let minutesAboveLimit: Int
+
+    init(timeline: [BACDataPoint], bacLimit: Double) {
+        self.timeline = timeline
+        self.peakPoint = timeline.max(by: { $0.bac < $1.bac })
+        self.minutesAboveLimit = timeline.filter { $0.bac > bacLimit }.count * 5
+    }
+
+    static let empty = BACIntelligenceData(timeline: [], bacLimit: 0.08)
+}
+
 // MARK: - NightStatsSheet
 
 struct NightStatsSheet: View {
@@ -83,9 +97,9 @@ struct NightStatsSheet: View {
 
     private enum BACPhase { case absorbing, atPeak, eliminating }
 
-    private var bacTimelinePoints: [BACDataPoint] {
-        guard let start = event?.startTime, !entries.isEmpty else { return [] }
-        return BACCalculator.bacTimeline(
+    private var bacData: BACIntelligenceData {
+        guard let start = event?.startTime, !entries.isEmpty else { return .empty }
+        let timeline = BACCalculator.bacTimeline(
             entries: entries,
             drinkTypes: appState.allDrinkTypes,
             profile: appState.userProfile,
@@ -94,36 +108,36 @@ struct NightStatsSheet: View {
             stomachStateTimestamp: event?.stomachStateTimestamp,
             foodEntries: appState.foodEntries.filter { $0.eventId == eventId }
         )
+        return BACIntelligenceData(timeline: timeline, bacLimit: bacLimit)
     }
 
-    private var peakPoint: BACDataPoint? {
-        bacTimelinePoints.max(by: { $0.bac < $1.bac })
-    }
-
+    private var bacTimelinePoints: [BACDataPoint] { bacData.timeline }
+    private var peakPoint: BACDataPoint? { bacData.peakPoint }
     private var peakBAC: Double { peakPoint?.bac ?? 0 }
     private var peakTime: Date? { peakPoint?.date }
 
     private var bacPhase: BACPhase {
         guard peakBAC > 0.001 else { return .absorbing }
         let delta = peakBAC - currentBAC
+        // At peak: BAC within 0.5% of highest point
         if delta <= 0.005 { return .atPeak }
+        // Plateau: peaked less than 20 min ago and still barely dropping
         if let pt = peakTime, Date().timeIntervalSince(pt) < 1200 && delta < 0.01 { return .atPeak }
+        // Eliminating: clearly below peak
         if currentBAC < peakBAC - 0.005 { return .eliminating }
         return .absorbing
     }
 
-    private var minutesAboveLimit: Int {
-        bacTimelinePoints.filter { $0.bac > bacLimit }.count * 5
-    }
+    private var minutesAboveLimit: Int { bacData.minutesAboveLimit }
 
-    private var hoursToSober: Double {
+    private var hoursToZeroBAC: Double {
         BACCalculator.hoursToZeroBAC(currentBAC, profile: appState.userProfile)
     }
 
     private var peakFraction: Double {
         guard let pt = peakTime, let start = event?.startTime else { return 0 }
         let totalElapsed = max(1, Date().timeIntervalSince(start))
-        return min(1.0, pt.timeIntervalSince(start) / totalElapsed)
+        return max(0, min(1.0, pt.timeIntervalSince(start) / totalElapsed))
     }
 
     private var drinksThisHour: Int {
