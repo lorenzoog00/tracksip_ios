@@ -79,6 +79,53 @@ struct NightStatsSheet: View {
         return (peak, minutesAgo)
     }
 
+    // MARK: - BAC Intelligence
+
+    private enum BACPhase { case absorbing, atPeak, eliminating }
+
+    private var bacTimelinePoints: [BACDataPoint] {
+        guard let start = event?.startTime, !entries.isEmpty else { return [] }
+        return BACCalculator.bacTimeline(
+            entries: entries,
+            drinkTypes: appState.allDrinkTypes,
+            profile: appState.userProfile,
+            eventStart: start,
+            stomachState: event?.stomachState ?? .empty,
+            stomachStateTimestamp: event?.stomachStateTimestamp,
+            foodEntries: appState.foodEntries.filter { $0.eventId == eventId }
+        )
+    }
+
+    private var peakPoint: BACDataPoint? {
+        bacTimelinePoints.max(by: { $0.bac < $1.bac })
+    }
+
+    private var peakBAC: Double { peakPoint?.bac ?? 0 }
+    private var peakTime: Date? { peakPoint?.date }
+
+    private var bacPhase: BACPhase {
+        guard peakBAC > 0.001 else { return .absorbing }
+        let delta = peakBAC - currentBAC
+        if delta <= 0.005 { return .atPeak }
+        if let pt = peakTime, Date().timeIntervalSince(pt) < 1200 && delta < 0.01 { return .atPeak }
+        if currentBAC < peakBAC - 0.005 { return .eliminating }
+        return .absorbing
+    }
+
+    private var minutesAboveLimit: Int {
+        bacTimelinePoints.filter { $0.bac > bacLimit }.count * 5
+    }
+
+    private var hoursToSober: Double {
+        BACCalculator.hoursToZeroBAC(currentBAC, profile: appState.userProfile)
+    }
+
+    private var peakFraction: Double {
+        guard let pt = peakTime, let start = event?.startTime else { return 0 }
+        let totalElapsed = max(1, Date().timeIntervalSince(start))
+        return min(1.0, pt.timeIntervalSince(start) / totalElapsed)
+    }
+
     private var drinksThisHour: Int {
         let cutoff = Date().addingTimeInterval(-3600)
         return entries.filter { $0.timestamp >= cutoff }.count
