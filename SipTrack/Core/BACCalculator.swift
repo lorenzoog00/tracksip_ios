@@ -357,26 +357,14 @@ struct BACCalculator {
         foodEntries: [FoodEntry] = []
     ) -> Double {
         guard !entries.isEmpty else { return 0 }
-        let rFactor     = r ?? widmarkR(sex: sex)
-        let beta        = eliminationRate(sex: sex)
-        let stTimestamp = stomachStateTimestamp ?? eventStart
-        let lastTimestamp = entries.map(\.timestamp).max() ?? eventStart
-        // Peak typically within 60–120 min after last drink even with food. Scan to +2 h.
-        let endCheck    = lastTimestamp.addingTimeInterval(7200)
-        var peak        = 0.0
-        var checkpoint  = eventStart
-        while checkpoint <= endCheck {
-            let bac = bacAt(
-                checkpoint,
-                entries: entries, drinkTypes: drinkTypes,
-                weightKg: weightKg, r: rFactor, beta: beta, sex: sex,
-                stomachState: stomachState, stomachStateTimestamp: stTimestamp,
-                foodEntries: foodEntries
-            )
-            peak = max(peak, bac)
-            checkpoint = checkpoint.addingTimeInterval(300)
-        }
-        return peak
+        let points = integrateBAC(
+            entries: entries, drinkTypes: drinkTypes, weightKg: weightKg,
+            r: r ?? widmarkR(sex: sex), beta: eliminationRate(sex: sex), sex: sex,
+            stomachState: stomachState,
+            stomachStateTimestamp: stomachStateTimestamp ?? eventStart,
+            foodEntries: foodEntries, until: nil, sampleSeconds: 300
+        )
+        return points.map(\.bac).max() ?? 0
     }
 
     static func bacTimeline(
@@ -389,36 +377,14 @@ struct BACCalculator {
         foodEntries: [FoodEntry] = []
     ) -> [BACDataPoint] {
         guard !entries.isEmpty, profile.weightKg > 0 else { return [] }
-        let r           = profileR(profile: profile)
-        let beta        = eliminationRate(profile: profile)
-        let stTimestamp = stomachStateTimestamp ?? eventStart
-        let totalAlcohol = entries.reduce(0.0) { sum, entry in
-            let dt  = drinkTypes.first { $0.id == entry.drinkTypeId }
-            let vol = entry.volumeOverrideMl ?? dt?.defaultVolumeMl ?? 0
-            let abv = entry.abvOverride ?? dt?.defaultAbv ?? 0
-            return sum + calculateAlcohol(volumeMl: vol, abv: abv, quantity: entry.quantity)
-        }
-        guard totalAlcohol > 0 else { return [] }
-        let rawBAC      = (totalAlcohol / (profile.weightKg * 1000 * r)) * 100
-        let hoursToZero = rawBAC / beta
-        let endDate     = eventStart.addingTimeInterval((hoursToZero + 1.5) * 3600)
-        let lastDrink   = entries.map(\.timestamp).max() ?? eventStart
-
-        var points: [BACDataPoint] = []
-        var checkpoint = eventStart
-        while checkpoint <= endDate {
-            let bac = bacAt(
-                checkpoint,
-                entries: entries, drinkTypes: drinkTypes,
-                weightKg: profile.weightKg, r: r, beta: beta, sex: profile.sex,
-                stomachState: stomachState, stomachStateTimestamp: stTimestamp,
-                foodEntries: foodEntries
-            )
-            points.append(BACDataPoint(date: checkpoint, bac: bac))
-            if bac == 0 && checkpoint > lastDrink { break }
-            checkpoint = checkpoint.addingTimeInterval(300)
-        }
-        return points
+        return integrateBAC(
+            entries: entries, drinkTypes: drinkTypes,
+            weightKg: profile.weightKg, r: profileR(profile: profile),
+            beta: eliminationRate(profile: profile), sex: profile.sex,
+            stomachState: stomachState,
+            stomachStateTimestamp: stomachStateTimestamp ?? eventStart,
+            foodEntries: foodEntries, until: nil, sampleSeconds: 300
+        )
     }
 
     // MARK: - Mean BAC
@@ -434,26 +400,17 @@ struct BACCalculator {
         foodEntries: [FoodEntry] = []
     ) -> Double {
         guard !entries.isEmpty, eventEnd > eventStart else { return 0 }
-        let r           = profileR(profile: profile)
-        let beta        = eliminationRate(profile: profile)
-        let stTimestamp = stomachStateTimestamp ?? eventStart
-        let duration = eventEnd.timeIntervalSince(eventStart)
-        let interval = max(1.0, min(300.0, duration / 20.0))
-        var sum = 0.0
-        var count = 0
-        var t = eventStart
-        while t <= eventEnd {
-            sum += bacAt(
-                t,
-                entries: entries, drinkTypes: drinkTypes,
-                weightKg: profile.weightKg, r: r, beta: beta, sex: profile.sex,
-                stomachState: stomachState, stomachStateTimestamp: stTimestamp,
-                foodEntries: foodEntries
-            )
-            count += 1
-            t = t.addingTimeInterval(interval)
-        }
-        return count > 0 ? sum / Double(count) : 0
+        let points = integrateBAC(
+            entries: entries, drinkTypes: drinkTypes,
+            weightKg: profile.weightKg, r: profileR(profile: profile),
+            beta: eliminationRate(profile: profile), sex: profile.sex,
+            stomachState: stomachState,
+            stomachStateTimestamp: stomachStateTimestamp ?? eventStart,
+            foodEntries: foodEntries, until: eventEnd, sampleSeconds: 60
+        )
+        let inWindow = points.filter { $0.date >= eventStart && $0.date <= eventEnd }
+        guard !inWindow.isEmpty else { return 0 }
+        return inWindow.reduce(0.0) { $0 + $1.bac } / Double(inWindow.count)
     }
 
     // MARK: - Uncertainty band (population CV ≈ 20% per Searle 2015)
