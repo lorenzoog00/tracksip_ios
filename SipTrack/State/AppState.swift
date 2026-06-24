@@ -230,7 +230,10 @@ final class AppState: ObservableObject {
             if event.drivingMode {
                 let limit = event.bacLimit ?? userProfile.resolvedBACLimit
                 if bac > limit {
-                    let hoursUntilSafe = (bac - limit) / 0.015
+                    // Use the user's profile elimination rate so the lock-screen
+                    // countdown matches the in-app DriveWarningBanner exactly.
+                    let beta = BACCalculator.eliminationRate(profile: userProfile)
+                    let hoursUntilSafe = (bac - limit) / max(beta, 0.005)
                     safeToDriveAt = Date().addingTimeInterval(hoursUntilSafe * 3600)
                 }
             }

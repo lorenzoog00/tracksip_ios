@@ -50,7 +50,8 @@ struct ActiveEventView: View {
                         event: event,
                         now: appState.bacTick,
                         drivingMode: event.drivingMode,
-                        bacLimit: bacLimit
+                        bacLimit: bacLimit,
+                        profile: appState.userProfile
                     )
 
                     // Current drink in progress
@@ -405,6 +406,7 @@ private struct BACHero: View {
     let now: Date
     let drivingMode: Bool
     let bacLimit: Double
+    let profile: UserProfile
 
     @State private var showLearnView = false
 
@@ -469,7 +471,7 @@ private struct BACHero: View {
             }
 
             if bac > 0 {
-                let hours = BACCalculator.hoursToZeroBAC(bac)
+                let hours = BACCalculator.hoursToZeroBAC(bac, profile: profile)
                 let h = Int(hours)
                 let m = Int((hours - Double(h)) * 60)
                 Text("~\(h)h \(m)m to sober")
