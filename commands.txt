@@ -1,0 +1,82 @@
+================================================================================
+DIAGNOSTIC: which copy of the source is the real one?
+================================================================================
+
+WHY THIS EXISTS
+---------------
+The Xcode project used to contain a group with `path = tracksip_ios`, which made
+Xcode look for every source file one directory deeper than it actually lives:
+
+    tracksip_ios/SipTrack/Core/BACCalculator.swift     <-- what Xcode asked for
+    SipTrack/Core/BACCalculator.swift                  <-- what is in git
+
+`tracksip_ios/` is the last line of .gitignore, so that folder has never been in
+the repo. On your Mac it exists as a REAL DIRECTORY, which means Xcode may have
+been compiling a second copy of the source that git has never seen.
+
+I have already fixed the project so paths resolve from the repo root. Before you
+build, we need to know whether that nested copy contains work that the tracked
+files are missing.
+
+DO NOT delete tracksip_ios/ yet. DO NOT build yet.
+
+
+================================================================================
+RUN THIS  (one block, from the repo root on your Mac)
+================================================================================
+
+{
+  echo "### 1. is tracksip_ios/ its own git checkout?"
+  git -C tracksip_ios rev-parse --short HEAD 2>/dev/null || echo "NOT a git repo"
+  git -C tracksip_ios remote -v 2>/dev/null
+  git -C tracksip_ios status --short 2>/dev/null | head -20
+
+  echo
+  echo "### 2. do the two source trees differ?  (no lines = identical)"
+  diff -rq SipTrack tracksip_ios/SipTrack 2>&1 | head -60
+
+  echo
+  echo "### 3. what is inside tracksip_ios/"
+  ls -la tracksip_ios
+
+  echo
+  echo "### 4. newest .swift in the TRACKED copy"
+  find SipTrack -name '*.swift' -exec stat -f '%Sm %N' -t '%F %T' {} + | sort -r | head -3
+
+  echo
+  echo "### 5. newest .swift in the NESTED copy"
+  find tracksip_ios/SipTrack -name '*.swift' -exec stat -f '%Sm %N' -t '%F %T' {} + | sort -r | head -3
+
+  echo
+  echo "### 6. toolchain"
+  xcodebuild -version
+} > answers.txt 2>&1
+
+
+================================================================================
+THEN
+================================================================================
+
+    git add answers.txt
+    git commit -m "chore: add local diagnostic output"
+    git push
+
+That is all I need. Do not build or delete anything until I have read it.
+
+
+================================================================================
+WHAT HAPPENS NEXT
+================================================================================
+
+  * Section 2 empty, and section 1 shows the same remote
+      -> the nested folder is just a second clone. Nothing was lost.
+         You delete tracksip_ios/, pull, and build normally.
+
+  * Section 2 lists differing .swift files
+      -> the two copies have drifted. STOP. I will compare them and work out
+         which side holds the newer work before anything gets overwritten.
+         Nothing will be deleted until that is settled.
+
+  * Section 5 much newer than section 4
+      -> Xcode has been compiling the nested copy and the tracked files are
+         behind. Same as above: I reconcile before you build.
