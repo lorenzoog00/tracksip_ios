@@ -32,9 +32,11 @@ func buildWarnings(context: WarningContext) -> [DrinkWarning] {
 
     // Driving limit crossed — always warn, even if notifications are off
     if context.drivingMode {
-        let limit = context.bacLimit
+        let limit = BACCalculator.drivingThreshold(limit: context.bacLimit)
         if context.previousBAC < limit && context.currentBAC >= limit {
-            let hoursUntilSafe = (context.currentBAC - limit) / max(context.eliminationRate, 0.005)
+            let hoursUntilSafe = BACCalculator.hoursToReduceBAC(
+                from: context.currentBAC, to: limit, beta: context.eliminationRate
+            )
             let safeDate = Date().addingTimeInterval(hoursUntilSafe * 3600)
             let tf = DateFormatter()
             tf.dateStyle = .none

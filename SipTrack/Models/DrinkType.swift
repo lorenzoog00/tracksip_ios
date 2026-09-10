@@ -110,6 +110,15 @@ struct ServingSizeOption: Identifiable, Hashable {
 }
 
 extension DrinkType {
+    // caloriesPerServing describes one pour at defaultVolumeMl, so a larger or smaller
+    // serving has to scale with it — otherwise a pint counts the calories of a bottle.
+    func calories(volumeMl: Double, quantity: Int) -> Double {
+        guard defaultVolumeMl > 0 else { return caloriesPerServing * Double(quantity) }
+        return caloriesPerServing * (volumeMl / defaultVolumeMl) * Double(quantity)
+    }
+}
+
+extension DrinkType {
     // Real-world pour options per category. The "standard" option equals the type's
     // default volume; others capture the common under-counted pours (home double, pint,
     // large wine). Selecting one stores its volume in DrinkEntry.volumeOverrideMl, so the

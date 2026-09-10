@@ -43,7 +43,7 @@ struct SummaryView: View {
             eventStart: event.startTime,
             r: r
         )
-        let hoursToZero = BACCalculator.hoursToZeroBAC(peakBAC)
+        let hoursToZero = BACCalculator.hoursToZeroBAC(peakBAC, profile: appState.userProfile)
 
         let prose = nightProse(event: event, drinkCount: drinkCount, calories: calories, alcoholG: alcoholG, peakBAC: peakBAC)
         let shareText = "[\(event.displayName)] \(eventDateRange(event))\n\n\(prose)\n\nTracked with Tracksip"
@@ -911,9 +911,12 @@ private struct RecoveryProjectionCard: View {
 
         raw.append((name: "Zero", bac: 0, color: IntoxicationStage.all[0].color))
 
-        let rate = max(beta, 0.005)
         return raw.enumerated().map { i, m in
-            let hours = (peakBAC - m.bac) / rate
+            // Floor the target: the "Zero" milestone is 0, and M-M elimination reaches
+            // zero only asymptotically, so reducing *to* 0 has no finite solution.
+            let hours = BACCalculator.hoursToReduceBAC(
+                from: peakBAC, to: max(m.bac, BACCalculator.bacFloor), beta: beta
+            )
             return Milestone(id: i, name: m.name, bac: m.bac,
                              time: peakTime.addingTimeInterval(hours * 3600), color: m.color)
         }

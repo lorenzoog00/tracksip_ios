@@ -228,12 +228,12 @@ final class AppState: ObservableObject {
 
             var safeToDriveAt: Date? = nil
             if event.drivingMode {
-                let limit = event.bacLimit ?? userProfile.resolvedBACLimit
+                let limit = BACCalculator.drivingThreshold(limit: event.bacLimit ?? userProfile.resolvedBACLimit)
                 if bac > limit {
                     // Use the user's profile elimination rate so the lock-screen
                     // countdown matches the in-app DriveWarningBanner exactly.
                     let beta = BACCalculator.eliminationRate(profile: userProfile)
-                    let hoursUntilSafe = (bac - limit) / max(beta, 0.005)
+                    let hoursUntilSafe = BACCalculator.hoursToReduceBAC(from: bac, to: limit, beta: beta)
                     safeToDriveAt = Date().addingTimeInterval(hoursUntilSafe * 3600)
                 }
             }
@@ -1494,7 +1494,8 @@ final class AppState: ObservableObject {
 
         let calories = eventEntries.reduce(0.0) { sum, e in
             let dt = allDrinkTypes.first { $0.id == e.drinkTypeId }
-            return sum + (dt?.caloriesPerServing ?? 0) * Double(e.quantity)
+            let vol = e.volumeOverrideMl ?? dt?.defaultVolumeMl ?? 0
+            return sum + (dt?.calories(volumeMl: vol, quantity: e.quantity) ?? 0)
         }
 
         let ctx = WarningContext(
@@ -1514,7 +1515,10 @@ final class AppState: ObservableObject {
             activeWarnings = warnings
         }
 
-        let hydration = BACCalculator.hydrationLevel(waterEntries: eventWater, drinkCount: eventEntries.count)
+        let hydration = BACCalculator.hydrationLevel(
+            waterEntries: eventWater,
+            drinkCount: eventEntries.reduce(0) { $0 + $1.quantity }
+        )
         if hydration == .behind && userProfile.waterSuggestions {
             showWaterNudge = true
         }
@@ -1681,7 +1685,8 @@ final class AppState: ObservableObject {
     func totalCalories(for eventId: String) -> Double {
         entries.filter { $0.eventId == eventId }.reduce(0.0) { sum, e in
             let dt = allDrinkTypes.first { $0.id == e.drinkTypeId }
-            return sum + (dt?.caloriesPerServing ?? 0) * Double(e.quantity)
+            let vol = e.volumeOverrideMl ?? dt?.defaultVolumeMl ?? 0
+            return sum + (dt?.calories(volumeMl: vol, quantity: e.quantity) ?? 0)
         }
     }
 }

@@ -95,7 +95,8 @@ struct ChallengeUtils {
             let ids = Set(relevant.map(\.id))
             let cal = entries.filter { ids.contains($0.eventId) }.reduce(0.0) { sum, e in
                 let dt = drinkTypes.first { $0.id == e.drinkTypeId }
-                return sum + (dt?.caloriesPerServing ?? 0) * Double(e.quantity)
+                let vol = e.volumeOverrideMl ?? dt?.defaultVolumeMl ?? 0
+                return sum + (dt?.calories(volumeMl: vol, quantity: e.quantity) ?? 0)
             }
             return cal
 

@@ -94,7 +94,7 @@ struct BACCalculator {
     // and never reaches exactly 0, so without a floor the curve would never terminate and
     // "sober" reads would return ~1e-14. 0.0005 rounds to 0.000 at display precision and
     // is below endogenous BAC.
-    private static let bacFloor = 0.0005
+    static let bacFloor = 0.0005
 
     // MARK: - Elimination rate β
 
@@ -539,7 +539,14 @@ struct BACCalculator {
 
     static func drinksInLastHour(entries: [DrinkEntry]) -> Int {
         let cutoff = Date().addingTimeInterval(-3600)
-        return entries.filter { $0.timestamp >= cutoff }.count
+        return entries.filter { $0.timestamp >= cutoff }.reduce(0) { $0 + $1.quantity }
+    }
+
+    // Threshold at which a driver counts as "over". Zero-tolerance jurisdictions set the
+    // statutory limit to 0.00, where any detectable alcohol is already over — comparing
+    // against 0 makes "crossed the limit" untestable, so fall back to the display floor.
+    static func drivingThreshold(limit: Double) -> Double {
+        max(limit, bacFloor)
     }
 
     // MARK: - Stomach / food factor

@@ -34,13 +34,14 @@ struct NightStatsSheet: View {
         guard let start = event?.startTime else { return 0.01 }
         return max(0.01, Date().timeIntervalSince(start) / 3600)
     }
-    private var drinkCount: Int { entries.count }
+    private var drinkCount: Int { entries.reduce(0) { $0 + $1.quantity } }
     private var waterCount: Int { waterEntries.count }
     private var totalCalories: Int {
-        entries.reduce(0) { sum, entry in
+        Int(entries.reduce(0.0) { sum, entry in
             guard let dt = appState.allDrinkTypes.first(where: { $0.id == entry.drinkTypeId }) else { return sum }
-            return sum + Int(dt.caloriesPerServing * Double(entry.quantity))
-        }
+            let vol = entry.volumeOverrideMl ?? dt.defaultVolumeMl
+            return sum + dt.calories(volumeMl: vol, quantity: entry.quantity)
+        })
     }
     private var drinksPerHour: Double { Double(drinkCount) / hoursElapsed }
 
@@ -699,7 +700,8 @@ private struct DrinkTimelineCard: View {
     }
 
     private var calories: Int {
-        Int((dt?.caloriesPerServing ?? 0) * Double(entry.quantity))
+        guard let dt else { return 0 }
+        return Int(dt.calories(volumeMl: entry.volumeOverrideMl ?? dt.defaultVolumeMl, quantity: entry.quantity))
     }
 
     var body: some View {

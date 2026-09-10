@@ -65,7 +65,8 @@ struct AnalyticsEngine {
         }
         stats.totalCalories = relevant.reduce(0.0) { sum, e in
             let dt = drinkTypes.first { $0.id == e.drinkTypeId }
-            return sum + (dt?.caloriesPerServing ?? 0) * Double(e.quantity)
+            let vol = e.volumeOverrideMl ?? dt?.defaultVolumeMl ?? 0
+            return sum + (dt?.calories(volumeMl: vol, quantity: e.quantity) ?? 0)
         }
         stats.avgMeanBAC = computeAvgMeanBAC(events: finished, entries: relevant, drinkTypes: drinkTypes, profile: profile)
         stats.favoriteDrink = favoriteDrink(entries: relevant, drinkTypes: drinkTypes)
@@ -102,7 +103,8 @@ struct AnalyticsEngine {
         }
         stats.totalCalories = relevant.reduce(0.0) { sum, e in
             let dt = drinkTypes.first { $0.id == e.drinkTypeId }
-            return sum + (dt?.caloriesPerServing ?? 0) * Double(e.quantity)
+            let vol = e.volumeOverrideMl ?? dt?.defaultVolumeMl ?? 0
+            return sum + (dt?.calories(volumeMl: vol, quantity: e.quantity) ?? 0)
         }
         stats.avgMeanBAC = computeAvgMeanBAC(events: finished, entries: relevant, drinkTypes: drinkTypes, profile: profile)
         stats.favoriteDrink = favoriteDrink(entries: relevant, drinkTypes: drinkTypes)
@@ -138,7 +140,8 @@ struct AnalyticsEngine {
         }
         stats.totalCalories = relevant.reduce(0.0) { sum, e in
             let dt = drinkTypes.first { $0.id == e.drinkTypeId }
-            return sum + (dt?.caloriesPerServing ?? 0) * Double(e.quantity)
+            let vol = e.volumeOverrideMl ?? dt?.defaultVolumeMl ?? 0
+            return sum + (dt?.calories(volumeMl: vol, quantity: e.quantity) ?? 0)
         }
         stats.drinksByType = drinksByType(entries: relevant, drinkTypes: drinkTypes)
         stats.avgMeanBAC = computeAvgMeanBAC(events: finished, entries: relevant, drinkTypes: drinkTypes, profile: profile)
@@ -235,14 +238,13 @@ struct AnalyticsEngine {
     }
 
     private static func drinksByWeek(entries: [DrinkEntry]) -> [(week: String, count: Int)] {
-        var counts: [String: Int] = [:]
+        // Keyed by week number, not the label — "Week 10" sorts before "Week 9" as a string.
+        var counts: [Int: Int] = [:]
         let cal = Calendar.current
         for e in entries {
-            let week = cal.component(.weekOfYear, from: e.timestamp)
-            let key = "Week \(week)"
-            counts[key, default: 0] += e.quantity
+            counts[cal.component(.weekOfYear, from: e.timestamp), default: 0] += e.quantity
         }
-        return counts.map { ($0.key, $0.value) }.sorted { $0.week < $1.week }
+        return counts.sorted { $0.key < $1.key }.map { (week: "Week \($0.key)", count: $0.value) }
     }
 
     private static func isoWeek(_ date: Date) -> String {

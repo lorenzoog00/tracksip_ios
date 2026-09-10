@@ -195,4 +195,46 @@ struct BACCalculatorKineticsTests {
         #expect(BACCalculator.hoursToZeroBAC(0) == 0)
         #expect(BACCalculator.hoursToZeroBAC(0.0003) == 0)
     }
+
+    // MARK: - Zero-tolerance driving threshold
+
+    @Test func drivingThreshold_normalLimitIsUnchanged() {
+        #expect(BACCalculator.drivingThreshold(limit: 0.08) == 0.08)
+        #expect(BACCalculator.drivingThreshold(limit: 0.02) == 0.02)
+    }
+
+    @Test func drivingThreshold_zeroToleranceFallsBackToFloor() {
+        // Czechia, Vietnam, UAE and others publish 0.00, where "previousBAC < limit"
+        // can never be true and the warning would never fire.
+        #expect(BACCalculator.drivingThreshold(limit: 0) > 0)
+        #expect(BACCalculator.drivingThreshold(limit: 0) == BACCalculator.bacFloor)
+    }
+
+    @Test func drivingThreshold_zeroTolerance_givesPositiveTimeToSafe() {
+        // hoursToReduceBAC returns 0 for a target of 0, which would read as "safe now".
+        let hours = BACCalculator.hoursToReduceBAC(
+            from: 0.05, to: BACCalculator.drivingThreshold(limit: 0), beta: 0.015
+        )
+        #expect(hours > 0)
+    }
+
+    // MARK: - Pace
+
+    @Test func drinksInLastHour_countsQuantityNotEntries() {
+        let now = Date()
+        let entries = [
+            beer("a", at: now.addingTimeInterval(-600), qty: 3),
+            beer("b", at: now.addingTimeInterval(-300), qty: 2)
+        ]
+        #expect(BACCalculator.drinksInLastHour(entries: entries) == 5)
+    }
+
+    @Test func drinksInLastHour_ignoresDrinksOlderThanAnHour() {
+        let now = Date()
+        let entries = [
+            beer("old", at: now.addingTimeInterval(-7200), qty: 4),
+            beer("new", at: now.addingTimeInterval(-60), qty: 1)
+        ]
+        #expect(BACCalculator.drinksInLastHour(entries: entries) == 1)
+    }
 }

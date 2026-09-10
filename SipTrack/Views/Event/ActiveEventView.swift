@@ -31,7 +31,7 @@ struct ActiveEventView: View {
     }
 
     private func content(event: NightEvent) -> some View {
-        let bacLimit = event.bacLimit ?? appState.userProfile.resolvedBACLimit
+        let bacLimit = BACCalculator.drivingThreshold(limit: event.bacLimit ?? appState.userProfile.resolvedBACLimit)
         let overLimit = event.drivingMode && currentBAC >= bacLimit
 
         return ZStack(alignment: .bottom) {
@@ -253,10 +253,13 @@ struct ActiveEventView: View {
             return
         }
 
-        // Minutes until current BAC has fallen far enough that adding this
-        // drink wouldn't cross `t`. Linear estimate using elimination rate β.
-        let over = max(0, pBAC - t)
-        let waitMinutes = max(1, Int(ceil((over / max(beta, 0.0001)) * 60)))
+        // Minutes until current BAC has fallen far enough that adding this drink
+        // wouldn't cross `t`. Floored because a zero-tolerance threshold has no
+        // finite solution under Michaelis-Menten elimination.
+        let hours = BACCalculator.hoursToReduceBAC(
+            from: pBAC, to: max(t, BACCalculator.bacFloor), beta: beta
+        )
+        let waitMinutes = max(1, Int(ceil(hours * 60)))
 
         pendingDrink = PendingDrinkWarning(
             drinkType: dt,
@@ -307,7 +310,7 @@ private struct DriveWarningBanner: View {
     let beta: Double
 
     private var hoursRemaining: Double {
-        max(0, (bac - bacLimit) / max(beta, 0.005))
+        BACCalculator.hoursToReduceBAC(from: bac, to: bacLimit, beta: beta)
     }
 
     var body: some View {
