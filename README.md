@@ -1,103 +1,81 @@
-# SipTrack iOS — Native Swift Rewrite
+# SipTrack iOS
 
-Full SwiftUI rewrite of the SipTrack Expo app. iOS-only, StoreKit 2, App Group storage for future Watch extension.
+Native SwiftUI app for tracking blood alcohol content across a night out — live BAC estimation, drink logging, history, AI-generated night/coach reports, and a watchOS companion.
 
-## Xcode Project Setup
+Open `siptrack.xcodeproj` in Xcode. There is no CocoaPods/Carthage step; all dependencies resolve through Swift Package Manager.
 
-1. **Create project in Xcode**
-   - File → New → Project → iOS → App
-   - Product Name: `SipTrack`
-   - Bundle Identifier: `com.siptrack.app` (must match App Store Connect)
-   - Interface: SwiftUI
-   - Minimum Deployment: iOS 16.0
+## Targets
 
-2. **Add all Swift files**
-   - Drag the `SipTrack/` folder from this repo into the Xcode project
-   - Ensure "Copy items if needed" is unchecked (files are already in the project directory)
+| Target | Bundle ID | Platform |
+|--------|-----------|----------|
+| SipTrack | `com.lorenzoog.siptrack` | iOS 18.0 |
+| SipTrackWidgets | `com.lorenzoog.siptrack.SipTrackWidgets` | iOS 18.0 |
+| SipTrack Watch Watch App | `com.lorenzoog.siptrack.watchkitapp` | watchOS 26.4 |
+| siptrackTests / siptrackUITests | `com.lorenzoog.siptrack{Tests,UITests}` | iOS 18.0 |
 
-3. **Configure App Group** (required for Watch sharing later)
-   - Target → Signing & Capabilities → + Capability → App Groups
-   - Add group: `group.com.siptrack.shared`
+Swift 5.0. App Group `group.lorenzoog.siptrack` backs storage shared between the app, widgets, and Watch.
 
-4. **Configure StoreKit**
-   - In App Store Connect, create 3 In-App Purchase products:
-     - `com.siptrack.pro.monthly`  — Auto-Renewable Subscription, $1.99/mo
-     - `com.siptrack.pro.yearly`   — Auto-Renewable Subscription, $19.99/yr
-     - `com.siptrack.pro.lifetime` — Non-Consumable, $59.99
-   - For local testing: File → New → File → StoreKit Configuration
-     - Add matching products with those identifiers
-     - Edit Scheme → Run → Options → StoreKit Configuration → select file
+## Dependencies
 
-5. **Supabase (optional — for cloud sync)**
-   - Add `supabase-swift` via Swift Package Manager
-   - Create `Config.swift` with your project URL and anon key
+Remote (SPM): `firebase-ios-sdk`, `GoogleSignIn-iOS`, `swift-package-manager-google-mobile-ads`.
+Local (SPM): `SipTrackActivityKit/` — Live Activity attributes shared by the app and the widget extension.
 
-## Architecture
+## Configuration
+
+**Firebase** — `GoogleService-Info.plist` at the repo root. Firestore, Auth (Google + Apple Sign-In), and Crashlytics. Rules in `firestore.rules`, project config in `firebase.json`.
+
+**StoreKit** — three products, defined in App Store Connect and mirrored in `Siptrack.storekit` for local testing:
+
+- `com.lorenzoog.siptrack.pro.monthly` — auto-renewable subscription
+- `com.lorenzoog.siptrack.pro.yearly` — auto-renewable subscription
+- `com.lorenzoog.siptrack.pro.lifetime` — non-consumable
+
+To test purchases locally: Edit Scheme → Run → Options → StoreKit Configuration → `Siptrack.storekit`.
+
+**Cloud Functions** — `functions/` (Node). Three Firestore-triggered functions call the Anthropic API to generate reports: `generateNightReport`, `generateRecoveryBrief`, `generateCoachReport`. Deploy with `firebase deploy --only functions`; the Anthropic key is read from function config, not committed.
+
+## Layout
 
 ```
 SipTrack/
-├── SipTrackApp.swift          Entry point, injects store + appState
-├── Constants/
-│   └── AppColors.swift        Dark theme color palette
-├── Models/
-│   ├── DrinkType.swift        DrinkType + 16 presets
-│   ├── NightEvent.swift       NightEvent, DrinkEntry, WaterEntry
-│   ├── UserProfile.swift      UserProfile, Sex, SubscriptionTier
-│   └── Challenge.swift        Challenge, ChallengeType
-├── Core/
-│   ├── BACCalculator.swift    Widmark + Watson formulas, hydration
-│   ├── IntoxicationStage.swift 7 intoxication stages with colors
-│   ├── WarningSystem.swift    Drink warning builder
-│   ├── Analytics.swift        AllTimeStats, MonthlyStats computation
-│   └── ChallengeUtils.swift   Challenge progress computation
-├── Storage/
-│   └── AppStorage.swift       JSON file persistence via App Group container
-├── Store/
-│   └── StoreManager.swift     StoreKit 2 — products, purchase, restore
-├── State/
-│   └── AppState.swift         Central @MainActor ObservableObject
-├── Navigation/
-│   └── Route.swift            NavigationStack route enum
-└── Views/
-    ├── RootView.swift          Root nav stack + onboarding gate
-    ├── Onboarding/
-    │   ├── OnboardingView.swift
-    │   └── DisclaimerView.swift
-    ├── Home/HomeView.swift
-    ├── Event/
-    │   ├── CreateEventView.swift
-    │   └── ActiveEventView.swift
-    ├── Summary/SummaryView.swift
-    ├── Calendar/CalendarView.swift
-    ├── Dashboard/DashboardView.swift
-    ├── Challenges/ChallengesView.swift
-    ├── Drinks/
-    │   ├── DrinksView.swift
-    │   └── EditDrinkView.swift
-    ├── Entry/EditEntryView.swift
-    ├── Profile/ProfileView.swift
-    └── Subscription/
-        ├── SubscriptionView.swift
-        └── PaywallView.swift
+├── SipTrackApp.swift       Entry point, injects StoreManager + AppState
+├── Core/                   BAC engine, intoxication stages, warnings, analytics
+├── Models/                 DrinkType, NightEvent, UserProfile, Challenge
+├── State/AppState.swift    Central @MainActor ObservableObject
+├── Storage/AppStorage.swift JSON persistence in the App Group container
+├── Store/StoreManager.swift StoreKit 2 — products, purchase, restore
+├── Ads/                    Google Mobile Ads banner/native + consent
+├── Navigation/Route.swift  NavigationStack route enum
+└── Views/                  Home, Event, Summary, Calendar, Dashboard,
+                            Challenges, Coach, Drinks, Entry, Onboarding,
+                            Profile, Subscription
+Firebase/                   FirebaseManager — auth, Firestore sync
+SipTrackWidgets/            Widget bundle + Live Activity UI
+SipTrackActivityKit/        Shared Live Activity attributes (SPM, iOS 16+)
+SipTrack Watch Watch App/   watchOS companion
+functions/                  Firebase Cloud Functions (Node)
 ```
 
-## Key Differences from Expo Version
+Persistence is local-first: `DataStore` writes JSON to the App Group container, and Firebase syncs on top. There is no Core Data or SwiftData.
 
-| Expo                     | Swift                              |
-|--------------------------|------------------------------------|
-| RevenueCat               | StoreKit 2 native                  |
-| AsyncStorage             | JSON files in App Group container  |
-| NocheContext (React)     | AppState @MainActor ObservableObject |
-| Expo Router              | NavigationStack + Route enum       |
-| Ionicons                 | SF Symbols                         |
-| Median bridge            | Native iOS — no bridge needed      |
-| Google Mobile Ads        | Remove or add GoogleMobileAds SDK  |
+## BAC model
 
-## Next Steps
+`SipTrack/Core/BACCalculator.swift` forward-integrates a one-compartment model in one-minute steps:
 
-- [ ] Add watchOS target with shared App Group reads
-- [ ] Add Supabase sync (supabase-swift package) for multi-device
-- [ ] Add push notifications (UNUserNotificationCenter)
-- [ ] Add share sheet for event summary
-- [ ] Add haptic feedback (UIImpactFeedbackGenerator)
-- [ ] App icon + launch screen
+- Widmark volume of distribution, individualized via Watson/Forrest body-water equations
+- Sex-specific first-pass metabolism
+- Per-drink first-order gut absorption, with `kA` calibrated against published Tmax/Cmax by ABV and slowed by food/stomach state
+- Michaelis-Menten elimination (not zero-order), calibrated so the rate matches published β at a 0.08 reference
+
+Drinks consumed fast enough to trip gulp detection switch to instant Widmark absorption. That is a deliberate UX choice over strict pharmacokinetic accuracy — see the note at the top of `BACCalculator.swift`.
+
+## Tests
+
+`siptrackTests/` covers the BAC math and report logic: `BACCalculatorCoreTests`, `BACCalculatorKineticsTests`, `BACCalculatorFoodTests`, `DrinkServingSizeTests`, `AIInsightsTests`, `NightPickerTests`. Run with Cmd-U.
+
+Views, `AppState`, Firebase sync, `StoreManager`, ads, and the Watch/widget targets are not currently covered.
+
+## Docs
+
+- `product.md` — product spec
+- `docs/COMPANION-ROADMAP.md` — agreed next steps for the companion/safety features
