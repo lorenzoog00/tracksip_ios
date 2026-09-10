@@ -59,6 +59,10 @@ jobs:
           # flags and on line wrapping, and openssl tolerates both wrapped and single-line.
           echo "$CERT_P12_BASE64" | openssl base64 -d > "$RUNNER_TEMP/cert.p12"
           echo "decoded $(stat -f%z "$RUNNER_TEMP/cert.p12") bytes"
+          if [ ! -s "$RUNNER_TEMP/cert.p12" ]; then
+            echo "::error::DIST_CERT_P12_BASE64 is empty. The 'base64 -i file | gh secret set' pipe stored nothing — usually the .p12 path was wrong, so base64 errored and piped an empty string. Check the file exists, then set the secret again."
+            exit 1
+          fi
 
           # security(1) reports a bad file and a bad password identically, as
           # "parameters were not valid". Ask openssl first so the log says which.
