@@ -645,7 +645,7 @@
 				B101B4CA2F9C2F32009F7DDD /* .gitignore */,
 				B101B4CB2F9C2F32009F7DDD /* README.md */,
 			);
-			path = tracksip_ios;
+			name = tracksip_ios;
 			sourceTree = "<group>";
 		};
 		B101B5042F9CD779009F7DDD /* Frameworks */ = {
@@ -1271,13 +1271,13 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_ENTITLEMENTS = tracksip_ios/SipTrack/SipTrack.entitlements;
+				CODE_SIGN_ENTITLEMENTS = SipTrack/SipTrack.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = 6T5DB8M42N;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = tracksip_ios/SipTrack/Info.plist;
+				INFOPLIST_FILE = SipTrack/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Tracksip;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
@@ -1292,7 +1292,7 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_OBJC_BRIDGING_HEADER = "tracksip_ios/SipTrack/Views/siptrack-Bridging-Header.h";
+				SWIFT_OBJC_BRIDGING_HEADER = "SipTrack/Views/siptrack-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
@@ -1307,13 +1307,13 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_ENTITLEMENTS = tracksip_ios/SipTrack/SipTrack.entitlements;
+				CODE_SIGN_ENTITLEMENTS = SipTrack/SipTrack.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = 6T5DB8M42N;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = tracksip_ios/SipTrack/Info.plist;
+				INFOPLIST_FILE = SipTrack/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Tracksip;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
@@ -1328,7 +1328,7 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_OBJC_BRIDGING_HEADER = "tracksip_ios/SipTrack/Views/siptrack-Bridging-Header.h";
+				SWIFT_OBJC_BRIDGING_HEADER = "SipTrack/Views/siptrack-Bridging-Header.h";
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
