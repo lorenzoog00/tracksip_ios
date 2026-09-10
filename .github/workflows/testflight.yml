@@ -58,8 +58,24 @@ jobs:
           # openssl rather than base64(1): the macOS and GNU builds disagree on decode
           # flags and on line wrapping, and openssl tolerates both wrapped and single-line.
           echo "$CERT_P12_BASE64" | openssl base64 -d > "$RUNNER_TEMP/cert.p12"
+          echo "decoded $(stat -f%z "$RUNNER_TEMP/cert.p12") bytes"
+
+          # security(1) reports a bad file and a bad password identically, as
+          # "parameters were not valid". Ask openssl first so the log says which.
+          # -legacy is needed by OpenSSL 3 for Keychain exports and rejected by LibreSSL.
+          if ! openssl pkcs12 -in "$RUNNER_TEMP/cert.p12" -nokeys -legacy \
+                 -passin env:CERT_PASSWORD -out /dev/null 2>"$RUNNER_TEMP/p12err"; then
+            if ! openssl pkcs12 -in "$RUNNER_TEMP/cert.p12" -nokeys \
+                   -passin env:CERT_PASSWORD -out /dev/null 2>"$RUNNER_TEMP/p12err"; then
+              echo "::error::Could not read the .p12 with DIST_CERT_PASSWORD. openssl reported:"
+              cat "$RUNNER_TEMP/p12err"
+              exit 1
+            fi
+          fi
+
+          # -f pkcs12 explicitly: without it security guesses the format and often guesses wrong.
           security import "$RUNNER_TEMP/cert.p12" \
-            -k "$KEYCHAIN" -P "$CERT_PASSWORD" \
+            -k "$KEYCHAIN" -P "$CERT_PASSWORD" -f pkcs12 \
             -T /usr/bin/codesign -T /usr/bin/security
           rm -f "$RUNNER_TEMP/cert.p12"
 
