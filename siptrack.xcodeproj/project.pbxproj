@@ -233,7 +233,6 @@
 		B101B4CA2F9C2F32009F7DDD /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
 		B101B4CB2F9C2F32009F7DDD /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		B101B4D52F9CBCB3009F7DDD /* siptrack-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "siptrack-Bridging-Header.h"; sourceTree = "<group>"; };
-		B101B4D62F9CBFC2009F7DDD /* errors.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = errors.txt; sourceTree = "<group>"; };
 		B15DA9392FA938B200345F64 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		B15DA93B2FA9390900345F64 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B15DA9482FA9733900345F64 /* WaterReminderManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaterReminderManager.swift; sourceTree = "<group>"; };
@@ -623,7 +622,6 @@
 		B101B4C92F9C2F32009F7DDD /* SipTrack */ = {
 			isa = PBXGroup;
 			children = (
-				B101B4D62F9CBFC2009F7DDD /* errors.txt */,
 				B101B4942F9C2F32009F7DDD /* Ads */,
 				B101B4962F9C2F32009F7DDD /* Constants */,
 				B101B49C2F9C2F32009F7DDD /* Core */,
@@ -1198,7 +1196,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
@@ -1256,7 +1254,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
@@ -1345,7 +1343,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 6T5DB8M42N;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.lorenzoog.siptrackTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -1367,7 +1365,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 6T5DB8M42N;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.lorenzoog.siptrackTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -1595,7 +1593,7 @@
 				INFOPLIST_FILE = SipTrackWidgets/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = SipTrackWidgets;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -1626,7 +1624,7 @@
 				INFOPLIST_FILE = SipTrackWidgets/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = SipTrackWidgets;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
