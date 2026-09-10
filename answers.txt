@@ -1,0 +1,20 @@
+### 1. is tracksip_ios/ its own git checkout?
+NOT a git repo
+
+### 2. do the two source trees differ?  (no lines = identical)
+diff: tracksip_ios/SipTrack: No such file or directory
+
+### 3. what is inside tracksip_ios/
+ls: tracksip_ios: No such file or directory
+
+### 4. newest .swift in the TRACKED copy
+2026-09-09 22:18:48 SipTrack/Views/Summary/SummaryView.swift
+2026-09-09 22:18:48 SipTrack/Views/Event/NightStatsSheet.swift
+2026-09-09 22:18:48 SipTrack/Views/Event/ActiveEventView.swift
+
+### 5. newest .swift in the NESTED copy
+bfs: error: tracksip_ios/SipTrack: No such file or directory.
+
+### 6. toolchain
+Xcode 26.6
+Build version 17F113
