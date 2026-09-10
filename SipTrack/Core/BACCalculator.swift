@@ -379,6 +379,7 @@ struct BACCalculator {
         sex: Sex,
         eventStart: Date,
         r: Double? = nil,
+        beta: Double? = nil,
         stomachState: StomachState = .empty,
         stomachStateTimestamp: Date? = nil,
         foodEntries: [FoodEntry] = []
@@ -386,7 +387,7 @@ struct BACCalculator {
         guard !entries.isEmpty else { return 0 }
         let points = integrateBAC(
             entries: entries, drinkTypes: drinkTypes, weightKg: weightKg,
-            r: r ?? widmarkR(sex: sex), beta: eliminationRate(sex: sex), sex: sex,
+            r: r ?? widmarkR(sex: sex), beta: beta ?? eliminationRate(sex: sex), sex: sex,
             stomachState: stomachState,
             stomachStateTimestamp: stomachStateTimestamp ?? eventStart,
             foodEntries: foodEntries, until: nil, sampleSeconds: 300
@@ -483,8 +484,10 @@ struct BACCalculator {
     }
 
     static func getBACStatus(bac: Double, limit: Double) -> BACStatus {
-        if bac >= limit { return .red }
-        if bac >= limit * 0.8 { return .amber }
+        // Thresholded so a 0.00 zero-tolerance limit doesn't report red at BAC 0.
+        let threshold = drivingThreshold(limit: limit)
+        if bac >= threshold { return .red }
+        if bac >= threshold * 0.8 { return .amber }
         return .green
     }
 

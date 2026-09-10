@@ -237,4 +237,35 @@ struct BACCalculatorKineticsTests {
         ]
         #expect(BACCalculator.drinksInLastHour(entries: entries) == 1)
     }
+
+    // MARK: - Status under a zero-tolerance limit
+
+    @Test func getBACStatus_zeroToleranceLimit_soberIsGreen() {
+        #expect(BACCalculator.getBACStatus(bac: 0, limit: 0) == .green)
+    }
+
+    @Test func getBACStatus_zeroToleranceLimit_anyRealAlcoholIsRed() {
+        #expect(BACCalculator.getBACStatus(bac: 0.02, limit: 0) == .red)
+    }
+
+    // MARK: - Peak BAC uses the caller's elimination rate
+
+    @Test func estimatePeakBAC_honoursExplicitBeta() {
+        let profile = maleProfile(weight: 80)
+        let start = Date().addingTimeInterval(-3600)
+        let entries = [
+            beer("a", at: start),
+            beer("b", at: start.addingTimeInterval(1800))
+        ]
+        let r = BACCalculator.profileR(profile: profile)
+        let fastMetaboliser = BACCalculator.estimatePeakBAC(
+            entries: entries, drinkTypes: DrinkType.presets, weightKg: profile.weightKg,
+            sex: profile.sex, eventStart: start, r: r, beta: 0.030
+        )
+        let slowMetaboliser = BACCalculator.estimatePeakBAC(
+            entries: entries, drinkTypes: DrinkType.presets, weightKg: profile.weightKg,
+            sex: profile.sex, eventStart: start, r: r, beta: 0.008
+        )
+        #expect(slowMetaboliser > fastMetaboliser)
+    }
 }

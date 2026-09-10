@@ -70,13 +70,19 @@ struct NightStatsSheet: View {
         return items
     }
 
-    // Marginal BAC helper
+    // Marginal BAC helper. Goes through BACCalculator so this shares the Watson/Forrest
+    // individualised r with every other surface instead of a flat by-sex constant.
     private func marginalBAC(drinkType: DrinkType, profile: UserProfile) -> Double {
-        let volumeMl = drinkType.defaultVolumeMl
-        let abv = drinkType.defaultAbv
-        let alcoholGrams = (volumeMl / 1000.0) * (abv / 100.0) * 789.0
-        let r: Double = profile.sex == .female ? 0.55 : 0.68
-        return alcoholGrams / (profile.weightKg * r * 10.0)
+        let alcoholGrams = BACCalculator.calculateAlcohol(
+            volumeMl: drinkType.defaultVolumeMl, abv: drinkType.defaultAbv, quantity: 1
+        )
+        return BACCalculator.estimateBAC(
+            alcoholGrams: alcoholGrams,
+            weightKg: profile.weightKg,
+            sex: profile.sex,
+            durationHours: 0,
+            r: BACCalculator.profileR(profile: profile)
+        )
     }
 
     private var peakBACInfo: (peakBAC: Double, minutesAgo: Int) {
@@ -686,9 +692,18 @@ private struct DrinkTimelineCard: View {
 
     private var marginalBAC: Double {
         guard let dt else { return 0 }
-        let alcoholGrams = (dt.defaultVolumeMl / 1000.0) * (dt.defaultAbv / 100.0) * 789.0
-        let r: Double = appState.userProfile.sex == .female ? 0.55 : 0.68
-        return (alcoholGrams / (appState.userProfile.weightKg * r * 10.0)) * Double(entry.quantity)
+        let alcoholGrams = BACCalculator.calculateAlcohol(
+            volumeMl: entry.volumeOverrideMl ?? dt.defaultVolumeMl,
+            abv: entry.abvOverride ?? dt.defaultAbv,
+            quantity: entry.quantity
+        )
+        return BACCalculator.estimateBAC(
+            alcoholGrams: alcoholGrams,
+            weightKg: appState.userProfile.weightKg,
+            sex: appState.userProfile.sex,
+            durationHours: 0,
+            r: BACCalculator.profileR(profile: appState.userProfile)
+        )
     }
 
     private var barProgress: Double { min(1.0, marginalBAC / max(0.001, bacLimit)) }

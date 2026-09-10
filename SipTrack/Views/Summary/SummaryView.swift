@@ -41,7 +41,8 @@ struct SummaryView: View {
             weightKg: appState.userProfile.weightKg,
             sex: appState.userProfile.sex,
             eventStart: event.startTime,
-            r: r
+            r: r,
+            beta: BACCalculator.eliminationRate(profile: appState.userProfile)
         )
         let hoursToZero = BACCalculator.hoursToZeroBAC(peakBAC, profile: appState.userProfile)
 
