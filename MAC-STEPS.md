@@ -1,113 +1,156 @@
-# Mac steps — finish TestFlight setup and ship the first build
+# Mac steps — fix the empty certificate secret, then ship
 
-Everything on the Windows side is done. These three secrets are already in GitHub:
-`ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8`.
+## Where things stand
 
-Two secrets left, then a tag ships a build to TestFlight.
+TestFlight delivery is fully wired up and the app builds and tests clean in CI
+(87 tests passing). Three build attempts have now failed at the **first** step,
+and always for the same reason:
 
-The certificate is at `~/Desktop/tracksip.p12`.
+```
+decoded 0 bytes
+##[error]DIST_CERT_P12_BASE64 is empty.
+```
+
+Four of the five required secrets are correct:
+
+| Secret | State |
+|---|---|
+| `ASC_KEY_ID` | OK |
+| `ASC_ISSUER_ID` | OK |
+| `ASC_KEY_P8` | OK |
+| `DIST_CERT_PASSWORD` | OK |
+| `DIST_CERT_P12_BASE64` | **EMPTY — this is the only thing blocking the build** |
+
+Nothing is wrong with the code, the certificate, or the workflow. The secret
+simply has no content in it.
+
+## Why it keeps failing silently
+
+```bash
+base64 -i ~/Desktop/tracksip.p12 | gh secret set DIST_CERT_P12_BASE64
+```
+
+If that path is wrong, `base64` writes its complaint to stderr and puts **nothing**
+on stdout. `gh secret set` then cheerfully stores an empty string and reports
+success. Both commands "work". The secret ends up empty.
+
+So: **verify the bytes exist before storing them.** Never pipe blind.
 
 ---
 
 ## Rules for whoever runs this (human or agent)
 
-- **Never read, `cat`, print, or echo the contents of `tracksip.p12`.** It holds a
-  private signing key. Only pipe it into `base64 | gh secret set`.
-- **Never ask the user to type or paste the `.p12` password into a chat.** Step 3
-  reads it from a hidden prompt so it never reaches shell history or a transcript.
-- **Never paste any secret value into a commit, an issue, or a message.**
-- If a command fails, report the **exact error text** and stop. Do not improvise a
-  workaround — the remaining steps sign and upload a real build to Apple.
+- **Never `cat`, print, echo or otherwise display the `.p12` or its base64.** It
+  contains a private signing key. Pipe it; do not show it.
+- **Never ask the user to paste the `.p12` password into a chat.** `DIST_CERT_PASSWORD`
+  is already set correctly — do not touch it.
+- **Do not paste any secret value into a commit, an issue or a message.**
+- Report exact error text on failure. Do not invent workarounds; these steps sign
+  and upload a real build to Apple.
 
 ---
 
-## 1. Check it is the right certificate
+## 1. Find the file
 
-Run from anywhere. It will prompt for the password you set when exporting.
-
-```bash
-openssl pkcs12 -in ~/Desktop/tracksip.p12 -nokeys | openssl x509 -noout -subject -enddate
-```
-
-The subject must contain **`Apple Distribution`** and **`6T5DB8M42N`**.
-
-- If it says `Apple Development`, the wrong certificate was exported. Redo the
-  export: Xcode → Settings → Accounts → team → Manage Certificates → right-click
-  **Apple Distribution** → Export Certificate.
-- If openssl complains about an unsupported algorithm, add `-legacy` before the
-  first pipe. (macOS ships LibreSSL, which usually does not need it; OpenSSL 3
-  usually does.)
-- If `enddate` is in the past, the certificate is expired — create a new one in
-  that same Manage Certificates panel.
-
-## 2. Store the certificate
+Do not assume the name or location:
 
 ```bash
-base64 -i ~/Desktop/tracksip.p12 | gh secret set DIST_CERT_P12_BASE64 --repo lorenzoog00/tracksip_ios
+ls -l ~/Desktop/*.p12 ~/Downloads/*.p12 2>/dev/null
 ```
 
-## 3. Store its password
-
-This prompts and hides what is typed. **The user types it — nobody else.**
+If nothing appears, search wider:
 
 ```bash
-gh secret set DIST_CERT_PASSWORD --repo lorenzoog00/tracksip_ios
+find ~ -name '*.p12' -not -path '*/Library/*' 2>/dev/null | head
 ```
 
-If the export was made with **no** password, use this instead:
+If there is genuinely no `.p12` anywhere, it was never exported. Do this first:
+Xcode → Settings → Accounts → select the team → **Manage Certificates…** →
+right-click **Apple Distribution** → **Export Certificate…** → save to Desktop,
+and set a password that matches whatever `DIST_CERT_PASSWORD` already holds. If
+that password is not known, export with a new one and update the secret too.
+
+## 2. Encode it and CHECK THE SIZE
+
+Substitute the real path from step 1:
 
 ```bash
-printf '' | gh secret set DIST_CERT_PASSWORD --repo lorenzoog00/tracksip_ios
+base64 -i ~/Desktop/tracksip.p12 -o /tmp/cert.b64 && wc -c < /tmp/cert.b64
 ```
 
-## 4. Confirm all five are present
+**That number must be in the thousands** (a distribution `.p12` is a few KB, so
+its base64 is typically 3,000–6,000 characters).
+
+- If it prints `0` or the command errors, the path is wrong. Return to step 1.
+- **Do not continue until this number is large.** This is the check that has been
+  missing every previous attempt.
+
+## 3. Store it
+
+Only once step 2 printed a large number:
+
+```bash
+gh secret set DIST_CERT_P12_BASE64 --repo lorenzoog00/tracksip_ios < /tmp/cert.b64
+```
+
+Then clean up the temporary file:
+
+```bash
+rm -f /tmp/cert.b64
+```
+
+## 4. Confirm all five secrets exist
 
 ```bash
 gh secret list --repo lorenzoog00/tracksip_ios
 ```
 
-Expected, exactly: `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8`,
-`DIST_CERT_P12_BASE64`, `DIST_CERT_PASSWORD`.
+GitHub secrets are write-only — the value cannot be read back, so this only
+confirms the names are present. The real proof is the build in step 5.
 
-## 5. Ship
+## 5. Trigger the build
+
+No new tag needed; the workflow has a manual trigger:
 
 ```bash
-git pull && git tag v1.0.1 && git push origin v1.0.1
+gh workflow run testflight.yml --ref main --repo lorenzoog00/tracksip_ios
 ```
 
 ## 6. Watch it
 
 ```bash
-gh run watch --repo lorenzoog00/tracksip_ios "$(gh run list --workflow=testflight.yml --limit 1 --json databaseId --jq '.[0].databaseId')"
+sleep 10 && gh run watch --repo lorenzoog00/tracksip_ios "$(gh run list --workflow=testflight.yml --limit 1 --json databaseId --jq '.[0].databaseId')"
 ```
 
-Archive and upload take roughly 15–25 minutes. After the upload succeeds, App
-Store Connect needs another 5–15 minutes to process before the build shows up in
-TestFlight.
+The **Install signing certificate** step is the one that has been failing. If it
+gets past that, the certificate is good.
 
-First time only: add yourself to **Internal Testing** in App Store Connect. After
-that every build arrives automatically.
+- Watch for `decoded NNNN bytes` with a real number — that means the secret took.
+- Archive plus upload runs 15–25 minutes.
+- App Store Connect then needs 5–15 minutes of processing before the build shows
+  up in TestFlight.
 
-## 7. Clean up
+First time only: add yourself to **Internal Testing** in App Store Connect.
+After that, every build arrives automatically.
+
+## 7. When it succeeds
 
 ```bash
-rm ~/Desktop/tracksip.p12
+rm -f ~/Desktop/tracksip.p12
 ```
 
 Then delete this file and commit that.
 
 ---
 
-## Known failure modes
+## If step 5 fails at a later stage
 
-| Error | Cause |
+| Error | Meaning |
 |---|---|
-| `No signing certificate "iOS Distribution" found` | Wrong certificate exported, or `DIST_CERT_PASSWORD` does not match the `.p12` |
-| `No profiles for 'com.lorenzoog.siptrack' were found` | The App Store Connect API key needs the **App Manager** role, not Developer |
-| `The bundle version must be higher than the previously uploaded version` | Re-run; the build number is a UTC timestamp and should not collide |
-| `Invalid Provisioning Profile` on the Watch app | The Watch target needs its own profile; automatic signing should create it, but the API key must have App Manager |
+| `decoded 0 bytes` | Step 2's check was skipped. The secret is still empty. |
+| `Could not read the .p12 ... Mac verify error` | `DIST_CERT_PASSWORD` does not match this `.p12`. Re-set that secret to the password used at export. |
+| `No signing certificate "iOS Distribution" found` | An **Apple Development** certificate was exported instead of **Apple Distribution**. |
+| `No profiles for 'com.lorenzoog.siptrack' were found` | The App Store Connect API key needs the **App Manager** role, not Developer. |
+| `The bundle version must be higher...` | Just re-run; the build number is a UTC timestamp. |
 
-## What is already verified
-
-CI is green on this commit — 87 tests pass, and the app builds clean for the iOS
-Simulator. So a failure here is about signing or upload, not about the code.
+Report the exact error text back rather than guessing.
