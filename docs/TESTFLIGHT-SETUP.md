@@ -26,13 +26,17 @@ App Store Connect → **Users and Access** → **Integrations** → **App Store 
 - **Download the `.p8` immediately.** Apple lets you download it exactly once.
 - Copy the **Key ID** and the **Issuer ID** from that same page
 
-Then, from the folder holding the `.p8`:
+Now add three secrets in the browser — no terminal, no base64:
 
-```bash
-gh secret set ASC_KEY_ID --body "YOUR_KEY_ID"
-gh secret set ASC_ISSUER_ID --body "YOUR_ISSUER_ID"
-base64 -i AuthKey_YOUR_KEY_ID.p8 | gh secret set ASC_KEY_P8_BASE64
-```
+**github.com/lorenzoog00/tracksip_ios → Settings → Secrets and variables → Actions → New repository secret**
+
+| Name | Value |
+|---|---|
+| `ASC_KEY_ID` | The Key ID. It's also in the filename: `AuthKey_XXXXXXXXXX.p8` |
+| `ASC_ISSUER_ID` | The Issuer ID from the same App Store Connect page |
+| `ASC_KEY_P8` | Open the `.p8` in TextEdit and paste **the whole file**, including the `-----BEGIN PRIVATE KEY-----` and `-----END PRIVATE KEY-----` lines |
+
+The `.p8` is plain text, so it goes in exactly as written.
 
 ## 2. Distribution certificate
 
@@ -59,7 +63,7 @@ Expect exactly these five:
 |---|---|
 | `ASC_KEY_ID` | Key ID from step 1 |
 | `ASC_ISSUER_ID` | Issuer ID from step 1 |
-| `ASC_KEY_P8_BASE64` | The `.p8`, base64-encoded |
+| `ASC_KEY_P8` | The `.p8` file's text, pasted whole |
 | `DIST_CERT_P12_BASE64` | The `.p12`, base64-encoded |
 | `DIST_CERT_PASSWORD` | Password you set on the `.p12` |
 

@@ -48,3 +48,10 @@ node_modules/
 .env
 .dataconnect
 tracksip_ios/
+
+# Signing material — these are private keys, they belong in GitHub Secrets only
+*.p8
+*.p12
+*.cer
+*.certSigningRequest
+*.mobileprovision

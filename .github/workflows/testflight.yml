@@ -55,7 +55,9 @@ jobs:
           security set-keychain-settings -lut 3600 "$KEYCHAIN"
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
 
-          echo "$CERT_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          # openssl rather than base64(1): the macOS and GNU builds disagree on decode
+          # flags and on line wrapping, and openssl tolerates both wrapped and single-line.
+          echo "$CERT_P12_BASE64" | openssl base64 -d > "$RUNNER_TEMP/cert.p12"
           security import "$RUNNER_TEMP/cert.p12" \
             -k "$KEYCHAIN" -P "$CERT_PASSWORD" \
             -T /usr/bin/codesign -T /usr/bin/security
@@ -69,14 +71,19 @@ jobs:
           security find-identity -v -p codesigning "$KEYCHAIN"
 
       # xcodebuild and altool each look for the key in their own location.
+      # The .p8 is PEM text, so it goes in as-is — no base64 step for you to get wrong.
       - name: Install App Store Connect API key
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
         run: |
           mkdir -p ~/private_keys ~/.appstoreconnect/private_keys
-          echo "$ASC_KEY_P8_BASE64" | base64 --decode > ~/private_keys/AuthKey_${ASC_KEY_ID}.p8
+          printf '%s\n' "$ASC_KEY_P8" > ~/private_keys/AuthKey_${ASC_KEY_ID}.p8
+          chmod 600 ~/private_keys/AuthKey_${ASC_KEY_ID}.p8
           cp ~/private_keys/AuthKey_${ASC_KEY_ID}.p8 ~/.appstoreconnect/private_keys/
+          # Fail loudly here rather than with an opaque signing error later.
+          openssl pkey -in ~/private_keys/AuthKey_${ASC_KEY_ID}.p8 -noout \
+            || { echo "::error::ASC_KEY_P8 is not a valid private key — re-paste the whole .p8 file including the BEGIN/END lines"; exit 1; }
 
       # TestFlight rejects a build number it has already seen, so derive a value
       # that always increases and never collides: UTC minutes since the epoch era.
