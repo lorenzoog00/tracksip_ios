@@ -1,5 +1,5 @@
 import XCTest
-@testable import SipTrack
+@testable import siptrack
 
 final class AIInsightsTests: XCTestCase {
 

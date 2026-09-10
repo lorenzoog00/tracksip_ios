@@ -8,7 +8,7 @@
 
 import Testing
 import Foundation
-@testable import SipTrack
+@testable import siptrack
 
 struct BACCalculatorKineticsTests {
 
