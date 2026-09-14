@@ -34,17 +34,10 @@ func buildWarnings(context: WarningContext) -> [DrinkWarning] {
     if context.drivingMode {
         let limit = BACCalculator.drivingThreshold(limit: context.bacLimit)
         if context.previousBAC < limit && context.currentBAC >= limit {
-            let hoursUntilSafe = BACCalculator.hoursToReduceBAC(
-                from: context.currentBAC, to: limit, beta: context.eliminationRate
-            )
-            let safeDate = Date().addingTimeInterval(hoursUntilSafe * 3600)
-            let tf = DateFormatter()
-            tf.dateStyle = .none
-            tf.timeStyle = .short
             warnings.append(DrinkWarning(
                 kind: .bacExceeded,
                 title: "Do Not Drive",
-                message: "Your BAC (\(String(format: "%.3f", context.currentBAC))%) is over your limit. Safe to drive around \(tf.string(from: safeDate)).",
+                message: "Your estimated BAC is over your limit. Arrange a sober ride. This app cannot determine when it is safe to drive.",
                 severity: .danger
             ))
         }

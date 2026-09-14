@@ -2,19 +2,36 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Deny everything by default — only explicit matches below can read or write.
-
-    match /users/{userId} {
-      // Owner can read and delete their top-level user document.
-      // Cloud Functions (Admin SDK) create it — no client create needed.
-      allow read, delete: if request.auth != null && request.auth.uid == userId;
-
-      // All subcollections: only the owner can read/write.
-      // Covers: night_events, drink_entries, drink_types, challenges,
-      //         profiles, ai_coach_reports, night_recoveries.
-      // Cloud Functions write via Admin SDK which bypasses these rules.
-      match /{document=**} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+    function owner(uid) {
+      return request.auth != null && request.auth.uid == uid
+        && !exists(/databases/$(database)/documents/account_deletions/$(uid));
+    }
+    match /users/{uid} {
+      allow read: if owner(uid);
+      match /night_events/{id} {
+        allow read, delete: if owner(uid);
+        allow create: if owner(uid) && request.resource.data.keys().hasOnly([
+          'started_at', 'driving_mode', 'created_at', 'name', 'ended_at', 'bac_limit', 'notes'
+        ]);
+        allow update: if owner(uid) && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'started_at', 'driving_mode', 'created_at', 'name', 'ended_at', 'bac_limit', 'notes'
+        ]);
+      }
+      match /profiles/{id} {
+        allow read, delete: if owner(uid);
+        allow create: if owner(uid) && !request.resource.data.keys().hasAny([
+          'subscription_tier', 'subscription_period', 'subscription_started_at'
+        ]);
+        allow update: if owner(uid) && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'subscription_tier', 'subscription_period', 'subscription_started_at'
+        ]);
+      }
+      match /{collection}/{id} {
+        allow read: if owner(uid) && collection in [
+          'drink_entries', 'drink_types', 'challenges', 'ai_coach_reports', 'night_recoveries', 'report_usage', 'report_jobs'
+        ];
+        allow write: if owner(uid) && collection in ['drink_entries', 'drink_types', 'challenges'];
+        allow delete: if owner(uid) && collection in ['ai_coach_reports', 'night_recoveries'];
       }
     }
 

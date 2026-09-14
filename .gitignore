@@ -46,6 +46,13 @@ node_modules/
 *.tgz
 .yarn-integrity
 .env
+.env.*
+!.env.example
+.secret.local
+.superpowers/
+functions/certificates/*.cer
+!functions/certificates/AppleRootCA-G2.cer
+!functions/certificates/AppleRootCA-G3.cer
 .dataconnect
 tracksip_ios/
 
@@ -55,3 +62,5 @@ tracksip_ios/
 *.cer
 *.certSigningRequest
 *.mobileprovision
+!functions/certificates/AppleRootCA-G2.cer
+!functions/certificates/AppleRootCA-G3.cer

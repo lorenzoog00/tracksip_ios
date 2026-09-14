@@ -18,7 +18,11 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  checks:
+    uses: ./.github/workflows/ci.yml
+
   upload:
+    needs: checks
     name: Archive & upload
     runs-on: macos-latest
     timeout-minutes: 60

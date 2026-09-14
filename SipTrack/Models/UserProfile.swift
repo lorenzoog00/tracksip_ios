@@ -86,6 +86,7 @@ struct UserProfile: Codable {
     var favoriteDrinkIds: [String]             = []
     var aiReportsUsedThisMonth: Int            = 0
     var aiReportMonthKey: String               = "" // format: "2026-05"
+    var aiReportsEnabled: Bool?                = nil
 
     var isPro: Bool { subscriptionTier == .pro }
 

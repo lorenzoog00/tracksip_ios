@@ -40,6 +40,13 @@ struct CoachView: View {
 
             VStack(spacing: 0) {
                 coachHeader
+                if appState.userProfile.aiReportsEnabled != true {
+                    NavigationLink(value: Route.profile) {
+                        Text("Enable AI reports in Profile to share your night data with Anthropic.")
+                            .font(.footnote)
+                            .padding()
+                    }
+                }
                 tabBar
 
                 Group {

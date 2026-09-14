@@ -5,10 +5,11 @@ import GoogleMobileAds
 /// Native ad card injected into the past-events list at position 3 (free users only).
 struct NativeAdCardView: View {
     @EnvironmentObject var appState: AppState
+    @ObservedObject private var consent = ConsentManager.shared
     @StateObject private var loader = NativeAdLoader()
 
     var body: some View {
-        if !appState.isPro {
+        if !appState.isPro && consent.canRequestAds {
             Group {
                 if loader.isLoaded {
                     NativeAdContent(loader: loader)

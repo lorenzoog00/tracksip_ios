@@ -14,7 +14,9 @@ final class LiveActivityManager {
     func start(eventName: String, eventId: String, quickDrinks: [SipTrackActivityAttributes.QuickDrink]) {
         let info = ActivityAuthorizationInfo()
         guard info.areActivitiesEnabled else {
+            #if DEBUG
             print("[LiveActivity] Activities disabled by user in Settings")
+            #endif
             return
         }
         end()
@@ -33,14 +35,24 @@ final class LiveActivityManager {
         do {
             activity = try Activity.request(attributes: attrs, content: content, pushType: nil)
             let startedId = activity?.id ?? "nil"
+            #if DEBUG
             print("[LiveActivity] Started: \(startedId), state: \(String(describing: activity?.activityState))")
+            #endif
+            #if DEBUG
             print("[LiveActivity] attributesType: \(String(reflecting: SipTrackActivityAttributes.self))")
+            #endif
             let all = Activity<SipTrackActivityAttributes>.activities
+            #if DEBUG
             print("[LiveActivity] Total activities after request: \(all.count)")
+            #endif
+            #if DEBUG
             for a in all { print("[LiveActivity]   id=\(a.id) state=\(a.activityState)") }
+            #endif
             monitorState()
         } catch {
+            #if DEBUG
             print("[LiveActivity] Failed to start: \(error)")
+            #endif
         }
     }
 
@@ -74,7 +86,9 @@ final class LiveActivityManager {
         stateMonitorTask?.cancel()
         stateMonitorTask = Task {
             for await state in activity.activityStateUpdates {
+                #if DEBUG
                 print("[LiveActivity] State update: \(state)")
+                #endif
                 if state == .dismissed || state == .ended { break }
             }
         }

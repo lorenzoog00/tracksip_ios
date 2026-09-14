@@ -1,5 +1,6 @@
 import SwiftUI
 import FirebaseCore
+import FirebaseAppCheck
 import GoogleSignIn
 
 @main
@@ -12,6 +13,11 @@ struct SipTrackApp: App {
     @StateObject private var countryDetector = LocationCountryDetector()
 
     init() {
+        #if DEBUG
+        AppCheck.setAppCheckProviderFactory(AppCheckDebugProviderFactory())
+        #else
+        AppCheck.setAppCheckProviderFactory(ProductionAppCheckProviderFactory())
+        #endif
         FirebaseApp.configure()
         let s = StoreManager()
         let state = AppState(store: s)
@@ -40,7 +46,14 @@ struct SipTrackApp: App {
                     }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+                    Task {
+                        await store.refreshStatus()
+                        appState.syncSubscriptionFromStore()
+                    }
                     AdManager.shared.showAppOpenAdIfReady(isPro: appState.isPro)
+                }
+                .onChange(of: store.isPro) { _, _ in
+                    appState.syncSubscriptionFromStore()
                 }
                 .onOpenURL { url in
                     if GIDSignIn.sharedInstance.handle(url) { return }
@@ -61,5 +74,11 @@ struct SipTrackApp: App {
                     }
                 }
         }
+    }
+}
+
+private final class ProductionAppCheckProviderFactory: NSObject, AppCheckProviderFactory {
+    func createProvider(with app: FirebaseApp) -> AppCheckProvider? {
+        AppAttestProvider(app: app)
     }
 }

@@ -5,10 +5,11 @@ import GoogleMobileAds
 /// Shows only for free users. Collapses silently on load failure.
 struct BannerAdView: View {
     @EnvironmentObject var appState: AppState
+    @ObservedObject private var consent = ConsentManager.shared
     @State private var adHeight: CGFloat = 50
 
     var body: some View {
-        if !appState.isPro {
+        if !appState.isPro && consent.canRequestAds {
             BannerAdContainer(adUnitID: AdConfig.activeBanner, height: $adHeight)
                 .frame(height: adHeight)
                 .frame(maxWidth: .infinity)

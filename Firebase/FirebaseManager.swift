@@ -7,6 +7,9 @@ import CryptoKit
 import Combine
 import AuthenticationServices
 import GoogleSignIn
+import FirebaseCore
+import FirebaseAppCheck
+import StoreKit
 
 @MainActor
 final class FirebaseManager: ObservableObject {
@@ -193,18 +196,16 @@ final class FirebaseManager: ObservableObject {
         var data: [String: Any] = [
             "weight_kg":           profile.weightKg,
             "sex":                 profile.sex.rawValue,
-            "onboarding_complete": profile.onboardingComplete,
-            "subscription_tier":   profile.subscriptionTier.rawValue
+            "onboarding_complete": profile.onboardingComplete
         ]
         if let h = profile.heightCm             { data["height_cm"]              = h }
         if let b = profile.birthYear            { data["age"]                    = currentYear - b }
         if let d = profile.disclaimerAcceptedAt { data["disclaimer_accepted_at"] = d.timeIntervalSince1970 * 1000 }
-        if let p = profile.subscriptionPeriod   { data["subscription_period"]    = p.rawValue }
-        if let s = profile.subscriptionStartedAt { data["subscription_started_at"] = ISO8601DateFormatter().string(from: s) }
         if let c = profile.countryCode                           { data["country_code"]                       = c }
         if let d = profile.countryDetectionLastDismissedCode     { data["country_detection_last_dismissed"]   = d }
         data["country_detection_disabled"] = profile.countryDetectionDisabled
         data["favorite_drink_ids"] = profile.favoriteDrinkIds
+        data["ai_reports_enabled"] = profile.aiReportsEnabled == true
         try await db.collection("users").document(uid).collection("profiles").document(uid)
             .setData(data, merge: true)
     }
@@ -335,6 +336,7 @@ final class FirebaseManager: ObservableObject {
             up.countryDetectionLastDismissedCode = d["country_detection_last_dismissed"] as? String
             up.countryDetectionDisabled = d["country_detection_disabled"] as? Bool ?? false
             up.favoriteDrinkIds = d["favorite_drink_ids"] as? [String] ?? []
+            up.aiReportsEnabled = d["ai_reports_enabled"] as? Bool
             profile = up
         }
 
@@ -364,17 +366,13 @@ final class FirebaseManager: ObservableObject {
     // MARK: - AI Coach Report (Firestore trigger)
 
     func requestCoachReport(reportId: String, data: [String: Any]) async throws {
-        guard let uid = currentUserId() else { return }
-        try await db.collection("users").document(uid)
-            .collection("ai_coach_reports").document(reportId)
-            .setData(data, merge: true)
+        try await requestReport(kind: data["type"] as? String ?? "", id: reportId,
+                                payload: data["request_data"] as? [String: Any] ?? [:], metadata: data)
     }
 
     func requestRecoveryBrief(eventId: String, data: [String: Any]) async throws {
-        guard let uid = currentUserId() else { return }
-        try await db.collection("users").document(uid)
-            .collection("night_recoveries").document(eventId)
-            .setData(data)
+        try await requestReport(kind: "recovery", id: eventId,
+                                payload: data["request_data"] as? [String: Any] ?? [:])
     }
 
     func fetchRecoveryBrief(eventId: String) async -> String? {
@@ -425,11 +423,65 @@ final class FirebaseManager: ObservableObject {
     // MARK: - AI Report (Firestore trigger)
 
     func requestAiReport(eventId: String, data: [String: Any]) async throws {
-        guard let col = col("night_events") else { return }
-        try await col.document(eventId).setData([
-            "ai_report_requested": true,
-            "ai_report_request_data": data
-        ], merge: true)
+        try await requestReport(kind: "night", id: eventId, payload: data)
+    }
+
+    var appAccountToken: UUID? {
+        guard let uid = currentUserId() else { return nil }
+        let hex = Array(sha256(uid).prefix(32))
+        let parts = [String(hex[0..<8]), String(hex[8..<12]), String(hex[12..<16]),
+                     String(hex[16..<20]), String(hex[20..<32])]
+        return UUID(uuidString: parts.joined(separator: "-"))
+    }
+
+    private func requestReport(kind: String, id: String, payload: [String: Any],
+                               metadata: [String: Any] = [:]) async throws {
+        guard DataStore.shared.loadUserProfile().aiReportsEnabled == true else {
+            throw NSError(domain: "FirebaseManager", code: 403,
+                          userInfo: [NSLocalizedDescriptionKey: "Enable AI reports in Profile before sharing data with Anthropic."])
+        }
+        var data: [String: Any] = ["kind": kind, "id": id, "payload": payload]
+        data["metadata"] = metadata.filter { ["period_start", "period_end", "event_a_id", "event_b_id"].contains($0.key) }
+        for await result in StoreKit.Transaction.currentEntitlements {
+            if case .verified(let transaction) = result,
+               StoreManager.grantsPro(productID: transaction.productID,
+                                      expirationDate: transaction.expirationDate,
+                                      revocationDate: transaction.revocationDate,
+                                      isUpgraded: transaction.isUpgraded) {
+                data["signedTransaction"] = result.jwsRepresentation
+                break
+            }
+        }
+        _ = try await callFunction("requestReport", data: data)
+    }
+
+    private func callFunction(_ name: String, data: [String: Any]) async throws -> [String: Any] {
+        guard let user = auth.currentUser, let project = FirebaseApp.app()?.options.projectID,
+              let url = URL(string: "https://us-central1-\(project).cloudfunctions.net/\(name)") else {
+            throw NSError(domain: "FirebaseManager", code: 401,
+                          userInfo: [NSLocalizedDescriptionKey: "Please sign in and try again."])
+        }
+        let token = try await user.getIDToken(forcingRefresh: true)
+        let appCheck = try await AppCheck.appCheck().token(forcingRefresh: false)
+        var request = URLRequest(url: url, timeoutInterval: 130)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue(appCheck.token, forHTTPHeaderField: "X-Firebase-AppCheck")
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["data": data])
+        let (body, response) = try await URLSession.shared.data(for: request)
+        guard let envelope = try JSONSerialization.jsonObject(with: body) as? [String: Any] else {
+            throw URLError(.cannotParseResponse)
+        }
+        if let error = envelope["error"] as? [String: Any] {
+            throw NSError(domain: "FirebaseManager", code: (response as? HTTPURLResponse)?.statusCode ?? 500,
+                          userInfo: [NSLocalizedDescriptionKey: error["message"] as? String ?? "Please try again."])
+        }
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode),
+              let result = (envelope["result"] ?? envelope["data"]) as? [String: Any] else {
+            throw URLError(.badServerResponse)
+        }
+        return result
     }
 
     func fetchAiReport(eventId: String) async -> String? {
@@ -440,26 +492,26 @@ final class FirebaseManager: ObservableObject {
 
     // MARK: - Account deletion
 
-    func deleteAccount() async -> String? {
-        guard let uid = currentUserId(), let user = auth.currentUser else { return "Not signed in" }
+    enum AccountDeletionResult { case deleted, cancelled, failed(String) }
+
+    func deleteAccount() async -> AccountDeletionResult {
+        guard let user = auth.currentUser else { return .failed("Not signed in") }
         do {
             // Firebase requires recent auth for account deletion — re-authenticate first.
             try await reauthenticate(user: user)
 
-            for name in ["night_events", "drink_entries", "drink_types", "challenges", "profiles", "ai_coach_reports"] {
-                if let snap = try? await db.collection("users").document(uid).collection(name).getDocuments() {
-                    for doc in snap.documents { try? await doc.reference.delete() }
-                }
-            }
-            try? await db.collection("users").document(uid).delete()
-            try await user.delete()
-            return nil
+            let result = try await callFunction("deleteAccount", data: [:])
+            guard result["deleted"] as? Bool == true else { return .failed("Deletion did not complete. Please try again.") }
+            await signOut()
+            return .deleted
         } catch let error as NSError
             where error.domain == ASAuthorizationError.errorDomain
                && error.code == ASAuthorizationError.canceled.rawValue {
-            return nil // user cancelled the re-auth sheet — treat as no-op
+            return .cancelled
+        } catch let error as NSError where error.domain == kGIDSignInErrorDomain && error.code == -5 {
+            return .cancelled
         } catch {
-            return friendlyAuthError(error)
+            return .failed(friendlyAuthError(error))
         }
     }
 
@@ -469,6 +521,11 @@ final class FirebaseManager: ObservableObject {
         case "apple.com":
             let credential = try await AppleSignInCoordinator.shared.signIn()
             try await user.reauthenticate(with: credential)
+            guard let code = AppleSignInCoordinator.shared.authorizationCode else {
+                throw NSError(domain: "FirebaseManager", code: 400,
+                              userInfo: [NSLocalizedDescriptionKey: "Apple authorization did not complete. Please try again."])
+            }
+            try await auth.revokeToken(withAuthorizationCode: code)
         case "google.com":
             guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
                   let rootVC = windowScene.windows.first?.rootViewController else { return }
