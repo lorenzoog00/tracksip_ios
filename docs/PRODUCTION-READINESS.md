@@ -31,7 +31,7 @@ bounded retry, deletion during generation, recent authentication, and purchase
 ownership. A baseline run against the old rules proves the new security checks
 reject the previously allowed writes.
 
-macOS build/test results will be recorded after CI completes.
+macOS build/test results are tracked in [PR #1 checks](https://github.com/lorenzoog00/tracksip_ios/pull/1/checks).
 Signed archive validation, screenshots, real-device flows, and live services are
 not verified from this Windows workspace.
 

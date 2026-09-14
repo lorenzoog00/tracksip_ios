@@ -49,8 +49,8 @@ struct SipTrackApp: App {
                     Task {
                         await store.refreshStatus()
                         appState.syncSubscriptionFromStore()
+                        AdManager.shared.showAppOpenAdIfReady(isPro: appState.isPro)
                     }
-                    AdManager.shared.showAppOpenAdIfReady(isPro: appState.isPro)
                 }
                 .onChange(of: store.isPro) { _, _ in
                     appState.syncSubscriptionFromStore()
