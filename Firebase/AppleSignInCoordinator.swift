@@ -11,6 +11,38 @@ final class AppleSignInCoordinator: NSObject {
     private var currentNonce: String?
     private var continuation: CheckedContinuation<AuthCredential, Error>?
 
+    /// Configures a request from SignInWithAppleButton's onRequest handler.
+    func configure(request: ASAuthorizationAppleIDRequest) {
+        let nonce = Self.randomNonceString()
+        currentNonce = nonce
+        request.requestedScopes = [.fullName, .email]
+        request.nonce = Self.sha256(nonce)
+    }
+
+    /// Handles the result from SignInWithAppleButton's onCompletion handler.
+    func handle(result: Result<ASAuthorization, Error>) throws -> AuthCredential {
+        let auth = try result.get()
+        guard let appleIDCredential = auth.credential as? ASAuthorizationAppleIDCredential else {
+            throw NSError(domain: "AppleSignIn", code: -1,
+                          userInfo: [NSLocalizedDescriptionKey: "Unexpected credential type."])
+        }
+        guard let nonce = currentNonce else {
+            throw NSError(domain: "AppleSignIn", code: -2,
+                          userInfo: [NSLocalizedDescriptionKey: "Missing login nonce."])
+        }
+        guard let tokenData = appleIDCredential.identityToken,
+              let idToken = String(data: tokenData, encoding: .utf8) else {
+            throw NSError(domain: "AppleSignIn", code: -3,
+                          userInfo: [NSLocalizedDescriptionKey: "Unable to fetch identity token."])
+        }
+        var fullName: PersonNameComponents? = appleIDCredential.fullName
+        if let fn = fullName, (fn.givenName ?? "").isEmpty && (fn.familyName ?? "").isEmpty {
+            fullName = nil
+        }
+        currentNonce = nil
+        return OAuthProvider.appleCredential(withIDToken: idToken, rawNonce: nonce, fullName: fullName)
+    }
+
     func signIn() async throws -> AuthCredential {
         let nonce = Self.randomNonceString()
         currentNonce = nonce

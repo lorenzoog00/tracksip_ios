@@ -985,12 +985,14 @@ struct AuthView: View {
                     .padding(.top, 40)
 
                     // MARK: Apple Sign In
-                    Button {
+                    SignInWithAppleButton(.continue) { request in
+                        AppleSignInCoordinator.shared.configure(request: request)
+                    } onCompletion: { result in
                         Task {
                             isLoading = true
                             errorMsg = nil
                             do {
-                                let credential = try await AppleSignInCoordinator.shared.signIn()
+                                let credential = try AppleSignInCoordinator.shared.handle(result: result)
                                 try await firebase.signInWithCredential(credential)
                                 appState.shouldShowAuth = false
                                 dismiss()
@@ -1003,20 +1005,10 @@ struct AuthView: View {
                             }
                             isLoading = false
                         }
-                    } label: {
-                        HStack(spacing: 10) {
-                            Image(systemName: "applelogo")
-                                .font(.system(size: 18, weight: .medium))
-                                .foregroundStyle(Color.white)
-                            Text("Continue with Apple")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(Color.white)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 50)
-                        .background(Color.black)
-                        .cornerRadius(14)
                     }
+                    .signInWithAppleButtonStyle(.white)
+                    .frame(height: 50)
+                    .cornerRadius(14)
                     .disabled(isLoading)
 
                     // MARK: Google Sign In

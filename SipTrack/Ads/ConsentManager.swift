@@ -11,6 +11,8 @@ final class ConsentManager {
     func gatherConsentAndInitializeAds() async {
         await requestUMPConsent()
         guard ConsentInformation.shared.canRequestAds else { return }
+        // Wait for any UMP modal to fully dismiss before presenting ATT.
+        try? await Task.sleep(for: .seconds(1))
         await ATTrackingManager.requestTrackingAuthorization()
         AdManager.shared.initialize()
         async let appOpen: () = AdManager.shared.loadAppOpenAd()
