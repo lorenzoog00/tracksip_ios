@@ -1,4 +1,4 @@
-﻿# Production cleanup status
+# Production cleanup status
 
 Changes prepared on `codex/production-readiness` from `a1bf092`.
 
@@ -44,4 +44,3 @@ App Store upload were performed. The user will handle distribution.
 The backend is part of this change: **an app-only upload is not sufficient**.
 Deploy both functions and rules, remove the three retired triggers, configure the
 new secrets/parameters, and validate the archive before distributing the app.
-

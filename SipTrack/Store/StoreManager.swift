@@ -21,6 +21,7 @@ final class StoreManager: ObservableObject {
     @Published var restoreError: String? = nil
 
     private var updatesTask: Task<Void, Never>?
+    private var refreshGeneration = 0
 
     init() {
         updatesTask = Task { [weak self] in
@@ -118,6 +119,8 @@ final class StoreManager: ObservableObject {
     // MARK: - Status
 
     func refreshStatus() async {
+        refreshGeneration += 1
+        let generation = refreshGeneration
         var hasPro = false
         var detectedPeriod: SubscriptionPeriod? = nil
 
@@ -132,7 +135,7 @@ final class StoreManager: ObservableObject {
             detectedPeriod = period(for: transaction.productID)
             break
         }
-        guard !Task.isCancelled else { return }
+        guard !Task.isCancelled, generation == refreshGeneration else { return }
         isPro = hasPro
         activePeriod = detectedPeriod
         entitlementResolved = true
