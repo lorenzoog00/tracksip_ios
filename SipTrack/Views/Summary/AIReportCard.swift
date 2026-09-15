@@ -694,7 +694,13 @@ struct NightAnalysisCard: View {
         VStack(alignment: .leading, spacing: 0) {
             cardHeader
             themeAccentRule
-            if isGeneratingNight {
+            if appState.userProfile.aiReportsEnabled != true && event?.aiReport == nil {
+                NavigationLink(value: Route.profile) {
+                    Text("Enable AI reports in Profile to share your night data with Anthropic.")
+                        .font(.footnote)
+                        .padding()
+                }
+            } else if isGeneratingNight {
                 analysisLoading(label: "SCANNING", color: AppColors.accent)
             } else if isAtFreeLimit {
                 freeReportLimitGate
@@ -917,7 +923,7 @@ struct NightAnalysisCard: View {
                     .font(.system(size: 11, weight: .black))
                     .tracking(1.8)
                     .foregroundStyle(AppColors.text)
-                Text("You've used all \(AppState.freeMonthlyReportLimit) free AI reports this month. Upgrade for unlimited night analysis.")
+                Text("You've used all \(AppState.freeMonthlyReportLimit) free AI reports this month. Upgrade for more night reports.")
                     .font(.system(size: 12))
                     .foregroundStyle(AppColors.textSecondary)
                     .multilineTextAlignment(.center)
@@ -927,7 +933,7 @@ struct NightAnalysisCard: View {
                 HStack(spacing: 8) {
                     Image(systemName: "crown.fill")
                         .font(.system(size: 12))
-                    Text("Upgrade for Unlimited")
+                    Text("Explore Pro")
                         .font(.system(size: 13, weight: .bold))
                 }
                 .foregroundStyle(.black)

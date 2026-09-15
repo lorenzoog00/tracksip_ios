@@ -17,8 +17,11 @@ final class StoreManager: ObservableObject {
     @Published var activePeriod: SubscriptionPeriod? = nil
     @Published var loadError: String? = nil
     @Published var isLoadingProducts: Bool = false
+    @Published private(set) var entitlementResolved = false
+    @Published var restoreError: String? = nil
 
     private var updatesTask: Task<Void, Never>?
+    private var refreshGeneration = 0
 
     init() {
         updatesTask = Task { [weak self] in
@@ -41,30 +44,24 @@ final class StoreManager: ObservableObject {
             let loaded = try await Product.products(for: Self.productIDs)
             products = loaded.sorted { $0.price < $1.price }
             if loaded.isEmpty {
-                loadError = "No products found — check Xcode console for details."
+                loadError = "Plans are unavailable right now. Please try again later."
+                #if DEBUG
                 print("StoreKit: Product.products(for:) returned empty. IDs requested: \(Self.productIDs)")
                 print("StoreKit: Make sure Edit Scheme → Run → Options → StoreKit Configuration points to your .storekit file.")
+                #endif
             } else {
+                #if DEBUG
                 print("StoreKit: Loaded \(loaded.count) product(s): \(loaded.map { "\($0.id) \($0.displayPrice)" })")
+                #endif
             }
         } catch {
             loadError = error.localizedDescription
+            #if DEBUG
             print("StoreKit: Product.products(for:) threw: \(error)")
+            #endif
         }
         isLoadingProducts = false
     }
-
-    #if DEBUG
-    func debugUnlockPro() {
-        isPro = true
-        activePeriod = .yearly
-    }
-
-    func debugDowngradeFree() {
-        isPro = false
-        activePeriod = nil
-    }
-    #endif
 
     func retryLoadProducts() {
         Task { await loadProducts() }
@@ -88,7 +85,9 @@ final class StoreManager: ObservableObject {
 
     func purchase(_ product: Product) async -> PurchaseResult {
         do {
-            let result = try await product.purchase()
+            var options: Set<Product.PurchaseOption> = []
+            if let token = FirebaseManager.shared.appAccountToken { options.insert(.appAccountToken(token)) }
+            let result = try await product.purchase(options: options)
             switch result {
             case .success(let verification):
                 let transaction = try checkVerified(verification)
@@ -108,37 +107,49 @@ final class StoreManager: ObservableObject {
     }
 
     func restorePurchases() async {
-        try? await AppStore.sync()
-        await refreshStatus()
+        restoreError = nil
+        do {
+            try await AppStore.sync()
+            await refreshStatus()
+        } catch {
+            restoreError = "Purchases could not be restored. Please try again."
+        }
     }
 
     // MARK: - Status
 
     func refreshStatus() async {
+        refreshGeneration += 1
+        let generation = refreshGeneration
         var hasPro = false
         var detectedPeriod: SubscriptionPeriod? = nil
 
-        // Race StoreKit against an 8-second timeout. Without proper IAP
-        // entitlement on device, currentEntitlements can hang indefinitely.
-        // Sandbox is slower than production — 8s gives it enough time.
-        let checker = Task {
-            for await result in Transaction.currentEntitlements {
-                if let transaction = try? checkVerified(result) {
-                    hasPro = true
-                    detectedPeriod = period(for: transaction.productID)
-                    break
-                }
-            }
+        for await result in Transaction.currentEntitlements {
+            guard !Task.isCancelled else { return }
+            guard case .verified(let transaction) = result,
+                  Self.grantsPro(productID: transaction.productID,
+                                 expirationDate: transaction.expirationDate,
+                                 revocationDate: transaction.revocationDate,
+                                 isUpgraded: transaction.isUpgraded) else { continue }
+            hasPro = true
+            detectedPeriod = period(for: transaction.productID)
+            break
         }
-        let timer = Task {
-            try? await Task.sleep(nanoseconds: 8_000_000_000)
-            checker.cancel()
-        }
-        await checker.value  // returns immediately when StoreKit responds OR after 8s timeout
-        timer.cancel()       // stop the timer if StoreKit was fast
-
+        guard !Task.isCancelled, generation == refreshGeneration else { return }
         isPro = hasPro
         activePeriod = detectedPeriod
+        entitlementResolved = true
+    }
+
+    nonisolated static func grantsPro(productID: String, expirationDate: Date?,
+                                     revocationDate: Date?, isUpgraded: Bool,
+                                     now: Date = Date()) -> Bool {
+        let lifetime = "com.lorenzoog.siptrack.pro.lifetime"
+        let subscription = productID == "com.lorenzoog.siptrack.pro.monthly"
+            || productID == "com.lorenzoog.siptrack.pro.yearly"
+        guard (productID == lifetime || subscription), revocationDate == nil,
+              !isUpgraded else { return false }
+        return productID == lifetime || (expirationDate.map { $0 > now } ?? false)
     }
 
     private func period(for productID: String) -> SubscriptionPeriod? {

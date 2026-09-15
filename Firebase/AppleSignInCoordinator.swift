@@ -9,6 +9,7 @@ final class AppleSignInCoordinator: NSObject {
     static let shared = AppleSignInCoordinator()
 
     private var currentNonce: String?
+    private(set) var authorizationCode: String?
     private var continuation: CheckedContinuation<AuthCredential, Error>?
 
     /// Configures a request from SignInWithAppleButton's onRequest handler.
@@ -44,6 +45,7 @@ final class AppleSignInCoordinator: NSObject {
     }
 
     func signIn() async throws -> AuthCredential {
+        authorizationCode = nil
         let nonce = Self.randomNonceString()
         currentNonce = nonce
 
@@ -117,6 +119,7 @@ extension AppleSignInCoordinator: ASAuthorizationControllerDelegate {
                 fullName = nil
             }
 
+            authorizationCode = appleIDCredential.authorizationCode.flatMap { String(data: $0, encoding: .utf8) }
             let credential = OAuthProvider.appleCredential(withIDToken: idToken,
                                                            rawNonce: nonce,
                                                            fullName: fullName)

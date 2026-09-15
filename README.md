@@ -32,7 +32,7 @@ Local (SPM): `SipTrackActivityKit/` — Live Activity attributes shared by the a
 
 To test purchases locally: Edit Scheme → Run → Options → StoreKit Configuration → `Siptrack.storekit`.
 
-**Cloud Functions** — `functions/` (Node). Three Firestore-triggered functions call the Anthropic API to generate reports: `generateNightReport`, `generateRecoveryBrief`, `generateCoachReport`. Deploy with `firebase deploy --only functions`; the Anthropic key is read from function config, not committed.
+**Cloud Functions** ? `functions/` (Node 24). Authenticated, App Check protected `requestReport` and `deleteAccount` callables replace direct Firestore report triggers. See [release steps](docs/RELEASE.md) for Apple purchase verification, secrets, deployment, and test commands.
 
 ## Layout
 

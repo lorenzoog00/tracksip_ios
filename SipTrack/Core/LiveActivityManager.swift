@@ -8,13 +8,14 @@ final class LiveActivityManager {
 
     static let shared = LiveActivityManager()
     private var activity: Activity<SipTrackActivityAttributes>?
-    private var stateMonitorTask: Task<Void, Never>?
     private init() {}
 
     func start(eventName: String, eventId: String, quickDrinks: [SipTrackActivityAttributes.QuickDrink]) {
         let info = ActivityAuthorizationInfo()
         guard info.areActivitiesEnabled else {
+            #if DEBUG
             print("[LiveActivity] Activities disabled by user in Settings")
+            #endif
             return
         }
         end()
@@ -32,15 +33,18 @@ final class LiveActivityManager {
         let content = ActivityContent(state: state, staleDate: Date().addingTimeInterval(300))
         do {
             activity = try Activity.request(attributes: attrs, content: content, pushType: nil)
+            #if DEBUG
             let startedId = activity?.id ?? "nil"
             print("[LiveActivity] Started: \(startedId), state: \(String(describing: activity?.activityState))")
             print("[LiveActivity] attributesType: \(String(reflecting: SipTrackActivityAttributes.self))")
             let all = Activity<SipTrackActivityAttributes>.activities
             print("[LiveActivity] Total activities after request: \(all.count)")
             for a in all { print("[LiveActivity]   id=\(a.id) state=\(a.activityState)") }
-            monitorState()
+            #endif
         } catch {
+            #if DEBUG
             print("[LiveActivity] Failed to start: \(error)")
+            #endif
         }
     }
 
@@ -61,22 +65,10 @@ final class LiveActivityManager {
     }
 
     func end() {
-        stateMonitorTask?.cancel()
-        stateMonitorTask = nil
         guard let activity else { return }
         let content = ActivityContent(state: activity.content.state, staleDate: nil)
         Task { await activity.end(content, dismissalPolicy: .immediate) }
         self.activity = nil
     }
 
-    private func monitorState() {
-        guard let activity else { return }
-        stateMonitorTask?.cancel()
-        stateMonitorTask = Task {
-            for await state in activity.activityStateUpdates {
-                print("[LiveActivity] State update: \(state)")
-                if state == .dismissed || state == .ended { break }
-            }
-        }
-    }
 }

@@ -25,12 +25,14 @@ final class AdManager: NSObject, ObservableObject, FullScreenContentDelegate {
     // MARK: - App Open Ad
 
     func loadAppOpenAd() async {
+        guard ConsentManager.shared.canRequestAds else { return }
         guard !appOpenAdReady else { return }
         do {
             appOpenAd = try await AppOpenAd.load(
                 with: AdConfig.activeAppOpen,
                 request: Request()
             )
+            guard ConsentManager.shared.canRequestAds else { clearAds(); return }
             appOpenAd?.fullScreenContentDelegate = self
             appOpenAdReady = true
         } catch {
@@ -39,6 +41,7 @@ final class AdManager: NSObject, ObservableObject, FullScreenContentDelegate {
     }
 
     func showAppOpenAdIfReady(isPro: Bool) {
+        guard ConsentManager.shared.canRequestAds else { return }
         guard !isPro, !shownThisSession, appOpenAdReady else { return }
         guard let root = rootViewController() else { return }
         appOpenAd?.present(from: root)
@@ -49,12 +52,14 @@ final class AdManager: NSObject, ObservableObject, FullScreenContentDelegate {
     // MARK: - Interstitial Ad
 
     func loadInterstitialAd() async {
+        guard ConsentManager.shared.canRequestAds else { return }
         guard !interstitialReady else { return }
         do {
             interstitialAd = try await InterstitialAd.load(
                 with: AdConfig.activeInterstitial,
                 request: Request()
             )
+            guard ConsentManager.shared.canRequestAds else { clearAds(); return }
             interstitialAd?.fullScreenContentDelegate = self
             interstitialReady = true
         } catch {
@@ -63,6 +68,7 @@ final class AdManager: NSObject, ObservableObject, FullScreenContentDelegate {
     }
 
     func showInterstitialIfReady(isPro: Bool) {
+        guard ConsentManager.shared.canRequestAds else { return }
         guard !isPro, interstitialReady else { return }
         guard let root = rootViewController() else { return }
         interstitialAd?.present(from: root)
@@ -105,6 +111,13 @@ final class AdManager: NSObject, ObservableObject, FullScreenContentDelegate {
     }
 
     // MARK: - Helper
+
+    func clearAds() {
+        appOpenAd = nil
+        interstitialAd = nil
+        appOpenAdReady = false
+        interstitialReady = false
+    }
 
     private func rootViewController() -> UIViewController? {
         UIApplication.shared

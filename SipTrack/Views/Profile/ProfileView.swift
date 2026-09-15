@@ -6,6 +6,7 @@ import AuthenticationServices
 struct ProfileView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var firebase: FirebaseManager
+    @ObservedObject private var consent = ConsentManager.shared
     @Environment(\.dismiss) private var dismiss
 
     @State private var sex: Sex
@@ -472,12 +473,44 @@ struct ProfileView: View {
                     }
 
                     // MARK: Learn
+                    ProfileSection(title: "AI Reports", icon: "sparkles") {
+                        Toggle("Enable AI reports", isOn: Binding(
+                            get: { appState.userProfile.aiReportsEnabled == true },
+                            set: { enabled in
+                                var profile = appState.userProfile
+                                profile.aiReportsEnabled = enabled
+                                appState.updateUserProfile(profile)
+                                if enabled { appState.checkAndGenerateAutoReports() }
+                            }
+                        ))
+                        .padding()
+                        Text("When enabled, your drink logs, BAC estimates, body measurements and night details are sent to Anthropic to create reports. Reports may be generated automatically. You can turn this off at any time. AI reports can be wrong and do not provide medical advice.")
+                            .font(.footnote)
+                            .foregroundStyle(AppColors.textSecondary)
+                            .padding(.horizontal)
+                            .padding(.bottom)
+                        Link("Anthropic Privacy Policy", destination: URL(string: "https://www.anthropic.com/legal/privacy")!)
+                            .font(.footnote)
+                            .padding(.bottom)
+                    }
+
                     ProfileSection(title: "About Alcohol & BAC", icon: "book.closed.fill") {
                         learnRow
                     }
 
                     // MARK: Legal
                     ProfileSection(title: "Legal", icon: "doc.text.fill") {
+                        if consent.requiresPrivacyOptions {
+                            Button {
+                                Task { await consent.presentPrivacyOptions() }
+                            } label: {
+                                legalRow(label: "Ad Privacy Choices")
+                            }
+                            if let error = consent.privacyError {
+                                Text(error).font(.footnote).foregroundStyle(AppColors.danger)
+                            }
+                            ProfileDivider()
+                        }
                         Link(destination: URL(string: "https://looqs.online/siptrack/policy")!) {
                             legalRow(label: "Privacy Policy")
                         }
@@ -757,11 +790,14 @@ struct ProfileView: View {
     private func performDeleteAccount() async {
         deletingAccount = true
         deleteError = nil
-        if let err = await firebase.deleteAccount() {
-            deleteError = err
-            deletingAccount = false
-        } else {
+        defer { deletingAccount = false }
+        switch await firebase.deleteAccount() {
+        case .deleted:
             appState.shouldShowAuth = true
+        case .cancelled:
+            break
+        case .failed(let message):
+            deleteError = message
         }
     }
 }

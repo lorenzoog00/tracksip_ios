@@ -67,6 +67,14 @@ struct ProView: View {
         .navigationTitle(appState.isPro ? "Membership" : "Tracksip Pro")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { modalDismissButton }
+        .alert("Purchase update", isPresented: Binding(
+            get: { store.restoreError != nil },
+            set: { if !$0 { store.restoreError = nil } }
+        )) {
+            Button("OK") { store.restoreError = nil }
+        } message: {
+            Text(store.restoreError ?? "")
+        }
         .safeAreaInset(edge: .bottom) { stickyFooter }
         .onAppear {
             withAnimation(.easeInOut(duration: 5.5).repeatForever(autoreverses: true)) {
@@ -259,7 +267,7 @@ struct ProView: View {
     private var proFeaturesGrid: some View {
         let items: [(String, String)] = [
             ("calendar",             "Unlimited history"),
-            ("brain.head.profile",   "Unlimited AI reports"),
+            ("brain.head.profile",   "Expanded AI reports"),
             ("chart.bar.fill",       "Full analytics & trends"),
             ("calendar.badge.clock", "Calendar heatmap"),
             ("trophy.fill",          "Challenges & goals"),
@@ -321,6 +329,10 @@ struct ProView: View {
 
     private var pricingBlock: some View {
         VStack(spacing: 14) {
+            Text("Pro includes up to 300 AI reports per month, with a daily limit of 30. AI reports require your consent in Profile.")
+                .font(.footnote)
+                .foregroundStyle(AppColors.textSecondary)
+                .multilineTextAlignment(.center)
             if store.isLoadingProducts {
                 ProgressView("Loading plans…")
                     .tint(AppColors.accent)
@@ -379,7 +391,7 @@ struct ProView: View {
                 }
 
                 legalAndRestore
-                    .padding(.top, 6)
+                      .padding(.top, 6)
             }
         }
     }
@@ -426,6 +438,7 @@ struct ProView: View {
             Button {
                 Task {
                     await store.restorePurchases()
+                    errorMessage = store.restoreError
                     appState.syncSubscriptionFromStore()
                 }
             } label: {
@@ -460,7 +473,7 @@ struct ProView: View {
     private var proInventoryCard: some View {
         let items: [(String, String)] = [
             ("calendar",             "Unlimited history"),
-            ("brain.head.profile",   "Unlimited AI reports"),
+            ("brain.head.profile",   "Expanded AI reports"),
             ("chart.bar.fill",       "Full analytics"),
             ("calendar.badge.clock", "Calendar heatmap"),
             ("trophy.fill",          "Challenges & goals"),
@@ -532,6 +545,7 @@ struct ProView: View {
             Button {
                 Task {
                     await store.restorePurchases()
+                    errorMessage = store.restoreError
                     appState.syncSubscriptionFromStore()
                 }
             } label: {

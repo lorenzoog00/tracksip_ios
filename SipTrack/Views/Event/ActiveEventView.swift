@@ -345,7 +345,7 @@ private struct DriveWarningBanner: View {
                     .font(.system(size: 20, weight: .medium))
                     .padding(.bottom, 4)
                 Spacer()
-                Text("until safe\nto drive")
+                Text("estimated time\nbelow limit")
                     .font(.system(size: 12))
                     .foregroundStyle(AppColors.danger.opacity(0.6))
                     .multilineTextAlignment(.trailing)

@@ -59,6 +59,14 @@ struct RootView: View {
             }
         }
         .preferredColorScheme(.dark)
+        .alert("Report unavailable", isPresented: Binding(
+            get: { appState.reportErrorMessage != nil },
+            set: { if !$0 { appState.reportErrorMessage = nil } }
+        )) {
+            Button("OK") { appState.reportErrorMessage = nil }
+        } message: {
+            Text(appState.reportErrorMessage ?? "")
+        }
         .onChange(of: firebase.isSignedIn) { _, signedIn in
             // Re-check the country on every fresh login. Sign-out → sign-in
             // re-arms the one-shot detector; the next HomeView.task fires it.

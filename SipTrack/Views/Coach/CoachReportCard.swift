@@ -8,7 +8,7 @@ struct ParsedSection {
 
         var title: String {
             switch self {
-            case .medical:    return "MEDICAL ANALYSIS"
+            case .medical:    return "HEALTH CONTEXT"
             case .nutrition:  return "NUTRITION & METABOLISM"
             case .behavioral: return "BEHAVIORAL INSIGHT"
             case .overall:    return "OVERALL SYNTHESIS"
@@ -45,6 +45,7 @@ struct ParsedSection {
 
 enum CoachReportParser {
     private static let prefixes: [(String, ParsedSection.Kind)] = [
+        ("HEALTH CONTEXT", .medical),
         ("MEDICAL ANALYSIS", .medical),
         ("NUTRITION & METABOLISM", .nutrition),
         ("NUTRITION AND METABOLISM", .nutrition),

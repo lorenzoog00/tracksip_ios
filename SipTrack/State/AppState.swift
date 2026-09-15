@@ -33,6 +33,7 @@ final class AppState: ObservableObject {
     @Published var nightRecoveries: [NightRecovery] = []
     @Published var generatingRecoveryForEventId: String? = nil
     @Published var failedRecoveryEventIds: Set<String> = []
+    @Published var reportErrorMessage: String? = nil
 
     /// Fires every 10 s while an event is active. All views that show live BAC
     /// read `_ = appState.bacTick` so they recompute in sync.
@@ -56,7 +57,7 @@ final class AppState: ObservableObject {
     // MARK: - Computed
 
     var allDrinkTypes: [DrinkType] { DrinkType.mergedWith(custom: customDrinkTypes) }
-    var isPro: Bool { store.isPro || userProfile.isPro }
+    var isPro: Bool { store.isPro }
 
     static let freeMonthlyReportLimit = 5
 
@@ -202,7 +203,9 @@ final class AppState: ObservableObject {
     }
 
     private func startLiveActivity(for event: NightEvent) {
+        #if DEBUG
         print("🟡 startLiveActivity called for event: \(event.id)")
+        #endif
         if #available(iOS 16.2, *) {
             let ids = userProfile.liveActivityDrinkIds.isEmpty
                 ? ["beer", "red-wine", "tequila", "gin-tonic"]
@@ -277,6 +280,7 @@ final class AppState: ObservableObject {
     }
 
     func generateAiReport(for eventId: String) {
+        guard userProfile.aiReportsEnabled == true else { return }
         guard canGenerateNightReport else { return }
         guard let event = events.first(where: { $0.id == eventId }),
               let endTime = event.endTime else { return }
@@ -399,6 +403,7 @@ final class AppState: ObservableObject {
         Task {
             defer { generatingReportForEventId = nil }
             do {
+                try await FirebaseManager.shared.pushEvent(event)
                 try await FirebaseManager.shared.requestAiReport(eventId: eventId, data: params)
                 var report: String?
                 for _ in 0..<15 {
@@ -417,6 +422,7 @@ final class AppState: ObservableObject {
                 incrementAiReportUsage()
                 scheduleReportReadyNotification(eventName: eventDisplayName)
             } catch {
+                reportErrorMessage = friendlyAuthError(error)
                 failedReportEventIds.insert(eventId)
             }
         }
@@ -493,6 +499,7 @@ final class AppState: ObservableObject {
     }
 
     func generateRecoveryBrief(for eventId: String) {
+        guard userProfile.aiReportsEnabled == true else { return }
         guard currentUserId != nil else { return }
         guard !nightRecoveries.contains(where: { $0.id == eventId }) else { return }
         guard let event = events.first(where: { $0.id == eventId }),
@@ -562,6 +569,7 @@ final class AppState: ObservableObject {
                     DataStore.shared.saveNightRecoveries(nightRecoveries)
                 }
             } catch {
+                reportErrorMessage = friendlyAuthError(error)
                 failedRecoveryEventIds.insert(eventId)
             }
         }
@@ -617,6 +625,7 @@ final class AppState: ObservableObject {
     // MARK: - AI Coach
 
     func checkAndGenerateAutoReports() {
+        guard userProfile.aiReportsEnabled == true else { return }
         guard currentUserId != nil else { return }
         let cal = Calendar(identifier: .iso8601)
         let now = Date()
@@ -651,6 +660,7 @@ final class AppState: ObservableObject {
     }
 
     private func generateWeeklyReport(for refDate: Date = Date()) {
+        guard userProfile.aiReportsEnabled == true else { return }
         guard currentUserId != nil else { return }
         let cal = Calendar(identifier: .iso8601)
         let now = Date()
@@ -697,12 +707,14 @@ final class AppState: ObservableObject {
                     failedCoachReportIds.insert(reportId)
                 }
             } catch {
+                reportErrorMessage = friendlyAuthError(error)
                 failedCoachReportIds.insert(reportId)
             }
         }
     }
 
     private func generateMonthlyReport(year: Int? = nil, month: Int? = nil) {
+        guard userProfile.aiReportsEnabled == true else { return }
         guard currentUserId != nil else { return }
         let cal = Calendar(identifier: .iso8601)
         let now = Date()
@@ -752,12 +764,17 @@ final class AppState: ObservableObject {
                     failedCoachReportIds.insert(reportId)
                 }
             } catch {
+                reportErrorMessage = friendlyAuthError(error)
                 failedCoachReportIds.insert(reportId)
             }
         }
     }
 
     func generateComparisonReport(eventA: NightEvent, eventB: NightEvent) {
+        guard userProfile.aiReportsEnabled == true else {
+            reportErrorMessage = "Enable AI reports in Profile to share your night data with Anthropic."
+            return
+        }
         guard currentUserId != nil else { return }
         let now = Date()
         let reportId = "comparison-\(eventA.id)-\(eventB.id)"
@@ -811,6 +828,7 @@ final class AppState: ObservableObject {
                     failedCoachReportIds.insert(reportId)
                 }
             } catch {
+                reportErrorMessage = friendlyAuthError(error)
                 failedCoachReportIds.insert(reportId)
             }
         }
@@ -822,6 +840,8 @@ final class AppState: ObservableObject {
     }
 
     func retryRecoveryBrief(eventId: String) {
+        guard generatingRecoveryForEventId != eventId else { return }
+        nightRecoveries.removeAll { $0.id == eventId && $0.report == nil }
         failedRecoveryEventIds.remove(eventId)
         generateRecoveryBrief(for: eventId)
     }
@@ -853,7 +873,9 @@ final class AppState: ObservableObject {
                 return report
             }
         }
+        #if DEBUG
         print("❌ Coach report timeout: \(id)")
+        #endif
         return nil
     }
 
@@ -1195,21 +1217,6 @@ final class AppState: ObservableObject {
         if generatingCoachReportId == id { generatingCoachReportId = nil }
     }
 
-    #if DEBUG
-    func generateTestWeeklyReport() {
-        let cal = Calendar(identifier: .iso8601)
-        generateWeeklyReport(for: cal.date(byAdding: .day, value: -1, to: Date()) ?? Date())
-    }
-
-    func generateTestMonthlyReport() {
-        let cal = Calendar.current
-        let now = Date()
-        let y = cal.component(.year, from: now)
-        let m = cal.component(.month, from: now)
-        generateMonthlyReport(year: y, month: m)
-    }
-    #endif
-
     func updateEventNotes(id: String, notes: String) {
         updateEvent(id: id) { $0.notes = notes }
     }
@@ -1530,17 +1537,14 @@ final class AppState: ObservableObject {
     // MARK: - Subscription sync
 
     func syncSubscriptionFromStore() {
-        // Only upgrade the profile when StoreKit confirms pro. Never downgrade from a
-        // StoreKit timeout — userProfile.isPro acts as the persistent cache so pro status
-        // survives cold launches where currentEntitlements is slow.
-        guard store.isPro else { return }
+        guard store.entitlementResolved else { return }
         var profile = userProfile
         let wasPro = profile.isPro
-        profile.subscriptionTier = .pro
-        if let period = store.activePeriod {
-            profile.subscriptionPeriod = period
-        }
-        if !wasPro {
+        profile.subscriptionTier = store.isPro ? .pro : .free
+        profile.subscriptionPeriod = store.activePeriod
+        if !store.isPro {
+            profile.subscriptionStartedAt = nil
+        } else if !wasPro {
             profile.subscriptionStartedAt = Date()
         }
         updateUserProfile(profile)
