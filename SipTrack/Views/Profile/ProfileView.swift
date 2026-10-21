@@ -1059,13 +1059,24 @@ struct AuthView: View {
                                     isLoading = false; return
                                 }
                                 GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientID)
-                                guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-                                      let rootVC = windowScene.windows.first?.rootViewController else {
+                                // connectedScenes is unordered and windows.first is
+                                // not necessarily the visible one, so ask for the
+                                // foreground scene's key window explicitly —
+                                // presenting on a detached controller silently
+                                // does nothing.
+                                guard let rootVC = UIApplication.shared.connectedScenes
+                                    .compactMap({ $0 as? UIWindowScene })
+                                    .first(where: { $0.activationState == .foregroundActive })?
+                                    .windows.first(where: { $0.isKeyWindow })?
+                                    .rootViewController else {
                                     errorMsg = "Could not find root view controller."
                                     isLoading = false; return
                                 }
                                 let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: rootVC)
-                                guard let idToken = result.user.idToken?.tokenString else { return }
+                                guard let idToken = result.user.idToken?.tokenString else {
+                                    errorMsg = "Google did not return an ID token. Please try again."
+                                    isLoading = false; return
+                                }
                                 let credential = GoogleAuthProvider.credential(
                                     withIDToken: idToken,
                                     accessToken: result.user.accessToken.tokenString
@@ -1151,6 +1162,21 @@ struct AuthView: View {
                                 .font(.system(size: 14))
                                 .foregroundStyle(AppColors.textSecondary)
                         }
+                    }
+
+                    // When this view is the full-screen gate (after a sign-out or
+                    // account deletion) there is nothing behind it to go back to,
+                    // so it needs its own way out. Without it a failing sign-in
+                    // leaves the app unreachable.
+                    if appState.shouldShowAuth {
+                        Button {
+                            appState.shouldShowAuth = false
+                        } label: {
+                            Text("Not now")
+                                .font(.system(size: 14))
+                                .foregroundStyle(AppColors.textSecondary)
+                        }
+                        .padding(.top, 4)
                     }
 
                     Spacer(minLength: 40)
