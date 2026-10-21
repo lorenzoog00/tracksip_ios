@@ -53,6 +53,7 @@ final class AppState: ObservableObject {
     private var refreshTask: Task<Void, Never>?
     private var bacTimerTask: Task<Void, Never>?
     private var authCancellable: AnyCancellable?
+    private var signOutCancellable: AnyCancellable?
 
     // MARK: - Computed
 
@@ -110,16 +111,23 @@ final class AppState: ObservableObject {
             WaterReminderManager.shared.schedule(intervalMinutes: userProfile.waterReminderIntervalMinutes)
             startBACRefreshTimer(for: active.id)
         }
+        // Signing in pulls the account's data down. Clearing it is driven by the
+        // explicit sign-out event below, never inferred from a signed-in →
+        // signed-out transition: the verification flow makes that exact
+        // transition on every sign-up, and treating it as a sign-out wiped the
+        // profile and trapped the user on the auth gate.
         authCancellable = FirebaseManager.shared.$isSignedIn
             .receive(on: RunLoop.main)
             .sink { [weak self] isSignedIn in
-                let wasSignedIn = self?.currentUserId != nil
                 self?.currentUserId = FirebaseManager.shared.currentUserId()
-                if wasSignedIn && !isSignedIn {
-                    self?.resetProfile()
-                } else if isSignedIn {
-                    self?.refreshFromFirebase()
-                }
+                if isSignedIn { self?.refreshFromFirebase() }
+            }
+
+        signOutCancellable = FirebaseManager.shared.userDidSignOut
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.currentUserId = nil
+                self?.resetProfile()
             }
         refreshFromFirebase()
         checkAndGenerateAutoReports()

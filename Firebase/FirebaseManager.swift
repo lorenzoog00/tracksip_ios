@@ -21,20 +21,45 @@ final class FirebaseManager: ObservableObject {
     @Published var isSignedIn = false
     @Published var userEmail: String? = nil
 
+    /// Fires only when the *user* ends their session — Sign Out or Delete Account.
+    /// The verification flow signs in and out behind the scenes (see `signUp`);
+    /// those transitions are not sign-outs and must not wipe local data.
+    let userDidSignOut = PassthroughSubject<Void, Never>()
+
     private var authStateHandle: AuthStateDidChangeListenerHandle?
 
     private init() {
-        isSignedIn = auth.currentUser != nil
-        userEmail = auth.currentUser?.email
+        applySession(auth.currentUser)
     }
 
     func startListening() {
-        authStateHandle = auth.addStateDidChangeListener { [weak self] _, user in
+        authStateHandle = auth.addStateDidChangeListener { [weak self] auth, _ in
+            // Read the live user rather than the callback's snapshot: the
+            // callback can be delivered after a reload() has already flipped
+            // isEmailVerified, and a stale snapshot would sign the user back out.
             Task { @MainActor in
-                self?.isSignedIn = user != nil
-                self?.userEmail = user?.email
+                self?.applySession(auth.currentUser)
             }
         }
+    }
+
+    /// A session only counts as signed in once the account is actually reachable.
+    /// Email/password accounts stay unusable until the verification link is
+    /// clicked; Apple and Google vouch for the address themselves, and Firebase
+    /// reports `isEmailVerified == false` for Apple's private relay addresses.
+    nonisolated static func isUsableSession(providerIDs: [String], isEmailVerified: Bool) -> Bool {
+        guard !providerIDs.isEmpty else { return false }
+        if providerIDs.contains(where: { $0 != "password" }) { return true }
+        return isEmailVerified
+    }
+
+    private func applySession(_ user: User?) {
+        let usable = Self.isUsableSession(
+            providerIDs: user?.providerData.map(\.providerID) ?? [],
+            isEmailVerified: user?.isEmailVerified ?? false
+        )
+        isSignedIn = usable
+        userEmail = usable ? user?.email : nil
     }
 
     func currentUserId() -> String? {
@@ -93,6 +118,7 @@ final class FirebaseManager: ObservableObject {
     func signOut() async {
         Crashlytics.crashlytics().setUserID("")
         try? auth.signOut()
+        userDidSignOut.send()
     }
 
     func refreshSession() async {
