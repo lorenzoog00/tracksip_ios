@@ -6,7 +6,12 @@ const {
   defineInt,
   defineBoolean,
 } = require("firebase-functions/params");
-const admin = require("firebase-admin");
+// firebase-admin 14 removed the namespaced API. The old calls parsed, linted
+// and deployed cleanly, then threw on the first real request and reached the
+// app as a bare "Internal". Import each service's modular entry point instead.
+const {initializeApp} = require("firebase-admin/app");
+const {getFirestore} = require("firebase-admin/firestore");
+const {getAuth} = require("firebase-admin/auth");
 const {Anthropic} = require("@anthropic-ai/sdk");
 const {generateReport} = require("./report-service");
 const {deleteAccount} = require("./accounts");
@@ -14,7 +19,7 @@ const {verifyPurchase} = require("./purchases");
 const {validateRequest} = require("./report-policy");
 const {buildPrompt} = require("./prompts");
 
-admin.initializeApp();
+initializeApp();
 setGlobalOptions({region: "us-central1", maxInstances: 10});
 const claudeKey = defineSecret("CLAUDE_API_KEY");
 const appleKey = defineSecret("APPLE_IAP_PRIVATE_KEY");
@@ -34,7 +39,7 @@ exports.requestReport = onCall(
         throw new HttpsError("unauthenticated", "Please sign in.");
       }
       validateRequest(request.data);
-      const db = admin.firestore();
+      const db = getFirestore();
       if ((await db.doc(`account_deletions/${request.auth.uid}`).get()).exists) {
         throw new HttpsError(
             "failed-precondition",
@@ -86,8 +91,8 @@ exports.deleteAccount = onCall(
         throw new HttpsError("unauthenticated", "Please sign in.");
       }
       return deleteAccount({
-        db: admin.firestore(),
-        auth: admin.auth(),
+        db: getFirestore(),
+        auth: getAuth(),
         uid: request.auth.uid,
         authTime: request.auth.token.auth_time,
       });
