@@ -30,6 +30,8 @@ struct ProfileView: View {
     @State private var showDeleteAccountConfirm = false
     @State private var deletingAccount = false
     @State private var deleteError: String? = nil
+    @State private var showDeletePasswordPrompt = false
+    @State private var deletePassword = ""
 
     enum SaveState { case idle, saving, saved }
 
@@ -577,6 +579,17 @@ struct ProfileView: View {
         } message: {
             Text("This is permanent. Your cloud account, events, drinks, and profile will be erased.")
         }
+        .alert("Confirm your password", isPresented: $showDeletePasswordPrompt) {
+            SecureField("Password", text: $deletePassword)
+            Button("Delete forever", role: .destructive) {
+                let password = deletePassword
+                deletePassword = ""
+                Task { await performDeleteAccount(password: password) }
+            }
+            Button("Cancel", role: .cancel) { deletePassword = "" }
+        } message: {
+            Text("For your security, enter your password to delete your account.")
+        }
     }
 
     // MARK: - Sub-views
@@ -787,15 +800,20 @@ struct ProfileView: View {
         }
     }
 
-    private func performDeleteAccount() async {
+    private func performDeleteAccount(password: String? = nil) async {
         deletingAccount = true
         deleteError = nil
         defer { deletingAccount = false }
-        switch await firebase.deleteAccount() {
+        switch await firebase.deleteAccount(password: password) {
         case .deleted:
             appState.shouldShowAuth = true
         case .cancelled:
             break
+        case .needsPassword:
+            // Email/password accounts have to prove it's them before the
+            // backend will accept the delete.
+            deletePassword = ""
+            showDeletePasswordPrompt = true
         case .failed(let message):
             deleteError = message
         }

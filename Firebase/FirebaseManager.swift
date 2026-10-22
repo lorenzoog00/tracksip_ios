@@ -496,18 +496,38 @@ final class FirebaseManager: ObservableObject {
         request.setValue(appCheck.token, forHTTPHeaderField: "X-Firebase-AppCheck")
         request.httpBody = try JSONSerialization.data(withJSONObject: ["data": data])
         let (body, response) = try await URLSession.shared.data(for: request)
-        guard let envelope = try JSONSerialization.jsonObject(with: body) as? [String: Any] else {
-            throw URLError(.cannotParseResponse)
-        }
-        if let error = envelope["error"] as? [String: Any] {
-            throw NSError(domain: "FirebaseManager", code: (response as? HTTPURLResponse)?.statusCode ?? 500,
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        // A function that is missing or not deployed answers with an HTML error
+        // page rather than a callable envelope, so parsing must not be the thing
+        // that fails: URLError reached the user as the catch-all "Something went
+        // wrong. Please try again." and threw away the status code with it.
+        let envelope = (try? JSONSerialization.jsonObject(with: body)) as? [String: Any]
+        if let error = envelope?["error"] as? [String: Any] {
+            throw NSError(domain: "FirebaseManager", code: status,
                           userInfo: [NSLocalizedDescriptionKey: error["message"] as? String ?? "Please try again."])
         }
-        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode),
-              let result = (envelope["result"] ?? envelope["data"]) as? [String: Any] else {
-            throw URLError(.badServerResponse)
+        guard (200..<300).contains(status),
+              let result = (envelope?["result"] ?? envelope?["data"]) as? [String: Any] else {
+            throw NSError(domain: "FirebaseManager", code: status,
+                          userInfo: [NSLocalizedDescriptionKey: Self.serverErrorMessage(function: name, status: status)])
         }
         return result
+    }
+
+    /// Message for a response that carried no callable error envelope. These are
+    /// infrastructure answers rather than application errors, so the status code
+    /// is the only thing that tells them apart.
+    nonisolated static func serverErrorMessage(function: String, status: Int) -> String {
+        switch status {
+        case 404:
+            return "\(function) is not available on the server. This build's backend has not been deployed."
+        case 401, 403:
+            return "The server rejected this request. Please sign in again and try again."
+        case 500..<600:
+            return "The server could not complete this request. Please try again in a moment."
+        default:
+            return "Unexpected server response (\(status)). Please try again."
+        }
     }
 
     func fetchAiReport(eventId: String) async -> String? {
@@ -518,13 +538,26 @@ final class FirebaseManager: ObservableObject {
 
     // MARK: - Account deletion
 
-    enum AccountDeletionResult { case deleted, cancelled, failed(String) }
+    enum AccountDeletionResult { case deleted, cancelled, needsPassword, failed(String) }
 
-    func deleteAccount() async -> AccountDeletionResult {
+    /// The backend only accepts a delete whose ID token was minted in the last
+    /// five minutes, so every provider has to re-authenticate first. Apple and
+    /// Google can do that interactively; a password account cannot without the
+    /// password, so the caller has to collect it and call again.
+    nonisolated static func requiresPasswordReauth(providerIDs: [String]) -> Bool {
+        if providerIDs.contains("apple.com") || providerIDs.contains("google.com") { return false }
+        return providerIDs.contains("password")
+    }
+
+    func deleteAccount(password: String? = nil) async -> AccountDeletionResult {
         guard let user = auth.currentUser else { return .failed("Not signed in") }
+        if password == nil,
+           Self.requiresPasswordReauth(providerIDs: user.providerData.map(\.providerID)) {
+            return .needsPassword
+        }
         do {
             // Firebase requires recent auth for account deletion — re-authenticate first.
-            try await reauthenticate(user: user)
+            try await reauthenticate(user: user, password: password)
 
             let result = try await callFunction("deleteAccount", data: [:])
             guard result["deleted"] as? Bool == true else { return .failed("Deletion did not complete. Please try again.") }
@@ -541,10 +574,15 @@ final class FirebaseManager: ObservableObject {
         }
     }
 
-    private func reauthenticate(user: FirebaseAuth.User) async throws {
-        let providerID = user.providerData.first?.providerID ?? ""
-        switch providerID {
-        case "apple.com":
+    // Switches on the whole provider set, not providerData.first: a password
+    // account that later linked Google has both, and picking the wrong one
+    // decides whether the user gets an interactive prompt or a password field.
+    // Every failure path here throws — a silent `return` left auth_time stale
+    // and the backend then refused the delete with advice the user could not
+    // act on from that screen.
+    private func reauthenticate(user: FirebaseAuth.User, password: String?) async throws {
+        let providerIDs = user.providerData.map(\.providerID)
+        if providerIDs.contains("apple.com") {
             let credential = try await AppleSignInCoordinator.shared.signIn()
             try await user.reauthenticate(with: credential)
             guard let code = AppleSignInCoordinator.shared.authorizationCode else {
@@ -552,22 +590,42 @@ final class FirebaseManager: ObservableObject {
                               userInfo: [NSLocalizedDescriptionKey: "Apple authorization did not complete. Please try again."])
             }
             try await auth.revokeToken(withAuthorizationCode: code)
-        case "google.com":
-            guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-                  let rootVC = windowScene.windows.first?.rootViewController else { return }
+        } else if providerIDs.contains("google.com") {
+            // connectedScenes is unordered and windows.first is not necessarily
+            // the visible one, so ask for the foreground scene's key window.
+            guard let rootVC = UIApplication.shared.connectedScenes
+                .compactMap({ $0 as? UIWindowScene })
+                .first(where: { $0.activationState == .foregroundActive })?
+                .windows.first(where: { $0.isKeyWindow })?
+                .rootViewController else {
+                throw NSError(domain: "FirebaseManager", code: 400,
+                              userInfo: [NSLocalizedDescriptionKey: "Could not present Google sign-in. Please try again."])
+            }
             let plistPath = Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist")
             let plistDict = plistPath.flatMap { NSDictionary(contentsOfFile: $0) }
-            guard let clientID = plistDict?["CLIENT_ID"] as? String else { return }
+            guard let clientID = plistDict?["CLIENT_ID"] as? String else {
+                throw NSError(domain: "FirebaseManager", code: 500,
+                              userInfo: [NSLocalizedDescriptionKey: "Google sign-in is not configured in this build."])
+            }
             GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientID)
             let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: rootVC)
-            guard let idToken = result.user.idToken?.tokenString else { return }
+            guard let idToken = result.user.idToken?.tokenString else {
+                throw NSError(domain: "FirebaseManager", code: 400,
+                              userInfo: [NSLocalizedDescriptionKey: "Google did not return an ID token. Please try again."])
+            }
             let credential = GoogleAuthProvider.credential(
                 withIDToken: idToken,
                 accessToken: result.user.accessToken.tokenString
             )
             try await user.reauthenticate(with: credential)
-        default:
-            break // email/password users: attempt delete anyway; Firebase will error if truly needed
+        } else if providerIDs.contains("password") {
+            guard let email = user.email, let password, !password.isEmpty else {
+                throw NSError(domain: "FirebaseManager", code: 401,
+                              userInfo: [NSLocalizedDescriptionKey: "Please enter your password to delete your account."])
+            }
+            try await user.reauthenticate(
+                with: EmailAuthProvider.credential(withEmail: email, password: password)
+            )
         }
     }
 
