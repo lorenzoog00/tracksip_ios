@@ -73,6 +73,18 @@ struct AccountDeletionTests {
         #expect(!FirebaseManager.serverErrorMessage(function: "deleteAccount", status: 0).isEmpty)
     }
 
+    // MARK: - App Check
+
+    /// App Attest fails on the device, before any request goes out, so it leaves
+    /// no server log at all. Naming App Check in the message is what makes a
+    /// screenshot enough to tell it apart from a wrong password.
+    @Test func appCheckFailure_namesAppCheckAndIsNotTheCatchAll() {
+        let message = FirebaseManager.appCheckFailureMessage
+        #expect(message.contains("App Check"))
+        #expect(message != "Something went wrong. Please try again.")
+        #expect(!message.contains("password"))
+    }
+
     /// Whatever the status, the message must never be the old catch-all: that
     /// string is what made this undiagnosable in the first place.
     @Test func noStatus_fallsBackToSomethingSpecific() {

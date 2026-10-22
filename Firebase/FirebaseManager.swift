@@ -488,12 +488,12 @@ final class FirebaseManager: ObservableObject {
                           userInfo: [NSLocalizedDescriptionKey: "Please sign in and try again."])
         }
         let token = try await user.getIDToken(forcingRefresh: true)
-        let appCheck = try await AppCheck.appCheck().token(forcingRefresh: false)
+        let appCheck = try await appCheckToken()
         var request = URLRequest(url: url, timeoutInterval: 130)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        request.setValue(appCheck.token, forHTTPHeaderField: "X-Firebase-AppCheck")
+        request.setValue(appCheck, forHTTPHeaderField: "X-Firebase-AppCheck")
         request.httpBody = try JSONSerialization.data(withJSONObject: ["data": data])
         let (body, response) = try await URLSession.shared.data(for: request)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
@@ -512,6 +512,24 @@ final class FirebaseManager: ObservableObject {
                           userInfo: [NSLocalizedDescriptionKey: Self.serverErrorMessage(function: name, status: status)])
         }
         return result
+    }
+
+    /// Shown when App Attest cannot vouch for this installation. It names App
+    /// Check on purpose: this failure happens before the request is sent, so it
+    /// leaves nothing in the server logs, and as the catch-all "Something went
+    /// wrong" it was indistinguishable from a wrong password.
+    nonisolated static let appCheckFailureMessage =
+        "This app installation could not be verified (App Check). Please try again later."
+
+    /// App Attest runs locally, so an app that is not registered for App Check
+    /// in this Firebase project fails here rather than at the server.
+    private func appCheckToken() async throws -> String {
+        do {
+            return try await AppCheck.appCheck().token(forcingRefresh: false).token
+        } catch {
+            throw NSError(domain: "FirebaseManager", code: 419,
+                          userInfo: [NSLocalizedDescriptionKey: Self.appCheckFailureMessage])
+        }
     }
 
     /// Message for a response that carried no callable error envelope. These are
