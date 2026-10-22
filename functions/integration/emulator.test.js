@@ -45,13 +45,30 @@ beforeEach(async () => {
   await env.clearFirestore();
 });
 
+// The exact document shapes FirebaseManager pushes, field for field. The
+// rules validate types and reject unknown keys, so if a rule edit breaks one
+// of these, iOS sync breaks silently — hence they are asserted to succeed.
+const EVENT = {started_at: 1, driving_mode: false, created_at: 1};
+const PROFILE = {weight_kg: 70, sex: "Male", onboarding_complete: true};
+const ENTRY = {
+  event_id: "e1", drink_type_id: "beer", timestamp_ms: 1, quantity: 1,
+};
+const DRINK_TYPE = {
+  name: "Beer", alcohol_percent: 5, volume_ml: 330,
+  calories_per_serving: 140, is_preset: false, icon: "beer",
+};
+const CHALLENGE = {
+  type: "dry_days", target: 5, start_date: 1,
+  end_date: 2, created_at: 1, completed: false,
+};
+
 test("owner can sync ordinary data but cannot forge reports, Pro or quotas", async () => {
   const client = env.authenticatedContext("alice").firestore();
   await assertSucceeds(
-      setDoc(doc(client, "users/alice/night_events/a"), {started_at: 1}),
+      setDoc(doc(client, "users/alice/night_events/a"), EVENT),
   );
   await assertSucceeds(
-      setDoc(doc(client, "users/alice/profiles/alice"), {weight_kg: 70}),
+      setDoc(doc(client, "users/alice/profiles/alice"), PROFILE),
   );
   await assertFails(
       updateDoc(doc(client, "users/alice/night_events/a"), {
@@ -79,10 +96,86 @@ test("owner can sync ordinary data but cannot forge reports, Pro or quotas", asy
 test("deletion marker blocks owner writes and cannot be removed by client", async () => {
   await db.doc("account_deletions/alice").set({startedAt: 1});
   const client = env.authenticatedContext("alice").firestore();
+  // A fully valid entry, so this proves the tombstone is what blocks it.
   await assertFails(
-      setDoc(doc(client, "users/alice/drink_entries/a"), {quantity: 1}),
+      setDoc(doc(client, "users/alice/drink_entries/a"), ENTRY),
   );
   await assertFails(deleteDoc(doc(client, "account_deletions/alice")));
+});
+
+test("every shape the iOS client pushes is accepted", async () => {
+  const client = env.authenticatedContext("alice").firestore();
+  for (const [path, body] of [
+    ["users/alice/night_events/a", EVENT],
+    ["users/alice/profiles/alice", PROFILE],
+    ["users/alice/drink_entries/a", ENTRY],
+    ["users/alice/drink_types/a", DRINK_TYPE],
+    ["users/alice/challenges/a", CHALLENGE],
+  ]) {
+    await assertSucceeds(setDoc(doc(client, path), body));
+  }
+  // Optional fields are optional: present-and-typed also passes.
+  await assertSucceeds(setDoc(doc(client, "users/alice/night_events/b"), {
+    ...EVENT, name: "Friday", ended_at: 2, bac_limit: 0.05, notes: "fun",
+  }));
+  await assertSucceeds(setDoc(doc(client, "users/alice/profiles/alice"), {
+    ...PROFILE, height_cm: 180, age: 30, country_code: "MX",
+    favorite_drink_ids: ["beer"], ai_reports_enabled: true,
+  }));
+});
+
+test("wrong types and unknown fields are rejected, not silently stored", async () => {
+  const client = env.authenticatedContext("alice").firestore();
+  for (const body of [
+    {...EVENT, started_at: "yesterday"}, // number field as string
+    {...EVENT, driving_mode: "yes"}, // bool field as string
+    {...EVENT, notes: "x".repeat(4001)}, // past the text cap
+    {...EVENT, ai_report: "forged"}, // backend-only field
+    {...EVENT, extra: 1}, // unknown field
+    {started_at: 1}, // required fields missing
+  ]) {
+    await assertFails(setDoc(doc(client, "users/alice/night_events/c"), body));
+  }
+  for (const body of [
+    {...ENTRY, quantity: -1},
+    {...ENTRY, quantity: "many"},
+    {...ENTRY, comment: "x".repeat(2001)},
+    {...ENTRY, event_id: 7},
+  ]) {
+    await assertFails(setDoc(doc(client, "users/alice/drink_entries/c"), body));
+  }
+  await assertFails(setDoc(doc(client, "users/alice/drink_types/c"), {
+    ...DRINK_TYPE, is_preset: "no",
+  }));
+  await assertFails(setDoc(doc(client, "users/alice/challenges/c"), {
+    ...CHALLENGE, target: "five",
+  }));
+  await assertFails(setDoc(doc(client, "users/alice/profiles/alice"), {
+    ...PROFILE, favorite_drink_ids: "beer",
+  }));
+});
+
+test("the spend ledger cannot be reset or deleted by its owner", async () => {
+  await db.doc("users/alice/report_usage/current").set({total: 5});
+  await db.doc("users/alice/report_jobs/j1").set({status: "done"});
+  const client = env.authenticatedContext("alice").firestore();
+  // Readable, so the app can show remaining free reports...
+  await assertSucceeds(getDoc(doc(client, "users/alice/report_usage/current")));
+  // ...but neither writable nor deletable, or the free quota resets itself.
+  await assertFails(
+      setDoc(doc(client, "users/alice/report_usage/current"), {total: 0}),
+  );
+  await assertFails(
+      deleteDoc(doc(client, "users/alice/report_usage/current")),
+  );
+  await assertFails(deleteDoc(doc(client, "users/alice/report_jobs/j1")));
+});
+
+test("a signed-out client can reach nothing at all", async () => {
+  const anon = env.unauthenticatedContext().firestore();
+  await assertFails(getDoc(doc(anon, "users/alice/night_events/a")));
+  await assertFails(setDoc(doc(anon, "users/alice/night_events/a"), EVENT));
+  await assertFails(getDoc(doc(anon, "account_deletions/alice")));
 });
 
 const data = {

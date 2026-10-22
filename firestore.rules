@@ -2,36 +2,149 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // The signed-in owner of this subtree, unless a deletion is in flight.
+    // The tombstone has to keep blocking writes while already-issued ID tokens
+    // are still valid. One exists() per request, and repeat reads of the same
+    // document are cached, so this stays well inside the 10-call limit.
     function owner(uid) {
       return request.auth != null && request.auth.uid == uid
         && !exists(/databases/$(database)/documents/account_deletions/$(uid));
     }
+
+    // Rules are schemaless: nothing but these checks stops a client writing a
+    // 1 MB string or a bool where a number belongs. Free text is bounded both
+    // to keep documents small and because these fields are fed to the report
+    // prompts. get(key, default) lets an optional field be absent without the
+    // whole rule erroring out.
+    function text(value, max) {
+      return value is string && value.size() <= max;
+    }
+
     match /users/{uid} {
       allow read: if owner(uid);
+
+      // --- Nights -------------------------------------------------------
+      // ai_report is written only by the backend and so appears in neither
+      // key list: a client must not be able to forge a report.
       match /night_events/{id} {
+        function validEvent(d) {
+          return d.started_at is number
+            && d.driving_mode is bool
+            && d.created_at is number
+            && text(d.get('name', ''), 200)
+            && d.get('ended_at', 0) is number
+            && d.get('bac_limit', 0) is number
+            && text(d.get('notes', ''), 4000);
+        }
         allow read, delete: if owner(uid);
         allow create: if owner(uid) && request.resource.data.keys().hasOnly([
           'started_at', 'driving_mode', 'created_at', 'name', 'ended_at', 'bac_limit', 'notes'
-        ]);
+        ]) && validEvent(request.resource.data);
         allow update: if owner(uid) && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'started_at', 'driving_mode', 'created_at', 'name', 'ended_at', 'bac_limit', 'notes'
-        ]);
+        ]) && validEvent(request.resource.data);
       }
+
+      // --- Profile ------------------------------------------------------
+      // An allowlist rather than a deny-list: subscription_tier,
+      // subscription_period and subscription_started_at are simply not on it,
+      // so no client can promote itself to Pro, and a field added to the
+      // backend later is denied until it is added here deliberately.
       match /profiles/{id} {
+        function validProfile(d) {
+          return d.weight_kg is number
+            && text(d.sex, 40)
+            && d.onboarding_complete is bool
+            && d.get('height_cm', 0) is number
+            && d.get('age', 0) is number
+            && d.get('disclaimer_accepted_at', 0) is number
+            && text(d.get('country_code', ''), 8)
+            && text(d.get('country_detection_last_dismissed', ''), 8)
+            && d.get('country_detection_disabled', false) is bool
+            && d.get('favorite_drink_ids', []) is list
+            && d.get('favorite_drink_ids', []).size() <= 200
+            && d.get('ai_reports_enabled', false) is bool;
+        }
         allow read, delete: if owner(uid);
-        allow create: if owner(uid) && !request.resource.data.keys().hasAny([
-          'subscription_tier', 'subscription_period', 'subscription_started_at'
-        ]);
-        allow update: if owner(uid) && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
-          'subscription_tier', 'subscription_period', 'subscription_started_at'
-        ]);
+        allow create: if owner(uid) && request.resource.data.keys().hasOnly([
+          'weight_kg', 'sex', 'onboarding_complete', 'height_cm', 'age',
+          'disclaimer_accepted_at', 'country_code', 'country_detection_last_dismissed',
+          'country_detection_disabled', 'favorite_drink_ids', 'ai_reports_enabled'
+        ]) && validProfile(request.resource.data);
+        allow update: if owner(uid) && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'weight_kg', 'sex', 'onboarding_complete', 'height_cm', 'age',
+          'disclaimer_accepted_at', 'country_code', 'country_detection_last_dismissed',
+          'country_detection_disabled', 'favorite_drink_ids', 'ai_reports_enabled'
+        ]) && validProfile(request.resource.data);
       }
+
+      // --- Drinks logged ------------------------------------------------
+      match /drink_entries/{id} {
+        function validEntry(d) {
+          return text(d.event_id, 200)
+            && text(d.drink_type_id, 200)
+            && d.timestamp_ms is number
+            && d.quantity is number
+            && d.quantity >= 0
+            && text(d.get('comment', ''), 2000)
+            && d.get('volume_override_ml', 0) is number
+            && d.get('abv_override', 0) is number;
+        }
+        allow read, delete: if owner(uid);
+        allow create, update: if owner(uid) && request.resource.data.keys().hasOnly([
+          'event_id', 'drink_type_id', 'timestamp_ms', 'quantity',
+          'comment', 'volume_override_ml', 'abv_override'
+        ]) && validEntry(request.resource.data);
+      }
+
+      // --- Drink catalog ------------------------------------------------
+      match /drink_types/{id} {
+        function validDrinkType(d) {
+          return text(d.name, 200)
+            && d.alcohol_percent is number
+            && d.volume_ml is number
+            && d.calories_per_serving is number
+            && d.is_preset is bool
+            && text(d.icon, 200)
+            && text(d.get('color_hex', ''), 32)
+            && d.get('drinking_duration_minutes', 0) is number;
+        }
+        allow read, delete: if owner(uid);
+        allow create, update: if owner(uid) && request.resource.data.keys().hasOnly([
+          'name', 'alcohol_percent', 'volume_ml', 'calories_per_serving',
+          'is_preset', 'icon', 'color_hex', 'drinking_duration_minutes'
+        ]) && validDrinkType(request.resource.data);
+      }
+
+      // --- Challenges ---------------------------------------------------
+      match /challenges/{id} {
+        function validChallenge(d) {
+          return text(d.type, 80)
+            && d.target is number
+            && d.start_date is number
+            && d.end_date is number
+            && d.created_at is number
+            && d.completed is bool;
+        }
+        allow read, delete: if owner(uid);
+        allow create, update: if owner(uid) && request.resource.data.keys().hasOnly([
+          'type', 'target', 'start_date', 'end_date', 'created_at', 'completed'
+        ]) && validChallenge(request.resource.data);
+      }
+
+      // --- Backend-written collections ----------------------------------
+      // Readable, never writable by a client. Grants in Firestore are
+      // additive, so this list must stay disjoint from the blocks above:
+      // naming a collection here as well would re-open what they restrict.
+      // report_usage and report_jobs are the spend ledger and cannot even be
+      // deleted, or a client could reset its own free quota.
       match /{collection}/{id} {
         allow read: if owner(uid) && collection in [
-          'drink_entries', 'drink_types', 'challenges', 'ai_coach_reports', 'night_recoveries', 'report_usage', 'report_jobs'
+          'ai_coach_reports', 'night_recoveries', 'report_usage', 'report_jobs'
         ];
-        allow write: if owner(uid) && collection in ['drink_entries', 'drink_types', 'challenges'];
-        allow delete: if owner(uid) && collection in ['ai_coach_reports', 'night_recoveries'];
+        allow delete: if owner(uid) && collection in [
+          'ai_coach_reports', 'night_recoveries'
+        ];
       }
     }
 
