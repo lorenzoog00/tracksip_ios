@@ -53,6 +53,23 @@ npm audit --omit=dev
 npx firebase deploy --only functions,firestore:rules --project YOUR_PROJECT_ID
 ```
 
+The live project is `device-streaming-8326abff` ("Tracksip" in the Firebase
+console). The auto-generated name is not a scratch project: its project number
+matches `GCM_SENDER_ID` in the committed `GoogleService-Info.plist`, which is
+what the shipped app talks to. CI does not substitute that plist.
+
+Two things that stop a first deploy on Windows:
+
+- **`Error: User code failed to load ... Timeout after 10000`** is the function
+  discovery step, not your code. Raise the limit:
+  `$env:FUNCTIONS_DISCOVERY_TIMEOUT=120` before deploying.
+- **Both secrets are required to deploy *any* function in this codebase**, even
+  `--only functions:deleteAccount`, because `requestReport` declares them. Set a
+  multi-line key from the file — the interactive prompt truncates it at the first
+  newline: `firebase functions:secrets:set APPLE_IAP_PRIVATE_KEY --data-file
+  AuthKey_XXXX.p8`. The non-secret params belong in an ignored
+  `functions/.env.<project-id>` file.
+
 Delete the retired functions (`generateNightReport`, `generateRecoveryBrief`,
 `generateCoachReport`) when deployment prompts. They are replaced by
 `requestReport` and `deleteAccount`. Do not leave the old triggers deployed:
