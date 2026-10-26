@@ -241,7 +241,6 @@ private struct DrinkTile: View {
     let onPick: () -> Void
     let onPickSized: (ServingSizeOption) -> Void
 
-    @State private var pressed = false
     private let haptic = UIImpactFeedbackGenerator(style: .medium)
 
     private static let timeFormatter: DateFormatter = {
@@ -292,18 +291,14 @@ private struct DrinkTile: View {
                 RoundedRectangle(cornerRadius: 14)
                     .stroke(isRecent ? AppColors.accent.opacity(0.3) : AppColors.border, lineWidth: 1)
             )
-            .scaleEffect(pressed ? 0.93 : 1.0)
-            .animation(.spring(response: 0.2, dampingFraction: 0.65), value: pressed)
         }
-        .buttonStyle(.plain)
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in
-                    pressed = true
-                    haptic.prepare()
-                }
-                .onEnded { _ in pressed = false }
-        )
+        // The press animation comes from the button style, not a gesture. A
+        // DragGesture(minimumDistance: 0) here fired on touch-down and fought
+        // the grid's scroll, so the list would not move while a finger rested
+        // on a tile. A ButtonStyle's isPressed cancels itself when a scroll
+        // starts instead of competing with it.
+        .buttonStyle(PressableTile())
+        .onAppear { haptic.prepare() }
         .contextMenu {
             Text("Pour size")
             ForEach(drinkType.servingSizeOptions) { opt in
@@ -314,5 +309,18 @@ private struct DrinkTile: View {
                 }
             }
         }
+    }
+}
+
+/// Press feedback that does not block scrolling. `isPressed` is driven by the
+/// button itself, so SwiftUI drops it the moment the grid starts to scroll.
+private struct PressableTile: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.93 : 1.0)
+            .animation(
+                .spring(response: 0.2, dampingFraction: 0.65),
+                value: configuration.isPressed
+            )
     }
 }
