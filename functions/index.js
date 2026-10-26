@@ -70,7 +70,14 @@ exports.requestReport = onCall(
             maxRetries: 1,
           });
           const response = await client.messages.create({
-            model: "claude-haiku-4-5-20251001",
+            // claude-haiku-5-5 costs $0.10/$0.50 per MTok against Haiku 4.5's
+            // $1/$5 — a tenth, for the same short summaries. Thinking is on by
+            // default on this model and is billed as output, so it is turned
+            // off: these reports are one short pass over a fixed field list,
+            // not reasoning work. Keep max_tokens in step with
+            // MAX_OUTPUT_TOKENS in report-policy.js, which prices the caps.
+            model: "claude-haiku-5-5",
+            thinking: {type: "disabled"},
             max_tokens: 700,
             system: prompt.system,
             messages: [{role: "user", content: prompt.prompt}],

@@ -13,6 +13,38 @@ const FREE_LIMITS = {
   comparison: 5,
 };
 
+// What one user may cost us in model spend per month. The report caps below
+// are counts, so this file states the arithmetic that ties them to money and
+// `maxMonthlySpendMxn()` is asserted against the budget by the tests. Change
+// the model or the caps and the test says whether it still fits.
+//
+// Worst case per report, from the request built in index.js: output is hard
+// capped by max_tokens, and input is the prompt template (prompts.js is ~2 KB
+// in total) plus a fixed list of short numeric fields.
+const MONTHLY_BUDGET_MXN = 20;
+const MXN_PER_USD = 20; // deliberately low: fewer dollars bought per budget
+const PRICE_INPUT_USD_PER_MTOK = 0.1; // claude-haiku-5-5
+const PRICE_OUTPUT_USD_PER_MTOK = 0.5;
+const MAX_INPUT_TOKENS = 2000;
+const MAX_OUTPUT_TOKENS = 700; // must match max_tokens in index.js
+
+const DAILY_REPORT_CAP = 30;
+const MONTHLY_REPORT_CAP = 300;
+
+// eslint-disable-next-line require-jsdoc
+function worstCaseUsdPerReport() {
+  return (
+    (MAX_INPUT_TOKENS / 1e6) * PRICE_INPUT_USD_PER_MTOK +
+    (MAX_OUTPUT_TOKENS / 1e6) * PRICE_OUTPUT_USD_PER_MTOK
+  );
+}
+
+/** Most a single user can cost in a month, in MXN, if they hit every cap. */
+// eslint-disable-next-line require-jsdoc
+function maxMonthlySpendMxn() {
+  return MONTHLY_REPORT_CAP * worstCaseUsdPerReport() * MXN_PER_USD;
+}
+
 // eslint-disable-next-line require-jsdoc
 function activePurchase(transaction, now = Date.now()) {
   return (
@@ -111,8 +143,8 @@ function reserveQuota(usage, kind, pro, now = Date.now()) {
   const total = usage.month === month ? usage.total || 0 : 0;
   const daily = usage.day === day ? usage.daily || 0 : 0;
   if (
-    daily >= 30 ||
-    total >= 300 ||
+    daily >= DAILY_REPORT_CAP ||
+    total >= MONTHLY_REPORT_CAP ||
     (!pro && (counts[kind] || 0) >= FREE_LIMITS[kind])
   ) {
     throw new HttpsError(
@@ -124,4 +156,11 @@ function reserveQuota(usage, kind, pro, now = Date.now()) {
   return {month, day, counts, total: total + 1, daily: daily + 1};
 }
 
-module.exports = {activePurchase, validateRequest, reserveQuota};
+module.exports = {
+  activePurchase,
+  validateRequest,
+  reserveQuota,
+  maxMonthlySpendMxn,
+  MONTHLY_BUDGET_MXN,
+  MAX_OUTPUT_TOKENS,
+};
