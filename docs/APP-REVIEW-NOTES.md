@@ -8,24 +8,25 @@ pushes back, plus the checks to run before each submission.
 
 ## Part 1 — Paste into App Store Connect
 
-> Fill in the two `<<< >>>` placeholders before submitting. Do not submit with
-> placeholders left in.
+> The demo account's email and password belong in App Store Connect's own
+> **Sign-In Information** fields (App Review Information → "Sign-in required"),
+> and never in this file. **This repository is public**: a password committed
+> here would be published and would stay in the git history even after being
+> removed. Nothing in the block below is secret, so it can be pasted as is.
 
 ```text
 DEMO ACCOUNT
 
-Email:    <<< pre-verified demo email >>>
-Password: <<< demo password >>>
+Please sign in with the demo account given in the Sign-In Information fields
+rather than creating a new one. That account is already email-verified and has
+several completed nights in its history, so Stats, Calendar and the AI Coach
+all have data to show.
 
-This account is already email-verified and has several completed nights in its
-history, so Stats, Calendar and the AI Coach have data to show.
-
-IMPORTANT — please sign in with the demo account above rather than creating a
-new one. TrackSip uses email verification: a newly created email/password
-account cannot sign in until the link we email has been opened. If you create a
-fresh account with a throwaway address and do not open that link, sign-in will
-correctly refuse and return you to the sign-in screen. "Sign in with Apple" is
-also available and needs no verification step.
+TrackSip uses email verification: a newly created email/password account cannot
+sign in until the link we email has been opened. If you create a fresh account
+with a throwaway address and do not open that link, sign-in will correctly
+refuse and return you to the sign-in screen. "Sign in with Apple" is also
+available and needs no verification step.
 
 A previous build (1.0.1) had a bug where signing up appeared to reload the
 sign-in screen. That is fixed in this build.
@@ -107,7 +108,9 @@ giving the gate a "Not now" exit so a failed sign-in can never trap the app.
       tested on a clean install of the exact build being submitted.
 - [ ] Demo account has finished nights in the last 30 days — the non-Pro history
       view only shows the last 30 days, so older seed data looks like an empty app.
-- [ ] Both placeholders in Part 1 are filled in.
+- [ ] Demo email and password typed into App Store Connect's **Sign-In
+      Information** fields — never into this file or anywhere else in the repo,
+      which is public.
 - [ ] The EULA link is present in the App Store description as well as here
       (the 1.0.0 rejection was for its absence in the description).
 - [ ] Backend and Firestore rules for this build are deployed before submitting
