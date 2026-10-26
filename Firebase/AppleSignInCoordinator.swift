@@ -73,7 +73,15 @@ final class AppleSignInCoordinator: NSObject {
             var randoms = [UInt8](repeating: 0, count: 16)
             let status = SecRandomCopyBytes(kSecRandomDefault, randoms.count, &randoms)
             if status != errSecSuccess {
-                fatalError("Unable to generate nonce. SecRandomCopyBytes failed with OSStatus \(status)")
+                // SecRandomCopyBytes essentially never fails, but crashing the
+                // app on the Sign in with Apple path is the wrong answer if it
+                // ever does — and that is the path App Review takes. Swift's
+                // SystemRandomNumberGenerator is cryptographically secure on
+                // Apple platforms, so the nonce stays sound.
+                var rng = SystemRandomNumberGenerator()
+                for index in randoms.indices {
+                    randoms[index] = UInt8.random(in: .min ... .max, using: &rng)
+                }
             }
             for random in randoms where remaining > 0 {
                 if random < charset.count {
