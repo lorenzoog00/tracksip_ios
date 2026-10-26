@@ -28,8 +28,18 @@ with a throwaway address and do not open that link, sign-in will correctly
 refuse and return you to the sign-in screen. "Sign in with Apple" is also
 available and needs no verification step.
 
-A previous build (1.0.1) had a bug where signing up appeared to reload the
-sign-in screen. That is fixed in this build.
+A previous build had a bug where signing up appeared to reload the sign-in
+screen. That is fixed in this build.
+
+TESTING THE SUBSCRIPTION
+
+Sign in, then tap any locked feature (Calendar, Stats, Goals or Drinks) on the
+home screen. The pricing screen appears; select a plan and tap Subscribe.
+
+Tracksip Pro is an auto-renewable subscription. Payment is charged to your
+Apple Account at confirmation of purchase and renews automatically unless
+cancelled at least 24 hours before the end of the current period. Manage or
+cancel in your Apple Account settings.
 
 WHY TRACKSIP REQUIRES AN ACCOUNT (Guideline 5.1.1(v))
 
@@ -65,11 +75,18 @@ app: Profile → Account → Delete Account.
 Privacy Policy: https://looqs.online/siptrack/policy
 Terms of Use (EULA): https://www.apple.com/legal/internet-services/itunes/dev/stdeula/
 
-TrackSip estimates blood alcohol content for informational purposes only. The
-app is not a medical device, its estimates are not a substitute for a
-breathalyser, and it does not tell anyone they are fit to drive. The disclaimer
-is shown during onboarding and must be accepted before tracking.
+ABOUT THE APP
+
+Tracksip tracks alcohol consumption and estimates BAC using the Widmark
+formula. Age rating 17+ due to alcohol content. The estimates are informational
+only: the app is not a medical device, is not a substitute for a breathalyser,
+and never tells anyone they are fit to drive. The disclaimer is shown during
+onboarding and must be accepted before tracking.
 ```
+
+> The version above is what is currently in the Notes field for 1.0. Keep the
+> two in step: the subscription and age-rating paragraphs are there because
+> Apple expects them, and pasting an older copy of this file would drop them.
 
 ---
 
@@ -113,12 +130,20 @@ giving the gate a "Not now" exit so a failed sign-in can never trap the app.
       which is public.
 - [ ] The EULA link is present in the App Store description as well as here
       (the 1.0.0 rejection was for its absence in the description).
+- [ ] The **build attached to the version** is the one you mean. It is picked by
+      hand and does not follow the newest upload: 1.0 sat with a build from six
+      weeks earlier, which would have been reviewed instead of the fixes.
 - [ ] Backend and Firestore rules for this build are deployed before submitting
       (see `docs/RELEASE.md`) — reports fail against the old rules.
-- [ ] Decide how the reviewer experiences Pro. In production
-      `APPLE_ALLOW_SANDBOX=false`, so a sandbox subscription does **not** grant
-      paid backend access: a reviewer who subscribes still generates reports on
-      the free monthly allowance. In-app Pro screens unlock normally because
-      that is driven by local StoreKit. Low risk while the free allowance is 5
-      reports/month, but confirm the reviewer cannot land on a quota error after
-      paying.
+- [ ] The Apple Developer Program License Agreement is accepted. When it is
+      updated, submission is blocked until the Account Holder accepts it, and
+      the only warning is a banner on the App Store Connect home page.
+- [ ] Pro for the reviewer needs nothing prepared: they subscribe in the
+      sandbox themselves. In production `APPLE_ALLOW_SANDBOX=false`, so that
+      purchase cannot be verified server-side and they fall to the free monthly
+      allowance, while the Pro screens unlock from local StoreKit. That is fine
+      for a review. It was *not* fine before 2026-10-26: `verifyPurchase` threw
+      instead of degrading, so the reviewer would have seen "Purchase could not
+      be verified. Restore purchases and try again." seconds after subscribing.
+      For a real Pro account without paying, use an App Store Connect offer
+      code — it is a production transaction and verifies normally.
