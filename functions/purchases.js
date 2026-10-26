@@ -82,10 +82,15 @@ async function verifyPurchase(signed, uid, config) {
     if (!activePurchase(current)) return null;
     return {key: `${environment}-${current.originalTransactionId}`};
   }
-  throw new HttpsError(
-      "permission-denied",
-      "Purchase could not be verified. Restore purchases and try again.",
-  );
+  // No configured environment could verify the signature. That covers a forged
+  // proof and, while allowSandbox is false, a sandbox purchase such as the one
+  // an App Review tester makes. Fall through to the free tier rather than
+  // throwing: an unverifiable proof must never grant paid access, but it must
+  // not break the app for someone who has just paid either. Throwing here put
+  // "Purchase could not be verified. Restore purchases and try again." in front
+  // of a reviewer seconds after they subscribed. Degrading matches what an
+  // expired or refunded purchase already does above.
+  return null;
 }
 
 module.exports = {verifyPurchase, accountToken};
