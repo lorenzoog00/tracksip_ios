@@ -18,9 +18,13 @@ pushes back, plus the checks to run before each submission.
 DEMO ACCOUNT
 
 Please sign in with the demo account given in the Sign-In Information fields
-rather than creating a new one. That account is already email-verified and has
-several completed nights in its history, so Stats, Calendar and the AI Coach
-all have data to show.
+rather than creating a new one. It is already email-verified and has several
+completed nights logged, so there is real history in the app.
+
+The demo account is a free account, not a subscriber. Stats, Calendar, AI Coach
+and Challenges are Pro features and will show the paywall until you subscribe.
+Subscribing in the sandbox as described below opens all four, with that logged
+history already in them.
 
 TrackSip uses email verification: a newly created email/password account cannot
 sign in until the link we email has been opened. If you create a fresh account
@@ -33,8 +37,8 @@ screen. That is fixed in this build.
 
 TESTING THE SUBSCRIPTION
 
-Sign in, then tap any locked feature (Calendar, Stats, Goals or Drinks) on the
-home screen. The pricing screen appears; select a plan and tap Subscribe.
+Sign in, then tap any locked feature (Calendar, Stats, AI Coach or Challenges)
+on the home screen. The pricing screen appears; select a plan and tap Subscribe.
 
 Tracksip Pro is an auto-renewable subscription. Payment is charged to your
 Apple Account at confirmation of purchase and renews automatically unless
@@ -125,6 +129,10 @@ giving the gate a "Not now" exit so a failed sign-in can never trap the app.
       tested on a clean install of the exact build being submitted.
 - [ ] Demo account has finished nights in the last 30 days — the non-Pro history
       view only shows the last 30 days, so older seed data looks like an empty app.
+- [ ] The notes match what the demo account actually is. A free demo account
+      cannot show Stats, Calendar, AI Coach or Challenges: those are Pro-gated
+      in `HomeView`, and claiming otherwise puts a false statement in front of
+      App Review. The locked set is exactly those four — Drinks is not locked.
 - [ ] Demo email and password typed into App Store Connect's **Sign-In
       Information** fields — never into this file or anywhere else in the repo,
       which is public.
