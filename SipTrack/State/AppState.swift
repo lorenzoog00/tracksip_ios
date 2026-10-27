@@ -79,6 +79,21 @@ final class AppState: ObservableObject {
         isPro || freeAiReportsUsedThisMonth < Self.freeMonthlyReportLimit
     }
 
+    /// Whether a recovery brief may be requested from the model.
+    ///
+    /// Unlike the night report, this one has no free allowance: `NightAnalysisCard`
+    /// blurs the brief and shows the paywall to anyone who is not Pro, so a brief
+    /// generated on the free tier is a model call billed for text the user is never
+    /// shown — and the 8am notification then invites them to go and read it.
+    nonisolated static func canRequestRecoveryBrief(
+        isPro: Bool,
+        aiReportsEnabled: Bool,
+        signedIn: Bool,
+        alreadyRequested: Bool
+    ) -> Bool {
+        isPro && aiReportsEnabled && signedIn && !alreadyRequested
+    }
+
     var activeEvent: NightEvent? {
         events.first { $0.isActive && $0.userId == currentUserId }
     }
@@ -507,9 +522,12 @@ final class AppState: ObservableObject {
     }
 
     func generateRecoveryBrief(for eventId: String) {
-        guard userProfile.aiReportsEnabled == true else { return }
-        guard currentUserId != nil else { return }
-        guard !nightRecoveries.contains(where: { $0.id == eventId }) else { return }
+        guard Self.canRequestRecoveryBrief(
+            isPro: isPro,
+            aiReportsEnabled: userProfile.aiReportsEnabled == true,
+            signedIn: currentUserId != nil,
+            alreadyRequested: nightRecoveries.contains(where: { $0.id == eventId })
+        ) else { return }
         guard let event = events.first(where: { $0.id == eventId }),
               event.endTime != nil else { return }
 
@@ -535,8 +553,6 @@ final class AppState: ObservableObject {
         let placeholder = NightRecovery(id: eventId, severity: severity, report: nil, createdAt: Date())
         nightRecoveries.append(placeholder)
         DataStore.shared.saveNightRecoveries(nightRecoveries)
-
-        scheduleRecoveryNotification(for: event)
 
         let currentYear = Calendar.current.component(.year, from: Date())
         var requestData: [String: Any] = [
@@ -576,6 +592,10 @@ final class AppState: ObservableObject {
                     nightRecoveries[idx].report = report
                     DataStore.shared.saveNightRecoveries(nightRecoveries)
                 }
+                // Only once there is something to read. Scheduling this before the
+                // request meant a refused quota, a network failure or a timed-out
+                // poll still woke the user at 8am for a brief that never arrived.
+                scheduleRecoveryNotification(for: event)
             } catch {
                 reportErrorMessage = friendlyAuthError(error)
                 failedRecoveryEventIds.insert(eventId)
@@ -1552,10 +1572,25 @@ final class AppState: ObservableObject {
         profile.subscriptionPeriod = store.activePeriod
         if !store.isPro {
             profile.subscriptionStartedAt = nil
+            cancelPendingRecoveryNotifications()
         } else if !wasPro {
             profile.subscriptionStartedAt = Date()
         }
         updateUserProfile(profile)
+    }
+
+    /// Clears recovery alerts already sitting in iOS's queue for a non-Pro account.
+    /// Gating the request stops new ones, but a build that shipped without the gate
+    /// leaves 8am alerts queued that would open straight onto the paywall — and a
+    /// lapsed subscriber should stop being woken for briefs they can no longer read.
+    private func cancelPendingRecoveryNotifications() {
+        let center = UNUserNotificationCenter.current()
+        center.getPendingNotificationRequests { requests in
+            let ids = requests.map(\.identifier)
+                .filter { $0.hasPrefix("siptrack.recovery-") }
+            guard !ids.isEmpty else { return }
+            center.removePendingNotificationRequests(withIdentifiers: ids)
+        }
     }
 
     // MARK: - Push helper
