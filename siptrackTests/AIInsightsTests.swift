@@ -85,4 +85,59 @@ final class AIInsightsTests: XCTestCase {
         guard let top = counts.max(by: { $0.value < $1.value }) else { return "mixed" }
         return Double(top.value) / Double(total) >= 0.6 ? top.key : "mixed"
     }
+
+    // MARK: - Recovery brief gating
+
+    // A free account used to reach the model: generateRecoveryBrief checked
+    // aiReportsEnabled and sign-in but never Pro, unlike generateAiReport.
+    // The brief it paid for is then blurred behind the paywall in
+    // NightAnalysisCard, and an 8am "Recovery Brief Ready" notification tells
+    // the user to come and read it.
+    func test_recoveryBrief_freeAccount_isNotRequested() {
+        XCTAssertFalse(
+            AppState.canRequestRecoveryBrief(
+                isPro: false, aiReportsEnabled: true,
+                signedIn: true, alreadyRequested: false
+            ),
+            "A free account must never trigger a paid recovery brief"
+        )
+    }
+
+    func test_recoveryBrief_proAccount_isRequested() {
+        XCTAssertTrue(
+            AppState.canRequestRecoveryBrief(
+                isPro: true, aiReportsEnabled: true,
+                signedIn: true, alreadyRequested: false
+            )
+        )
+    }
+
+    func test_recoveryBrief_proButAiReportsOff_isNotRequested() {
+        XCTAssertFalse(
+            AppState.canRequestRecoveryBrief(
+                isPro: true, aiReportsEnabled: false,
+                signedIn: true, alreadyRequested: false
+            ),
+            "Opting out of sharing data with Anthropic must still win over Pro"
+        )
+    }
+
+    func test_recoveryBrief_proButSignedOut_isNotRequested() {
+        XCTAssertFalse(
+            AppState.canRequestRecoveryBrief(
+                isPro: true, aiReportsEnabled: true,
+                signedIn: false, alreadyRequested: false
+            )
+        )
+    }
+
+    func test_recoveryBrief_alreadyRequested_isNotRequestedAgain() {
+        XCTAssertFalse(
+            AppState.canRequestRecoveryBrief(
+                isPro: true, aiReportsEnabled: true,
+                signedIn: true, alreadyRequested: true
+            ),
+            "checkAndGenerateRecoveries runs on every cloud refresh and must not re-bill"
+        )
+    }
 }
