@@ -233,6 +233,12 @@ final class Haptics {
         if engine == nil { makeEngine() }
         guard let engine else { return nil }
         guard !isEngineRunning else { return engine }
+        // Never start while backgrounded: the old UIKit calls were silent no-ops
+        // there, and a Watch or deep-link add or a profile write must not poke the
+        // hardware. Asked of the OS at the point of use, not tracked in a flag that
+        // prepare()/stop() would have to keep in step. `.inactive` (launch, mid-
+        // transition) still starts.
+        guard UIApplication.shared.applicationState != .background else { return nil }
         do {
             try engine.start()
             isEngineRunning = true

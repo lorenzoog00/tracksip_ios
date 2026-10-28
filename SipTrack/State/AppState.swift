@@ -154,6 +154,8 @@ final class AppState: ObservableObject {
         events = []; entries = []; waterEntries = []; foodEntries = []
         customDrinkTypes = []; challenges = []; coachReports = []; nightRecoveries = []
         userProfile = UserProfile()
+        // Bypasses updateUserProfile, so hand Haptics the reset value directly.
+        Haptics.shared.setEnabled(userProfile.hapticsEnabled)
         shouldShowAuth = true
     }
 
@@ -1409,8 +1411,10 @@ final class AppState: ObservableObject {
     func updateUserProfile(_ profile: UserProfile) {
         userProfile = profile
         DataStore.shared.saveUserProfile(profile)
-        // Pushed after the write: prepare() re-reads the profile from disk, so a push
-        // that landed before it could be overwritten with the old value.
+        // Pushed after the write, not before it: prepare() re-reads the profile from
+        // disk, so a push made before the write could be overwritten with the old value.
+        // Insurance for a future async save. Today it cannot race: DataStore.save is a
+        // synchronous atomic write and AppState and Haptics share the main actor.
         Haptics.shared.setEnabled(profile.hapticsEnabled)
         push { try await FirebaseManager.shared.pushProfile(profile) }
         if activeEvent != nil {
