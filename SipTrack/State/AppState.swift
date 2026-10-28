@@ -1,7 +1,6 @@
 import SwiftUI
 import StoreKit
 import Combine
-import UIKit
 import UserNotifications
 import SipTrackActivityKit
 
@@ -205,7 +204,7 @@ final class AppState: ObservableObject {
         event.targetBAC = targetBAC
         DataStore.shared.updateEvent(event)
         events.append(event)
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        Haptics.shared.play(.light)
         push { try await FirebaseManager.shared.pushEvent(event) }
         WatchBridge.shared.pushState()
         startBACRefreshTimer(for: event.id)
@@ -279,7 +278,7 @@ final class AppState: ObservableObject {
         bacTimerTask?.cancel()
         bacTimerTask = nil
         updateEvent(id: id) { $0.endTime = Date() }
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        Haptics.shared.play(.success)
         if #available(iOS 16.2, *) { LiveActivityManager.shared.end() }
         WaterReminderManager.shared.cancel()
         WatchBridge.shared.pushState()
@@ -1290,7 +1289,7 @@ final class AppState: ObservableObject {
         )
         DataStore.shared.addEntry(entry)
         entries.append(entry)
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        Haptics.shared.play(.light)
         scheduleUndo(entry)
         checkWarnings(after: entry, eventId: eventId)
         updateLiveActivity(for: eventId)
@@ -1318,7 +1317,7 @@ final class AppState: ObservableObject {
         if let e = undoEntry {
             deleteEntry(e.id)
             undoEntry = nil
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            Haptics.shared.play(.light)
         }
     }
 
@@ -1337,7 +1336,7 @@ final class AppState: ObservableObject {
         let entry = WaterEntry(id: generateId(), eventId: eventId, timestamp: Date(), volumeMl: volumeMl)
         DataStore.shared.addWaterEntry(entry)
         waterEntries.append(entry)
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        Haptics.shared.play(.light)
         scheduleUndoWater(entry)
         if activeEvent?.id == eventId {
             WaterReminderManager.shared.schedule(intervalMinutes: userProfile.waterReminderIntervalMinutes)
@@ -1350,7 +1349,7 @@ final class AppState: ObservableObject {
         if let e = undoWaterEntry {
             deleteWaterEntry(e.id)
             undoWaterEntry = nil
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            Haptics.shared.play(.light)
         }
     }
 
@@ -1410,6 +1409,9 @@ final class AppState: ObservableObject {
     func updateUserProfile(_ profile: UserProfile) {
         userProfile = profile
         DataStore.shared.saveUserProfile(profile)
+        // Pushed after the write: prepare() re-reads the profile from disk, so a push
+        // that landed before it could be overwritten with the old value.
+        Haptics.shared.setEnabled(profile.hapticsEnabled)
         push { try await FirebaseManager.shared.pushProfile(profile) }
         if activeEvent != nil {
             WaterReminderManager.shared.schedule(intervalMinutes: profile.waterReminderIntervalMinutes)
