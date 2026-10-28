@@ -13,10 +13,14 @@ final class Haptics {
 
     // MARK: - Pattern tuning
     //
-    // Intensity is "how hard", sharpness is "how crisp". The two are kept
-    // deliberately independent: only `ceilingCrossed` is allowed to feel strong,
-    // because it is the one signal that must never be mistaken for a tap the user
-    // asked for.
+    // Intensity is "how hard", sharpness is "how crisp", and the two are set
+    // independently per pattern. The invariant to preserve when retuning any of
+    // these: `storyAdvanceIntensity` stays well below `ceilingIntensity`, and
+    // `ceilingCrossed` is the only pattern that pairs full intensity with a
+    // doubled transient — that pairing is what keeps the alarm unmistakable even
+    // when a story tap's sharpness reaches the alarm's 0.9. `init` asserts the
+    // ordering. (`peak` also reaches full intensity, but it is a single 0.25 s
+    // swell; `warning` sits at 0.70 with a deliberately duller, slower shape.)
 
     private static let selectionIntensity: Float = 0.30
     private static let selectionSharpness: Float = 0.70
@@ -46,6 +50,13 @@ final class Haptics {
     private static let ceilingSharpness: Float = 0.90
     private static let ceilingGap: TimeInterval = 0.12
 
+    // The event-level intensity for any pattern whose strength is shaped by a
+    // dynamic parameter or a curve. An intensity *control* multiplies the event's
+    // own intensity, so the event has to run at full scale for the control's value
+    // to be the one that is actually felt. This is not a tuning knob: lowering it
+    // silently scales `peak`'s ramp and every continuous update down with it.
+    private static let fullScaleIntensity: Float = 1.0
+
     private static let peakDuration: TimeInterval = 0.25
     private static let peakSharpness: Float = 0.50
     private static let peakStartIntensity: Float = 0.30
@@ -67,7 +78,8 @@ final class Haptics {
     // The user's `hapticsEnabled` preference, cached. `DataStore.loadUserProfile()`
     // reads a JSON file off disk and decodes it, which has no business running on
     // the main thread for every tap in the drink picker, so it is read here at
-    // first use and refreshed only in `prepare()`.
+    // first use, re-read in `prepare()`, and otherwise pushed in by whoever
+    // changes it (`setEnabled`). Never read on the tap path.
     private var isEnabled: Bool
 
     private var engine: CHHapticEngine?
@@ -77,6 +89,9 @@ final class Haptics {
     private init() {
         supportsHaptics = CHHapticEngine.capabilitiesForHardware().supportsHaptics
         isEnabled = DataStore.shared.loadUserProfile().hapticsEnabled
+        // The one tuning rule that needs no hardware to check, and that no test
+        // can reach: a story tap must stay clearly weaker than the ceiling alarm.
+        assert(Self.storyAdvanceIntensity < Self.ceilingIntensity)
     }
 
     // MARK: - Lifecycle
@@ -84,11 +99,30 @@ final class Haptics {
     // Re-reads the preference and brings the engine up, so the first tap of a
     // gesture is not the one that pays for `start()`. Idempotent — meant to be
     // called on scene activation and on view appearance, before a gesture rather
-    // than during it. This is also the single point at which a change to the
-    // Haptics toggle in Settings takes effect.
+    // than during it.
     func prepare() {
         isEnabled = DataStore.shared.loadUserProfile().hapticsEnabled
-        guard HapticSpec.shouldPlay(enabled: isEnabled, supportsHaptics: supportsHaptics) else { return }
+        applyPreference()
+    }
+
+    // The push path, for the caller that has just changed the preference: it hands
+    // the value straight over instead of leaving this type to rediscover it from
+    // disk at some later `prepare()`. Switching haptics off takes effect here and
+    // now, which is the only behaviour an opt-out may have.
+    func setEnabled(_ enabled: Bool) {
+        isEnabled = enabled
+        applyPreference()
+    }
+
+    // Brings the engine up or gives it back, per the current preference. Haptics
+    // off releases the hardware immediately rather than idling on it: the engine
+    // does not auto-shut-down, and this also ends a pour buzz that was running
+    // when the user flipped the switch.
+    private func applyPreference() {
+        guard HapticSpec.shouldPlay(enabled: isEnabled, supportsHaptics: supportsHaptics) else {
+            stop()
+            return
+        }
         _ = runningEngine()
     }
 
@@ -146,7 +180,7 @@ final class Haptics {
                 parameters: [
                     // Full-scale event: the intensity *control* below does the
                     // shaping, and it multiplies this value.
-                    CHHapticEventParameter(parameterID: .hapticIntensity, value: 1.0),
+                    CHHapticEventParameter(parameterID: .hapticIntensity, value: Self.fullScaleIntensity),
                     CHHapticEventParameter(parameterID: .hapticSharpness, value: Self.continuousSharpness)
                 ],
                 relativeTime: 0,
@@ -331,7 +365,7 @@ final class Haptics {
             let event = CHHapticEvent(
                 eventType: .hapticContinuous,
                 parameters: [
-                    CHHapticEventParameter(parameterID: .hapticIntensity, value: Self.peakEndIntensity),
+                    CHHapticEventParameter(parameterID: .hapticIntensity, value: Self.fullScaleIntensity),
                     CHHapticEventParameter(parameterID: .hapticSharpness, value: Self.peakSharpness)
                 ],
                 relativeTime: 0,
