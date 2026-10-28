@@ -246,9 +246,16 @@ final class AppState: ObservableObject {
                 // reaches this line once. Don't judge a night that was just ended.
                 if !Task.isCancelled {
                     let bac = currentBAC(for: eventId)
-                    // First tick: seed with the current value so it is not an edge. A
-                    // night resumed already above its ceiling must stay silent.
-                    if checkCeilingCrossing(eventId: eventId, from: previousBAC ?? bac, to: bac, alreadyFired: alreadyFired) {
+                    // `previousBAC` is nil only on this night's first observation,
+                    // which has nothing to form an edge with and so asks a
+                    // different question: has this night been announced? The
+                    // persisted latch is the only thing that tells "already
+                    // announced" from merely "already above" — resumed above the
+                    // ceiling having buzzed stays silent, resumed above it having
+                    // never buzzed (an eviction or force-quit mid-climb) buzzes
+                    // now, and nothing else ever would. Every later tick is the
+                    // plain upward edge.
+                    if checkCeilingCrossing(eventId: eventId, from: previousBAC, to: bac, alreadyFired: alreadyFired) {
                         alreadyFired = true
                     }
                     previousBAC = bac
@@ -258,32 +265,54 @@ final class AppState: ObservableObject {
         }
     }
 
-    /// Whether this night's ceiling-crossed haptic has already played. Read from the
-    /// store rather than held in memory, so a force-quit and relaunch keeps it
-    /// latched, and sign-out (which deletes the file) resets it with no extra step.
+    /// Whether this night's ceiling-crossed haptic has already played. The file is
+    /// the source of truth, so a force-quit and relaunch keeps it latched and
+    /// sign-out (which deletes the file) resets it with no extra step.
+    ///
+    /// A live timer task does hold an in-memory copy: it reads this once at the top
+    /// of `startBACRefreshTimer` and latches its own `alreadyFired` when it fires,
+    /// rather than re-reading a settled fact every 10 s. That copy can only be
+    /// stale in the safe direction — it is seeded from disk, it never un-latches,
+    /// and the task is recreated on every launch and every new event — so a wrong
+    /// guess means one haptic too few, never one too many.
     func hasFiredCeilingCrossing(eventId: String) -> Bool {
         DataStore.shared.loadCeilingCrossedEventIds().contains(eventId)
     }
 
-    /// Plays the ceiling-crossed haptic the first time BAC climbs from below the
-    /// night's ceiling to at or above it, and records the night so it never plays
-    /// again. Returns true when it fired, so the caller can latch `alreadyFired`.
-    /// Runs from the 10 s tick: the banner predicate in ActiveEventView is
-    /// re-evaluated on every tick, so firing from there would buzz all night.
+    /// Plays the ceiling-crossed haptic the first time BAC is seen at or above the
+    /// night's ceiling, and records the night so it never plays again. Returns true
+    /// when it fired, so the caller can latch `alreadyFired`. Runs from the 10 s
+    /// tick: the banner predicate in ActiveEventView is re-evaluated on every tick,
+    /// so firing from there would buzz all night.
+    ///
+    /// `previousBAC` is nil for this night's first observation, which has no edge to
+    /// test and leans on the persisted latch instead; every later tick passes the
+    /// previous tick's value and tests a strict upward edge. Both predicates live in
+    /// `HapticSpec` so the decision stays testable without hardware.
     private func checkCeilingCrossing(
         eventId: String,
-        from previousBAC: Double,
+        from previousBAC: Double?,
         to bac: Double,
         alreadyFired: Bool
     ) -> Bool {
         guard let event = events.first(where: { $0.id == eventId }),
               let ceiling = Self.ceiling(for: event) else { return false }
-        guard HapticSpec.crossingFires(
-            previousBAC: previousBAC,
-            currentBAC: bac,
-            ceiling: ceiling,
-            alreadyFired: alreadyFired
-        ) else { return false }
+        let fires: Bool
+        if let previousBAC {
+            fires = HapticSpec.crossingFires(
+                previousBAC: previousBAC,
+                currentBAC: bac,
+                ceiling: ceiling,
+                alreadyFired: alreadyFired
+            )
+        } else {
+            fires = HapticSpec.firstObservationFires(
+                currentBAC: bac,
+                ceiling: ceiling,
+                alreadyFired: alreadyFired
+            )
+        }
+        guard fires else { return false }
 
         Haptics.shared.play(.ceilingCrossed)
         // Local only: never on NightEvent, which syncs to Firestore.
@@ -316,24 +345,24 @@ final class AppState: ObservableObject {
     private func updateLiveActivity(for eventId: String) {
         if #available(iOS 16.2, *) {
             guard let event = events.first(where: { $0.id == eventId }) else { return }
-            let bac = currentBAC(for: eventId)
-            let stage = IntoxicationStage.stage(for: bac)
+            let resolvedBAC = currentBAC(for: eventId)
+            let stage = IntoxicationStage.stage(for: resolvedBAC)
             let elapsed = Int(max(0, -event.startTime.timeIntervalSinceNow) / 60)
 
             var safeToDriveAt: Date? = nil
             if event.drivingMode {
                 let limit = BACCalculator.drivingThreshold(limit: event.bacLimit ?? userProfile.resolvedBACLimit)
-                if bac > limit {
+                if resolvedBAC > limit {
                     // Use the user's profile elimination rate so the lock-screen
                     // countdown matches the in-app DriveWarningBanner exactly.
                     let beta = BACCalculator.eliminationRate(profile: userProfile)
-                    let hoursUntilSafe = BACCalculator.hoursToReduceBAC(from: bac, to: limit, beta: beta)
+                    let hoursUntilSafe = BACCalculator.hoursToReduceBAC(from: resolvedBAC, to: limit, beta: beta)
                     safeToDriveAt = Date().addingTimeInterval(hoursUntilSafe * 3600)
                 }
             }
 
             LiveActivityManager.shared.update(
-                bac: bac,
+                bac: resolvedBAC,
                 drinkCount: totalDrinks(for: eventId),
                 stageName: stage.name,
                 stageColorHex: stage.colorHex,

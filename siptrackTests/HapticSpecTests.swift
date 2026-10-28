@@ -93,6 +93,47 @@ struct HapticSpecTests {
         #expect(HapticSpec.crossingFires(previousBAC: 0.048, currentBAC: 0.05, ceiling: 0.05, alreadyFired: false) == true)
     }
 
+    @Test func crossingFires_neverForAZeroToleranceCeiling() {
+        // A driving night in a novice or commercial tier resolves to a ceiling of
+        // exactly 0.00 (Australia, Brazil, Canada, Chile novice; Argentina
+        // commercial). Any first sip clears it, and alarming there is noise. Safe
+        // today only because BACCalculator clamps BAC to >= 0, which this does not
+        // rely on.
+        #expect(HapticSpec.crossingFires(previousBAC: 0.0, currentBAC: 0.01, ceiling: 0.0, alreadyFired: false) == false)
+    }
+
+    // MARK: - firstObservationFires
+
+    @Test func firstObservationFires_whenResumedAboveAnUnannouncedCeiling() {
+        // The case no edge test can catch: the crossing happened while the process
+        // was dead, so nothing is on disk and this is the only chance to announce it.
+        #expect(HapticSpec.firstObservationFires(currentBAC: 0.07, ceiling: 0.05, alreadyFired: false) == true)
+    }
+
+    @Test func firstObservationFires_notWhenTheNightAlreadyAnnounced() {
+        // Same BAC, same ceiling; only the persisted latch differs. This is the
+        // distinction the crossed-ids file exists to make.
+        #expect(HapticSpec.firstObservationFires(currentBAC: 0.07, ceiling: 0.05, alreadyFired: true) == false)
+    }
+
+    @Test func firstObservationFires_notWhenBelowTheCeiling() {
+        // A night resumed under its ceiling waits for a real upward edge.
+        #expect(HapticSpec.firstObservationFires(currentBAC: 0.04, ceiling: 0.05, alreadyFired: false) == false)
+    }
+
+    @Test func firstObservationFires_firesWhenExactlyOnTheCeiling() {
+        // Matches crossingFires: reaching the ceiling counts as reaching it.
+        #expect(HapticSpec.firstObservationFires(currentBAC: 0.05, ceiling: 0.05, alreadyFired: false) == true)
+    }
+
+    @Test func firstObservationFires_neverWhenNoCeilingSet() {
+        #expect(HapticSpec.firstObservationFires(currentBAC: 0.20, ceiling: nil, alreadyFired: false) == false)
+    }
+
+    @Test func firstObservationFires_neverForAZeroToleranceCeiling() {
+        #expect(HapticSpec.firstObservationFires(currentBAC: 0.01, ceiling: 0.0, alreadyFired: false) == false)
+    }
+
     // MARK: - selectionChanged
 
     @Test func selectionChanged_offToOff_isSilent() {
