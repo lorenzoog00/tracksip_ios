@@ -326,9 +326,10 @@ struct ProfileView: View {
                                 .tint(AppColors.accent)
                             }
                         }
+                    }
 
-                        ProfileDivider()
-
+                    // MARK: Feedback
+                    ProfileSection(title: "Feedback", icon: "hand.tap.fill") {
                         Toggle(isOn: $hapticsEnabled) {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Haptics")
@@ -803,7 +804,7 @@ struct ProfileView: View {
             profile.bacLimit = c.limit(for: driverType)
         }
         profile.waterSuggestions = waterSuggestions
-        profile.hapticsEnabled = hapticsEnabled
+        profile.hapticsEnabled   = hapticsEnabled
         profile.waterReminderIntervalMinutes = waterReminderEnabled ? waterReminderInterval : nil
         profile.notifications = NotificationPreferences(
             enabled: notificationsEnabled,

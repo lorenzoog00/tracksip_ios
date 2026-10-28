@@ -1654,8 +1654,14 @@ final class AppState: ObservableObject {
         if let cloud = data.profile {
             // Never downgrade onboardingComplete — the local write may not have
             // reached Firebase yet when this pull was issued.
+            //
+            // hapticsEnabled is rescued for a different reason: it is a
+            // device-local preference that is neither pushed to nor pulled from
+            // Firestore, so `cloud` always carries the default (on). Without this
+            // every pull would silently switch haptics back on.
             var merged = cloud
             if userProfile.onboardingComplete { merged.onboardingComplete = true }
+            merged.hapticsEnabled = userProfile.hapticsEnabled
             updateUserProfile(merged)
         } else {
             push { try await FirebaseManager.shared.pushProfile(self.userProfile) }

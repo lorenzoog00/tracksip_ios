@@ -99,6 +99,10 @@ struct UserProfile: Codable {
     // Explicit (rather than synthesized) so the tolerant decoder below can name
     // the keys. Raw values are the property names, i.e. the on-disk JSON keys.
     // Every stored property must be listed here AND decoded in init(from:).
+    // A property missing from either is NOT a compile error (every property has
+    // a default); it just silently stops persisting. The test that catches that
+    // is HapticsPreferenceTests.fullProfile_roundtripsEveryProperty: extend it
+    // whenever you add a property here.
     private enum CodingKeys: String, CodingKey {
         case sex, weightKg, heightCm, birthYear, bacLimit, countryCode, driverType
         case countryDetectionLastDismissedCode, countryDetectionDisabled, countryDetectionDismissedAt
@@ -111,10 +115,17 @@ struct UserProfile: Codable {
 }
 
 // Swift's synthesized Decodable ignores property default values: a missing key
-// throws keyNotFound. Adding any non-optional field would then make every
-// profile saved by an older build fail to decode, and DataStore.load's `try?`
-// would silently replace it with a blank UserProfile(). So decode by hand:
-// start from the declared defaults, then overwrite whatever the JSON provides.
+// throws keyNotFound. Adding a non-optional field would then make every profile
+// saved by an older build fail to decode, and DataStore.loadUserProfile()'s
+// `?? UserProfile()` (AppStorage.swift) would silently hand back a blank one.
+// So decode by hand: start from the declared defaults, then overwrite whatever
+// the JSON provides. That protects UserProfile's OWN fields only.
+//
+// It does not reach nested types. `notifications` decodes through
+// NotificationPreferences, which still uses the strictly synthesized decoder, so
+// adding a field to NotificationPreferences would throw from here, fail the whole
+// UserProfile decode, and wipe the saved profile the same way, one level down.
+//
 // It lives in an extension so the memberwise initializer and `UserProfile()`
 // are still generated.
 extension UserProfile {
