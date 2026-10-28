@@ -17,6 +17,7 @@ struct ProfileView: View {
     @State private var countryCode: String?
     @State private var driverType: DriverType
     @State private var waterSuggestions: Bool
+    @State private var hapticsEnabled: Bool
     @State private var waterReminderEnabled: Bool
     @State private var waterReminderInterval: Int
     @State private var notificationsEnabled: Bool
@@ -45,6 +46,7 @@ struct ProfileView: View {
         _countryCode          = State(initialValue: p.countryCode)
         _driverType           = State(initialValue: p.driverType)
         _waterSuggestions     = State(initialValue: p.waterSuggestions)
+        _hapticsEnabled       = State(initialValue: p.hapticsEnabled)
         _waterReminderEnabled  = State(initialValue: p.waterReminderIntervalMinutes != nil)
         _waterReminderInterval = State(initialValue: min(p.waterReminderIntervalMinutes ?? 25, 60))
         _notificationsEnabled = State(initialValue: p.notifications.enabled)
@@ -66,6 +68,7 @@ struct ProfileView: View {
             || countryCode != p.countryCode
             || driverType != p.driverType
             || waterSuggestions != p.waterSuggestions
+            || hapticsEnabled != p.hapticsEnabled
             || waterReminderEnabled != (p.waterReminderIntervalMinutes != nil)
             || (waterReminderEnabled && waterReminderInterval != (p.waterReminderIntervalMinutes ?? 25))
             || notificationsEnabled != p.notifications.enabled
@@ -323,6 +326,20 @@ struct ProfileView: View {
                                 .tint(AppColors.accent)
                             }
                         }
+
+                        ProfileDivider()
+
+                        Toggle(isOn: $hapticsEnabled) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Haptics")
+                                    .font(.system(size: 14))
+                                    .foregroundStyle(AppColors.text)
+                                Text("Vibration feedback as you log drinks and track your night")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(AppColors.textSecondary)
+                            }
+                        }
+                        .tint(AppColors.accent)
                     }
 
                     // MARK: Warnings
@@ -759,6 +776,7 @@ struct ProfileView: View {
         countryCode          = p.countryCode
         driverType           = p.driverType
         waterSuggestions      = p.waterSuggestions
+        hapticsEnabled        = p.hapticsEnabled
         waterReminderEnabled  = p.waterReminderIntervalMinutes != nil
         waterReminderInterval = min(p.waterReminderIntervalMinutes ?? 25, 60)
         notificationsEnabled  = p.notifications.enabled
@@ -785,6 +803,7 @@ struct ProfileView: View {
             profile.bacLimit = c.limit(for: driverType)
         }
         profile.waterSuggestions = waterSuggestions
+        profile.hapticsEnabled = hapticsEnabled
         profile.waterReminderIntervalMinutes = waterReminderEnabled ? waterReminderInterval : nil
         profile.notifications = NotificationPreferences(
             enabled: notificationsEnabled,
