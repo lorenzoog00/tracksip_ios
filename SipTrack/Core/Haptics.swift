@@ -62,6 +62,10 @@ final class Haptics {
     private static let peakStartIntensity: Float = 0.30
     private static let peakEndIntensity: Float = 1.0
 
+    // The confirmation tap for a logged drink — named for the pour it once closed,
+    // but `AppState.addDrink` plays it now, so it follows the add rather than the
+    // gesture. Crisp and middling-strong: it has to read as "that landed" through
+    // a pocket, without competing with the ceiling alarm.
     private static let pourEndIntensity: Float = 0.60
     private static let pourEndSharpness: Float = 0.90
 
@@ -96,10 +100,13 @@ final class Haptics {
 
     // MARK: - Lifecycle
 
-    // Re-reads the preference and brings the engine up, so the first tap of a
-    // gesture is not the one that pays for `start()`. Idempotent — meant to be
-    // called on scene activation and on view appearance, before a gesture rather
-    // than during it.
+    // Re-reads the preference and applies it: with haptics on this brings the
+    // engine up, so the first tap of a gesture is not the one that pays for
+    // `start()`; with haptics off it *releases* the engine instead, since this is
+    // also the path that discovers a preference changed somewhere this type was
+    // not told about (another device via sync, a reset profile). Idempotent —
+    // meant to be called on scene activation and on view appearance, before a
+    // gesture rather than during it.
     func prepare() {
         isEnabled = DataStore.shared.loadUserProfile().hapticsEnabled
         applyPreference()
@@ -126,8 +133,11 @@ final class Haptics {
         _ = runningEngine()
     }
 
-    // Gives up the haptic hardware when the app leaves the foreground. The engine
-    // object survives; the next `play` starts it again.
+    // Gives up the haptic hardware. Two callers, with the same meaning — "stop
+    // holding the hardware" — and different reasons: the app leaving the
+    // foreground, and `applyPreference` finding haptics switched off, which is the
+    // opt-out release path. The engine object survives either way; the next `play`
+    // starts it again if the preference allows, so this is not a kill switch.
     func stop() {
         stopContinuousPlayer()
         engine?.stop(completionHandler: nil)
@@ -216,12 +226,12 @@ final class Haptics {
         }
     }
 
-    // Ends the buzz, optionally capping it with the `pourEnd` tap. Needs no gate
-    // of its own: with haptics off there is no player to stop, and `play` gates
-    // the tap.
-    func endContinuous(withTransient: Bool) {
+    // Ends the buzz, and nothing else. It deliberately plays no closing tap: the
+    // buzz also ends when the grid takes the touch to scroll, and no drink is
+    // added then, so the confirmation tap belongs to `AppState.addDrink` instead.
+    // Needs no gate of its own — with haptics off there is no player to stop.
+    func endContinuous() {
         stopContinuousPlayer()
-        if withTransient { play(.pourEnd) }
     }
 
     // MARK: - Engine
@@ -390,6 +400,7 @@ final class Haptics {
             )
             return try CHHapticPattern(events: [event], parameterCurves: [ramp])
 
+        // One crisp tap confirming a logged drink, on every path that logs one.
         case .pourEnd:
             return try CHHapticPattern(
                 events: [transient(intensity: Self.pourEndIntensity, sharpness: Self.pourEndSharpness)],
@@ -411,19 +422,27 @@ final class Haptics {
 
     // MARK: - UIKit fallback
 
-    // Only for hardware that cannot render custom patterns. The shaped patterns
-    // (story, ceiling, peak, pour) have no UIKit equivalent and stay silent.
+    // Only for hardware that cannot render custom patterns. The genuinely shaped
+    // patterns (story, ceiling, peak) carry their meaning in a curve or a timed
+    // pair that UIKit has no equivalent for, so they stay silent. `.pourEnd` is a
+    // single transient, which `.light` does approximate — and since it is the
+    // confirmation tap for every logged drink, leaving it as the one dead entry
+    // would silence the app's most frequent haptic while this table read as if it
+    // were complete.
+    // No device in range actually takes this path (the iOS 18 floor means A12 or
+    // newer, all of which report `supportsHaptics`, and iPad has no Taptic Engine
+    // so the generators were no-ops there anyway), but the table should be true.
     private func playFallback(_ pattern: HapticPattern) {
         switch pattern {
         case .selection:
             UISelectionFeedbackGenerator().selectionChanged()
-        case .light:
+        case .light, .pourEnd:
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
         case .success, .exportDone:
             UINotificationFeedbackGenerator().notificationOccurred(.success)
         case .warning:
             UINotificationFeedbackGenerator().notificationOccurred(.warning)
-        case .storyAdvance, .ceilingCrossed, .peak, .pourEnd:
+        case .storyAdvance, .ceilingCrossed, .peak:
             break
         }
     }

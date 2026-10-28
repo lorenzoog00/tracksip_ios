@@ -255,10 +255,13 @@ private struct DrinkTile: View {
 
     var body: some View {
         Button {
-            // No haptic here. The pour's closing tap is played by
-            // AppState.addDrink, which every add goes through, so it follows a
-            // drink that was actually logged: a press cancelled by a scroll, or a
-            // tap that only raises the limit warning, adds nothing and stays silent.
+            // No haptic here. The confirmation tap is played by AppState.addDrink,
+            // which every add goes through, so it follows a drink that was actually
+            // logged: a press cancelled by a scroll, or a tap that only raises the
+            // limit warning, adds nothing and so gets no confirmation tap. Not
+            // silent, in the warning case — ActiveEventView plays `.warning` when
+            // it raises the sheet, and the confirmation tap comes later if and when
+            // the user confirms the add.
             onPick()
         } label: {
             VStack(spacing: 8) {
@@ -412,6 +415,6 @@ private struct PourHaptic: ViewModifier {
     private func endBuzz() {
         guard isBuzzing else { return }
         isBuzzing = false
-        Haptics.shared.endContinuous(withTransient: false)
+        Haptics.shared.endContinuous()
     }
 }

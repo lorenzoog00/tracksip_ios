@@ -15,10 +15,15 @@ import Foundation
 // whatever runs next (or into a developer's simulator):
 //
 //   - `.serialized`: Swift Testing runs tests in parallel by default, and the
-//     tests below share the same files.
-//   - Each test snapshots the files it touches byte for byte before touching
-//     them and, in a `defer`, puts them back exactly: same bytes if they were
-//     there, no file if not.
+//     tests below share the same files. Note what this does NOT cover: it orders
+//     tests *within* this suite only. Different suites still run in parallel in
+//     the same process, so a second suite that touched `DataStore` or the
+//     documents directory would collide with this one silently, with no ordering
+//     to appeal to. This is currently the only suite that does. Anything new
+//     that needs those files belongs in here, or needs a shared lock.
+//   - Each test moves the files it touches aside before touching them and, in a
+//     `defer`, moves them back: same bytes if they were there, no file if not.
+//     Moving rather than deleting is deliberate — see `FileSnapshot`.
 //
 // `@MainActor`: DataStore and AppState live in an app module that defaults to
 // MainActor isolation, and this test target does not. Isolating the suite makes
@@ -27,36 +32,51 @@ import Foundation
 @Suite(.serialized) @MainActor
 struct CeilingCrossingTests {
 
-    /// A DataStore file as it stood when the test began. Defaults to the crossed-ids
-    /// file.
+    /// A DataStore file moved aside for the duration of a test. Defaults to the
+    /// crossed-ids file.
     ///
     /// DataStore keeps its file paths private, so this restates the convention
     /// (`<documents>/<key>.json`). The first test asserts the crossed-ids file really
     /// appears at this URL after a save, so a renamed key fails loudly instead of
     /// leaving the snapshot watching the wrong file.
+    ///
+    /// These are real files in the real app container, so a developer running this
+    /// suite on a simulator they also use as the app is running it over their own
+    /// nights — and device-feel tuning on this branch means exactly that simulator.
+    /// So `remove()` renames rather than deletes: the data sits next door as
+    /// `<key>.json.testbak` until `restore()` puts it back. Nothing is held in
+    /// memory and nothing depends on `restore()` being reached, which matters
+    /// because a `defer` is skipped by `Cmd-.`, by a `fatalError` anywhere in the
+    /// process, and by a debugger kill. Worst case the night survives under a
+    /// visible name and can be renamed back by hand.
     private struct FileSnapshot {
         let fileURL: URL
-        private let original: Data?
+
+        /// Where `remove()` parks the file. A sibling of the original, so the move
+        /// stays within one volume and cannot fall back to a copy.
+        private var backupURL: URL { fileURL.appendingPathExtension("testbak") }
 
         init(key: String = "siptrack_ceiling_crossed") {
-            let url = FileManager.default
+            fileURL = FileManager.default
                 .urls(for: .documentDirectory, in: .userDomainMask)[0]
                 .appendingPathComponent("\(key).json")
-            fileURL = url
-            original = try? Data(contentsOf: url)
         }
 
-        /// Leaves the store as a fresh install finds it: no file at all.
+        /// Leaves the store as a fresh install finds it: no file at the real path.
+        /// Clears any backup a previous interrupted run left behind first, since
+        /// `moveItem` refuses to overwrite. Both calls are no-ops when the file is
+        /// absent, which is the common case on a clean test machine.
         func remove() {
-            try? FileManager.default.removeItem(at: fileURL)
+            try? FileManager.default.removeItem(at: backupURL)
+            try? FileManager.default.moveItem(at: fileURL, to: backupURL)
         }
 
+        /// Puts the file back exactly: the original bytes if there was a file, and
+        /// no file at all if there was not. Whatever the test wrote at the real
+        /// path is discarded first, or the move would refuse.
         func restore() {
-            if let original {
-                try? original.write(to: fileURL, options: .atomic)
-            } else {
-                remove()
-            }
+            try? FileManager.default.removeItem(at: fileURL)
+            try? FileManager.default.moveItem(at: backupURL, to: fileURL)
         }
     }
 

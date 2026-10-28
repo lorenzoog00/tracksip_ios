@@ -259,8 +259,13 @@ final class AppState: ObservableObject {
                         alreadyFired = true
                     }
                     previousBAC = bac
+                    // Inside the guard with the crossing check, and handed the BAC
+                    // already computed above: recomputing it would run the full
+                    // kinetics model and three array filters twice every 10 s, and
+                    // a cancelled task's last pass must not update the Live
+                    // Activity for a night `endEvent` has just ended.
+                    updateLiveActivity(for: eventId, bac: bac)
                 }
-                updateLiveActivity(for: eventId)
             }
         }
     }
@@ -342,10 +347,15 @@ final class AppState: ObservableObject {
         }
     }
 
-    private func updateLiveActivity(for eventId: String) {
+    /// Pushes the lock-screen state. `bac` is for a caller that has just computed
+    /// this night's BAC and can hand it over — the 10 s tick needs it for the
+    /// ceiling check anyway, and `currentBAC(for:)` is the full kinetics model plus
+    /// three array filters, not worth running twice per tick. Omit it and this
+    /// computes its own, which is what the one-off callers (an added drink) do.
+    private func updateLiveActivity(for eventId: String, bac: Double? = nil) {
         if #available(iOS 16.2, *) {
             guard let event = events.first(where: { $0.id == eventId }) else { return }
-            let resolvedBAC = currentBAC(for: eventId)
+            let resolvedBAC = bac ?? currentBAC(for: eventId)
             let stage = IntoxicationStage.stage(for: resolvedBAC)
             let elapsed = Int(max(0, -event.startTime.timeIntervalSinceNow) / 60)
 
