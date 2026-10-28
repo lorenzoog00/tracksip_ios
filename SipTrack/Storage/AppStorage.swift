@@ -207,6 +207,21 @@ final class DataStore {
         save(recoveries, key: "siptrack_night_recoveries") 
     }
 
+    // MARK: - Ceiling Crossings
+
+    // Ids of the nights whose ceiling-crossed haptic has already played, so it
+    // fires once per night even across a force-quit. Local only: it is not synced
+    // and deliberately not a field on NightEvent, whose shape is the Firestore
+    // document.
+
+    func loadCeilingCrossedEventIds() -> Set<String> {
+        load(Set<String>.self, key: "siptrack_ceiling_crossed") ?? []
+    }
+
+    func saveCeilingCrossedEventIds(_ ids: Set<String>) {
+        save(ids, key: "siptrack_ceiling_crossed")
+    }
+
     // MARK: - Data Management
 
     func pruneOldEvents(olderThan cutoff: Date) {
@@ -216,7 +231,7 @@ final class DataStore {
     }
 
     func clearAllData() {
-        let keys = ["siptrack_events","siptrack_entries","siptrack_water","siptrack_drink_types","siptrack_challenges","siptrack_profile","siptrack_coach_reports","siptrack_night_recoveries","siptrack_food"]
+        let keys = ["siptrack_events","siptrack_entries","siptrack_water","siptrack_drink_types","siptrack_challenges","siptrack_profile","siptrack_coach_reports","siptrack_night_recoveries","siptrack_food","siptrack_ceiling_crossed"]
         for key in keys {
             try? FileManager.default.removeItem(at: url(key: key))
         }

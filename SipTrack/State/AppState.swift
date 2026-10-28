@@ -218,12 +218,55 @@ final class AppState: ObservableObject {
     private func startBACRefreshTimer(for eventId: String) {
         bacTimerTask?.cancel()
         bacTimerTask = Task {
+            // BAC at the previous tick, for edge detection. Local to this task so it
+            // cannot carry over to another event (a new event starts a new task), and
+            // empty until the first tick has something to compare against.
+            var previousBAC: Double?
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 10_000_000_000)
                 bacTick = Date()           // single clock: all views re-render here
+                // `try?` swallows the cancellation error, so a cancelled task still
+                // reaches this line once. Don't judge a night that was just ended.
+                if !Task.isCancelled {
+                    let bac = currentBAC(for: eventId)
+                    // First tick: seed with the current value so it is not an edge. A
+                    // night resumed already above its ceiling must stay silent.
+                    checkCeilingCrossing(eventId: eventId, from: previousBAC ?? bac, to: bac)
+                    previousBAC = bac
+                }
                 updateLiveActivity(for: eventId)
             }
         }
+    }
+
+    /// Whether this night's ceiling-crossed haptic has already played. Read from the
+    /// store rather than held in memory, so a force-quit and relaunch keeps it
+    /// latched, and sign-out (which deletes the file) resets it with no extra step.
+    func hasFiredCeilingCrossing(eventId: String) -> Bool {
+        DataStore.shared.loadCeilingCrossedEventIds().contains(eventId)
+    }
+
+    /// Plays the ceiling-crossed haptic the first time BAC climbs from below the
+    /// night's ceiling to at or above it, then latches so it never plays again that
+    /// night. Runs from the 10 s tick: the banner predicate in ActiveEventView is
+    /// re-evaluated on every tick, so firing from there would buzz all night.
+    private func checkCeilingCrossing(eventId: String, from previousBAC: Double, to bac: Double) {
+        guard let event = events.first(where: { $0.id == eventId }) else { return }
+        // The user's own ceiling, or the limit they set for a driving night. No
+        // legal-limit fallback: most nights set neither, and then nothing fires.
+        guard let ceiling = event.targetBAC ?? event.bacLimit else { return }
+        guard HapticSpec.crossingFires(
+            previousBAC: previousBAC,
+            currentBAC: bac,
+            ceiling: ceiling,
+            alreadyFired: hasFiredCeilingCrossing(eventId: eventId)
+        ) else { return }
+
+        Haptics.shared.play(.ceilingCrossed)
+        // Local only: never on NightEvent, which syncs to Firestore.
+        var fired = DataStore.shared.loadCeilingCrossedEventIds()
+        fired.insert(eventId)
+        DataStore.shared.saveCeilingCrossedEventIds(fired)
     }
 
     private func startLiveActivity(for event: NightEvent) {
