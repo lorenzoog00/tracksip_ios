@@ -1,0 +1,406 @@
+import CoreHaptics
+import Foundation
+import UIKit
+
+// The CoreHaptics shell: owns the engine and turns a `HapticPattern` into actual
+// events. Every rule that can be decided without hardware lives in `HapticSpec`,
+// so this file only wraps the framework — it knows nothing about drinks, BAC or
+// views, and nothing here ever throws out to a call site.
+@MainActor
+final class Haptics {
+
+    static let shared = Haptics()
+
+    // MARK: - Pattern tuning
+    //
+    // Intensity is "how hard", sharpness is "how crisp". The two are kept
+    // deliberately independent: only `ceilingCrossed` is allowed to feel strong,
+    // because it is the one signal that must never be mistaken for a tap the user
+    // asked for.
+
+    private static let selectionIntensity: Float = 0.30
+    private static let selectionSharpness: Float = 0.70
+
+    private static let lightIntensity: Float = 0.45
+    private static let lightSharpness: Float = 0.35
+
+    private static let successFirstIntensity: Float = 0.45
+    private static let successFirstSharpness: Float = 0.40
+    private static let successSecondIntensity: Float = 0.75
+    private static let successSecondSharpness: Float = 0.60
+    private static let successGap: TimeInterval = 0.10
+
+    private static let warningIntensity: Float = 0.70
+    private static let warningSharpness: Float = 0.30
+    private static let warningGap: TimeInterval = 0.20
+
+    // Every story-card tap lands at this strength, whatever the BAC delta: the
+    // character of the tap is carried entirely by `HapticSpec.advanceSharpness`,
+    // which can reach 0.9 — the same sharpness as the ceiling alarm. Holding the
+    // intensity here well under the alarm's 1.0 is what keeps the two apart, so
+    // this constant must stay low: the app does not get louder as the night gets
+    // worse.
+    private static let storyAdvanceIntensity: Float = 0.35
+
+    private static let ceilingIntensity: Float = 1.0
+    private static let ceilingSharpness: Float = 0.90
+    private static let ceilingGap: TimeInterval = 0.12
+
+    private static let peakDuration: TimeInterval = 0.25
+    private static let peakSharpness: Float = 0.50
+    private static let peakStartIntensity: Float = 0.30
+    private static let peakEndIntensity: Float = 1.0
+
+    private static let pourEndIntensity: Float = 0.60
+    private static let pourEndSharpness: Float = 0.90
+
+    private static let continuousSharpness: Float = 0.50
+    // CoreHaptics caps a continuous event at 30 s; a held pour never runs this
+    // long, and if one did the buzz would simply end while the pour carried on.
+    private static let continuousDuration: TimeInterval = 20
+
+    // MARK: - State
+
+    // Hardware support cannot change while the process lives, so it is read once.
+    private let supportsHaptics: Bool
+
+    // The user's `hapticsEnabled` preference, cached. `DataStore.loadUserProfile()`
+    // reads a JSON file off disk and decodes it, which has no business running on
+    // the main thread for every tap in the drink picker, so it is read here at
+    // first use and refreshed only in `prepare()`.
+    private var isEnabled: Bool
+
+    private var engine: CHHapticEngine?
+    private var isEngineRunning = false
+    private var continuousPlayer: CHHapticAdvancedPatternPlayer?
+
+    private init() {
+        supportsHaptics = CHHapticEngine.capabilitiesForHardware().supportsHaptics
+        isEnabled = DataStore.shared.loadUserProfile().hapticsEnabled
+    }
+
+    // MARK: - Lifecycle
+
+    // Re-reads the preference and brings the engine up, so the first tap of a
+    // gesture is not the one that pays for `start()`. Idempotent — meant to be
+    // called on scene activation and on view appearance, before a gesture rather
+    // than during it. This is also the single point at which a change to the
+    // Haptics toggle in Settings takes effect.
+    func prepare() {
+        isEnabled = DataStore.shared.loadUserProfile().hapticsEnabled
+        guard HapticSpec.shouldPlay(enabled: isEnabled, supportsHaptics: supportsHaptics) else { return }
+        _ = runningEngine()
+    }
+
+    // Gives up the haptic hardware when the app leaves the foreground. The engine
+    // object survives; the next `play` starts it again.
+    func stop() {
+        stopContinuousPlayer()
+        engine?.stop(completionHandler: nil)
+        isEngineRunning = false
+    }
+
+    // MARK: - Transient patterns
+
+    func play(_ pattern: HapticPattern) {
+        // The user switched haptics off: nothing plays, whatever the hardware.
+        // This is the app's own reduce-haptics switch, so falling back to a
+        // UIFeedbackGenerator here would buzz someone who opted out.
+        guard isEnabled else { return }
+
+        // Enabled, but this device cannot render custom patterns (an iPad or the
+        // Simulator, given the iOS 18 floor). The named system gestures still have
+        // UIKit equivalents; the shaped ones do not and stay silent.
+        guard HapticSpec.shouldPlay(enabled: isEnabled, supportsHaptics: supportsHaptics) else {
+            playFallback(pattern)
+            return
+        }
+
+        guard let engine = runningEngine() else { return }
+        do {
+            let shape = try makePattern(for: pattern)
+            let player = try engine.makePlayer(with: shape)
+            try player.start(atTime: CHHapticTimeImmediate)
+        } catch {
+            // Most likely the engine died between our last check and now, so drop
+            // the running flag and let the next call start it again.
+            isEngineRunning = false
+            log("play failed: \(error)")
+        }
+    }
+
+    // MARK: - Continuous pattern
+
+    // Starts the single continuous buzz used while a pour is held. `intensity` is
+    // sent as a dynamic parameter rather than baked into the event so that
+    // `updateContinuous` can replace it without compounding.
+    func beginContinuous(initialIntensity: Float) {
+        guard isEnabled,
+              HapticSpec.shouldPlay(enabled: isEnabled, supportsHaptics: supportsHaptics) else { return }
+
+        stopContinuousPlayer()
+        guard let engine = runningEngine() else { return }
+        do {
+            let event = CHHapticEvent(
+                eventType: .hapticContinuous,
+                parameters: [
+                    // Full-scale event: the intensity *control* below does the
+                    // shaping, and it multiplies this value.
+                    CHHapticEventParameter(parameterID: .hapticIntensity, value: 1.0),
+                    CHHapticEventParameter(parameterID: .hapticSharpness, value: Self.continuousSharpness)
+                ],
+                relativeTime: 0,
+                duration: Self.continuousDuration
+            )
+            let start = CHHapticDynamicParameter(
+                parameterID: .hapticIntensityControl,
+                value: clamped(initialIntensity),
+                relativeTime: 0
+            )
+            let pattern = try CHHapticPattern(events: [event], parameters: [start])
+            let player = try engine.makeAdvancedPlayer(with: pattern)
+            try player.start(atTime: CHHapticTimeImmediate)
+            continuousPlayer = player
+        } catch {
+            continuousPlayer = nil
+            isEngineRunning = false
+            log("beginContinuous failed: \(error)")
+        }
+    }
+
+    func updateContinuous(intensity: Float) {
+        guard let player = continuousPlayer else { return }
+        let parameter = CHHapticDynamicParameter(
+            parameterID: .hapticIntensityControl,
+            value: clamped(intensity),
+            relativeTime: 0
+        )
+        do {
+            try player.sendParameters([parameter], atTime: CHHapticTimeImmediate)
+        } catch {
+            log("updateContinuous failed: \(error)")
+        }
+    }
+
+    // Ends the buzz, optionally capping it with the `pourEnd` tap. Needs no gate
+    // of its own: with haptics off there is no player to stop, and `play` gates
+    // the tap.
+    func endContinuous(withTransient: Bool) {
+        stopContinuousPlayer()
+        if withTransient { play(.pourEnd) }
+    }
+
+    // MARK: - Engine
+
+    // The engine, started. Creates it on first use and restarts it after a
+    // `stop()`, an audio-session interruption or a reset, so a phone call
+    // mid-night does not kill haptics for the rest of it.
+    private func runningEngine() -> CHHapticEngine? {
+        if engine == nil { makeEngine() }
+        guard let engine else { return nil }
+        guard !isEngineRunning else { return engine }
+        do {
+            try engine.start()
+            isEngineRunning = true
+            return engine
+        } catch {
+            isEngineRunning = false
+            log("engine start failed: \(error)")
+            return nil
+        }
+    }
+
+    private func makeEngine() {
+        let created: CHHapticEngine
+        do {
+            created = try CHHapticEngine()
+        } catch {
+            log("engine init failed: \(error)")
+            return
+        }
+        // Haptics only: the engine then leaves the audio session alone, so it
+        // neither interrupts whatever is playing nor rides on its interruptions.
+        created.playsHapticsOnly = true
+
+        // Both handlers arrive on an arbitrary queue, hence the explicit hop. They
+        // only mark the engine dead; the restart happens lazily on the next call,
+        // and any player built against the old engine is invalid, so it is dropped.
+        let stopped: @Sendable (CHHapticEngine.StoppedReason) -> Void = { [weak self] reason in
+            Task { @MainActor in self?.engineDidDie("stopped (reason \(reason.rawValue))") }
+        }
+        let reset: @Sendable () -> Void = { [weak self] in
+            Task { @MainActor in self?.engineDidDie("reset") }
+        }
+        created.stoppedHandler = stopped
+        created.resetHandler = reset
+
+        engine = created
+        isEngineRunning = false
+    }
+
+    private func engineDidDie(_ cause: String) {
+        isEngineRunning = false
+        continuousPlayer = nil
+        log("engine \(cause); will restart on next play")
+    }
+
+    private func stopContinuousPlayer() {
+        guard let player = continuousPlayer else { return }
+        continuousPlayer = nil
+        do {
+            try player.stop(atTime: CHHapticTimeImmediate)
+        } catch {
+            log("continuous stop failed: \(error)")
+        }
+    }
+
+    // MARK: - Pattern shapes
+
+    private func makePattern(for pattern: HapticPattern) throws -> CHHapticPattern {
+        switch pattern {
+        case .selection:
+            return try CHHapticPattern(
+                events: [transient(intensity: Self.selectionIntensity, sharpness: Self.selectionSharpness)],
+                parameters: []
+            )
+
+        case .light:
+            return try CHHapticPattern(
+                events: [transient(intensity: Self.lightIntensity, sharpness: Self.lightSharpness)],
+                parameters: []
+            )
+
+        // A rising pair, and the one `exportDone` borrows.
+        case .success, .exportDone:
+            return try CHHapticPattern(
+                events: [
+                    transient(intensity: Self.successFirstIntensity, sharpness: Self.successFirstSharpness),
+                    transient(
+                        intensity: Self.successSecondIntensity,
+                        sharpness: Self.successSecondSharpness,
+                        at: Self.successGap
+                    )
+                ],
+                parameters: []
+            )
+
+        // Two dull, slow taps — deliberately unlike the ceiling alarm's two sharp
+        // ones.
+        case .warning:
+            return try CHHapticPattern(
+                events: [
+                    transient(intensity: Self.warningIntensity, sharpness: Self.warningSharpness),
+                    transient(
+                        intensity: Self.warningIntensity,
+                        sharpness: Self.warningSharpness,
+                        at: Self.warningGap
+                    )
+                ],
+                parameters: []
+            )
+
+        // One tap, always the same strength; `HapticSpec.advanceSharpness` returns
+        // 0.2...0.9, so the value needs no clamping here.
+        case .storyAdvance(let bacDelta):
+            return try CHHapticPattern(
+                events: [
+                    transient(
+                        intensity: Self.storyAdvanceIntensity,
+                        sharpness: HapticSpec.advanceSharpness(bacDelta: bacDelta)
+                    )
+                ],
+                parameters: []
+            )
+
+        case .ceilingCrossed:
+            return try CHHapticPattern(
+                events: [
+                    transient(intensity: Self.ceilingIntensity, sharpness: Self.ceilingSharpness),
+                    transient(
+                        intensity: Self.ceilingIntensity,
+                        sharpness: Self.ceilingSharpness,
+                        at: Self.ceilingGap
+                    )
+                ],
+                parameters: []
+            )
+
+        // A short swell: the curve scales the event's intensity, so the event runs
+        // at full scale and the curve carries the 0.3 → 1.0 ramp.
+        case .peak:
+            let event = CHHapticEvent(
+                eventType: .hapticContinuous,
+                parameters: [
+                    CHHapticEventParameter(parameterID: .hapticIntensity, value: Self.peakEndIntensity),
+                    CHHapticEventParameter(parameterID: .hapticSharpness, value: Self.peakSharpness)
+                ],
+                relativeTime: 0,
+                duration: Self.peakDuration
+            )
+            let ramp = CHHapticParameterCurve(
+                parameterID: .hapticIntensityControl,
+                controlPoints: [
+                    CHHapticParameterCurve.ControlPoint(relativeTime: 0, value: Self.peakStartIntensity),
+                    CHHapticParameterCurve.ControlPoint(
+                        relativeTime: Self.peakDuration,
+                        value: Self.peakEndIntensity
+                    )
+                ],
+                relativeTime: 0
+            )
+            return try CHHapticPattern(events: [event], parameterCurves: [ramp])
+
+        case .pourEnd:
+            return try CHHapticPattern(
+                events: [transient(intensity: Self.pourEndIntensity, sharpness: Self.pourEndSharpness)],
+                parameters: []
+            )
+        }
+    }
+
+    private func transient(intensity: Float, sharpness: Float, at relativeTime: TimeInterval = 0) -> CHHapticEvent {
+        CHHapticEvent(
+            eventType: .hapticTransient,
+            parameters: [
+                CHHapticEventParameter(parameterID: .hapticIntensity, value: intensity),
+                CHHapticEventParameter(parameterID: .hapticSharpness, value: sharpness)
+            ],
+            relativeTime: relativeTime
+        )
+    }
+
+    // MARK: - UIKit fallback
+
+    // Only for hardware that cannot render custom patterns. The shaped patterns
+    // (story, ceiling, peak, pour) have no UIKit equivalent and stay silent.
+    private func playFallback(_ pattern: HapticPattern) {
+        switch pattern {
+        case .selection:
+            UISelectionFeedbackGenerator().selectionChanged()
+        case .light:
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        case .success, .exportDone:
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+        case .warning:
+            UINotificationFeedbackGenerator().notificationOccurred(.warning)
+        case .storyAdvance, .ceilingCrossed, .peak, .pourEnd:
+            break
+        }
+    }
+
+    // MARK: - Helpers
+
+    // CoreHaptics parameters live in 0...1 and reject anything else, so values
+    // that arrive from a caller are pinned to the range. Not a rule — just the
+    // framework's own bounds.
+    private func clamped(_ value: Float) -> Float {
+        guard !value.isNaN else { return 0 }
+        return min(max(value, 0), 1)
+    }
+
+    private func log(_ message: String) {
+        #if DEBUG
+        print("[Haptics] \(message)")
+        #endif
+    }
+}
