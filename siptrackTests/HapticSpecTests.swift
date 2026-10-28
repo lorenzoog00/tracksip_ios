@@ -92,4 +92,37 @@ struct HapticSpecTests {
         // Reaching the ceiling counts as crossing it.
         #expect(HapticSpec.crossingFires(previousBAC: 0.048, currentBAC: 0.05, ceiling: 0.05, alreadyFired: false) == true)
     }
+
+    // MARK: - selectionChanged
+
+    @Test func selectionChanged_offToOff_isSilent() {
+        // A touch in the off zone while already off.
+        #expect(HapticSpec.selectionChanged(from: nil, to: nil) == false)
+    }
+
+    @Test func selectionChanged_offToValue_ticks() {
+        #expect(HapticSpec.selectionChanged(from: nil, to: 0.05) == true)
+    }
+
+    @Test func selectionChanged_valueToOff_ticks() {
+        // The off transition must tick: nothing else in the UI confirms it.
+        #expect(HapticSpec.selectionChanged(from: 0.05, to: nil) == true)
+    }
+
+    @Test func selectionChanged_notchToDifferentNotch_ticks() {
+        #expect(HapticSpec.selectionChanged(from: 0.05, to: 0.055) == true)
+    }
+
+    @Test func selectionChanged_sameValue_isSilent() {
+        // Touch-down on the notch already selected, or dragging past a clamped end.
+        #expect(HapticSpec.selectionChanged(from: 0.05, to: 0.05) == false)
+        #expect(HapticSpec.selectionChanged(from: 0.2, to: 0.2) == false)
+    }
+
+    @Test func selectionChanged_buttonCeilingMatchesTenthNotch() {
+        // "Set a ceiling" writes the literal 0.05; the slider reaches that notch as
+        // 10 * 0.005. Exact equality only works if those are the same Double.
+        let tenthNotch = 10.0 * 0.005
+        #expect(HapticSpec.selectionChanged(from: 0.05, to: tenthNotch) == false)
+    }
 }

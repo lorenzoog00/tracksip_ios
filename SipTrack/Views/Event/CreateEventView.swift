@@ -345,8 +345,11 @@ private struct GoalCeilingMeter: View {
                             let p = max(0, min(1, v.location.x / w))
                             let raw = minBAC + p * (maxBAC - minBAC)
                             let snapped = (raw / snap).rounded() * snap
-                            targetBAC = snapped < snap ? nil : snapped
-                            Haptics.shared.play(.selection)
+                            let next: Double? = snapped < snap ? nil : snapped
+                            // Compare before assigning: afterwards the two are always equal.
+                            let changed = HapticSpec.selectionChanged(from: targetBAC, to: next)
+                            targetBAC = next
+                            if changed { Haptics.shared.play(.selection) }
                         }
                 )
             }

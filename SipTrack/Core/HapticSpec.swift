@@ -62,4 +62,14 @@ enum HapticSpec {
         guard let ceiling, !alreadyFired else { return false }
         return previousBAC < ceiling && currentBAC >= ceiling
     }
+
+    // Whether a drag on the ceiling slider should tick: only when the value it
+    // lands on differs from the one before. nil is the "off" state, so switching
+    // on and off both tick, and nothing else in the UI confirms the off one. A touch
+    // on the notch already selected, or a drag past the clamped ends, is not a
+    // change and stays silent. Plain equality is exact here: the slider only ever
+    // produces k * 0.005 from one multiply, so the same notch is the same Double.
+    static func selectionChanged(from: Double?, to: Double?) -> Bool {
+        from != to
+    }
 }
