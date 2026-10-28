@@ -8,8 +8,9 @@ enum HapticPattern {
     case light
     case success
     case warning
-    // One tap per Night Story card; `bacDelta` is the BAC change since the
-    // previous card and sets how hard the tap lands (see `advanceIntensity`).
+    // One tap per Night Story card. `bacDelta` is the BAC change since the
+    // previous card and sets how crisp the tap feels (see `advanceSharpness`);
+    // every story tap lands at the same strength.
     case storyAdvance(bacDelta: Double)
     case ceilingCrossed
     case peak
@@ -23,28 +24,30 @@ enum HapticPattern {
 // CoreHaptics / UIKit / SwiftUI.
 enum HapticSpec {
 
-    // Intensity range for a story-card tap, and the |BAC delta| at which it
-    // saturates: a swing of 0.04 or more is as hard as the tap gets.
-    private static let minAdvanceIntensity = 0.2
-    private static let maxAdvanceIntensity = 0.9
+    // Sharpness range for a story-card tap, and the |BAC delta| at which it
+    // saturates: a swing of 0.04 or more is as crisp as the tap gets.
+    private static let minAdvanceSharpness = 0.2
+    private static let maxAdvanceSharpness = 0.9
     private static let saturatingBACDelta = 0.04
 
-    // Custom haptics play only when the user has them on AND the hardware can
-    // render them. When this is false the engine falls back to the plain
-    // UIFeedbackGenerators (or stays silent) rather than playing nothing at all.
+    // The gate for the CoreHaptics engine: true only when the user has haptics
+    // switched on in the app AND the hardware can render them.
     static func shouldPlay(enabled: Bool, supportsHaptics: Bool) -> Bool {
         enabled && supportsHaptics
     }
 
-    // Tap strength for a story card, 0.2...0.9. Scales linearly with the
-    // magnitude of the BAC change since the previous card and clamps at 0.04, so
-    // a flat stretch of the night still gets a gentle tap and a big swing never
-    // exceeds 0.9. Direction is ignored: dropping 0.02 is as notable as rising
-    // 0.02. A NaN delta is treated as no change so the result is always in range.
-    static func advanceIntensity(bacDelta: Double) -> Float {
-        guard !bacDelta.isNaN else { return Float(minAdvanceIntensity) }
+    // CoreHaptics sharpness for a story-card tap, 0.2...0.9 (low is dull and
+    // round, high is crisp). Grows linearly with the magnitude of the BAC change
+    // since the previous card and saturates at 0.04, so a flat stretch of the
+    // night gets a dull tap and a big swing a crisp one. Only sharpness varies:
+    // intensity is the same for every tap, so the app does not get louder as the
+    // night gets worse. Direction is ignored: dropping 0.02 is as notable as
+    // rising 0.02. A NaN delta is treated as no change so the result is always
+    // in range (Swift's `min` would otherwise pass NaN straight through).
+    static func advanceSharpness(bacDelta: Double) -> Float {
+        guard !bacDelta.isNaN else { return Float(minAdvanceSharpness) }
         let fraction = min(abs(bacDelta) / saturatingBACDelta, 1.0)
-        return Float(minAdvanceIntensity * (1 - fraction) + maxAdvanceIntensity * fraction)
+        return Float(minAdvanceSharpness * (1 - fraction) + maxAdvanceSharpness * fraction)
     }
 
     // Whether this BAC tick should play the "you passed your ceiling" haptic.

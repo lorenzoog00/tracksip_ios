@@ -36,6 +36,7 @@
 		B101B4E02F9CD648009F7DDD /* Analytics.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4972F9C2F32009F7DDD /* Analytics.swift */; };
 		B1CC10052FA1000000001005 /* CountryDetectedSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1CC10062FA1000000001006 /* CountryDetectedSheet.swift */; };
 		B101B4E12F9CD648009F7DDD /* BACCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4982F9C2F32009F7DDD /* BACCalculator.swift */; };
+		8E3F7C2B5D4A6810C3F6A9B6 /* HapticSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E3F7C2B5D4A6810C3F6A9B7 /* HapticSpec.swift */; };
 		B1CC10022FA1000000001002 /* LocationCountryDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1CC10012FA1000000001001 /* LocationCountryDetector.swift */; };
 		B1CC10042FA1000000001004 /* LegalBACLimit.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1CC10032FA1000000001003 /* LegalBACLimit.swift */; };
 		B101B4E22F9CD648009F7DDD /* ChallengeUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4992F9C2F32009F7DDD /* ChallengeUtils.swift */; };
@@ -205,6 +206,7 @@
 		B101B4952F9C2F32009F7DDD /* AppColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppColors.swift; sourceTree = "<group>"; };
 		B101B4972F9C2F32009F7DDD /* Analytics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Analytics.swift; sourceTree = "<group>"; };
 		B101B4982F9C2F32009F7DDD /* BACCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BACCalculator.swift; sourceTree = "<group>"; };
+		8E3F7C2B5D4A6810C3F6A9B7 /* HapticSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticSpec.swift; sourceTree = "<group>"; };
 		B1CC10012FA1000000001001 /* LocationCountryDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationCountryDetector.swift; sourceTree = "<group>"; };
 		B1CC10032FA1000000001003 /* LegalBACLimit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegalBACLimit.swift; sourceTree = "<group>"; };
 		B101B4992F9C2F32009F7DDD /* ChallengeUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChallengeUtils.swift; sourceTree = "<group>"; };
@@ -454,6 +456,7 @@
 				B1CC00022FA00000000BBBBB /* LiveActivityManager.swift */,
 				B1CC10012FA1000000001001 /* LocationCountryDetector.swift */,
 				B1CC10032FA1000000001003 /* LegalBACLimit.swift */,
+				8E3F7C2B5D4A6810C3F6A9B7 /* HapticSpec.swift */,
 			);
 			path = Core;
 			sourceTree = "<group>";
@@ -1011,6 +1014,7 @@
 				A0WB1001000000000000001A /* WatchBridge.swift in Sources */,
 				B101B4E02F9CD648009F7DDD /* Analytics.swift in Sources */,
 				B101B4E12F9CD648009F7DDD /* BACCalculator.swift in Sources */,
+				8E3F7C2B5D4A6810C3F6A9B6 /* HapticSpec.swift in Sources */,
 				B101B4E22F9CD648009F7DDD /* ChallengeUtils.swift in Sources */,
 				B101B4E32F9CD648009F7DDD /* IntoxicationStage.swift in Sources */,
 				B15DA94B2FAABF7600345F64 /* ConsentManager.swift in Sources */,
