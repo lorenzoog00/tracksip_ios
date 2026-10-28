@@ -14,27 +14,34 @@ import Foundation
 // the process. Two things keep them from leaking into each other or into
 // whatever runs next (or into a developer's simulator):
 //
-//   - `.serialized`: Swift Testing runs tests in parallel by default, and both
-//     tests below use the same file.
-//   - Each test snapshots that file byte for byte before touching it and, in a
-//     `defer`, puts it back exactly: same bytes if it was there, no file if not.
-@Suite(.serialized)
+//   - `.serialized`: Swift Testing runs tests in parallel by default, and the
+//     tests below share the same files.
+//   - Each test snapshots the files it touches byte for byte before touching
+//     them and, in a `defer`, puts them back exactly: same bytes if they were
+//     there, no file if not.
+//
+// `@MainActor`: DataStore and AppState live in an app module that defaults to
+// MainActor isolation, and this test target does not. Isolating the suite makes
+// every call below legal however the compiler infers the app types, and matches
+// production, where all of this code runs on the main actor.
+@Suite(.serialized) @MainActor
 struct CeilingCrossingTests {
 
-    /// The crossed-ids file as it stood when the test began.
+    /// A DataStore file as it stood when the test began. Defaults to the crossed-ids
+    /// file.
     ///
     /// DataStore keeps its file paths private, so this restates the convention
-    /// (`<documents>/<key>.json`). The first test asserts the file really appears
-    /// at this URL after a save, so a renamed key fails loudly instead of leaving
-    /// the snapshot watching the wrong file.
+    /// (`<documents>/<key>.json`). The first test asserts the crossed-ids file really
+    /// appears at this URL after a save, so a renamed key fails loudly instead of
+    /// leaving the snapshot watching the wrong file.
     private struct FileSnapshot {
         let fileURL: URL
         private let original: Data?
 
-        init() {
+        init(key: String = "siptrack_ceiling_crossed") {
             let url = FileManager.default
                 .urls(for: .documentDirectory, in: .userDomainMask)[0]
-                .appendingPathComponent("siptrack_ceiling_crossed.json")
+                .appendingPathComponent("\(key).json")
             fileURL = url
             original = try? Data(contentsOf: url)
         }
@@ -93,5 +100,62 @@ struct CeilingCrossingTests {
         // No file at all, as on a fresh install or right after sign-out.
         let ids = DataStore.shared.loadCeilingCrossedEventIds()
         #expect(ids.isEmpty)
+    }
+
+    // MARK: - Pruning
+
+    /// Every file `DataStore.deleteEvent` reads and rewrites. Snapshotting all of
+    /// them keeps a delete test from touching a developer's real events, entries,
+    /// water or food.
+    private static let deleteEventKeys = [
+        "siptrack_ceiling_crossed", "siptrack_events", "siptrack_entries",
+        "siptrack_water", "siptrack_food",
+    ]
+
+    @Test func deletingAnEvent_forgetsItsCrossedId() {
+        let snapshots = Self.deleteEventKeys.map { FileSnapshot(key: $0) }
+        defer { snapshots.forEach { $0.restore() } }
+        snapshots.forEach { $0.remove() }
+
+        DataStore.shared.saveCeilingCrossedEventIds(["night-1", "night-2"])
+        DataStore.shared.deleteEvent("night-1")
+
+        #expect(DataStore.shared.loadCeilingCrossedEventIds() == ["night-2"])
+    }
+
+    @Test func deletingAnEventThatNeverFired_createsNoCrossedFile() {
+        let snapshots = Self.deleteEventKeys.map { FileSnapshot(key: $0) }
+        defer { snapshots.forEach { $0.restore() } }
+        snapshots.forEach { $0.remove() }
+
+        DataStore.shared.deleteEvent("night-3")
+
+        let crossedFile = snapshots[0].fileURL
+        #expect(!FileManager.default.fileExists(atPath: crossedFile.path))
+    }
+
+    // MARK: - Ceiling resolution
+
+    /// A night as CreateEventView builds it: a driving night carries `bacLimit`, any
+    /// night may carry a personal `targetBAC`.
+    private func night(targetBAC: Double?, bacLimit: Double?) -> NightEvent {
+        NightEvent(
+            id: "night", startTime: Date(), drivingMode: bacLimit != nil,
+            bacLimit: bacLimit, targetBAC: targetBAC, createdAt: Date()
+        )
+    }
+
+    @Test func ceiling_prefersThePersonalTarget() {
+        #expect(AppState.ceiling(for: night(targetBAC: 0.05, bacLimit: 0.08)) == 0.05)
+    }
+
+    @Test func ceiling_fallsBackToTheDrivingLimit() {
+        #expect(AppState.ceiling(for: night(targetBAC: nil, bacLimit: 0.08)) == 0.08)
+    }
+
+    @Test func ceiling_isNilWhenTheNightSetsNeither() {
+        // Most nights. No legal-limit fallback: the haptic only ever fires for a
+        // ceiling the user chose, so a night with none must fire nothing.
+        #expect(AppState.ceiling(for: night(targetBAC: nil, bacLimit: nil)) == nil)
     }
 }

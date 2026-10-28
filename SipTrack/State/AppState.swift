@@ -93,6 +93,17 @@ final class AppState: ObservableObject {
         isPro && aiReportsEnabled && signedIn && !alreadyRequested
     }
 
+    /// The BAC the user has asked to stay under tonight: their own ceiling, else the
+    /// limit they set for a driving night. Nil when they set neither, which is most
+    /// nights, and then nothing fires.
+    ///
+    /// Deliberately no legal-limit fallback (`userProfile.resolvedBACLimit` and
+    /// friends). That fallback is a display concern; a haptic that fires for a
+    /// ceiling the user never chose would buzz every night.
+    static func ceiling(for event: NightEvent) -> Double? {
+        event.targetBAC ?? event.bacLimit
+    }
+
     var activeEvent: NightEvent? {
         events.first { $0.isActive && $0.userId == currentUserId }
     }
@@ -222,6 +233,12 @@ final class AppState: ObservableObject {
             // cannot carry over to another event (a new event starts a new task), and
             // empty until the first tick has something to compare against.
             var previousBAC: Double?
+            // Whether this night has already fired. Read from disk once, here, and
+            // set to true when it fires: the file stays the source of truth across
+            // launches, but re-reading it every 10 s would only re-learn a settled
+            // fact. No staleness risk: this task is recreated on every launch and
+            // every new event, and nothing else writes the id for this night.
+            var alreadyFired = hasFiredCeilingCrossing(eventId: eventId)
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 10_000_000_000)
                 bacTick = Date()           // single clock: all views re-render here
@@ -231,7 +248,9 @@ final class AppState: ObservableObject {
                     let bac = currentBAC(for: eventId)
                     // First tick: seed with the current value so it is not an edge. A
                     // night resumed already above its ceiling must stay silent.
-                    checkCeilingCrossing(eventId: eventId, from: previousBAC ?? bac, to: bac)
+                    if checkCeilingCrossing(eventId: eventId, from: previousBAC ?? bac, to: bac, alreadyFired: alreadyFired) {
+                        alreadyFired = true
+                    }
                     previousBAC = bac
                 }
                 updateLiveActivity(for: eventId)
@@ -247,26 +266,31 @@ final class AppState: ObservableObject {
     }
 
     /// Plays the ceiling-crossed haptic the first time BAC climbs from below the
-    /// night's ceiling to at or above it, then latches so it never plays again that
-    /// night. Runs from the 10 s tick: the banner predicate in ActiveEventView is
+    /// night's ceiling to at or above it, and records the night so it never plays
+    /// again. Returns true when it fired, so the caller can latch `alreadyFired`.
+    /// Runs from the 10 s tick: the banner predicate in ActiveEventView is
     /// re-evaluated on every tick, so firing from there would buzz all night.
-    private func checkCeilingCrossing(eventId: String, from previousBAC: Double, to bac: Double) {
-        guard let event = events.first(where: { $0.id == eventId }) else { return }
-        // The user's own ceiling, or the limit they set for a driving night. No
-        // legal-limit fallback: most nights set neither, and then nothing fires.
-        guard let ceiling = event.targetBAC ?? event.bacLimit else { return }
+    private func checkCeilingCrossing(
+        eventId: String,
+        from previousBAC: Double,
+        to bac: Double,
+        alreadyFired: Bool
+    ) -> Bool {
+        guard let event = events.first(where: { $0.id == eventId }),
+              let ceiling = Self.ceiling(for: event) else { return false }
         guard HapticSpec.crossingFires(
             previousBAC: previousBAC,
             currentBAC: bac,
             ceiling: ceiling,
-            alreadyFired: hasFiredCeilingCrossing(eventId: eventId)
-        ) else { return }
+            alreadyFired: alreadyFired
+        ) else { return false }
 
         Haptics.shared.play(.ceilingCrossed)
         // Local only: never on NightEvent, which syncs to Firestore.
         var fired = DataStore.shared.loadCeilingCrossedEventIds()
         fired.insert(eventId)
         DataStore.shared.saveCeilingCrossedEventIds(fired)
+        return true
     }
 
     private func startLiveActivity(for event: NightEvent) {

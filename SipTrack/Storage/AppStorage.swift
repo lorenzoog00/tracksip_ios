@@ -81,6 +81,10 @@ final class DataStore {
         var food = loadFoodEntries()
         food.removeAll { $0.eventId == id }
         saveFoodEntries(food)
+        // Forget that its ceiling haptic fired, or that file only ever grows. Written
+        // only when the id is there, so a night that never fired creates nothing.
+        var crossed = loadCeilingCrossedEventIds()
+        if crossed.remove(id) != nil { saveCeilingCrossedEventIds(crossed) }
     }
 
     // MARK: - Drink Entries
