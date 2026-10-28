@@ -1291,7 +1291,7 @@ final class AppState: ObservableObject {
         )
         DataStore.shared.addEntry(entry)
         entries.append(entry)
-        Haptics.shared.play(.light)
+        Haptics.shared.play(.pourEnd)
         scheduleUndo(entry)
         checkWarnings(after: entry, eventId: eventId)
         updateLiveActivity(for: eventId)
