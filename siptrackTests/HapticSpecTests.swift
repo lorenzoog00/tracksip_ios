@@ -102,6 +102,14 @@ struct HapticSpecTests {
         #expect(HapticSpec.crossingFires(previousBAC: 0.0, currentBAC: 0.01, ceiling: 0.0, alreadyFired: false) == false)
     }
 
+    @Test func crossingFires_firesForTheSliderLowestNotch() {
+        // The ceiling slider's lowest notch is exactly 0.005 (`snap` in
+        // CreateEventView) and `targetBAC` keeps it, so it is a ceiling a user
+        // deliberately chose. The zero-tolerance guard suppresses ceilings below
+        // 0.005, not this one.
+        #expect(HapticSpec.crossingFires(previousBAC: 0.004, currentBAC: 0.006, ceiling: 0.005, alreadyFired: false) == true)
+    }
+
     // MARK: - firstObservationFires
 
     @Test func firstObservationFires_whenResumedAboveAnUnannouncedCeiling() {
@@ -132,6 +140,12 @@ struct HapticSpecTests {
 
     @Test func firstObservationFires_neverForAZeroToleranceCeiling() {
         #expect(HapticSpec.firstObservationFires(currentBAC: 0.01, ceiling: 0.0, alreadyFired: false) == false)
+    }
+
+    @Test func firstObservationFires_firesForTheSliderLowestNotch() {
+        // Same boundary as crossingFires: 0.005 is the lowest ceiling the slider
+        // can set, so it is honoured while 0.0 stays silent.
+        #expect(HapticSpec.firstObservationFires(currentBAC: 0.01, ceiling: 0.005, alreadyFired: false) == true)
     }
 
     // MARK: - selectionChanged

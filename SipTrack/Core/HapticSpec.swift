@@ -35,15 +35,32 @@ enum HapticSpec {
     private static let maxAdvanceSharpness = 0.9
     private static let saturatingBACDelta = 0.04
 
-    // A ceiling at or under this is treated as no ceiling for the crossing beat.
-    // `LegalBACLimit` carries plenty of exact 0.00 entries — novice tiers in
-    // Australia, Brazil, Canada and Chile, commercial in Argentina — so a
-    // driving night in one of those tiers resolves to a ceiling of 0.00, and
-    // without this the alarm would fire on the first sip. Nothing reaches that
-    // today by luck rather than by rule: `BACCalculator` clamps BAC with
-    // `max(0, ...)` so `previousBAC < 0.0` cannot hold, and no country entry
-    // falls in (0, 0.005]. One relaxed clamp or one 0.003 table row would break
-    // both halves of that, so the rule is written down here instead.
+    // A ceiling BELOW this is treated as no ceiling for the crossing beat; a
+    // ceiling of exactly this value is honoured (the guards use `>=`).
+    // `AppState.ceiling(for:)` is `event.targetBAC ?? event.bacLimit`, and the
+    // boundary has to answer for both terms:
+    //   - `bacLimit`: `LegalBACLimit` carries plenty of exact 0.00 entries —
+    //     novice tiers in Australia, Brazil, Canada and Chile, commercial in
+    //     Argentina — so a driving night in one of those tiers resolves to a
+    //     ceiling of 0.00, and without this the alarm would fire on the first
+    //     sip. That is what the guard was written for. No country entry falls
+    //     in (0, 0.005) today, so for this term it suppresses exactly the 0.00
+    //     tiers; a future non-zero row under 0.005 would be silenced too.
+    //   - `targetBAC`: the ceiling slider's lowest notch is exactly 0.005
+    //     (`snap` in CreateEventView, which keeps that notch rather than
+    //     clearing it to nil). It is the lowest ceiling a user can deliberately
+    //     set, so it is allowed through and gets its haptic.
+    // The country table alone does not justify this boundary; the slider term
+    // is what puts a real ceiling exactly on it.
+    // Separately, `BACCalculator` clamps BAC with `max(0, ...)` so
+    // `previousBAC < 0.0` cannot hold, which is why `crossingFires` was
+    // accidentally safe before the guard existed; the guard does not rely on it.
+    //
+    // Known, open design difference: `BACCalculator.drivingThreshold` is
+    // `max(limit, bacFloor)`, and its own comment says comparing against 0 makes
+    // "crossed the limit" untestable, so fall back to the display floor. The
+    // drive warning therefore fires on a zero-tolerance night while this haptic
+    // deliberately does not. Left as is on purpose; not resolved here.
     private static let minimumMeaningfulCeiling = 0.005
 
     // The gate for the CoreHaptics engine: true only when the user has haptics
@@ -78,7 +95,7 @@ enum HapticSpec {
     // observation of a night has none and goes through
     // `firstObservationFires` instead.
     static func crossingFires(previousBAC: Double, currentBAC: Double, ceiling: Double?, alreadyFired: Bool) -> Bool {
-        guard let ceiling, !alreadyFired, ceiling > minimumMeaningfulCeiling else { return false }
+        guard let ceiling, !alreadyFired, ceiling >= minimumMeaningfulCeiling else { return false }
         return previousBAC < ceiling && currentBAC >= ceiling
     }
 
@@ -95,7 +112,7 @@ enum HapticSpec {
     // the only chance anything ever gets to announce it. Treating both as "no
     // edge" loses the second case for good.
     static func firstObservationFires(currentBAC: Double, ceiling: Double?, alreadyFired: Bool) -> Bool {
-        guard let ceiling, !alreadyFired, ceiling > minimumMeaningfulCeiling else { return false }
+        guard let ceiling, !alreadyFired, ceiling >= minimumMeaningfulCeiling else { return false }
         return currentBAC >= ceiling
     }
 
