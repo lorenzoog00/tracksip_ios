@@ -85,7 +85,7 @@ enum HapticSpec {
 
     // Whether this BAC tick should play the "you passed your ceiling" haptic.
     // A strict upward edge, at most once per night:
-    //   - needs a ceiling (nil means the user never set one) above the
+    //   - needs a ceiling (nil means the user never set one) at or above the
     //     zero-tolerance floor;
     //   - `previousBAC < ceiling && currentBAC >= ceiling`, so staying above it,
     //     or a tick where previous == current, is silent;
