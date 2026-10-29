@@ -1,7 +1,6 @@
 import SwiftUI
 import StoreKit
 import Combine
-import UIKit
 import UserNotifications
 import SipTrackActivityKit
 
@@ -94,6 +93,17 @@ final class AppState: ObservableObject {
         isPro && aiReportsEnabled && signedIn && !alreadyRequested
     }
 
+    /// The BAC the user has asked to stay under tonight: their own ceiling, else the
+    /// limit they set for a driving night. Nil when they set neither, which is most
+    /// nights, and then nothing fires.
+    ///
+    /// Deliberately no legal-limit fallback (`userProfile.resolvedBACLimit` and
+    /// friends). That fallback is a display concern; a haptic that fires for a
+    /// ceiling the user never chose would buzz every night.
+    static func ceiling(for event: NightEvent) -> Double? {
+        event.targetBAC ?? event.bacLimit
+    }
+
     var activeEvent: NightEvent? {
         events.first { $0.isActive && $0.userId == currentUserId }
     }
@@ -155,6 +165,8 @@ final class AppState: ObservableObject {
         events = []; entries = []; waterEntries = []; foodEntries = []
         customDrinkTypes = []; challenges = []; coachReports = []; nightRecoveries = []
         userProfile = UserProfile()
+        // Bypasses updateUserProfile, so hand Haptics the reset value directly.
+        Haptics.shared.setEnabled(userProfile.hapticsEnabled)
         shouldShowAuth = true
     }
 
@@ -205,7 +217,7 @@ final class AppState: ObservableObject {
         event.targetBAC = targetBAC
         DataStore.shared.updateEvent(event)
         events.append(event)
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        Haptics.shared.play(.light)
         push { try await FirebaseManager.shared.pushEvent(event) }
         WatchBridge.shared.pushState()
         startBACRefreshTimer(for: event.id)
@@ -217,12 +229,102 @@ final class AppState: ObservableObject {
     private func startBACRefreshTimer(for eventId: String) {
         bacTimerTask?.cancel()
         bacTimerTask = Task {
+            // BAC at the previous tick, for edge detection. Local to this task so it
+            // cannot carry over to another event (a new event starts a new task), and
+            // empty until the first tick has something to compare against.
+            var previousBAC: Double?
+            // Whether this night has already fired. Read from disk once, here, and
+            // set to true when it fires: the file stays the source of truth across
+            // launches, but re-reading it every 10 s would only re-learn a settled
+            // fact. No staleness risk: this task is recreated on every launch and
+            // every new event, and nothing else writes the id for this night.
+            var alreadyFired = hasFiredCeilingCrossing(eventId: eventId)
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 10_000_000_000)
                 bacTick = Date()           // single clock: all views re-render here
-                updateLiveActivity(for: eventId)
+                // `try?` swallows the cancellation error, so a cancelled task still
+                // reaches this line once. Don't judge a night that was just ended.
+                if !Task.isCancelled {
+                    let bac = currentBAC(for: eventId)
+                    // `previousBAC` is nil only on this night's first observation,
+                    // which has nothing to form an edge with and so asks a
+                    // different question: has this night been announced? The
+                    // persisted latch is the only thing that tells "already
+                    // announced" from merely "already above" — resumed above the
+                    // ceiling having buzzed stays silent, resumed above it having
+                    // never buzzed (an eviction or force-quit mid-climb) buzzes
+                    // now, and nothing else ever would. Every later tick is the
+                    // plain upward edge.
+                    if checkCeilingCrossing(eventId: eventId, from: previousBAC, to: bac, alreadyFired: alreadyFired) {
+                        alreadyFired = true
+                    }
+                    previousBAC = bac
+                    // Inside the guard with the crossing check, and handed the BAC
+                    // already computed above: recomputing it would run the full
+                    // kinetics model and three array filters twice every 10 s, and
+                    // a cancelled task's last pass must not update the Live
+                    // Activity for a night `endEvent` has just ended.
+                    updateLiveActivity(for: eventId, bac: bac)
+                }
             }
         }
+    }
+
+    /// Whether this night's ceiling-crossed haptic has already played. The file is
+    /// the source of truth, so a force-quit and relaunch keeps it latched and
+    /// sign-out (which deletes the file) resets it with no extra step.
+    ///
+    /// A live timer task does hold an in-memory copy: it reads this once at the top
+    /// of `startBACRefreshTimer` and latches its own `alreadyFired` when it fires,
+    /// rather than re-reading a settled fact every 10 s. That copy can only be
+    /// stale in the safe direction — it is seeded from disk, it never un-latches,
+    /// and the task is recreated on every launch and every new event — so a wrong
+    /// guess means one haptic too few, never one too many.
+    func hasFiredCeilingCrossing(eventId: String) -> Bool {
+        DataStore.shared.loadCeilingCrossedEventIds().contains(eventId)
+    }
+
+    /// Plays the ceiling-crossed haptic the first time BAC is seen at or above the
+    /// night's ceiling, and records the night so it never plays again. Returns true
+    /// when it fired, so the caller can latch `alreadyFired`. Runs from the 10 s
+    /// tick: the banner predicate in ActiveEventView is re-evaluated on every tick,
+    /// so firing from there would buzz all night.
+    ///
+    /// `previousBAC` is nil for this night's first observation, which has no edge to
+    /// test and leans on the persisted latch instead; every later tick passes the
+    /// previous tick's value and tests a strict upward edge. Both predicates live in
+    /// `HapticSpec` so the decision stays testable without hardware.
+    private func checkCeilingCrossing(
+        eventId: String,
+        from previousBAC: Double?,
+        to bac: Double,
+        alreadyFired: Bool
+    ) -> Bool {
+        guard let event = events.first(where: { $0.id == eventId }),
+              let ceiling = Self.ceiling(for: event) else { return false }
+        let fires: Bool
+        if let previousBAC {
+            fires = HapticSpec.crossingFires(
+                previousBAC: previousBAC,
+                currentBAC: bac,
+                ceiling: ceiling,
+                alreadyFired: alreadyFired
+            )
+        } else {
+            fires = HapticSpec.firstObservationFires(
+                currentBAC: bac,
+                ceiling: ceiling,
+                alreadyFired: alreadyFired
+            )
+        }
+        guard fires else { return false }
+
+        Haptics.shared.play(.ceilingCrossed)
+        // Local only: never on NightEvent, which syncs to Firestore.
+        var fired = DataStore.shared.loadCeilingCrossedEventIds()
+        fired.insert(eventId)
+        DataStore.shared.saveCeilingCrossedEventIds(fired)
+        return true
     }
 
     private func startLiveActivity(for event: NightEvent) {
@@ -245,27 +347,32 @@ final class AppState: ObservableObject {
         }
     }
 
-    private func updateLiveActivity(for eventId: String) {
+    /// Pushes the lock-screen state. `bac` is for a caller that has just computed
+    /// this night's BAC and can hand it over — the 10 s tick needs it for the
+    /// ceiling check anyway, and `currentBAC(for:)` is the full kinetics model plus
+    /// three array filters, not worth running twice per tick. Omit it and this
+    /// computes its own, which is what the one-off callers (an added drink) do.
+    private func updateLiveActivity(for eventId: String, bac: Double? = nil) {
         if #available(iOS 16.2, *) {
             guard let event = events.first(where: { $0.id == eventId }) else { return }
-            let bac = currentBAC(for: eventId)
-            let stage = IntoxicationStage.stage(for: bac)
+            let resolvedBAC = bac ?? currentBAC(for: eventId)
+            let stage = IntoxicationStage.stage(for: resolvedBAC)
             let elapsed = Int(max(0, -event.startTime.timeIntervalSinceNow) / 60)
 
             var safeToDriveAt: Date? = nil
             if event.drivingMode {
                 let limit = BACCalculator.drivingThreshold(limit: event.bacLimit ?? userProfile.resolvedBACLimit)
-                if bac > limit {
+                if resolvedBAC > limit {
                     // Use the user's profile elimination rate so the lock-screen
                     // countdown matches the in-app DriveWarningBanner exactly.
                     let beta = BACCalculator.eliminationRate(profile: userProfile)
-                    let hoursUntilSafe = BACCalculator.hoursToReduceBAC(from: bac, to: limit, beta: beta)
+                    let hoursUntilSafe = BACCalculator.hoursToReduceBAC(from: resolvedBAC, to: limit, beta: beta)
                     safeToDriveAt = Date().addingTimeInterval(hoursUntilSafe * 3600)
                 }
             }
 
             LiveActivityManager.shared.update(
-                bac: bac,
+                bac: resolvedBAC,
                 drinkCount: totalDrinks(for: eventId),
                 stageName: stage.name,
                 stageColorHex: stage.colorHex,
@@ -279,7 +386,7 @@ final class AppState: ObservableObject {
         bacTimerTask?.cancel()
         bacTimerTask = nil
         updateEvent(id: id) { $0.endTime = Date() }
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        Haptics.shared.play(.success)
         if #available(iOS 16.2, *) { LiveActivityManager.shared.end() }
         WaterReminderManager.shared.cancel()
         WatchBridge.shared.pushState()
@@ -1290,7 +1397,7 @@ final class AppState: ObservableObject {
         )
         DataStore.shared.addEntry(entry)
         entries.append(entry)
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        Haptics.shared.play(.pourEnd)
         scheduleUndo(entry)
         checkWarnings(after: entry, eventId: eventId)
         updateLiveActivity(for: eventId)
@@ -1318,7 +1425,7 @@ final class AppState: ObservableObject {
         if let e = undoEntry {
             deleteEntry(e.id)
             undoEntry = nil
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            Haptics.shared.play(.light)
         }
     }
 
@@ -1337,7 +1444,7 @@ final class AppState: ObservableObject {
         let entry = WaterEntry(id: generateId(), eventId: eventId, timestamp: Date(), volumeMl: volumeMl)
         DataStore.shared.addWaterEntry(entry)
         waterEntries.append(entry)
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        Haptics.shared.play(.light)
         scheduleUndoWater(entry)
         if activeEvent?.id == eventId {
             WaterReminderManager.shared.schedule(intervalMinutes: userProfile.waterReminderIntervalMinutes)
@@ -1350,7 +1457,7 @@ final class AppState: ObservableObject {
         if let e = undoWaterEntry {
             deleteWaterEntry(e.id)
             undoWaterEntry = nil
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            Haptics.shared.play(.light)
         }
     }
 
@@ -1410,6 +1517,11 @@ final class AppState: ObservableObject {
     func updateUserProfile(_ profile: UserProfile) {
         userProfile = profile
         DataStore.shared.saveUserProfile(profile)
+        // Pushed after the write, not before it: prepare() re-reads the profile from
+        // disk, so a push made before the write could be overwritten with the old value.
+        // Insurance for a future async save. Today it cannot race: DataStore.save is a
+        // synchronous atomic write and AppState and Haptics share the main actor.
+        Haptics.shared.setEnabled(profile.hapticsEnabled)
         push { try await FirebaseManager.shared.pushProfile(profile) }
         if activeEvent != nil {
             WaterReminderManager.shared.schedule(intervalMinutes: profile.waterReminderIntervalMinutes)
@@ -1654,8 +1766,14 @@ final class AppState: ObservableObject {
         if let cloud = data.profile {
             // Never downgrade onboardingComplete — the local write may not have
             // reached Firebase yet when this pull was issued.
+            //
+            // hapticsEnabled is rescued for a different reason: it is a
+            // device-local preference that is neither pushed to nor pulled from
+            // Firestore, so `cloud` always carries the default (on). Without this
+            // every pull would silently switch haptics back on.
             var merged = cloud
             if userProfile.onboardingComplete { merged.onboardingComplete = true }
+            merged.hapticsEnabled = userProfile.hapticsEnabled
             updateUserProfile(merged)
         } else {
             push { try await FirebaseManager.shared.pushProfile(self.userProfile) }

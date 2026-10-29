@@ -175,6 +175,10 @@ struct DrinkPickerList: View {
         }
         .onAppear {
             filter = hasFavorites ? .favorites : .all
+            // Once for the whole grid: every tile plays through the shared engine,
+            // and prepare() re-reads the profile from disk, so it must not run per
+            // tile.
+            Haptics.shared.prepare()
         }
     }
 
@@ -241,8 +245,6 @@ private struct DrinkTile: View {
     let onPick: () -> Void
     let onPickSized: (ServingSizeOption) -> Void
 
-    private let haptic = UIImpactFeedbackGenerator(style: .medium)
-
     private static let timeFormatter: DateFormatter = {
         let f = DateFormatter()
         f.timeStyle = .short
@@ -253,7 +255,13 @@ private struct DrinkTile: View {
 
     var body: some View {
         Button {
-            haptic.impactOccurred()
+            // No haptic here. The confirmation tap is played by AppState.addDrink,
+            // which every add goes through, so it follows a drink that was actually
+            // logged: a press cancelled by a scroll, or a tap that only raises the
+            // limit warning, adds nothing and so gets no confirmation tap. Not
+            // silent, in the warning case — ActiveEventView plays `.warning` when
+            // it raises the sheet, and the confirmation tap comes later if and when
+            // the user confirms the add.
             onPick()
         } label: {
             VStack(spacing: 8) {
@@ -298,7 +306,6 @@ private struct DrinkTile: View {
         // on a tile. A ButtonStyle's isPressed cancels itself when a scroll
         // starts instead of competing with it.
         .buttonStyle(PressableTile())
-        .onAppear { haptic.prepare() }
         .contextMenu {
             Text("Pour size")
             ForEach(drinkType.servingSizeOptions) { opt in
@@ -312,8 +319,9 @@ private struct DrinkTile: View {
     }
 }
 
-/// Press feedback that does not block scrolling. `isPressed` is driven by the
-/// button itself, so SwiftUI drops it the moment the grid starts to scroll.
+/// Press feedback that does not block scrolling: the scale and the pour buzz
+/// both follow `isPressed`. It is driven by the button itself, so SwiftUI drops
+/// it the moment the grid starts to scroll.
 private struct PressableTile: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -322,5 +330,91 @@ private struct PressableTile: ButtonStyle {
                 .spring(response: 0.2, dampingFraction: 0.65),
                 value: configuration.isPressed
             )
+            .modifier(PourHaptic(isPressed: configuration.isPressed))
+    }
+}
+
+/// The continuous "pour" buzz for a held tile. It starts once the press has
+/// lasted `holdDelay`, so a tap never begins it, then swells from
+/// `startIntensity` to `peakIntensity`. It ends when the press ends, or
+/// `peakHold` after the swell tops out, whichever comes first. It never plays the
+/// closing tap: `isPressed` also goes false when the grid takes the touch to
+/// scroll, and no drink is added then, so that tap belongs to `AppState.addDrink`.
+///
+/// A `ButtonStyle` cannot hold state, so the ramp lives here: a `ViewModifier`
+/// gets its own storage, and the ramp is a `.task(id:)` so that SwiftUI owns its
+/// lifetime rather than a `Task` handle kept by hand.
+private struct PourHaptic: ViewModifier {
+    let isPressed: Bool
+
+    /// True from `beginContinuous` until the matching `endContinuous`, and the
+    /// only gate on `endBuzz`. A buzz can be ended from three places (the release,
+    /// the tile disappearing, the time bound below) and this makes the first one to
+    /// arrive the only one that acts. It is not a corner case that the tile
+    /// disappears: a tap that lands can move the tile from "ALL DRINKS" to
+    /// "RECENTLY ADDED", which tears it down in the same update as the release.
+    @State private var isBuzzing = false
+
+    // How long a finger must rest before the buzz starts. Shorter than this is a
+    // tap, and a tap should feel like a tap rather than a hum and then a tap.
+    private static let holdDelay: Duration = .milliseconds(120)
+
+    private static let startIntensity: Float = 0.25
+    private static let peakIntensity: Float = 0.8
+    // 15 steps of 40 ms is the 0.6 s swell.
+    private static let rampSteps = 15
+    private static let rampStep: Duration = .milliseconds(40)
+
+    // The buzz bounds itself rather than trusting `isPressed` to go false. If the
+    // pressed state were ever left stuck (say, by the "Pour size" menu taking the
+    // touch), the buzz would otherwise run to the engine's 20 s cap. This caps it
+    // at about a second: the 0.6 s swell plus this hold.
+    private static let peakHold: Duration = .milliseconds(400)
+
+    func body(content: Content) -> some View {
+        content
+            .onChange(of: isPressed) { _, pressed in
+                if !pressed { endBuzz() }
+            }
+            // The whole pour. The task is keyed to `isPressed`, so SwiftUI cancels
+            // it the instant the press ends, and also if the tile disappears: a
+            // press that ends inside `holdDelay` never reaches `beginBuzz`. A new
+            // press starts a fresh task from the bottom, and the old one is already
+            // cancelled by then, so ramps never overlap. The release itself is just
+            // a task that returns at once.
+            .task(id: isPressed) { @MainActor in
+                guard isPressed else { return }
+                try? await Task.sleep(for: Self.holdDelay)
+                guard !Task.isCancelled else { return }
+                beginBuzz()
+                for step in 1...Self.rampSteps {
+                    try? await Task.sleep(for: Self.rampStep)
+                    // Cancelled while asleep, or in the gap before this line ran:
+                    // the pour is over, so it must not touch the player again.
+                    guard !Task.isCancelled else { return }
+                    let fraction = Float(step) / Float(Self.rampSteps)
+                    Haptics.shared.updateContinuous(
+                        intensity: Self.startIntensity + (Self.peakIntensity - Self.startIntensity) * fraction
+                    )
+                }
+                try? await Task.sleep(for: Self.peakHold)
+                guard !Task.isCancelled else { return }
+                endBuzz()
+            }
+            .onDisappear { endBuzz() }
+    }
+
+    private func beginBuzz() {
+        isBuzzing = true
+        Haptics.shared.beginContinuous(initialIntensity: Self.startIntensity)
+    }
+
+    // Idempotent. The flag is cleared before the engine is told, so a release that
+    // arrives after the time bound has already ended the buzz finds it clear and
+    // does nothing: one `endContinuous` per `beginContinuous`, never two.
+    private func endBuzz() {
+        guard isBuzzing else { return }
+        isBuzzing = false
+        Haptics.shared.endContinuous()
     }
 }

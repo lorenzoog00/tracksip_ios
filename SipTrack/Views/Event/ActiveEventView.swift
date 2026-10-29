@@ -269,7 +269,7 @@ struct ActiveEventView: View {
             thresholdLabel: thresholdLabel,
             waitMinutes: waitMinutes
         )
-        UINotificationFeedbackGenerator().notificationOccurred(.warning)
+        Haptics.shared.play(.warning)
     }
 
     // Logs a specific pour size chosen from the tile's context menu. A standard-size pick
