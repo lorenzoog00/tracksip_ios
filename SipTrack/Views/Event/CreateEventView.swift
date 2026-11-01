@@ -345,8 +345,11 @@ private struct GoalCeilingMeter: View {
                             let p = max(0, min(1, v.location.x / w))
                             let raw = minBAC + p * (maxBAC - minBAC)
                             let snapped = (raw / snap).rounded() * snap
-                            targetBAC = snapped < snap ? nil : snapped
-                            UISelectionFeedbackGenerator().selectionChanged()
+                            let next: Double? = snapped < snap ? nil : snapped
+                            // Compare before assigning: afterwards the two are always equal.
+                            let changed = HapticSpec.selectionChanged(from: targetBAC, to: next)
+                            targetBAC = next
+                            if changed { Haptics.shared.play(.selection) }
                         }
                 )
             }
@@ -371,7 +374,7 @@ private struct GoalCeilingMeter: View {
                 if targetBAC == nil {
                     Button {
                         targetBAC = 0.05
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        Haptics.shared.play(.light)
                     } label: {
                         Text("Set a ceiling")
                             .font(.system(size: 11, weight: .semibold))
@@ -391,7 +394,7 @@ private struct GoalCeilingMeter: View {
                     Spacer()
                     Button {
                         targetBAC = nil
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        Haptics.shared.play(.light)
                     } label: {
                         Text("Clear")
                             .font(.system(size: 11, weight: .semibold))

@@ -16,6 +16,9 @@
 		D5E6F7A8B9C0D1E2F3A4B5C6 /* DrinkServingSizeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5E6F7A8B9C0D1E2F3A4B5C7 /* DrinkServingSizeTests.swift */; };
 		A7B8C9D0E1F2A3B4C5D6E7F9 /* AuthSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7B8C9D0E1F2A3B4C5D6E7F8 /* AuthSessionTests.swift */; };
 		B8C9D0E1F2A3B4C5D6E7F8AA /* AccountDeletionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8C9D0E1F2A3B4C5D6E7F8A9 /* AccountDeletionTests.swift */; };
+		7C1D5A9E3B2F4608A1D4E7F2 /* HapticsPreferenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C1D5A9E3B2F4608A1D4E7F3 /* HapticsPreferenceTests.swift */; };
+		8E3F7C2B5D4A6810C3F6A9B4 /* HapticSpecTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E3F7C2B5D4A6810C3F6A9B5 /* HapticSpecTests.swift */; };
+		4D2A9E6B1C7F4053B8E1A6C2 /* CeilingCrossingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D2A9E6B1C7F4053B8E1A6C3 /* CeilingCrossingTests.swift */; };
 		0B600C73A34541F49740B136 /* FoodEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0E98F63CB724D4CB75A1270 /* FoodEntry.swift */; };
 		2A41B90C2B57482B91131763 /* CoachView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6305C2FF0C534B6ABC925280 /* CoachView.swift */; };
 		484c06b9a233439db00dc5988d74786e /* CoachReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4f3719ab9d5d455c9961490721ee331e /* CoachReport.swift */; };
@@ -34,6 +37,8 @@
 		B101B4E02F9CD648009F7DDD /* Analytics.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4972F9C2F32009F7DDD /* Analytics.swift */; };
 		B1CC10052FA1000000001005 /* CountryDetectedSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1CC10062FA1000000001006 /* CountryDetectedSheet.swift */; };
 		B101B4E12F9CD648009F7DDD /* BACCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4982F9C2F32009F7DDD /* BACCalculator.swift */; };
+		8E3F7C2B5D4A6810C3F6A9B6 /* HapticSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E3F7C2B5D4A6810C3F6A9B7 /* HapticSpec.swift */; };
+		B1F0A7D32FC10A010011AAAA /* Haptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1F0A7D42FC10A010011AAAB /* Haptics.swift */; };
 		B1CC10022FA1000000001002 /* LocationCountryDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1CC10012FA1000000001001 /* LocationCountryDetector.swift */; };
 		B1CC10042FA1000000001004 /* LegalBACLimit.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1CC10032FA1000000001003 /* LegalBACLimit.swift */; };
 		B101B4E22F9CD648009F7DDD /* ChallengeUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4992F9C2F32009F7DDD /* ChallengeUtils.swift */; };
@@ -184,6 +189,9 @@
 		D5E6F7A8B9C0D1E2F3A4B5C7 /* DrinkServingSizeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrinkServingSizeTests.swift; sourceTree = "<group>"; };
 		A7B8C9D0E1F2A3B4C5D6E7F8 /* AuthSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthSessionTests.swift; sourceTree = "<group>"; };
 		B8C9D0E1F2A3B4C5D6E7F8A9 /* AccountDeletionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountDeletionTests.swift; sourceTree = "<group>"; };
+		7C1D5A9E3B2F4608A1D4E7F3 /* HapticsPreferenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticsPreferenceTests.swift; sourceTree = "<group>"; };
+		8E3F7C2B5D4A6810C3F6A9B5 /* HapticSpecTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticSpecTests.swift; sourceTree = "<group>"; };
+		4D2A9E6B1C7F4053B8E1A6C3 /* CeilingCrossingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CeilingCrossingTests.swift; sourceTree = "<group>"; };
 		3F19FB458C03404B93011571 /* CoachReportCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachReportCard.swift; sourceTree = "<group>"; };
 		4f3719ab9d5d455c9961490721ee331e /* CoachReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachReport.swift; sourceTree = "<group>"; };
 		6305C2FF0C534B6ABC925280 /* CoachView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachView.swift; sourceTree = "<group>"; };
@@ -201,6 +209,8 @@
 		B101B4952F9C2F32009F7DDD /* AppColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppColors.swift; sourceTree = "<group>"; };
 		B101B4972F9C2F32009F7DDD /* Analytics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Analytics.swift; sourceTree = "<group>"; };
 		B101B4982F9C2F32009F7DDD /* BACCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BACCalculator.swift; sourceTree = "<group>"; };
+		8E3F7C2B5D4A6810C3F6A9B7 /* HapticSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticSpec.swift; sourceTree = "<group>"; };
+		B1F0A7D42FC10A010011AAAB /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
 		B1CC10012FA1000000001001 /* LocationCountryDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationCountryDetector.swift; sourceTree = "<group>"; };
 		B1CC10032FA1000000001003 /* LegalBACLimit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegalBACLimit.swift; sourceTree = "<group>"; };
 		B101B4992F9C2F32009F7DDD /* ChallengeUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChallengeUtils.swift; sourceTree = "<group>"; };
@@ -450,6 +460,8 @@
 				B1CC00022FA00000000BBBBB /* LiveActivityManager.swift */,
 				B1CC10012FA1000000001001 /* LocationCountryDetector.swift */,
 				B1CC10032FA1000000001003 /* LegalBACLimit.swift */,
+				8E3F7C2B5D4A6810C3F6A9B7 /* HapticSpec.swift */,
+				B1F0A7D42FC10A010011AAAB /* Haptics.swift */,
 			);
 			path = Core;
 			sourceTree = "<group>";
@@ -695,6 +707,9 @@
 				D5E6F7A8B9C0D1E2F3A4B5C7 /* DrinkServingSizeTests.swift */,
 				A7B8C9D0E1F2A3B4C5D6E7F8 /* AuthSessionTests.swift */,
 				B8C9D0E1F2A3B4C5D6E7F8A9 /* AccountDeletionTests.swift */,
+				7C1D5A9E3B2F4608A1D4E7F3 /* HapticsPreferenceTests.swift */,
+				8E3F7C2B5D4A6810C3F6A9B5 /* HapticSpecTests.swift */,
+				4D2A9E6B1C7F4053B8E1A6C3 /* CeilingCrossingTests.swift */,
 			);
 			path = siptrackTests;
 			sourceTree = "<group>";
@@ -1005,6 +1020,8 @@
 				A0WB1001000000000000001A /* WatchBridge.swift in Sources */,
 				B101B4E02F9CD648009F7DDD /* Analytics.swift in Sources */,
 				B101B4E12F9CD648009F7DDD /* BACCalculator.swift in Sources */,
+				8E3F7C2B5D4A6810C3F6A9B6 /* HapticSpec.swift in Sources */,
+				B1F0A7D32FC10A010011AAAA /* Haptics.swift in Sources */,
 				B101B4E22F9CD648009F7DDD /* ChallengeUtils.swift in Sources */,
 				B101B4E32F9CD648009F7DDD /* IntoxicationStage.swift in Sources */,
 				B15DA94B2FAABF7600345F64 /* ConsentManager.swift in Sources */,
@@ -1070,6 +1087,9 @@
 				D5E6F7A8B9C0D1E2F3A4B5C6 /* DrinkServingSizeTests.swift in Sources */,
 				A7B8C9D0E1F2A3B4C5D6E7F9 /* AuthSessionTests.swift in Sources */,
 				B8C9D0E1F2A3B4C5D6E7F8AA /* AccountDeletionTests.swift in Sources */,
+				7C1D5A9E3B2F4608A1D4E7F2 /* HapticsPreferenceTests.swift in Sources */,
+				8E3F7C2B5D4A6810C3F6A9B4 /* HapticSpecTests.swift in Sources */,
+				4D2A9E6B1C7F4053B8E1A6C2 /* CeilingCrossingTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

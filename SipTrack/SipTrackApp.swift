@@ -46,11 +46,15 @@ struct SipTrackApp: App {
                     }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+                    Haptics.shared.prepare()
                     Task {
                         await store.refreshStatus()
                         appState.syncSubscriptionFromStore()
                         AdManager.shared.showAppOpenAdIfReady(isPro: appState.isPro)
                     }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
+                    Haptics.shared.stop()
                 }
                 .onChange(of: store.isPro) { _, _ in
                     appState.syncSubscriptionFromStore()
