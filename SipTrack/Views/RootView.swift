@@ -71,6 +71,22 @@ struct RootView: View {
             // Re-check the country on every fresh login. Sign-out → sign-in
             // re-arms the one-shot detector; the next HomeView.task fires it.
             if signedIn { countryDetector.resetSession() }
+            path = NavigationPath()
+        }
+        // `path` is state on RootView, so it outlives the NavigationStack that
+        // reads it. The Group above tears that stack down whenever the gate
+        // changes branch and builds a fresh one on the way back, and SwiftUI
+        // then restores whatever route the old path still held.
+        //
+        // That is how signing up landed the user back on the login screen:
+        // "Create Account" on the signed-out home pushes `.auth`, signing in
+        // flips the branch to OnboardingView before that pushed view can pop
+        // itself, and the moment onboarding finished the rebuilt stack
+        // re-pushed AuthView — seconds after they had just signed in. Clearing
+        // the path on a branch change keeps a route from one state out of the
+        // next.
+        .onChange(of: appState.userProfile.onboardingComplete) { _, _ in
+            path = NavigationPath()
         }
         .sheet(item: Binding<CountryDetectionResult?>(
             get: {
