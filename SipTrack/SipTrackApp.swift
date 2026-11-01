@@ -50,6 +50,7 @@ struct SipTrackApp: App {
                     Task {
                         await store.refreshStatus()
                         appState.syncSubscriptionFromStore()
+                        await ConsentManager.shared.refreshOnForeground()
                         AdManager.shared.showAppOpenAdIfReady(isPro: appState.isPro)
                     }
                 }

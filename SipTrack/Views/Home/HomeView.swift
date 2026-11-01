@@ -38,6 +38,10 @@ struct HomeView: View {
                     } else {
                         noAccountContent
                     }
+                    // Free users always get at least this one slot — the native
+                    // cards above need two past nights before they appear.
+                    BannerAdView()
+                        .padding(.horizontal)
                     Color.clear.frame(height: 90)
                 }
                 .padding(.top, 16)
