@@ -79,15 +79,24 @@ struct DrinksView: View {
         }
         .sheet(item: $editingDrink) { EditDrinkView(existing: $0) }
         .sheet(isPresented: $showCreate) { EditDrinkView(existing: nil) }
-        .confirmationDialog(
-            "Delete \(deleteConfirm?.name ?? "drink")?",
-            isPresented: Binding(get: { deleteConfirm != nil }, set: { if !$0 { deleteConfirm = nil } }),
-            titleVisibility: .visible
-        ) {
-            Button(deleteConfirm?.isPreset == true ? "Reset to Default" : "Delete", role: .destructive) {
-                if let dt = deleteConfirm { appState.deleteDrinkType(dt.id); deleteConfirm = nil }
-            }
-            Button("Cancel", role: .cancel) { deleteConfirm = nil }
+        .onChange(of: deleteConfirm?.id) { _, id in
+            guard id != nil, let drink = deleteConfirm else { return }
+            deleteConfirm = nil
+            let resetting = drink.isPreset
+            NoticeCenter.shared.show(Notice(
+                icon: resetting ? "arrow.counterclockwise" : "trash.fill",
+                tone: .danger,
+                title: resetting ? "Reset \(drink.name)?" : "Delete \(drink.name)?",
+                message: resetting
+                    ? "Your changes to this preset go back to the original."
+                    : "It comes off your list. Nights you already logged keep it.",
+                actions: [
+                    NoticeAction(resetting ? "Reset to default" : "Delete", kind: .destructive) {
+                        appState.deleteDrinkType(drink.id)
+                    },
+                    NoticeAction("Cancel", kind: .quiet)
+                ]
+            ))
         }
     }
 

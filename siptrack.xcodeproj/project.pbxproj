@@ -34,6 +34,7 @@
 		B101B4DD2F9CD648009F7DDD /* BannerAdView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4922F9C2F32009F7DDD /* BannerAdView.swift */; };
 		B101B4DE2F9CD648009F7DDD /* NativeAdCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4932F9C2F32009F7DDD /* NativeAdCardView.swift */; };
 		B101B4DF2F9CD648009F7DDD /* AppColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4952F9C2F32009F7DDD /* AppColors.swift */; };
+		B101C0012FA00001009F7DDD /* AppNotice.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101C0022FA00002009F7DDD /* AppNotice.swift */; };
 		B101B4E02F9CD648009F7DDD /* Analytics.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4972F9C2F32009F7DDD /* Analytics.swift */; };
 		B1CC10052FA1000000001005 /* CountryDetectedSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1CC10062FA1000000001006 /* CountryDetectedSheet.swift */; };
 		B101B4E12F9CD648009F7DDD /* BACCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4982F9C2F32009F7DDD /* BACCalculator.swift */; };
@@ -207,6 +208,7 @@
 		B101B4922F9C2F32009F7DDD /* BannerAdView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BannerAdView.swift; sourceTree = "<group>"; };
 		B101B4932F9C2F32009F7DDD /* NativeAdCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeAdCardView.swift; sourceTree = "<group>"; };
 		B101B4952F9C2F32009F7DDD /* AppColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppColors.swift; sourceTree = "<group>"; };
+		B101C0022FA00002009F7DDD /* AppNotice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppNotice.swift; sourceTree = "<group>"; };
 		B101B4972F9C2F32009F7DDD /* Analytics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Analytics.swift; sourceTree = "<group>"; };
 		B101B4982F9C2F32009F7DDD /* BACCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BACCalculator.swift; sourceTree = "<group>"; };
 		8E3F7C2B5D4A6810C3F6A9B7 /* HapticSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticSpec.swift; sourceTree = "<group>"; };
@@ -443,6 +445,7 @@
 			isa = PBXGroup;
 			children = (
 				B101B4952F9C2F32009F7DDD /* AppColors.swift */,
+				B101C0022FA00002009F7DDD /* AppNotice.swift */,
 			);
 			path = Constants;
 			sourceTree = "<group>";
@@ -1017,6 +1020,7 @@
 				B18BC02F2FB69C1D00CEFB3C /* AppleSignInCoordinator.swift in Sources */,
 				B101B4DE2F9CD648009F7DDD /* NativeAdCardView.swift in Sources */,
 				B101B4DF2F9CD648009F7DDD /* AppColors.swift in Sources */,
+				B101C0012FA00001009F7DDD /* AppNotice.swift in Sources */,
 				A0WB1001000000000000001A /* WatchBridge.swift in Sources */,
 				B101B4E02F9CD648009F7DDD /* Analytics.swift in Sources */,
 				B101B4E12F9CD648009F7DDD /* BACCalculator.swift in Sources */,

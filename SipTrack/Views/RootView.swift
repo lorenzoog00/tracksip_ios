@@ -59,13 +59,17 @@ struct RootView: View {
             }
         }
         .preferredColorScheme(.dark)
-        .alert("Report unavailable", isPresented: Binding(
-            get: { appState.reportErrorMessage != nil },
-            set: { if !$0 { appState.reportErrorMessage = nil } }
-        )) {
-            Button("OK") { appState.reportErrorMessage = nil }
-        } message: {
-            Text(appState.reportErrorMessage ?? "")
+        // Hosted here, outside the navigation stack, so a notice covers the
+        // navigation bar rather than leaving it stranded above the backdrop.
+        .noticeHost()
+        .onChange(of: appState.reportErrorMessage) { _, message in
+            guard let message else { return }
+            NoticeCenter.shared.show(Notice(
+                icon: "sparkles",
+                title: "Report unavailable",
+                message: message,
+                actions: [NoticeAction("OK") { appState.reportErrorMessage = nil }]
+            ))
         }
         .onChange(of: firebase.isSignedIn) { _, signedIn in
             // Re-check the country on every fresh login. Sign-out → sign-in

@@ -59,17 +59,19 @@ struct HomeView: View {
         .sheet(isPresented: $showCreateEvent) {
             CreateEventView()
         }
-        .confirmationDialog("Delete this night?", isPresented: Binding(
-            get: { deletingEventId != nil },
-            set: { if !$0 { deletingEventId = nil } }
-        ), titleVisibility: .visible) {
-            Button("Delete", role: .destructive) {
-                if let id = deletingEventId {
-                    appState.deleteEvent(id)
-                    deletingEventId = nil
-                }
-            }
-            Button("Cancel", role: .cancel) { deletingEventId = nil }
+        .onChange(of: deletingEventId) { _, id in
+            guard let id else { return }
+            deletingEventId = nil
+            NoticeCenter.shared.show(Notice(
+                icon: "trash.fill",
+                tone: .danger,
+                title: "Delete this night?",
+                message: "Every drink, water and snack logged that night goes with it. This can't be undone.",
+                actions: [
+                    NoticeAction("Delete", kind: .destructive) { appState.deleteEvent(id) },
+                    NoticeAction("Cancel", kind: .quiet)
+                ]
+            ))
         }
     }
 

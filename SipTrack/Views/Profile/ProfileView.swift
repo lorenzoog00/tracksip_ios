@@ -32,7 +32,6 @@ struct ProfileView: View {
     @State private var deletingAccount = false
     @State private var deleteError: String? = nil
     @State private var showDeletePasswordPrompt = false
-    @State private var deletePassword = ""
 
     enum SaveState { case idle, saving, saved }
 
@@ -583,30 +582,54 @@ struct ProfileView: View {
             }
         }
         .onAppear { loadFromProfile(appState.userProfile) }
-        .alert("Discard changes?", isPresented: $showDiscardAlert) {
-            Button("Discard", role: .destructive) { dismiss() }
-            Button("Keep editing", role: .cancel) {}
-        } message: {
-            Text("Your unsaved changes will be lost.")
+        .onChange(of: showDiscardAlert) { _, asked in
+            guard asked else { return }
+            showDiscardAlert = false
+            NoticeCenter.shared.show(Notice(
+                icon: "arrow.uturn.backward",
+                tone: .danger,
+                title: "Discard changes?",
+                message: "Your unsaved changes will be lost.",
+                actions: [
+                    NoticeAction("Discard", kind: .destructive) { dismiss() },
+                    NoticeAction("Keep editing", kind: .quiet)
+                ]
+            ))
         }
-        .confirmationDialog("Delete account?", isPresented: $showDeleteAccountConfirm, titleVisibility: .visible) {
-            Button("Delete forever", role: .destructive) {
-                Task { await performDeleteAccount() }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("This is permanent. Your cloud account, events, drinks, and profile will be erased.")
+        .onChange(of: showDeleteAccountConfirm) { _, asked in
+            guard asked else { return }
+            showDeleteAccountConfirm = false
+            NoticeCenter.shared.show(Notice(
+                icon: "person.crop.circle.badge.xmark",
+                tone: .danger,
+                title: "Delete account?",
+                message: "This is permanent. Your cloud account, events, drinks, and profile will be erased.",
+                actions: [
+                    // The notice is gone before this runs, so the Google
+                    // re-authentication sheet has a clear screen to open onto.
+                    NoticeAction("Delete forever", kind: .destructive) {
+                        Task { await performDeleteAccount() }
+                    },
+                    NoticeAction("Cancel", kind: .quiet)
+                ]
+            ))
         }
-        .alert("Confirm your password", isPresented: $showDeletePasswordPrompt) {
-            SecureField("Password", text: $deletePassword)
-            Button("Delete forever", role: .destructive) {
-                let password = deletePassword
-                deletePassword = ""
-                Task { await performDeleteAccount(password: password) }
-            }
-            Button("Cancel", role: .cancel) { deletePassword = "" }
-        } message: {
-            Text("For your security, enter your password to delete your account.")
+        .onChange(of: showDeletePasswordPrompt) { _, asked in
+            guard asked else { return }
+            showDeletePasswordPrompt = false
+            NoticeCenter.shared.show(Notice(
+                icon: "lock.fill",
+                tone: .danger,
+                title: "Confirm your password",
+                message: "For your security, enter your password to delete your account.",
+                field: NoticeField(placeholder: "Password"),
+                actions: [
+                    NoticeAction("Delete forever", kind: .destructive, input: { password in
+                        Task { await performDeleteAccount(password: password) }
+                    }),
+                    NoticeAction("Cancel", kind: .quiet)
+                ]
+            ))
         }
     }
 
@@ -831,8 +854,8 @@ struct ProfileView: View {
             break
         case .needsPassword:
             // Email/password accounts have to prove it's them before the
-            // backend will accept the delete.
-            deletePassword = ""
+            // backend will accept the delete. The notice owns the field now,
+            // and a fresh one starts empty.
             showDeletePasswordPrompt = true
         case .failed(let message):
             deleteError = message

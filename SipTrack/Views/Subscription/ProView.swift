@@ -67,13 +67,14 @@ struct ProView: View {
         .navigationTitle(appState.isPro ? "Membership" : "Tracksip Pro")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { modalDismissButton }
-        .alert("Purchase update", isPresented: Binding(
-            get: { store.restoreError != nil },
-            set: { if !$0 { store.restoreError = nil } }
-        )) {
-            Button("OK") { store.restoreError = nil }
-        } message: {
-            Text(store.restoreError ?? "")
+        .onChange(of: store.restoreError) { _, message in
+            guard let message else { return }
+            NoticeCenter.shared.show(Notice(
+                icon: "creditcard.fill",
+                title: "Purchase update",
+                message: message,
+                actions: [NoticeAction("OK") { store.restoreError = nil }]
+            ))
         }
         .safeAreaInset(edge: .bottom) { stickyFooter }
         .onAppear {
