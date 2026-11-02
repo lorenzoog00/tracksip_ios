@@ -109,6 +109,27 @@ jobs:
           openssl pkey -in ~/private_keys/AuthKey_${ASC_KEY_ID}.p8 -noout \
             || { echo "::error::ASC_KEY_P8 is not a valid private key — re-paste the whole .p8 file including the BEGIN/END lines"; exit 1; }
 
+      # The distribution certificate above is persistent, but
+      # -allowProvisioningUpdates still mints a *development* one on most runs
+      # for the watch and widget targets. Apple caps how many an account holds,
+      # so without this the archive starts failing after roughly seven releases
+      # with "maximum number of certificates" — and, misleadingly, with "no iOS
+      # App Development provisioning profiles found".
+      #
+      # Clearing them before the archive leaves a free slot for the one this
+      # build is about to create. It never fails the job: housekeeping must not
+      # be the reason a release does not ship.
+      - name: Revoke stale CI certificates
+        # The script swallows its own failures; this covers the step itself
+        # failing to start at all, so a missing runtime cannot block a release.
+        continue-on-error: true
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          ASC_KEY_PATH="$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8" \
+            node scripts/revoke-ci-certificates.mjs
+
       # TestFlight rejects a build number it has already seen, so derive a value
       # that always increases and never collides: UTC minutes since the epoch era.
       - name: Compute build number

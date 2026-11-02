@@ -31,6 +31,9 @@ jobs:
       - run: npm run lint && npm test && npm run test:emulator
         working-directory: functions
       - run: python3 scripts/check-production.py
+      # Revoking a certificate cannot be undone, so the rule deciding which
+      # ones the release workflow may remove is pinned here.
+      - run: node --test scripts/revoke-ci-certificates.test.mjs
 
   build-and-test:
     name: Build & test (iOS Simulator)
