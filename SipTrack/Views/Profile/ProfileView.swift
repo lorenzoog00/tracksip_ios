@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import GoogleSignIn
 import FirebaseAuth
 import AuthenticationServices
@@ -32,6 +33,7 @@ struct ProfileView: View {
     @State private var deletingAccount = false
     @State private var deleteError: String? = nil
     @State private var showDeletePasswordPrompt = false
+    @State private var versionCopied = false
 
     enum SaveState { case idle, saving, saved }
 
@@ -539,6 +541,8 @@ struct ProfileView: View {
                         }
                     }
 
+                    versionFooter
+
                     Color.clear.frame(height: hasChanges ? 100 : 32)
                 }
                 .padding(.vertical, 12)
@@ -634,6 +638,31 @@ struct ProfileView: View {
     }
 
     // MARK: - Sub-views
+
+    /// Which build this actually is.
+    ///
+    /// Without it there is no way to tell a TestFlight build from the App Store
+    /// one from inside the app, and a fix that is sitting in TestFlight looks
+    /// exactly like a fix that does not work. Tap to copy, so a bug report can
+    /// say which build it came from.
+    private var versionFooter: some View {
+        Button {
+            UIPasteboard.general.string = AppVersion.current
+            withAnimation(.easeOut(duration: 0.15)) { versionCopied = true }
+            Task {
+                try? await Task.sleep(for: .seconds(2))
+                withAnimation(.easeOut(duration: 0.2)) { versionCopied = false }
+            }
+        } label: {
+            Text(versionCopied ? "Copied" : AppVersion.current)
+                .font(.system(size: 12))
+                .foregroundStyle(versionCopied ? AppColors.accent : AppColors.textTertiary)
+                .frame(maxWidth: .infinity)
+                .padding(.top, 20)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("App version \(AppVersion.current). Double tap to copy.")
+    }
 
     private var learnRow: some View {
         NavigationLink(destination: LearnView()) {
@@ -1374,5 +1403,28 @@ private extension View {
             .cornerRadius(12)
             .overlay(RoundedRectangle(cornerRadius: 12).stroke(AppColors.border, lineWidth: 1))
             .foregroundStyle(AppColors.text)
+    }
+}
+
+// MARK: - Which build this is
+
+/// The marketing version is the same across every build of a release, so on its
+/// own it cannot tell a TestFlight build from the App Store one. The build
+/// number is what actually identifies it, and it is the thing worth putting in
+/// a bug report.
+enum AppVersion {
+    static var current: String {
+        format(
+            shortVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String,
+            build: Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String
+        )
+    }
+
+    /// Split from `current` so the shape is pinned by tests rather than by
+    /// whatever the test bundle happens to carry in its own Info.plist.
+    nonisolated static func format(shortVersion: String?, build: String?) -> String {
+        let version = shortVersion.flatMap { $0.isEmpty ? nil : $0 } ?? "—"
+        guard let build, !build.isEmpty else { return "Version \(version)" }
+        return "Version \(version) (\(build))"
     }
 }

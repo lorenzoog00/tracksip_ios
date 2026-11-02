@@ -72,4 +72,25 @@ struct siptrackTests {
         #expect(Notice.Tone.water.color == AppColors.water)
         #expect(Notice.Tone.accent.color == AppColors.accent)
     }
+
+    // MARK: - Which build this is
+
+    /// Four builds share the marketing version 1.0.2, so the build number is
+    /// the only thing that says which one is installed. Without it on screen a
+    /// fix sitting in TestFlight is indistinguishable from a fix that does not
+    /// work — which is exactly how an afternoon went.
+    @Test func versionCarriesTheBuildNumber() {
+        #expect(AppVersion.format(shortVersion: "1.0.2", build: "202611020618")
+                == "Version 1.0.2 (202611020618)")
+    }
+
+    @Test func aMissingBuildNumberDoesNotLeaveEmptyBrackets() {
+        #expect(AppVersion.format(shortVersion: "1.0.2", build: nil) == "Version 1.0.2")
+        #expect(AppVersion.format(shortVersion: "1.0.2", build: "") == "Version 1.0.2")
+    }
+
+    @Test func aMissingVersionStillRendersSomething() {
+        #expect(AppVersion.format(shortVersion: nil, build: "42") == "Version — (42)")
+        #expect(AppVersion.format(shortVersion: "", build: "42") == "Version — (42)")
+    }
 }
