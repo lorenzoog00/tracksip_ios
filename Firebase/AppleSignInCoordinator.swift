@@ -45,6 +45,17 @@ final class AppleSignInCoordinator: NSObject {
     }
 
     func signIn() async throws -> AuthCredential {
+        // A second call used to overwrite a pending continuation, and the first
+        // one then never resumed: the caller waited on Apple forever, with no
+        // sheet and no error to show for it. Fail the old one before taking
+        // its place.
+        if let stranded = continuation {
+            continuation = nil
+            stranded.resume(throwing: NSError(
+                domain: "AppleSignIn", code: -4,
+                userInfo: [NSLocalizedDescriptionKey: "Sign in with Apple was restarted. Please try again."]
+            ))
+        }
         authorizationCode = nil
         let nonce = Self.randomNonceString()
         currentNonce = nonce
@@ -156,10 +167,18 @@ extension AppleSignInCoordinator: ASAuthorizationControllerDelegate {
 extension AppleSignInCoordinator: ASAuthorizationControllerPresentationContextProviding {
     nonisolated func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
         MainActor.assumeIsolated {
-            let scene = UIApplication.shared.connectedScenes
-                .compactMap { $0 as? UIWindowScene }
-                .first { $0.activationState == .foregroundActive }
-            return scene?.windows.first(where: { $0.isKeyWindow }) ?? ASPresentationAnchor()
+            let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            let foreground = scenes.first { $0.activationState == .foregroundActive }
+            // The last resort used to be a bare `ASPresentationAnchor()`: a new,
+            // empty window attached to no scene. Apple's sheet then has nowhere
+            // to appear, and because nothing fails either, the delegate never
+            // fires and the caller waits forever. Every real window is a better
+            // answer than that, so try each before settling for one.
+            return foreground?.windows.first(where: \.isKeyWindow)
+                ?? foreground?.windows.first
+                ?? scenes.flatMap(\.windows).first(where: \.isKeyWindow)
+                ?? scenes.flatMap(\.windows).first
+                ?? ASPresentationAnchor()
         }
     }
 }
