@@ -467,7 +467,7 @@ struct ProfileView: View {
                                 .font(.system(size: 11))
                                 .foregroundStyle(AppColors.textTertiary)
                         } else {
-                            NavigationLink(value: Route.auth) {
+                            NavigationLink(value: Route.auth(signUp: false)) {
                                 HStack(spacing: 12) {
                                     ZStack {
                                         Circle().fill(AppColors.surface).frame(width: 36, height: 36)
@@ -1031,14 +1031,62 @@ struct AuthView: View {
     @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) private var dismiss
 
+    /// Which field the keyboard is on, so Return walks the form instead of
+    /// dropping the keyboard on the user and leaving them to aim by hand.
+    private enum Field { case name, email, password }
+    @FocusState private var focused: Field?
+
     @State private var name             = ""
     @State private var email            = ""
     @State private var password         = ""
-    @State private var isSignUp         = false
+    @State private var isSignUp:        Bool
     @State private var isLoading        = false
     @State private var errorMsg: String? = nil
     @State private var showVerification   = false
     @State private var showForgotPassword = false
+
+    /// `startOnSignUp` comes from whichever button got the user here, so
+    /// "Create Account" opens the create-account form. See `Route.auth`.
+    init(startOnSignUp: Bool = false) {
+        _isSignUp = State(initialValue: startOnSignUp)
+    }
+
+    // MARK: - Form rules
+    //
+    // Kept static and free of view state so the tests can reach them; the
+    // view owns only the storage. Same shape as `FirebaseManager.isUsableSession`.
+
+    /// Keyboards, password managers and pasted text all like to leave a space
+    /// on the end of an address. Firebase rejects that as a malformed email and
+    /// the user sees no reason why, so normalise before it ever goes out.
+    nonisolated static func normalizedEmail(_ raw: String) -> String {
+        raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    /// Firebase will not accept a password under six characters, so say that
+    /// up front rather than leaving a dead grey button and no explanation.
+    nonisolated static let minimumPasswordLength = 6
+
+    nonisolated static func canSubmit(
+        email: String, password: String, name: String,
+        isSignUp: Bool, isLoading: Bool
+    ) -> Bool {
+        guard !isLoading, !normalizedEmail(email).isEmpty else { return false }
+        if isSignUp {
+            guard !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
+            return password.count >= minimumPasswordLength
+        }
+        // Signing in only has to match what is already stored; holding an
+        // existing user to today's minimum would lock them out of their account.
+        return !password.isEmpty
+    }
+
+    /// Shown under the password field while signing up, so the disabled button
+    /// is never a mystery.
+    nonisolated static func passwordHint(password: String, isSignUp: Bool) -> String? {
+        guard isSignUp, !password.isEmpty, password.count < minimumPasswordLength else { return nil }
+        return "Use at least \(minimumPasswordLength) characters."
+    }
 
     var body: some View {
         ZStack {
@@ -1153,17 +1201,34 @@ struct AuthView: View {
                         if isSignUp {
                             TextField("Name", text: $name)
                                 .textContentType(.name)
-                                .autocapitalization(.words)
+                                .textInputAutocapitalization(.words)
+                                .focused($focused, equals: .name)
+                                .submitLabel(.next)
+                                .onSubmit { focused = .email }
                                 .authInput()
                         }
                         TextField("Email", text: $email)
                             .textContentType(.emailAddress)
                             .keyboardType(.emailAddress)
-                            .autocapitalization(.none)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .focused($focused, equals: .email)
+                            .submitLabel(.next)
+                            .onSubmit { focused = .password }
                             .authInput()
                         SecureField("Password", text: $password)
                             .textContentType(isSignUp ? .newPassword : .password)
+                            .focused($focused, equals: .password)
+                            .submitLabel(.go)
+                            .onSubmit { if canSubmit { Task { await submit() } } }
                             .authInput()
+
+                        if let hint = Self.passwordHint(password: password, isSignUp: isSignUp) {
+                            Text(hint)
+                                .font(.system(size: 12))
+                                .foregroundStyle(AppColors.textTertiary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
                     }
 
                     if let err = errorMsg {
@@ -1186,6 +1251,9 @@ struct AuthView: View {
 
                     Button {
                         withAnimation { isSignUp.toggle(); errorMsg = nil; name = "" }
+                        // Land on the field that just appeared rather than
+                        // leaving the user to hunt for where to type next.
+                        focused = isSignUp ? .name : .email
                     } label: {
                         Text(isSignUp ? "Already have an account? Sign In" : "No account? Create one")
                             .font(.system(size: 14))
@@ -1229,7 +1297,10 @@ struct AuthView: View {
                 .environmentObject(firebase)
         }
         .fullScreenCover(isPresented: $showVerification) {
-            EmailVerificationView(email: email, password: password) {
+            // The account was created under the normalized address, so the
+            // verification screen has to sign in with that one, not what is
+            // still sitting in the field.
+            EmailVerificationView(email: Self.normalizedEmail(email), password: password) {
                 Task {
                     appState.shouldShowAuth = false
                     showVerification = false
@@ -1241,17 +1312,23 @@ struct AuthView: View {
     }
 
     private var canSubmit: Bool {
-        !isLoading && !email.isEmpty && password.count >= 6 && (!isSignUp || !name.isEmpty)
+        Self.canSubmit(email: email, password: password, name: name,
+                       isSignUp: isSignUp, isLoading: isLoading)
     }
 
     private func submit() async {
+        focused = nil
         isLoading = true; errorMsg = nil
+        let address = Self.normalizedEmail(email)
         do {
             if isSignUp {
-                try await firebase.signUp(email: email, password: password, displayName: name)
+                try await firebase.signUp(
+                    email: address, password: password,
+                    displayName: name.trimmingCharacters(in: .whitespacesAndNewlines)
+                )
                 showVerification = true
             } else {
-                try await firebase.signIn(email: email, password: password)
+                try await firebase.signIn(email: address, password: password)
                 appState.shouldShowAuth = false
                 dismiss()
             }
