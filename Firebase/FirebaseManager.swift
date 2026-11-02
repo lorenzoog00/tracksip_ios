@@ -481,13 +481,30 @@ final class FirebaseManager: ObservableObject {
         _ = try await callFunction("requestReport", data: data)
     }
 
-    private func callFunction(_ name: String, data: [String: Any]) async throws -> [String: Any] {
-        guard let user = auth.currentUser, let project = FirebaseApp.app()?.options.projectID,
+    /// `idToken` lets a caller supply one it obtained earlier.
+    ///
+    /// Deleting an Apple account has to revoke Apple's authorisation, and
+    /// revoking kills the refresh token — so asking for a fresh ID token here
+    /// afterwards fails and the request never leaves the phone. `deleteAccount`
+    /// takes its token before revoking and hands it over.
+    private func callFunction(
+        _ name: String, data: [String: Any], idToken: String? = nil
+    ) async throws -> [String: Any] {
+        guard let project = FirebaseApp.app()?.options.projectID,
               let url = URL(string: "https://us-central1-\(project).cloudfunctions.net/\(name)") else {
-            throw NSError(domain: "FirebaseManager", code: 401,
-                          userInfo: [NSLocalizedDescriptionKey: "Please sign in and try again."])
+            throw NSError(domain: "FirebaseManager", code: 500,
+                          userInfo: [NSLocalizedDescriptionKey: "This build is misconfigured. Please reinstall the app."])
         }
-        let token = try await user.getIDToken(forcingRefresh: true)
+        let token: String
+        if let idToken {
+            token = idToken
+        } else {
+            guard let user = auth.currentUser else {
+                throw NSError(domain: "FirebaseManager", code: 401,
+                              userInfo: [NSLocalizedDescriptionKey: "Please sign in and try again."])
+            }
+            token = try await user.getIDToken(forcingRefresh: true)
+        }
         let appCheck = try await appCheckToken()
         var request = URLRequest(url: url, timeoutInterval: 130)
         request.httpMethod = "POST"
@@ -575,9 +592,28 @@ final class FirebaseManager: ObservableObject {
         }
         do {
             // Firebase requires recent auth for account deletion — re-authenticate first.
-            try await reauthenticate(user: user, password: password)
+            let appleAuthorizationCode = try await reauthenticate(user: user, password: password)
 
-            let result = try await callFunction("deleteAccount", data: [:])
+            // Take the token now, while the session is still whole. Revoking
+            // Apple's authorisation below invalidates the refresh token, and
+            // the callable cannot mint a new one after that.
+            let idToken = try await user.getIDToken(forcingRefresh: true)
+
+            // Apple requires the authorisation to be revoked when the account
+            // goes. This used to happen inside `reauthenticate`, before the
+            // call below — which is why deleting an Apple account never reached
+            // the backend at all, while Google, having no revoke step, worked.
+            if let appleAuthorizationCode {
+                do {
+                    try await auth.revokeToken(withAuthorizationCode: appleAuthorizationCode)
+                } catch {
+                    // Losing the revoke is bad, losing the account deletion is
+                    // worse. Keep going and leave a trace.
+                    recordUnclassifiedAuthError(error as NSError)
+                }
+            }
+
+            let result = try await callFunction("deleteAccount", data: [:], idToken: idToken)
             guard result["deleted"] as? Bool == true else { return .failed("Deletion did not complete. Please try again.") }
             await signOut()
             return .deleted
@@ -598,7 +634,12 @@ final class FirebaseManager: ObservableObject {
     // Every failure path here throws — a silent `return` left auth_time stale
     // and the backend then refused the delete with advice the user could not
     // act on from that screen.
-    private func reauthenticate(user: FirebaseAuth.User, password: String?) async throws {
+    /// Returns Apple's authorisation code when the account is an Apple one, for
+    /// the caller to revoke **after** the account has actually been deleted.
+    /// Revoking here would cut the session out from under the request that does
+    /// the deleting.
+    @discardableResult
+    private func reauthenticate(user: FirebaseAuth.User, password: String?) async throws -> String? {
         let providerIDs = user.providerData.map(\.providerID)
         // Everything below opens a system sheet, and the caller is a button
         // inside a confirmation dialog that is still dismissing when the action
@@ -611,7 +652,7 @@ final class FirebaseManager: ObservableObject {
                 throw NSError(domain: "FirebaseManager", code: 400,
                               userInfo: [NSLocalizedDescriptionKey: "Apple authorization did not complete. Please try again."])
             }
-            try await auth.revokeToken(withAuthorizationCode: code)
+            return code
         } else if providerIDs.contains("google.com") {
             let plistPath = Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist")
             let plistDict = plistPath.flatMap { NSDictionary(contentsOfFile: $0) }
@@ -639,6 +680,7 @@ final class FirebaseManager: ObservableObject {
                 with: EmailAuthProvider.credential(withEmail: email, password: password)
             )
         }
+        return nil
     }
 
     // MARK: - Presentation
@@ -674,8 +716,11 @@ let googleSignInErrorDomain = kGIDSignInErrorDomain
 func friendlyAuthError(_ error: Error) -> String {
     let nsError = error as NSError
 
-    // Custom errors thrown by FirebaseManager carry meaningful descriptions (e.g. email-not-verified)
-    if nsError.domain == "FirebaseManager" {
+    // Errors we raise ourselves carry a description written for the user.
+    // `PresentationAnchor` is in this list because moving that lookup out of
+    // this file in #11 quietly took its message with it: a failure to find a
+    // window started reading as the catch-all below again.
+    if ["FirebaseManager", "PresentationAnchor", "AppleSignIn"].contains(nsError.domain) {
         return nsError.localizedDescription
     }
 

@@ -175,4 +175,24 @@ struct AuthSessionTests {
     @Test func trulyUnknownErrors_stillFallBackToTheCatchAll() {
         #expect(friendlyAuthError(NSError(domain: "SomethingElse", code: 999)) == Self.catchAll)
     }
+
+    /// #11 moved the window lookup into its own type, and the new domain was
+    /// not on the list of ones whose message is shown — so a failure to find a
+    /// window silently became "Something went wrong" again, undoing what #9
+    /// had just fixed.
+    @Test func presentationFailures_sayWhatHappened() {
+        let error = NSError(
+            domain: "PresentationAnchor", code: 400,
+            userInfo: [NSLocalizedDescriptionKey: "Could not open the next screen. Please try again."]
+        )
+        #expect(friendlyAuthError(error) == "Could not open the next screen. Please try again.")
+    }
+
+    @Test func appleFailures_sayWhatHappened() {
+        let error = NSError(
+            domain: "AppleSignIn", code: -4,
+            userInfo: [NSLocalizedDescriptionKey: "Sign in with Apple was restarted. Please try again."]
+        )
+        #expect(friendlyAuthError(error) == "Sign in with Apple was restarted. Please try again.")
+    }
 }
