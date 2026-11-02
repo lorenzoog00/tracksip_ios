@@ -56,13 +56,13 @@ private struct BannerAdContainer: UIViewRepresentable {
             height = 0
         }
 
+        /// The banner keeps this for as long as it is on screen and only uses
+        /// it when the ad is tapped, so it wants the stable root — not
+        /// whatever was on top the moment the banner was built, which may be a
+        /// sheet that is long gone by then.
+        @MainActor
         func findRootVC() -> UIViewController? {
-            UIApplication.shared
-                .connectedScenes
-                .compactMap { $0 as? UIWindowScene }
-                .flatMap(\.windows)
-                .first(where: \.isKeyWindow)?
-                .rootViewController
+            PresentationAnchor.root()
         }
     }
 }
