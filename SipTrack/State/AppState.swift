@@ -23,6 +23,9 @@ final class AppState: ObservableObject {
     @Published var showWaterNudge: Bool      = false
     @Published var currentUserId: String?    = nil
     @Published var shouldShowAuth: Bool      = false
+    /// True between signing in and the cloud profile arriving, while it is not
+    /// yet known whether this is a returning user or a new one.
+    @Published var isRestoringCloudProfile: Bool = false
     @Published var syncFailed: Bool          = false
     @Published var generatingReportForEventId: String? = nil
     @Published var failedReportEventIds: Set<String> = []
@@ -53,6 +56,7 @@ final class AppState: ObservableObject {
     private var bacTimerTask: Task<Void, Never>?
     private var authCancellable: AnyCancellable?
     private var signOutCancellable: AnyCancellable?
+    private var cloudRestoreTimeout: Task<Void, Never>?
 
     // MARK: - Computed
 
@@ -145,7 +149,14 @@ final class AppState: ObservableObject {
             .receive(on: RunLoop.main)
             .sink { [weak self] isSignedIn in
                 self?.currentUserId = FirebaseManager.shared.currentUserId()
-                if isSignedIn { self?.refreshFromFirebase() }
+                guard isSignedIn else { return }
+                // Signing out clears the local profile, so at this instant a
+                // returning user is indistinguishable from a brand new one.
+                // Hold that question open until the cloud answers it, or the
+                // gate sends them to onboarding and a fast typist overwrites
+                // the measurements they already had.
+                self?.beginCloudRestore()
+                self?.refreshFromFirebase()
             }
 
         signOutCancellable = FirebaseManager.shared.userDidSignOut
@@ -189,11 +200,38 @@ final class AppState: ObservableObject {
         }
     }
 
+    /// Opens the "new user or returning user?" question, with a deadline.
+    ///
+    /// Offline, the pull can sit for a long time. Sending a returning user to
+    /// onboarding is bad; stranding anyone on a spinner with no way forward is
+    /// worse, so the wait is bounded.
+    private func beginCloudRestore() {
+        isRestoringCloudProfile = true
+        cloudRestoreTimeout?.cancel()
+        cloudRestoreTimeout = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(8))
+            guard !Task.isCancelled else { return }
+            self?.isRestoringCloudProfile = false
+        }
+    }
+
+    private func endCloudRestore() {
+        cloudRestoreTimeout?.cancel()
+        cloudRestoreTimeout = nil
+        isRestoringCloudProfile = false
+    }
+
     func refreshFromFirebase() {
-        guard currentUserId != nil else { return }
+        guard currentUserId != nil else {
+            endCloudRestore()
+            return
+        }
         Task {
             let data = await FirebaseManager.shared.pullUserData()
             applyCloudData(data)
+            // Whatever came back — a profile, no profile, or a pull that
+            // failed — "is this someone new?" is now answerable.
+            endCloudRestore()
             checkAndGenerateAutoReports()
             checkAndGenerateRecoveries()
             syncPendingRecoveries()

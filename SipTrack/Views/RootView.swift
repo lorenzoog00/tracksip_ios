@@ -1,5 +1,24 @@
 import SwiftUI
 
+/// Shown for the second or two between signing in and the cloud profile
+/// landing. Deliberately says nothing about setting anything up: for the
+/// returning user this is the common case, and it is about to disappear.
+struct RestoringProfileView: View {
+    var body: some View {
+        ZStack {
+            AppColors.background.ignoresSafeArea()
+            VStack(spacing: 16) {
+                ProgressView()
+                    .tint(AppColors.accent)
+                    .scaleEffect(1.2)
+                Text("Getting your account")
+                    .font(.system(size: 14))
+                    .foregroundStyle(AppColors.textSecondary)
+            }
+        }
+    }
+}
+
 struct RootView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var firebase: FirebaseManager
@@ -11,7 +30,16 @@ struct RootView: View {
             if appState.shouldShowAuth {
                 AuthView()
             } else if firebase.isSignedIn && !appState.userProfile.onboardingComplete {
-                OnboardingView()
+                // Signing out wipes the local profile, so the instant someone
+                // signs back in a returning user is indistinguishable from a
+                // new one. Wait for the cloud to say which, instead of asking
+                // a long-standing customer for their weight again — and worse,
+                // overwriting the real measurements when they answer.
+                if appState.isRestoringCloudProfile {
+                    RestoringProfileView()
+                } else {
+                    OnboardingView()
+                }
             } else {
                 NavigationStack(path: $path) {
                     HomeView()
