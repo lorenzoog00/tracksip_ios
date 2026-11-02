@@ -38,8 +38,8 @@ struct RootView: View {
                                 ProfileView()
                             case .subscription:
                                 ProView(presentation: .pushed)
-                            case .auth:
-                                AuthView()
+                            case .auth(let signUp):
+                                AuthView(startOnSignUp: signUp)
                             case .coach:
                                 CoachView()
                             }

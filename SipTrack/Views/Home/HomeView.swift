@@ -310,7 +310,7 @@ struct HomeView: View {
             .padding(.horizontal, 32)
 
             VStack(spacing: 12) {
-                NavigationLink(value: Route.auth) {
+                NavigationLink(value: Route.auth(signUp: true)) {
                     Text("Create Account")
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(.black)
@@ -328,7 +328,7 @@ struct HomeView: View {
                 }
                 .buttonStyle(.plain)
 
-                NavigationLink(value: Route.auth) {
+                NavigationLink(value: Route.auth(signUp: false)) {
                     Text("Sign In")
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(AppColors.accent)
