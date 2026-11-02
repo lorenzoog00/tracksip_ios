@@ -370,9 +370,12 @@ struct SummaryView: View {
                         renderer.scale = 3.0
                         guard let image = renderer.uiImage else { return }
                         let av = UIActivityViewController(activityItems: [image], applicationActivities: nil)
-                        if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-                           let root = scene.windows.first?.rootViewController {
-                            root.present(av, animated: true)
+                        // Sharing used to present on the first window's root,
+                        // so with anything already on screen the button did
+                        // nothing at all and said nothing about it.
+                        if let anchor = PresentationAnchor.topMost() {
+                            av.popoverPresentationController?.sourceView = anchor.view
+                            anchor.present(av, animated: true)
                         }
                     } label: {
                         Label("Share Night Card", systemImage: "square.and.arrow.up")

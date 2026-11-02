@@ -42,12 +42,10 @@ final class ConsentManager: ObservableObject {
 
     func presentPrivacyOptions() async {
         privacyError = nil
-        guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-              var root = scene.windows.first(where: \.isKeyWindow)?.rootViewController else {
+        guard let root = PresentationAnchor.topMost() else {
             privacyError = "Privacy choices could not be opened. Please try again."
             return
         }
-        while let presented = root.presentedViewController { root = presented }
         canRequestAds = false
         AdManager.shared.clearAds()
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
@@ -129,10 +127,16 @@ final class ConsentManager: ObservableObject {
                     return
                 }
 
-                guard
-                    let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-                    let root = scene.windows.first?.rootViewController
-                else { continuation.resume(); return }
+                // The worst of the old lookups: any window, no key-window check
+                // and no walk past whatever was already presented. When it
+                // picked wrong the consent form never appeared, consent stayed
+                // unresolved, and a free user quietly got no ads at all — the
+                // same outcome #5 was about, reached a different way.
+                guard let root = PresentationAnchor.topMost() else {
+                    self.log.error("consent form skipped: no window to present from")
+                    continuation.resume()
+                    return
+                }
 
                 ConsentForm.loadAndPresentIfRequired(from: root) { formError in
                     if let formError {

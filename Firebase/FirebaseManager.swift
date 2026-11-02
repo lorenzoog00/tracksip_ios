@@ -643,55 +643,11 @@ final class FirebaseManager: ObservableObject {
 
     // MARK: - Presentation
 
-    /// The controller a system sign-in sheet can actually be presented from.
-    ///
-    /// Two things go wrong with `rootViewController`. UIKit refuses to present
-    /// on a controller that is already presenting, and the delete-account flow
-    /// starts from a button *inside* a confirmation dialog — that dialog is
-    /// still on screen, mid-dismissal, when the action closure runs. The Google
-    /// sheet then never opened, the error came back as the catch-all "Something
-    /// went wrong", and nothing ever reached the backend.
-    ///
-    /// So: wait for anything mid-dismissal to finish, then hand back the
-    /// top-most controller rather than the root, which is also correct when the
-    /// caller legitimately sits under a sheet.
-    static func presentationAnchor(
-        timeout: Duration = .seconds(2)
-    ) async throws -> UIViewController {
-        guard let root = UIApplication.shared.connectedScenes
-            .compactMap({ $0 as? UIWindowScene })
-            // connectedScenes is unordered and windows.first is not necessarily
-            // the visible one, so ask for the foreground scene's key window.
-            .first(where: { $0.activationState == .foregroundActive })?
-            .windows.first(where: { $0.isKeyWindow })?
-            .rootViewController else {
-            throw NSError(domain: "FirebaseManager", code: 400,
-                          userInfo: [NSLocalizedDescriptionKey: "Could not open the sign-in screen. Please try again."])
-        }
-
-        let step = Duration.milliseconds(50)
-        var waited = Duration.zero
-        while waited < timeout {
-            let top = Self.topMost(from: root)
-            // Nothing above it and nothing on the way out: safe to present.
-            if top.presentedViewController == nil { return top }
-            try? await Task.sleep(for: step)
-            waited += step
-        }
-        // Waited long enough. Present on whatever is on top and let UIKit say
-        // what it thinks rather than hanging here.
-        return Self.topMost(from: root)
-    }
-
-    /// Walks the presentation chain, stopping at anything being dismissed so
-    /// the caller can wait it out instead of targeting a controller that is
-    /// about to disappear.
-    private static func topMost(from root: UIViewController) -> UIViewController {
-        var top = root
-        while let presented = top.presentedViewController, !presented.isBeingDismissed {
-            top = presented
-        }
-        return top
+    /// Kept as a name the sign-in paths read well with. The logic itself lives
+    /// in `PresentationAnchor`, which the ads and share paths share — they all
+    /// had their own broken copy of this lookup.
+    static func presentationAnchor() async throws -> UIViewController {
+        try await PresentationAnchor.waitingForDismissal()
     }
 
     // MARK: - Nonce helpers

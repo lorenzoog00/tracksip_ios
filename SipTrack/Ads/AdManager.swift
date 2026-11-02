@@ -119,12 +119,11 @@ final class AdManager: NSObject, ObservableObject, FullScreenContentDelegate {
         interstitialReady = false
     }
 
+    /// Full-screen ads are presented the moment this is called, so they need
+    /// whatever is on top. Returning the root meant an interstitial was dropped
+    /// on the floor whenever a sheet happened to be open: no error, no
+    /// impression, no revenue.
     private func rootViewController() -> UIViewController? {
-        UIApplication.shared
-            .connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .flatMap(\.windows)
-            .first(where: \.isKeyWindow)?
-            .rootViewController
+        PresentationAnchor.topMost()
     }
 }
