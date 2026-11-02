@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 // A replacement for `.alert` and `.confirmationDialog`.
 //
