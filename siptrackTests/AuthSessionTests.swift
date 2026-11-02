@@ -134,4 +134,45 @@ struct AuthSessionTests {
     @Test func signIn_neverShowsTheMinimumLengthHint() {
         #expect(AuthView.passwordHint(password: "123", isSignUp: false) == nil)
     }
+
+    // MARK: - Errors the user can act on
+
+    static let catchAll = "Something went wrong. Please try again."
+
+    /// Deleting a Google account re-opens the Google sheet first. When that
+    /// sheet failed to open, the GIDSignIn error was not a Firebase Auth code,
+    /// so it fell through to the catch-all: the user read "Something went
+    /// wrong" with nothing to do about it, and the call never reached the
+    /// backend — the function logs showed no invocation at all.
+    @Test func googleFailure_doesNotReachTheCatchAll() {
+        let error = NSError(domain: googleSignInErrorDomain, code: -4)
+        #expect(friendlyAuthError(error) != Self.catchAll)
+    }
+
+    @Test func firebaseManagerErrors_keepTheirOwnMessage() {
+        let error = NSError(
+            domain: "FirebaseManager", code: 400,
+            userInfo: [NSLocalizedDescriptionKey: "Could not open the sign-in screen. Please try again."]
+        )
+        #expect(friendlyAuthError(error) == "Could not open the sign-in screen. Please try again.")
+    }
+
+    /// The backend's own refusal travels as a FirebaseManager error, so the
+    /// reason reaches the user instead of being flattened into the catch-all.
+    @Test func backendRefusal_reachesTheUserVerbatim() {
+        let error = NSError(
+            domain: "FirebaseManager", code: 401,
+            userInfo: [NSLocalizedDescriptionKey: "Please sign in again before deleting your account."]
+        )
+        #expect(friendlyAuthError(error) == "Please sign in again before deleting your account.")
+    }
+
+    @Test func knownAuthCodes_stillMapToTheirOwnWording() {
+        #expect(friendlyAuthError(NSError(domain: "FIRAuthErrorDomain", code: 17011))
+                == "No account found with that email.")
+    }
+
+    @Test func trulyUnknownErrors_stillFallBackToTheCatchAll() {
+        #expect(friendlyAuthError(NSError(domain: "SomethingElse", code: 999)) == Self.catchAll)
+    }
 }
