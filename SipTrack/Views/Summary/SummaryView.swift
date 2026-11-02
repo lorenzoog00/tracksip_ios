@@ -428,12 +428,22 @@ struct SummaryView: View {
                 AdManager.shared.showInterstitialForBrowse(isPro: appState.isPro)
             }
         }
-        .confirmationDialog("Delete this night?", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
-            Button("Delete", role: .destructive) {
-                appState.deleteEvent(eventId)
-                dismiss()
-            }
-            Button("Cancel", role: .cancel) {}
+        .onChange(of: showDeleteConfirm) { _, asked in
+            guard asked else { return }
+            showDeleteConfirm = false
+            NoticeCenter.shared.show(Notice(
+                icon: "trash.fill",
+                tone: .danger,
+                title: "Delete this night?",
+                message: "Every drink, water and snack logged that night goes with it. This can't be undone.",
+                actions: [
+                    NoticeAction("Delete", kind: .destructive) {
+                        appState.deleteEvent(eventId)
+                        dismiss()
+                    },
+                    NoticeAction("Cancel", kind: .quiet)
+                ]
+            ))
         }
     }
 

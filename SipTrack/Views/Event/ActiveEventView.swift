@@ -157,30 +157,49 @@ struct ActiveEventView: View {
             }
             .presentationDetents([.height(260)])
         }
-        .confirmationDialog("End this night?", isPresented: $showEndConfirm, titleVisibility: .visible) {
-            Button("End Night", role: .destructive) {
-                appState.endEvent(eventId)
-                appState.pendingSummaryEventId = eventId
-                AdManager.shared.showInterstitialIfReady(isPro: appState.isPro)
-            }
-            Button("Cancel", role: .cancel) {}
+        .onChange(of: showEndConfirm) { _, asked in
+            guard asked else { return }
+            showEndConfirm = false
+            NoticeCenter.shared.show(Notice(
+                icon: "moon.zzz.fill",
+                tone: .danger,
+                title: "End this night?",
+                message: "Your drinks stop being tracked and the summary is written. You can't reopen it.",
+                actions: [
+                    NoticeAction("End the night", kind: .destructive) {
+                        appState.endEvent(eventId)
+                        appState.pendingSummaryEventId = eventId
+                        AdManager.shared.showInterstitialIfReady(isPro: appState.isPro)
+                    },
+                    NoticeAction("Keep going", kind: .quiet)
+                ]
+            ))
         }
-        .alert("⚠️ Heads Up", isPresented: Binding(
-            get: { !appState.activeWarnings.isEmpty },
-            set: { if !$0 { appState.dismissWarnings() } }
-        )) {
-            Button("Got it") { appState.dismissWarnings() }
-        } message: {
-            Text(appState.activeWarnings.map(\.message).joined(separator: "\n\n"))
+        .onChange(of: appState.activeWarnings.count) { _, count in
+            guard count > 0 else { return }
+            NoticeCenter.shared.show(Notice(
+                icon: "exclamationmark.triangle.fill",
+                tone: .danger,
+                title: "Heads up",
+                message: appState.activeWarnings.map(\.message).joined(separator: "\n\n"),
+                actions: [NoticeAction("Got it") { appState.dismissWarnings() }]
+            ))
         }
-        .alert("💧 Stay Hydrated", isPresented: $appState.showWaterNudge) {
-            Button("Add Water") {
-                appState.addWater(eventId: eventId)
-                appState.dismissWaterNudge()
-            }
-            Button("Skip", role: .cancel) { appState.dismissWaterNudge() }
-        } message: {
-            Text("You're falling behind on water. Add a glass?")
+        .onChange(of: appState.showWaterNudge) { _, nudging in
+            guard nudging else { return }
+            NoticeCenter.shared.show(Notice(
+                icon: "drop.fill",
+                tone: .water,
+                title: "Water break",
+                message: "You're falling behind on water. A glass now paces the rest of the night.",
+                actions: [
+                    NoticeAction("Add a glass") {
+                        appState.addWater(eventId: eventId)
+                        appState.dismissWaterNudge()
+                    },
+                    NoticeAction("Not now", kind: .quiet) { appState.dismissWaterNudge() }
+                ]
+            ))
         }
         .sheet(item: $pendingDrink) { warning in
             OverLimitWarningSheet(
@@ -1277,56 +1296,78 @@ private struct BottomBar: View {
     let onEnd: () -> Void
 
     var body: some View {
+        // Water and Food add something and can be tapped all night. Ending the
+        // night happens once and closes everything. They were three identical
+        // tiles, so the only thing separating "add a snack" from "finish" was
+        // the colour — and a square stop icon borrowed from a music player.
         HStack(spacing: 10) {
-            Button(action: onAddWater) {
-                VStack(spacing: 5) {
-                    Image(systemName: "drop.fill")
-                        .font(.system(size: 18, weight: .semibold))
-                    Text("Water")
-                        .font(.system(size: 12, weight: .semibold))
-                }
-                .foregroundStyle(AppColors.water)
-                .frame(maxWidth: .infinity)
-                .frame(height: 62)
-                .background(AppColors.water.opacity(0.10))
-                .clipShape(RoundedRectangle(cornerRadius: 14))
-                .overlay(RoundedRectangle(cornerRadius: 14).stroke(AppColors.water.opacity(0.3), lineWidth: 1))
-            }
-
-            Button(action: onAddFood) {
-                VStack(spacing: 5) {
-                    Image(systemName: "fork.knife")
-                        .font(.system(size: 18, weight: .semibold))
-                    Text("Food")
-                        .font(.system(size: 12, weight: .semibold))
-                }
-                .foregroundStyle(AppColors.accent)
-                .frame(maxWidth: .infinity)
-                .frame(height: 62)
-                .background(AppColors.accent.opacity(0.10))
-                .clipShape(RoundedRectangle(cornerRadius: 14))
-                .overlay(RoundedRectangle(cornerRadius: 14).stroke(AppColors.accent.opacity(0.3), lineWidth: 1))
-            }
-
-            Button(action: onEnd) {
-                VStack(spacing: 5) {
-                    Image(systemName: "stop.fill")
-                        .font(.system(size: 18, weight: .semibold))
-                    Text("End Night")
-                        .font(.system(size: 12, weight: .semibold))
-                }
-                .foregroundStyle(AppColors.danger)
-                .frame(maxWidth: .infinity)
-                .frame(height: 62)
-                .background(AppColors.danger.opacity(0.10))
-                .clipShape(RoundedRectangle(cornerRadius: 14))
-                .overlay(RoundedRectangle(cornerRadius: 14).stroke(AppColors.danger.opacity(0.3), lineWidth: 1))
-            }
+            addTile(icon: "drop.fill", label: "Water",
+                    tint: AppColors.water, action: onAddWater)
+            addTile(icon: "fork.knife", label: "Food",
+                    tint: AppColors.accent, action: onAddFood)
+            endButton
         }
         .padding(.horizontal)
         .padding(.vertical, 12)
         .background(.ultraThinMaterial)
         .overlay(Rectangle().frame(height: 0.5).foregroundStyle(AppColors.border), alignment: .top)
+    }
+
+    /// The two repeatable actions. Tinted outline, quiet on purpose.
+    private func addTile(
+        icon: String, label: String, tint: Color, action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            VStack(spacing: 5) {
+                Image(systemName: icon)
+                    .font(.system(size: 18, weight: .semibold))
+                Text(label)
+                    .font(.system(size: 12, weight: .semibold))
+            }
+            .foregroundStyle(tint)
+            .frame(maxWidth: .infinity)
+            .frame(height: 62)
+            .background(tint.opacity(0.10))
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(tint.opacity(0.3), lineWidth: 1))
+        }
+    }
+
+    /// Filled rather than outlined, with its own glow, so the one action that
+    /// closes the night reads as a different kind of thing from the two beside
+    /// it — without being the loudest object on the screen all evening.
+    private var endButton: some View {
+        Button(action: onEnd) {
+            VStack(spacing: 5) {
+                Image(systemName: "moon.stars.fill")
+                    .font(.system(size: 18, weight: .semibold))
+                Text("End Night")
+                    .font(.system(size: 12, weight: .bold))
+            }
+            .foregroundStyle(AppColors.text)
+            .frame(maxWidth: .infinity)
+            .frame(height: 62)
+            .background(
+                LinearGradient(
+                    colors: [AppColors.danger.opacity(0.85), AppColors.danger.opacity(0.55)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(
+                        LinearGradient(
+                            colors: [AppColors.rimLight, AppColors.danger.opacity(0.5)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ),
+                        lineWidth: 1
+                    )
+            )
+            .shadow(color: AppColors.danger.opacity(0.35), radius: 10, y: 4)
+        }
     }
 }
 
