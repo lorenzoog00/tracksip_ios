@@ -1145,20 +1145,12 @@ struct AuthView: View {
                                     isLoading = false; return
                                 }
                                 GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientID)
-                                // connectedScenes is unordered and windows.first is
-                                // not necessarily the visible one, so ask for the
-                                // foreground scene's key window explicitly —
-                                // presenting on a detached controller silently
-                                // does nothing.
-                                guard let rootVC = UIApplication.shared.connectedScenes
-                                    .compactMap({ $0 as? UIWindowScene })
-                                    .first(where: { $0.activationState == .foregroundActive })?
-                                    .windows.first(where: { $0.isKeyWindow })?
-                                    .rootViewController else {
-                                    errorMsg = "Could not find root view controller."
-                                    isLoading = false; return
-                                }
-                                let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: rootVC)
+                                // Same anchor the delete-account re-auth uses: the
+                                // top-most controller, once anything mid-dismissal
+                                // has gone. The root alone is wrong whenever this
+                                // view is itself inside a sheet.
+                                let anchor = try await FirebaseManager.presentationAnchor()
+                                let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: anchor)
                                 guard let idToken = result.user.idToken?.tokenString else {
                                     errorMsg = "Google did not return an ID token. Please try again."
                                     isLoading = false; return
@@ -1170,6 +1162,13 @@ struct AuthView: View {
                                 try await firebase.signInWithCredential(credential)
                                 appState.shouldShowAuth = false
                                 dismiss()
+                            } catch let error as NSError
+                                where error.domain == googleSignInErrorDomain && error.code == -5 {
+                                // Backing out of the Google sheet is a choice,
+                                // not a failure. The Apple button above already
+                                // stays quiet when cancelled; this one used to
+                                // answer with an error the user had just caused
+                                // on purpose.
                             } catch {
                                 errorMsg = friendlyAuthError(error)
                             }

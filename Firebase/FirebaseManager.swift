@@ -600,6 +600,10 @@ final class FirebaseManager: ObservableObject {
     // act on from that screen.
     private func reauthenticate(user: FirebaseAuth.User, password: String?) async throws {
         let providerIDs = user.providerData.map(\.providerID)
+        // Everything below opens a system sheet, and the caller is a button
+        // inside a confirmation dialog that is still dismissing when the action
+        // fires. See `presentationAnchor()`.
+        let anchor = try await Self.presentationAnchor()
         if providerIDs.contains("apple.com") {
             let credential = try await AppleSignInCoordinator.shared.signIn()
             try await user.reauthenticate(with: credential)
@@ -609,16 +613,6 @@ final class FirebaseManager: ObservableObject {
             }
             try await auth.revokeToken(withAuthorizationCode: code)
         } else if providerIDs.contains("google.com") {
-            // connectedScenes is unordered and windows.first is not necessarily
-            // the visible one, so ask for the foreground scene's key window.
-            guard let rootVC = UIApplication.shared.connectedScenes
-                .compactMap({ $0 as? UIWindowScene })
-                .first(where: { $0.activationState == .foregroundActive })?
-                .windows.first(where: { $0.isKeyWindow })?
-                .rootViewController else {
-                throw NSError(domain: "FirebaseManager", code: 400,
-                              userInfo: [NSLocalizedDescriptionKey: "Could not present Google sign-in. Please try again."])
-            }
             let plistPath = Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist")
             let plistDict = plistPath.flatMap { NSDictionary(contentsOfFile: $0) }
             guard let clientID = plistDict?["CLIENT_ID"] as? String else {
@@ -626,7 +620,7 @@ final class FirebaseManager: ObservableObject {
                               userInfo: [NSLocalizedDescriptionKey: "Google sign-in is not configured in this build."])
             }
             GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientID)
-            let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: rootVC)
+            let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: anchor)
             guard let idToken = result.user.idToken?.tokenString else {
                 throw NSError(domain: "FirebaseManager", code: 400,
                               userInfo: [NSLocalizedDescriptionKey: "Google did not return an ID token. Please try again."])
@@ -647,6 +641,59 @@ final class FirebaseManager: ObservableObject {
         }
     }
 
+    // MARK: - Presentation
+
+    /// The controller a system sign-in sheet can actually be presented from.
+    ///
+    /// Two things go wrong with `rootViewController`. UIKit refuses to present
+    /// on a controller that is already presenting, and the delete-account flow
+    /// starts from a button *inside* a confirmation dialog — that dialog is
+    /// still on screen, mid-dismissal, when the action closure runs. The Google
+    /// sheet then never opened, the error came back as the catch-all "Something
+    /// went wrong", and nothing ever reached the backend.
+    ///
+    /// So: wait for anything mid-dismissal to finish, then hand back the
+    /// top-most controller rather than the root, which is also correct when the
+    /// caller legitimately sits under a sheet.
+    static func presentationAnchor(
+        timeout: Duration = .seconds(2)
+    ) async throws -> UIViewController {
+        guard let root = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            // connectedScenes is unordered and windows.first is not necessarily
+            // the visible one, so ask for the foreground scene's key window.
+            .first(where: { $0.activationState == .foregroundActive })?
+            .windows.first(where: { $0.isKeyWindow })?
+            .rootViewController else {
+            throw NSError(domain: "FirebaseManager", code: 400,
+                          userInfo: [NSLocalizedDescriptionKey: "Could not open the sign-in screen. Please try again."])
+        }
+
+        let step = Duration.milliseconds(50)
+        var waited = Duration.zero
+        while waited < timeout {
+            let top = Self.topMost(from: root)
+            // Nothing above it and nothing on the way out: safe to present.
+            if top.presentedViewController == nil { return top }
+            try? await Task.sleep(for: step)
+            waited += step
+        }
+        // Waited long enough. Present on whatever is on top and let UIKit say
+        // what it thinks rather than hanging here.
+        return Self.topMost(from: root)
+    }
+
+    /// Walks the presentation chain, stopping at anything being dismissed so
+    /// the caller can wait it out instead of targeting a controller that is
+    /// about to disappear.
+    private static func topMost(from root: UIViewController) -> UIViewController {
+        var top = root
+        while let presented = top.presentedViewController, !presented.isBeingDismissed {
+            top = presented
+        }
+        return top
+    }
+
     // MARK: - Nonce helpers
 
     private func randomNonceString(length: Int = 32) -> String {
@@ -663,12 +710,26 @@ final class FirebaseManager: ObservableObject {
 
 // MARK: - Firebase error → user-friendly string
 
+/// Tied to the SDK's own constant so the tests can name the domain without the
+/// test target having to link GoogleSignIn — and so they keep matching reality
+/// if Google ever changes it.
+let googleSignInErrorDomain = kGIDSignInErrorDomain
+
 func friendlyAuthError(_ error: Error) -> String {
     let nsError = error as NSError
 
     // Custom errors thrown by FirebaseManager carry meaningful descriptions (e.g. email-not-verified)
     if nsError.domain == "FirebaseManager" {
         return nsError.localizedDescription
+    }
+
+    // Google's own failures are not Firebase Auth codes, so they fell through
+    // to the catch-all below. That is how a sign-in sheet that never opened
+    // reached the user as "Something went wrong" with nothing to act on, and
+    // nothing in Crashlytics to find it by either.
+    if nsError.domain == googleSignInErrorDomain {
+        recordUnclassifiedAuthError(nsError)
+        return "Google sign-in could not be opened. Please try again."
     }
 
     // Firebase Auth error codes — stable across SDK versions
@@ -682,6 +743,17 @@ func friendlyAuthError(_ error: Error) -> String {
     case 17010:        return "Too many attempts. Please wait a moment and try again."
     case 17005:        return "This account has been disabled. Contact support."
     case 17014:        return "For security, please sign in again to continue."
-    default:           return "Something went wrong. Please try again."
+    default:
+        // Anything landing here is unclassified, so keep a copy. Without this
+        // the only trace of a failure is a sentence the user cannot act on.
+        recordUnclassifiedAuthError(nsError)
+        return "Something went wrong. Please try again."
     }
+}
+
+/// Crashlytics throws if Firebase was never configured, which is the case in
+/// the test target, so check before reaching for it.
+private func recordUnclassifiedAuthError(_ error: NSError) {
+    guard FirebaseApp.app() != nil else { return }
+    Crashlytics.crashlytics().record(error: error)
 }
