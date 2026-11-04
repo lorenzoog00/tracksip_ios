@@ -24,29 +24,29 @@ struct EmailVerificationView: View {
                         .foregroundStyle(AppColors.accent)
 
                     Text("Verify your email")
-                        .font(.system(size: 26, weight: .bold))
+                        .font(.system(size: 28, weight: .bold))
                         .foregroundStyle(AppColors.text)
 
                     VStack(spacing: 6) {
                         Text("We sent a verification link to")
-                            .font(.system(size: 15))
+                            .font(.system(size: 17))
                             .foregroundStyle(AppColors.textSecondary)
                         Text(email)
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(.system(size: 17, weight: .semibold))
                             .foregroundStyle(AppColors.text)
                     }
 
                     Text("Open the link in the email, then come back and tap the button below.")
-                        .font(.system(size: 14))
+                        .font(.system(size: 17))
                         .foregroundStyle(AppColors.textSecondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 8)
 
                     HStack(spacing: 6) {
                         Image(systemName: "exclamationmark.triangle.fill")
-                            .font(.system(size: 12))
+                            .font(.system(size: 15))
                         Text("Can't find it? Check your spam folder.")
-                            .font(.system(size: 13))
+                            .font(.system(size: 16))
                     }
                     .foregroundStyle(AppColors.textTertiary)
                     .padding(.top, 4)
@@ -57,14 +57,14 @@ struct EmailVerificationView: View {
                 VStack(spacing: 14) {
                     if let err = errorMsg {
                         Text(err)
-                            .font(.system(size: 13))
+                            .font(.system(size: 16))
                             .foregroundStyle(AppColors.danger)
                             .multilineTextAlignment(.center)
                     }
 
                     if resendSuccess {
                         Text("Verification email resent.")
-                            .font(.system(size: 13))
+                            .font(.system(size: 16))
                             .foregroundStyle(AppColors.accent)
                     }
 
@@ -74,7 +74,7 @@ struct EmailVerificationView: View {
                         HStack(spacing: 8) {
                             if isChecking { ProgressView().tint(.black).scaleEffect(0.8) }
                             Text("I've verified my email")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.system(size: 18, weight: .semibold))
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
@@ -90,7 +90,7 @@ struct EmailVerificationView: View {
                         HStack(spacing: 6) {
                             if isResending { ProgressView().scaleEffect(0.7) }
                             Text("Resend email")
-                                .font(.system(size: 14))
+                                .font(.system(size: 17))
                                 .foregroundStyle(AppColors.accent)
                         }
                     }

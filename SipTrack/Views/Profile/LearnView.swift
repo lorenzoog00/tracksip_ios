@@ -176,18 +176,18 @@ private struct LearnHero: View {
                     .fill(AppColors.water.opacity(0.07))
                     .frame(width: 60, height: 60)
                 Image(systemName: "book.closed.fill")
-                    .font(.system(size: 28))
+                    .font(.system(size: 30))
                     .foregroundStyle(AppColors.water)
             }
 
             VStack(spacing: 6) {
                 Text("Know What You're Drinking")
-                    .font(.system(size: 20, weight: .bold))
+                    .font(.system(size: 22, weight: .bold))
                     .foregroundStyle(AppColors.text)
                     .multilineTextAlignment(.center)
 
                 Text("Science-backed information about alcohol,\nBAC, and what it means for your body.")
-                    .font(.system(size: 13))
+                    .font(.system(size: 16))
                     .foregroundStyle(AppColors.textSecondary)
                     .multilineTextAlignment(.center)
                     .lineSpacing(3)
@@ -204,7 +204,7 @@ private struct BACScaleCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("INTOXICATION STAGES")
-                .font(.system(size: 9, weight: .bold))
+                .font(.system(size: 12, weight: .bold))
                 .tracking(2.5)
                 .foregroundStyle(AppColors.textTertiary)
 
@@ -223,18 +223,18 @@ private struct BACScaleCard: View {
                             .frame(width: 8, height: 8)
 
                         Text(stage.name)
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.system(size: 15, weight: .semibold))
                             .foregroundStyle(stage.color)
                             .frame(width: 72, alignment: .leading)
 
                         Text(String(format: "%.2f–%.2f%%", stage.minBAC, stage.maxBAC))
-                            .font(.system(size: 11, weight: .medium, design: .monospaced))
+                            .font(.system(size: 14, weight: .medium, design: .monospaced))
                             .foregroundStyle(AppColors.textTertiary)
 
                         Spacer()
 
                         Text(stage.blurb)
-                            .font(.system(size: 10))
+                            .font(.system(size: 13))
                             .foregroundStyle(AppColors.textTertiary)
                             .multilineTextAlignment(.trailing)
                             .lineLimit(2)
@@ -272,19 +272,19 @@ private struct LearnCard: View {
                             .fill(iconColor.opacity(0.14))
                             .frame(width: 34, height: 34)
                         Image(systemName: icon)
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.system(size: 17, weight: .medium))
                             .foregroundStyle(iconColor)
                     }
 
                     Text(title)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(AppColors.text)
                         .multilineTextAlignment(.leading)
 
                     Spacer()
 
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(AppColors.textTertiary)
                         .rotationEffect(.degrees(expanded ? 90 : 0))
                 }
@@ -305,7 +305,7 @@ private struct LearnCard: View {
                         .padding(.horizontal, 16)
 
                     Text(bodyText)
-                        .font(.system(size: 13))
+                        .font(.system(size: 16))
                         .foregroundStyle(AppColors.textSecondary)
                         .lineSpacing(4)
                         .fixedSize(horizontal: false, vertical: true)
@@ -314,7 +314,7 @@ private struct LearnCard: View {
                     if !sources.isEmpty {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("SOURCES")
-                                .font(.system(size: 8, weight: .bold))
+                                .font(.system(size: 11, weight: .bold))
                                 .tracking(2.5)
                                 .foregroundStyle(AppColors.textTertiary)
                                 .padding(.horizontal, 16)
@@ -326,10 +326,10 @@ private struct LearnCard: View {
                                             Link(destination: url) {
                                                 HStack(spacing: 4) {
                                                     Text(label)
-                                                        .font(.system(size: 11, weight: .semibold))
+                                                        .font(.system(size: 14, weight: .semibold))
                                                         .foregroundStyle(AppColors.accent)
                                                     Image(systemName: "arrow.up.right")
-                                                        .font(.system(size: 9))
+                                                        .font(.system(size: 12))
                                                         .foregroundStyle(AppColors.accent.opacity(0.7))
                                                 }
                                                 .padding(.horizontal, 10)
@@ -385,16 +385,16 @@ private struct DisclaimerCard: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 14))
+                .font(.system(size: 17))
                 .foregroundStyle(AppColors.textTertiary)
                 .padding(.top, 1)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("Not medical advice")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(AppColors.textSecondary)
                 Text("Tracksip's BAC estimates are approximations based on mathematical models. Individual physiology varies. Never rely solely on this app to determine if you are safe to drive. If in doubt, don't drive.")
-                    .font(.system(size: 11))
+                    .font(.system(size: 14))
                     .foregroundStyle(AppColors.textTertiary)
                     .lineSpacing(3)
                     .fixedSize(horizontal: false, vertical: true)

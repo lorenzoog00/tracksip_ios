@@ -21,28 +21,28 @@ struct ForgotPasswordView: View {
                         .foregroundStyle(AppColors.accent)
 
                     Text(sent ? "Check your inbox" : "Reset Password")
-                        .font(.system(size: 26, weight: .bold))
+                        .font(.system(size: 28, weight: .bold))
                         .foregroundStyle(AppColors.text)
 
                     if sent {
                         VStack(spacing: 6) {
                             Text("We sent a reset link to")
-                                .font(.system(size: 15))
+                                .font(.system(size: 17))
                                 .foregroundStyle(AppColors.textSecondary)
                             Text(email)
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(.system(size: 17, weight: .semibold))
                                 .foregroundStyle(AppColors.text)
                         }
                         HStack(spacing: 6) {
                             Image(systemName: "exclamationmark.triangle.fill")
-                                .font(.system(size: 12))
+                                .font(.system(size: 15))
                             Text("Can't find it? Check your spam folder.")
-                                .font(.system(size: 13))
+                                .font(.system(size: 16))
                         }
                         .foregroundStyle(AppColors.textTertiary)
                     } else {
                         Text("Enter your email and we'll send you a link to reset your password.")
-                            .font(.system(size: 14))
+                            .font(.system(size: 17))
                             .foregroundStyle(AppColors.textSecondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 8)
@@ -54,7 +54,7 @@ struct ForgotPasswordView: View {
                 VStack(spacing: 14) {
                     if let err = errorMsg {
                         Text(err)
-                            .font(.system(size: 13))
+                            .font(.system(size: 16))
                             .foregroundStyle(AppColors.danger)
                             .multilineTextAlignment(.center)
                     }
@@ -76,7 +76,7 @@ struct ForgotPasswordView: View {
                             HStack(spacing: 8) {
                                 if isLoading { ProgressView().tint(.black).scaleEffect(0.8) }
                                 Text("Send Reset Link")
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .font(.system(size: 18, weight: .semibold))
                             }
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
@@ -91,7 +91,7 @@ struct ForgotPasswordView: View {
                         dismiss()
                     } label: {
                         Text(sent ? "Back to Sign In" : "Cancel")
-                            .font(.system(size: 14))
+                            .font(.system(size: 17))
                             .foregroundStyle(AppColors.accent)
                     }
                 }

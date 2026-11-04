@@ -65,13 +65,13 @@ struct SummaryView: View {
                 // Header
                 VStack(spacing: 6) {
                     Text(event.displayName)
-                        .font(.system(size: 24, weight: .bold))
+                        .font(.system(size: 26, weight: .bold))
                         .foregroundStyle(AppColors.text)
                     Text(eventDateRange(event))
-                        .font(.system(size: 14))
+                        .font(.system(size: 17))
                         .foregroundStyle(AppColors.textSecondary)
                     Text(durationString(event.duration))
-                        .font(.system(size: 13))
+                        .font(.system(size: 16))
                         .foregroundStyle(AppColors.textTertiary)
                     if let state = event.stomachState, state != .empty {
                         Label("\(state.emoji) \(state.displayName) before drinking", systemImage: "fork.knife")
@@ -105,10 +105,10 @@ struct SummaryView: View {
                 // "Your Night" prose
                 VStack(alignment: .leading, spacing: 6) {
                     Label("Your Night", systemImage: "moon.stars.fill")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(AppColors.textSecondary)
                     Text(prose)
-                        .font(.system(size: 14))
+                        .font(.system(size: 17))
                         .foregroundStyle(AppColors.text)
                         .lineSpacing(3)
                 }
@@ -145,11 +145,11 @@ struct SummaryView: View {
                     VStack(spacing: 10) {
                         HStack {
                             Label("Mean BAC", systemImage: "waveform.path.ecg")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.system(size: 16, weight: .semibold))
                                 .foregroundStyle(AppColors.textSecondary)
                             Spacer()
                             Text(meanBACStage.name)
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.system(size: 15, weight: .semibold))
                                 .foregroundStyle(meanBACStage.color)
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 4)
@@ -163,10 +163,10 @@ struct SummaryView: View {
                             Spacer()
                             VStack(alignment: .trailing, spacing: 3) {
                                 Text("avg BAC during event")
-                                    .font(.system(size: 11))
+                                    .font(.system(size: 14))
                                     .foregroundStyle(AppColors.textSecondary)
                                 Text("not peak · not lowest")
-                                    .font(.system(size: 10))
+                                    .font(.system(size: 13))
                                     .foregroundStyle(AppColors.textTertiary)
                             }
                         }
@@ -193,29 +193,29 @@ struct SummaryView: View {
                             Image(systemName: "car.fill")
                                 .foregroundStyle(AppColors.danger)
                             Text("Driving Mode")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.system(size: 17, weight: .semibold))
                                 .foregroundStyle(AppColors.text)
                             Spacer()
                         }
                         HStack {
                             Text("Peak BAC")
-                                .font(.system(size: 13))
+                                .font(.system(size: 16))
                                 .foregroundStyle(AppColors.textSecondary)
                             Spacer()
                             Text(String(format: "%.3f%%", peakBAC))
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.system(size: 16, weight: .semibold))
                                 .foregroundStyle(IntoxicationStage.stage(for: peakBAC).color)
                         }
                         if peakBAC > 0 {
                             HStack {
                                 Text("Time to zero BAC")
-                                    .font(.system(size: 13))
+                                    .font(.system(size: 16))
                                     .foregroundStyle(AppColors.textSecondary)
                                 Spacer()
                                 let h = Int(hoursToZero)
                                 let m = Int((hoursToZero - Double(h)) * 60)
                                 Text("~\(h)h \(m)m")
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .font(.system(size: 16, weight: .semibold))
                                     .foregroundStyle(AppColors.text)
                             }
                         }
@@ -230,16 +230,16 @@ struct SummaryView: View {
                 if !drinkBreakdown(entries: eventEntries).isEmpty {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Breakdown")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.system(size: 17, weight: .semibold))
                             .foregroundStyle(AppColors.textSecondary)
                         ForEach(drinkBreakdown(entries: eventEntries), id: \.0) { name, count in
                             HStack {
                                 Text(name)
-                                    .font(.system(size: 14))
+                                    .font(.system(size: 17))
                                     .foregroundStyle(AppColors.text)
                                 Spacer()
                                 Text("×\(count)")
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(.system(size: 17, weight: .semibold))
                                     .foregroundStyle(AppColors.accent)
                             }
                         }
@@ -272,17 +272,17 @@ struct SummaryView: View {
                 if !allTimestamps.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
                         Label("Timeline", systemImage: "clock")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.system(size: 17, weight: .semibold))
                             .foregroundStyle(AppColors.textSecondary)
                         ForEach(allTimestamps.indices, id: \.self) { idx in
                             let item = allTimestamps[idx]
                             HStack {
                                 Text(item.label)
-                                    .font(.system(size: 14))
+                                    .font(.system(size: 17))
                                     .foregroundStyle(AppColors.text)
                                 Spacer()
                                 Text(item.date, format: .dateTime.hour().minute())
-                                    .font(.system(size: 13))
+                                    .font(.system(size: 16))
                                     .foregroundStyle(AppColors.textSecondary)
                             }
                             if idx < allTimestamps.count - 1 {
@@ -305,15 +305,15 @@ struct SummaryView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
                         Label("Notes", systemImage: "note.text")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.system(size: 16, weight: .medium))
                             .foregroundStyle(AppColors.textSecondary)
                         Spacer()
                         if notesSavedAt != nil {
                             HStack(spacing: 4) {
                                 Image(systemName: "checkmark.circle.fill")
-                                    .font(.system(size: 11))
+                                    .font(.system(size: 14))
                                 Text("Saved")
-                                    .font(.system(size: 11))
+                                    .font(.system(size: 14))
                             }
                             .foregroundStyle(AppColors.success)
                         }
@@ -337,7 +337,7 @@ struct SummaryView: View {
                     showDeleteConfirm = true
                 } label: {
                     Text("Delete Night")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.system(size: 17, weight: .medium))
                         .foregroundStyle(AppColors.danger)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
@@ -413,7 +413,7 @@ struct SummaryView: View {
                     dismiss()
                 } label: {
                     Text("Done")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(AppColors.accent)
                 }
             }
@@ -516,13 +516,13 @@ private struct SummaryStatCard: View {
     var body: some View {
         VStack(spacing: 8) {
             Image(systemName: icon)
-                .font(.system(size: 18))
+                .font(.system(size: 20))
                 .foregroundStyle(color)
             Text(value)
-                .font(.system(size: 20, weight: .bold))
+                .font(.system(size: 22, weight: .bold))
                 .foregroundStyle(AppColors.text)
             Text(label)
-                .font(.system(size: 11))
+                .font(.system(size: 14))
                 .foregroundStyle(AppColors.textTertiary)
         }
         .frame(maxWidth: .infinity)
@@ -552,7 +552,7 @@ private struct BACChartView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Label("BAC Timeline", systemImage: "waveform.path.ecg")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(AppColors.textSecondary)
 
             Chart {
@@ -585,7 +585,7 @@ private struct BACChartView: View {
                         .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 3]))
                         .annotation(position: .top, alignment: .trailing) {
                             Text(String(format: "%.2f%%", limit))
-                                .font(.system(size: 9, weight: .medium))
+                                .font(.system(size: 12, weight: .medium))
                                 .foregroundStyle(AppColors.danger)
                                 .padding(.horizontal, 3)
                         }
@@ -604,7 +604,7 @@ private struct BACChartView: View {
                     .symbolSize(44)
                     .annotation(position: .top, alignment: .center) {
                         Text(String(format: "%.3f%%", peak.bac))
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.system(size: 13, weight: .semibold))
                             .foregroundStyle(IntoxicationStage.stage(for: peak.bac).color)
                     }
                 }
@@ -615,7 +615,7 @@ private struct BACChartView: View {
                     AxisValueLabel {
                         if let date = value.as(Date.self) {
                             Text(date, format: .dateTime.hour().minute())
-                                .font(.system(size: 10))
+                                .font(.system(size: 13))
                                 .foregroundStyle(AppColors.textTertiary)
                         }
                     }
@@ -627,7 +627,7 @@ private struct BACChartView: View {
                     AxisValueLabel {
                         if let bac = value.as(Double.self) {
                             Text(String(format: "%.2f", bac))
-                                .font(.system(size: 10))
+                                .font(.system(size: 13))
                                 .foregroundStyle(AppColors.textTertiary)
                         }
                     }
@@ -639,10 +639,10 @@ private struct BACChartView: View {
                 if let endTime = eventEndTime {
                     VStack(alignment: .trailing, spacing: 1) {
                         Text("Finished")
-                            .font(.system(size: 8, weight: .semibold))
+                            .font(.system(size: 11, weight: .semibold))
                             .tracking(0.2)
                         Text(endTime, format: .dateTime.hour().minute())
-                            .font(.system(size: 9, weight: .bold))
+                            .font(.system(size: 12, weight: .bold))
                     }
                     .foregroundStyle(AppColors.textSecondary)
                     .padding(.horizontal, 5)
@@ -674,13 +674,13 @@ private struct CalorieEquivalenciesCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Label("Calorie Breakdown", systemImage: "flame.fill")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(AppColors.textSecondary)
 
             // Sports section
             VStack(alignment: .leading, spacing: 8) {
                 Text("BURN IT OFF")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.system(size: 13, weight: .semibold))
                     .tracking(1.2)
                     .foregroundStyle(AppColors.textTertiary)
 
@@ -697,7 +697,7 @@ private struct CalorieEquivalenciesCard: View {
             // Food section
             VStack(alignment: .leading, spacing: 8) {
                 Text("FOOD EQUIVALENT")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.system(size: 13, weight: .semibold))
                     .tracking(1.2)
                     .foregroundStyle(AppColors.textTertiary)
 
@@ -723,15 +723,15 @@ private struct CalSportCell: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: icon)
-                .font(.system(size: 17))
+                .font(.system(size: 19))
                 .foregroundStyle(AppColors.accent)
                 .frame(width: 24)
             VStack(alignment: .leading, spacing: 1) {
                 Text(value)
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.system(size: 17, weight: .bold))
                     .foregroundStyle(AppColors.text)
                 Text(label)
-                    .font(.system(size: 10))
+                    .font(.system(size: 13))
                     .foregroundStyle(AppColors.textTertiary)
             }
         }
@@ -751,12 +751,12 @@ private struct CalFoodCell: View {
     var body: some View {
         VStack(spacing: 4) {
             Text(emoji)
-                .font(.system(size: 26))
+                .font(.system(size: 28))
             Text(value)
-                .font(.system(size: 17, weight: .bold))
+                .font(.system(size: 19, weight: .bold))
                 .foregroundStyle(AppColors.text)
             Text(label)
-                .font(.system(size: 10))
+                .font(.system(size: 13))
                 .foregroundStyle(AppColors.textTertiary)
                 .multilineTextAlignment(.center)
                 .lineSpacing(1)
@@ -825,7 +825,7 @@ private struct DrinkingPaceCard: View {
         let (bars, bacDots) = chartData
         VStack(alignment: .leading, spacing: 10) {
             Label("Drinking Pace", systemImage: "chart.bar.fill")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(AppColors.textSecondary)
 
             Chart {
@@ -855,7 +855,7 @@ private struct DrinkingPaceCard: View {
                     AxisValueLabel {
                         if let n = val.as(Double.self) {
                             Text("\(Int(n))")
-                                .font(.system(size: 10))
+                                .font(.system(size: 13))
                                 .foregroundStyle(AppColors.textTertiary)
                         }
                     }
@@ -867,7 +867,7 @@ private struct DrinkingPaceCard: View {
                     AxisValueLabel {
                         if let date = val.as(Date.self) {
                             Text(date, format: .dateTime.hour())
-                                .font(.system(size: 9))
+                                .font(.system(size: 12))
                                 .foregroundStyle(AppColors.textTertiary)
                         }
                     }
@@ -878,15 +878,15 @@ private struct DrinkingPaceCard: View {
             HStack(spacing: 12) {
                 HStack(spacing: 4) {
                     RoundedRectangle(cornerRadius: 2).fill(AppColors.accent).frame(width: 10, height: 10)
-                    Text("Drinks").font(.system(size: 10)).foregroundStyle(AppColors.textTertiary)
+                    Text("Drinks").font(.system(size: 13)).foregroundStyle(AppColors.textTertiary)
                 }
                 HStack(spacing: 4) {
                     RoundedRectangle(cornerRadius: 2).fill(AppColors.water).frame(width: 10, height: 10)
-                    Text("Water").font(.system(size: 10)).foregroundStyle(AppColors.textTertiary)
+                    Text("Water").font(.system(size: 13)).foregroundStyle(AppColors.textTertiary)
                 }
                 HStack(spacing: 4) {
                     Capsule().fill(AppColors.textSecondary.opacity(0.5)).frame(width: 14, height: 2)
-                    Text("BAC curve").font(.system(size: 10)).foregroundStyle(AppColors.textTertiary)
+                    Text("BAC curve").font(.system(size: 13)).foregroundStyle(AppColors.textTertiary)
                 }
             }
         }
@@ -939,7 +939,7 @@ private struct RecoveryProjectionCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Label("Recovery Timeline", systemImage: "arrow.counterclockwise.circle.fill")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(AppColors.textSecondary)
                 .padding(.bottom, 14)
 
@@ -962,7 +962,7 @@ private struct RecoveryProjectionCard: View {
                                     .fill(AppColors.border.opacity(0.5))
                                     .frame(width: 1.5, height: 8)
                                 Text(h > 0 ? "\(h)h \(mn)m" : "\(mn)m")
-                                    .font(.system(size: 9))
+                                    .font(.system(size: 12))
                                     .foregroundStyle(AppColors.textTertiary)
                                 Rectangle()
                                     .fill(AppColors.border.opacity(0.5))
@@ -976,23 +976,23 @@ private struct RecoveryProjectionCard: View {
                         VStack(alignment: .leading, spacing: 2) {
                             HStack(spacing: 5) {
                                 Text(m.name)
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .font(.system(size: 16, weight: .semibold))
                                     .foregroundStyle(m.isPast ? AppColors.textSecondary : m.color)
                                 if m.isPast {
                                     Image(systemName: "checkmark.circle.fill")
-                                        .font(.system(size: 11))
+                                        .font(.system(size: 14))
                                         .foregroundStyle(AppColors.success)
                                 }
                             }
                             if m.bac > 0 {
                                 Text(String(format: "%.3f%%", m.bac))
-                                    .font(.system(size: 11))
+                                    .font(.system(size: 14))
                                     .foregroundStyle(AppColors.textTertiary)
                             }
                         }
                         Spacer()
                         Text(m.time, format: .dateTime.hour().minute())
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.system(size: 15, weight: .medium))
                             .foregroundStyle(m.isPast ? AppColors.textTertiary : AppColors.text)
                     }
                     .padding(.top, 1)
@@ -1093,13 +1093,13 @@ private struct SummaryShareCard: View {
                                 .cornerRadius(5)
                         }
                         Text("TRACKSIP")
-                            .font(.system(size: 10, weight: .bold))
+                            .font(.system(size: 13, weight: .bold))
                             .tracking(2.5)
                             .foregroundStyle(.white.opacity(0.45))
                     }
                     Spacer()
                     Text(formattedDate)
-                        .font(.system(size: 10))
+                        .font(.system(size: 13))
                         .foregroundStyle(.white.opacity(0.3))
                 }
                 .padding(.horizontal, 28)
@@ -1109,7 +1109,7 @@ private struct SummaryShareCard: View {
 
                 // Event name
                 Text(event.displayName)
-                    .font(.system(size: 30, weight: .bold))
+                    .font(.system(size: 32, weight: .bold))
                     .foregroundStyle(.white)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
@@ -1117,7 +1117,7 @@ private struct SummaryShareCard: View {
                     .padding(.horizontal, 28)
 
                 Text("\(durationStr) night out")
-                    .font(.system(size: 13))
+                    .font(.system(size: 16))
                     .foregroundStyle(.white.opacity(0.35))
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 28)
@@ -1142,7 +1142,7 @@ private struct SummaryShareCard: View {
                             .shadow(color: stage.color.opacity(0.8), radius: 24, x: 0, y: 0)
 
                         Text("MEAN BAC  ·  " + stage.name.uppercased())
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.system(size: 13, weight: .semibold))
                             .tracking(2)
                             .foregroundStyle(stage.color.opacity(0.65))
                     }
@@ -1153,7 +1153,7 @@ private struct SummaryShareCard: View {
                 // Hourly BAC chart section
                 VStack(alignment: .leading, spacing: 8) {
                     Text("YOUR NIGHT, HOUR BY HOUR")
-                        .font(.system(size: 9, weight: .semibold))
+                        .font(.system(size: 12, weight: .semibold))
                         .tracking(1.8)
                         .foregroundStyle(.white.opacity(0.28))
                         .padding(.leading, 2)
@@ -1184,7 +1184,7 @@ private struct SummaryShareCard: View {
                 Spacer()
 
                 Text("tracked with TrackSip")
-                    .font(.system(size: 9))
+                    .font(.system(size: 12))
                     .foregroundStyle(.white.opacity(0.15))
                     .padding(.bottom, 46)
             }
@@ -1249,7 +1249,7 @@ private struct ShareHourlyChart: View {
                             .overlay(alignment: .top) {
                                 if i == peakIdx && item.bac > 0 {
                                     Text(String(format: "%.3f", item.bac))
-                                        .font(.system(size: 7.5, weight: .bold))
+                                        .font(.system(size: 10.5, weight: .bold))
                                         .foregroundStyle(stg.color)
                                         .offset(y: -13)
                                 }
@@ -1263,7 +1263,7 @@ private struct ShareHourlyChart: View {
             HStack(spacing: 4) {
                 ForEach(0..<data.count, id: \.self) { i in
                     Text(data[i].label)
-                        .font(.system(size: 7))
+                        .font(.system(size: 10))
                         .foregroundStyle(.white.opacity(0.28))
                         .frame(maxWidth: .infinity)
                         .lineLimit(1)
@@ -1282,12 +1282,12 @@ private struct ShareMiniStat: View {
     var body: some View {
         VStack(spacing: 3) {
             Text(emoji)
-                .font(.system(size: 16))
+                .font(.system(size: 18))
             Text(value)
-                .font(.system(size: 17, weight: .bold))
+                .font(.system(size: 19, weight: .bold))
                 .foregroundStyle(.white)
             Text(label)
-                .font(.system(size: 9))
+                .font(.system(size: 12))
                 .foregroundStyle(.white.opacity(0.38))
         }
         .frame(maxWidth: .infinity)
@@ -1353,14 +1353,14 @@ private struct DrinkingPaceHistoryCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Label("Drinking Pace", systemImage: "gauge.with.needle")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(AppColors.textSecondary)
 
             HStack(spacing: 8) {
                 ForEach(["Fast", "Moderate", "Slow"], id: \.self) { label in
                     let active = label == paceLabel
                     Text(label)
-                        .font(.system(size: 11, weight: active ? .bold : .regular))
+                        .font(.system(size: 14, weight: active ? .bold : .regular))
                         .foregroundStyle(active ? paceColor : AppColors.textTertiary)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 5)
@@ -1373,19 +1373,19 @@ private struct DrinkingPaceHistoryCard: View {
             HStack(spacing: 16) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(String(format: "%.0f min", avgSip))
-                        .font(.system(size: 20, weight: .bold, design: .monospaced))
+                        .font(.system(size: 22, weight: .bold, design: .monospaced))
                         .foregroundStyle(AppColors.text)
                     Text("avg per drink")
-                        .font(.system(size: 10))
+                        .font(.system(size: 13))
                         .foregroundStyle(AppColors.textTertiary)
                 }
                 Divider().frame(height: 30)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(String(format: "%.1f/hr", drinksPerHour))
-                        .font(.system(size: 20, weight: .bold, design: .monospaced))
+                        .font(.system(size: 22, weight: .bold, design: .monospaced))
                         .foregroundStyle(AppColors.text)
                     Text("drinks per hour")
-                        .font(.system(size: 10))
+                        .font(.system(size: 13))
                         .foregroundStyle(AppColors.textTertiary)
                 }
             }
@@ -1395,21 +1395,21 @@ private struct DrinkingPaceHistoryCard: View {
                 HStack(spacing: 12) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("FASTEST")
-                            .font(.system(size: 9, weight: .semibold))
+                            .font(.system(size: 12, weight: .semibold))
                             .tracking(0.8)
                             .foregroundStyle(AppColors.danger.opacity(0.8))
                         Text("\(f.drinkType?.name ?? "Drink") (~\(f.sipMinutes)m)")
-                            .font(.system(size: 12))
+                            .font(.system(size: 15))
                             .foregroundStyle(AppColors.text)
                     }
                     Spacer()
                     VStack(alignment: .trailing, spacing: 2) {
                         Text("SLOWEST")
-                            .font(.system(size: 9, weight: .semibold))
+                            .font(.system(size: 12, weight: .semibold))
                             .tracking(0.8)
                             .foregroundStyle(AppColors.success.opacity(0.8))
                         Text("\(s.drinkType?.name ?? "Drink") (~\(s.sipMinutes)m)")
-                            .font(.system(size: 12))
+                            .font(.system(size: 15))
                             .foregroundStyle(AppColors.text)
                     }
                 }

@@ -65,10 +65,10 @@ struct ChallengesView: View {
 
                 VStack(spacing: 8) {
                     Text("Challenges & Goals")
-                        .font(.system(size: 22, weight: .bold))
+                        .font(.system(size: 24, weight: .bold))
                         .foregroundStyle(AppColors.text)
                     Text("Set weekly drink limits, dry weeks, calorie caps, and more. Track your progress over time.")
-                        .font(.system(size: 14))
+                        .font(.system(size: 17))
                         .foregroundStyle(AppColors.textSecondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 32)
@@ -77,9 +77,9 @@ struct ChallengesView: View {
                 Button { showPaywall = true } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "crown.fill")
-                            .font(.system(size: 13))
+                            .font(.system(size: 16))
                         Text("Unlock with Pro")
-                            .font(.system(size: 16, weight: .bold))
+                            .font(.system(size: 18, weight: .bold))
                     }
                     .foregroundStyle(.black)
                     .frame(maxWidth: .infinity)
@@ -116,7 +116,7 @@ struct ChallengesView: View {
                             }
                         } header: {
                             Text("Active Goals")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.system(size: 15, weight: .semibold))
                                 .foregroundStyle(AppColors.textSecondary)
                                 .textCase(nil)
                         }
@@ -135,7 +135,7 @@ struct ChallengesView: View {
                             }
                         } header: {
                             Text("History")
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.system(size: 15, weight: .semibold))
                                 .foregroundStyle(AppColors.textSecondary)
                                 .textCase(nil)
                         }
@@ -167,17 +167,17 @@ private struct EmptyGoalsView: View {
                         .font(.system(size: 44))
                         .foregroundStyle(AppColors.textTertiary)
                     Text("Set your first goal")
-                        .font(.system(size: 20, weight: .bold))
+                        .font(.system(size: 22, weight: .bold))
                         .foregroundStyle(AppColors.text)
                     Text("Track limits that matter to you.")
-                        .font(.system(size: 14))
+                        .font(.system(size: 17))
                         .foregroundStyle(AppColors.textSecondary)
                 }
                 .padding(.top, 40)
 
                 VStack(alignment: .leading, spacing: 10) {
                     Text("POPULAR GOALS")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.system(size: 14, weight: .semibold))
                         .tracking(1.4)
                         .foregroundStyle(AppColors.textTertiary)
                         .padding(.horizontal)
@@ -189,15 +189,15 @@ private struct EmptyGoalsView: View {
                                     .fill(AppColors.accentDim)
                                     .frame(width: 40, height: 40)
                                 Image(systemName: s.icon)
-                                    .font(.system(size: 16))
+                                    .font(.system(size: 18))
                                     .foregroundStyle(AppColors.accent)
                             }
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(s.title)
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(.system(size: 17, weight: .semibold))
                                     .foregroundStyle(AppColors.text)
                                 Text(s.desc)
-                                    .font(.system(size: 12))
+                                    .font(.system(size: 15))
                                     .foregroundStyle(AppColors.textSecondary)
                             }
                             Spacer()
@@ -212,7 +212,7 @@ private struct EmptyGoalsView: View {
 
                 Button(action: onTap) {
                     Text("Create a Goal")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.system(size: 18, weight: .semibold))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
                         .background(AppColors.accent)
@@ -269,16 +269,16 @@ private struct ChallengeCard: View {
                         .fill(statusColor.opacity(0.12))
                         .frame(width: 46, height: 46)
                     Image(systemName: icon)
-                        .font(.system(size: 18))
+                        .font(.system(size: 20))
                         .foregroundStyle(statusColor)
                 }
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(progress.challenge.type.label)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(AppColors.text)
                     Text(progress.label)
-                        .font(.system(size: 12))
+                        .font(.system(size: 15))
                         .foregroundStyle(AppColors.textSecondary)
                 }
 
@@ -286,7 +286,7 @@ private struct ChallengeCard: View {
 
                 VStack(alignment: .trailing, spacing: 4) {
                     Text(statusLabel)
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(statusColor)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
@@ -295,7 +295,7 @@ private struct ChallengeCard: View {
 
                     if progress.status == .active {
                         Text("\(Int(progress.percentage * 100))%")
-                            .font(.system(size: 11))
+                            .font(.system(size: 14))
                             .foregroundStyle(AppColors.textSecondary)
                     }
                 }
@@ -391,7 +391,7 @@ private struct CreateGoalSheet: View {
                         // Type picker
                         VStack(alignment: .leading, spacing: 8) {
                             Text("GOAL TYPE")
-                                .font(.system(size: 11, weight: .semibold))
+                                .font(.system(size: 14, weight: .semibold))
                                 .tracking(1.4)
                                 .foregroundStyle(AppColors.textTertiary)
 
@@ -403,16 +403,16 @@ private struct CreateGoalSheet: View {
                                     } label: {
                                         HStack(spacing: 12) {
                                             Image(systemName: iconFor(type))
-                                                .font(.system(size: 15))
+                                                .font(.system(size: 17))
                                                 .foregroundStyle(selectedType == type ? AppColors.accent : AppColors.textSecondary)
                                                 .frame(width: 22)
                                             Text(type.label)
-                                                .font(.system(size: 14, weight: selectedType == type ? .semibold : .regular))
+                                                .font(.system(size: 17, weight: selectedType == type ? .semibold : .regular))
                                                 .foregroundStyle(AppColors.text)
                                             Spacer()
                                             if selectedType == type {
                                                 Image(systemName: "checkmark")
-                                                    .font(.system(size: 12, weight: .semibold))
+                                                    .font(.system(size: 15, weight: .semibold))
                                                     .foregroundStyle(AppColors.accent)
                                             }
                                         }
@@ -432,7 +432,7 @@ private struct CreateGoalSheet: View {
                         if !isDryWeek {
                             VStack(alignment: .leading, spacing: 12) {
                                 Text("TARGET")
-                                    .font(.system(size: 11, weight: .semibold))
+                                    .font(.system(size: 14, weight: .semibold))
                                     .tracking(1.4)
                                     .foregroundStyle(AppColors.textTertiary)
 
@@ -445,9 +445,9 @@ private struct CreateGoalSheet: View {
                                             } label: {
                                                 VStack(spacing: 2) {
                                                     Text(preset.label)
-                                                        .font(.system(size: 12, weight: .semibold))
+                                                        .font(.system(size: 15, weight: .semibold))
                                                     Text(targetDisplayValue(preset.value))
-                                                        .font(.system(size: 10))
+                                                        .font(.system(size: 13))
                                                         .foregroundStyle(.secondary)
                                                 }
                                                 .frame(maxWidth: .infinity)
@@ -472,7 +472,7 @@ private struct CreateGoalSheet: View {
                                         }
                                     } label: {
                                         Image(systemName: "minus")
-                                            .font(.system(size: 18, weight: .semibold))
+                                            .font(.system(size: 20, weight: .semibold))
                                             .foregroundStyle(AppColors.accent)
                                             .frame(width: 44, height: 44)
                                             .background(AppColors.surface)
@@ -483,7 +483,7 @@ private struct CreateGoalSheet: View {
                                     Spacer()
 
                                     Text(targetDisplayValue(target))
-                                        .font(.system(size: 26, weight: .bold))
+                                        .font(.system(size: 28, weight: .bold))
                                         .foregroundStyle(AppColors.text)
 
                                     Spacer()
@@ -494,7 +494,7 @@ private struct CreateGoalSheet: View {
                                         }
                                     } label: {
                                         Image(systemName: "plus")
-                                            .font(.system(size: 18, weight: .semibold))
+                                            .font(.system(size: 20, weight: .semibold))
                                             .foregroundStyle(AppColors.accent)
                                             .frame(width: 44, height: 44)
                                             .background(AppColors.surface)
@@ -514,7 +514,7 @@ private struct CreateGoalSheet: View {
                             Image(systemName: "info.circle.fill")
                                 .foregroundStyle(AppColors.textTertiary)
                             Text(typeDescription)
-                                .font(.system(size: 13))
+                                .font(.system(size: 16))
                                 .foregroundStyle(AppColors.textSecondary)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
@@ -539,7 +539,7 @@ private struct CreateGoalSheet: View {
                             dismiss()
                         } label: {
                             Text("Start Goal")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.system(size: 18, weight: .semibold))
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)
                                 .background(AppColors.accent)

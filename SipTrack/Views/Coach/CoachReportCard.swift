@@ -134,7 +134,7 @@ struct CoachReportCard: View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 6) {
                 Text(report.type == .weekly ? "WEEKLY" : "MONTHLY")
-                    .font(.system(size: 8, weight: .black))
+                    .font(.system(size: 11, weight: .black))
                     .tracking(2.5)
                     .foregroundStyle(AppColors.accent)
                     .padding(.horizontal, 7)
@@ -142,7 +142,7 @@ struct CoachReportCard: View {
                     .background(AppColors.accentDim)
                     .cornerRadius(4)
                 Text(periodLabel)
-                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                    .font(.system(size: 16, weight: .semibold, design: .monospaced))
                     .foregroundStyle(AppColors.text)
             }
             Spacer()
@@ -236,7 +236,7 @@ struct ComparisonReportCard: View {
     private var comparisonHeader: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("COMPARISON")
-                .font(.system(size: 8, weight: .black))
+                .font(.system(size: 11, weight: .black))
                 .tracking(2.5)
                 .foregroundStyle(vsColor)
                 .padding(.horizontal, 7)
@@ -247,7 +247,7 @@ struct ComparisonReportCard: View {
             HStack(alignment: .center, spacing: 10) {
                 nightSlot(label: "A", event: eventA, color: Color(hex: "#5BC8FF"))
                 Text("VS")
-                    .font(.system(size: 10, weight: .black))
+                    .font(.system(size: 13, weight: .black))
                     .tracking(2)
                     .foregroundStyle(vsColor.opacity(0.7))
                     .padding(.horizontal, 8)
@@ -265,16 +265,16 @@ struct ComparisonReportCard: View {
     private func nightSlot(label: String, event: NightEvent?, color: Color) -> some View {
         VStack(alignment: label == "A" ? .leading : .trailing, spacing: 2) {
             Text("NIGHT \(label)")
-                .font(.system(size: 8, weight: .black))
+                .font(.system(size: 11, weight: .black))
                 .tracking(1.5)
                 .foregroundStyle(color.opacity(0.7))
             Text(event?.displayName ?? "—")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(AppColors.text)
                 .lineLimit(1)
             if let e = event {
                 Text(e.startTime, format: .dateTime.month(.abbreviated).day().year())
-                    .font(.system(size: 10, design: .monospaced))
+                    .font(.system(size: 13, design: .monospaced))
                     .foregroundStyle(AppColors.textTertiary)
             }
         }
@@ -317,10 +317,10 @@ private struct SectionRow: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
                 Image(systemName: section.kind.icon)
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(section.kind.color)
                 Text(section.kind.title)
-                    .font(.system(size: 9, weight: .black))
+                    .font(.system(size: 12, weight: .black))
                     .tracking(2)
                     .foregroundStyle(section.kind.color)
             }
@@ -330,7 +330,7 @@ private struct SectionRow: View {
             .clipShape(Capsule())
 
             Text(section.body)
-                .font(.system(size: 13, design: .serif))
+                .font(.system(size: 16, design: .serif))
                 .foregroundStyle(AppColors.text)
                 .lineSpacing(5)
                 .fixedSize(horizontal: false, vertical: true)
@@ -359,11 +359,11 @@ private func generatingState(label: String, color: Color) -> some View {
             .padding(.horizontal, 4)
         VStack(spacing: 5) {
             Text(label)
-                .font(.system(size: 9, weight: .black))
+                .font(.system(size: 12, weight: .black))
                 .tracking(2.5)
                 .foregroundStyle(color)
             Text("Building your health report…")
-                .font(.system(size: 12))
+                .font(.system(size: 15))
                 .foregroundStyle(AppColors.textSecondary)
         }
     }
@@ -375,23 +375,23 @@ private func generatingState(label: String, color: Color) -> some View {
 private func failedState(label: String, color: Color, retryAction: @escaping () -> Void) -> some View {
     VStack(spacing: 16) {
         Image(systemName: "exclamationmark.triangle.fill")
-            .font(.system(size: 26))
+            .font(.system(size: 28))
             .foregroundStyle(Color.orange)
         VStack(spacing: 5) {
             Text(label)
-                .font(.system(size: 9, weight: .black))
+                .font(.system(size: 12, weight: .black))
                 .tracking(2.5)
                 .foregroundStyle(Color.orange)
             Text("Could not reach AI service")
-                .font(.system(size: 12))
+                .font(.system(size: 15))
                 .foregroundStyle(AppColors.textSecondary)
         }
         Button(action: retryAction) {
             HStack(spacing: 6) {
                 Image(systemName: "arrow.clockwise")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: 14, weight: .semibold))
                 Text("RETRY")
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.system(size: 14, weight: .bold))
                     .tracking(1.5)
             }
             .foregroundStyle(color)
@@ -414,22 +414,22 @@ private func _proGate(showPaywall: Binding<Bool>) -> some View {
                 .fill(AppColors.accent.opacity(0.12))
                 .frame(width: 52, height: 52)
             Image(systemName: "lock.shield.fill")
-                .font(.system(size: 24))
+                .font(.system(size: 26))
                 .foregroundStyle(AppColors.accent)
         }
         VStack(spacing: 5) {
             Text("PRO REPORT")
-                .font(.system(size: 12, weight: .black))
+                .font(.system(size: 15, weight: .black))
                 .tracking(2)
                 .foregroundStyle(AppColors.text)
             Text("Your AI analysis is ready. Upgrade to read it.")
-                .font(.system(size: 12))
+                .font(.system(size: 15))
                 .foregroundStyle(AppColors.textSecondary)
                 .multilineTextAlignment(.center)
         }
         Button { showPaywall.wrappedValue = true } label: {
             Text("Upgrade to Pro")
-                .font(.system(size: 13, weight: .bold))
+                .font(.system(size: 16, weight: .bold))
                 .foregroundStyle(.black)
                 .padding(.horizontal, 24)
                 .padding(.vertical, 11)

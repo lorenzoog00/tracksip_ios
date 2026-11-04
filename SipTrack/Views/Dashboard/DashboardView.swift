@@ -108,7 +108,7 @@ private struct StatsTabBar: View {
                 } label: {
                     VStack(spacing: 9) {
                         Text(title)
-                            .font(.system(size: 13, weight: selected == idx ? .bold : .regular))
+                            .font(.system(size: 16, weight: selected == idx ? .bold : .regular))
                             .foregroundStyle(selected == idx ? AppColors.text : AppColors.textTertiary)
                             .animation(.easeInOut(duration: 0.18), value: selected)
 
@@ -214,7 +214,7 @@ private struct StatCard: View {
             HStack(alignment: .top) {
                 Spacer()
                 Image(systemName: icon)
-                    .font(.system(size: 11))
+                    .font(.system(size: 14))
                     .foregroundStyle(AppColors.accent.opacity(0.4))
                     .padding(.top, 2)
             }
@@ -222,13 +222,13 @@ private struct StatCard: View {
             Spacer()
 
             Text(value)
-                .font(.system(size: 26, weight: .black, design: .monospaced))
+                .font(.system(size: 28, weight: .black, design: .monospaced))
                 .foregroundStyle(AppColors.text)
                 .lineLimit(1)
                 .minimumScaleFactor(0.55)
 
             Text(label.uppercased())
-                .font(.system(size: 7, weight: .bold))
+                .font(.system(size: 10, weight: .bold))
                 .tracking(1.5)
                 .foregroundStyle(AppColors.textTertiary)
                 .padding(.top, 4)
@@ -249,7 +249,7 @@ private struct StreakCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Image(systemName: icon)
-                .font(.system(size: 14))
+                .font(.system(size: 17))
                 .foregroundStyle(value > 0 ? AppColors.accent.opacity(0.65) : AppColors.textTertiary)
 
             Spacer()
@@ -259,7 +259,7 @@ private struct StreakCard: View {
                 .foregroundStyle(value > 0 ? AppColors.accent : AppColors.textTertiary)
 
             Text(label.uppercased())
-                .font(.system(size: 7, weight: .bold))
+                .font(.system(size: 10, weight: .bold))
                 .tracking(1.5)
                 .foregroundStyle(AppColors.textTertiary)
                 .padding(.top, 3)
@@ -288,7 +288,7 @@ private struct MeanBACCard: View {
             HStack(alignment: .center, spacing: 16) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("AVG MEAN BAC")
-                        .font(.system(size: 8, weight: .bold))
+                        .font(.system(size: 11, weight: .bold))
                         .tracking(2.5)
                         .foregroundStyle(AppColors.textTertiary)
 
@@ -301,7 +301,7 @@ private struct MeanBACCard: View {
                             .fill(stage.color)
                             .frame(width: 5, height: 5)
                         Text(stage.name.uppercased())
-                            .font(.system(size: 8, weight: .bold))
+                            .font(.system(size: 11, weight: .bold))
                             .tracking(2)
                             .foregroundStyle(stage.color.opacity(0.75))
                     }
@@ -314,7 +314,7 @@ private struct MeanBACCard: View {
                         .frame(width: 88, height: 52)
 
                     Text("RANGE")
-                        .font(.system(size: 7, weight: .bold))
+                        .font(.system(size: 10, weight: .bold))
                         .tracking(2)
                         .foregroundStyle(AppColors.textTertiary)
                 }
@@ -328,10 +328,10 @@ private struct MeanBACCard: View {
 
             HStack {
                 Image(systemName: "calendar")
-                    .font(.system(size: 11))
+                    .font(.system(size: 14))
                     .foregroundStyle(AppColors.textTertiary)
                 Text("across \(totalEvents) night\(totalEvents == 1 ? "" : "s")")
-                    .font(.system(size: 12))
+                    .font(.system(size: 15))
                     .foregroundStyle(AppColors.textTertiary)
                 Spacer()
             }
@@ -398,14 +398,14 @@ private struct RecordCard: View {
         HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 5) {
                 Text(title.uppercased())
-                    .font(.system(size: 7, weight: .bold))
+                    .font(.system(size: 10, weight: .bold))
                     .tracking(2)
                     .foregroundStyle(AppColors.textTertiary)
                 Text(name)
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.system(size: 18, weight: .bold))
                     .foregroundStyle(AppColors.text)
                 Text(date.formatted(date: .abbreviated, time: .omitted))
-                    .font(.system(size: 11))
+                    .font(.system(size: 14))
                     .foregroundStyle(AppColors.textTertiary)
             }
 
@@ -416,7 +416,7 @@ private struct RecordCard: View {
                     .font(.system(size: 34, weight: .black, design: .monospaced))
                     .foregroundStyle(AppColors.accent)
                 Text("DRINKS")
-                    .font(.system(size: 7, weight: .bold))
+                    .font(.system(size: 10, weight: .bold))
                     .tracking(2)
                     .foregroundStyle(AppColors.textTertiary)
             }
@@ -437,10 +437,10 @@ private struct InsightsCard: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 6) {
                 Image(systemName: "lightbulb.fill")
-                    .font(.system(size: 11))
+                    .font(.system(size: 14))
                     .foregroundStyle(AppColors.accent.opacity(0.7))
                 Text("INSIGHTS")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.system(size: 12, weight: .bold))
                     .tracking(2.5)
                     .foregroundStyle(AppColors.textSecondary)
             }
@@ -453,7 +453,7 @@ private struct InsightsCard: View {
                             .frame(width: 2, height: 2)
                             .padding(.top, 6)
                         Text(insight)
-                            .font(.system(size: 13))
+                            .font(.system(size: 16))
                             .foregroundStyle(AppColors.text)
                             .lineSpacing(3)
                     }
@@ -482,11 +482,11 @@ private struct WeeklyTrendCard: View {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("WEEKLY ACTIVITY")
-                        .font(.system(size: 9, weight: .bold))
+                        .font(.system(size: 12, weight: .bold))
                         .tracking(2.5)
                         .foregroundStyle(AppColors.textSecondary)
                     Text("Last 8 weeks")
-                        .font(.system(size: 10))
+                        .font(.system(size: 13))
                         .foregroundStyle(AppColors.textTertiary)
                 }
                 Spacer()
@@ -499,7 +499,7 @@ private struct WeeklyTrendCard: View {
                         .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
                         .annotation(position: .trailing, alignment: .center) {
                             Text("avg")
-                                .font(.system(size: 8))
+                                .font(.system(size: 11))
                                 .foregroundStyle(AppColors.textTertiary)
                         }
                 }
@@ -519,7 +519,7 @@ private struct WeeklyTrendCard: View {
                 AxisMarks { val in
                     AxisValueLabel {
                         if let s = val.as(String.self) {
-                            Text(s).font(.system(size: 8)).foregroundStyle(AppColors.textTertiary)
+                            Text(s).font(.system(size: 11)).foregroundStyle(AppColors.textTertiary)
                         }
                     }
                 }
@@ -529,7 +529,7 @@ private struct WeeklyTrendCard: View {
                     AxisGridLine().foregroundStyle(AppColors.border.opacity(0.3))
                     AxisValueLabel {
                         if let i = val.as(Int.self) {
-                            Text("\(i)").font(.system(size: 9)).foregroundStyle(AppColors.textTertiary)
+                            Text("\(i)").font(.system(size: 12)).foregroundStyle(AppColors.textTertiary)
                         }
                     }
                 }
@@ -555,12 +555,12 @@ private struct DayOfWeekCard: View {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("YOUR TYPICAL WEEK")
-                        .font(.system(size: 9, weight: .bold))
+                        .font(.system(size: 12, weight: .bold))
                         .tracking(2.5)
                         .foregroundStyle(AppColors.textSecondary)
                     if let top = topDay {
                         Text("\(top)s are your biggest night")
-                            .font(.system(size: 10))
+                            .font(.system(size: 13))
                             .foregroundStyle(AppColors.textTertiary)
                     }
                 }
@@ -574,7 +574,7 @@ private struct DayOfWeekCard: View {
                     VStack(spacing: 5) {
                         if item.nights > 0 {
                             Text(String(format: "%.1f", item.avgDrinks))
-                                .font(.system(size: 8, weight: .bold))
+                                .font(.system(size: 11, weight: .bold))
                                 .foregroundStyle(isTop ? AppColors.accent : AppColors.textSecondary)
                         }
                         RoundedRectangle(cornerRadius: 5)
@@ -590,7 +590,7 @@ private struct DayOfWeekCard: View {
                                 radius: 6, x: 0, y: 3
                             )
                         Text(item.day)
-                            .font(.system(size: 9, weight: isTop ? .bold : .regular))
+                            .font(.system(size: 12, weight: isTop ? .bold : .regular))
                             .foregroundStyle(isTop ? AppColors.accent : AppColors.textTertiary)
                     }
                     .frame(maxWidth: .infinity)
@@ -599,7 +599,7 @@ private struct DayOfWeekCard: View {
             .frame(height: 120)
 
             Text("Avg drinks per night, by day of week")
-                .font(.system(size: 10))
+                .font(.system(size: 13))
                 .foregroundStyle(AppColors.textTertiary)
         }
         .padding(18)
@@ -626,18 +626,18 @@ private struct MonthlyView: View {
             HStack {
                 Button { offset -= 1 } label: {
                     Image(systemName: "chevron.left")
-                        .font(.system(size: 13, weight: .light))
+                        .font(.system(size: 16, weight: .light))
                         .foregroundStyle(AppColors.textSecondary)
                         .frame(width: 44, height: 40)
                 }
                 Spacer()
                 Text(monthTitle)
-                    .font(.system(size: 15, weight: .bold))
+                    .font(.system(size: 17, weight: .bold))
                     .foregroundStyle(AppColors.text)
                 Spacer()
                 Button { if offset < 0 { offset += 1 } } label: {
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 13, weight: .light))
+                        .font(.system(size: 16, weight: .light))
                         .foregroundStyle(offset < 0 ? AppColors.textSecondary : AppColors.textTertiary)
                         .frame(width: 44, height: 40)
                 }
@@ -651,7 +651,7 @@ private struct MonthlyView: View {
                         .font(.system(size: 40))
                         .foregroundStyle(AppColors.textTertiary.opacity(0.4))
                     Text("No nights this month")
-                        .font(.system(size: 14))
+                        .font(.system(size: 17))
                         .foregroundStyle(AppColors.textTertiary)
                 }
                 .padding(.top, 56)
@@ -693,7 +693,7 @@ private struct DrinksByTypeCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("BY TYPE")
-                .font(.system(size: 9, weight: .bold))
+                .font(.system(size: 12, weight: .bold))
                 .tracking(2.5)
                 .foregroundStyle(AppColors.textSecondary)
 
@@ -701,7 +701,7 @@ private struct DrinksByTypeCard: View {
                 ForEach(items.prefix(6), id: \.name) { item in
                     HStack(spacing: 10) {
                         Text(item.name)
-                            .font(.system(size: 13))
+                            .font(.system(size: 16))
                             .foregroundStyle(AppColors.text)
                             .frame(width: 88, alignment: .leading)
 
@@ -723,7 +723,7 @@ private struct DrinksByTypeCard: View {
                         .frame(height: 7)
 
                         Text("×\(item.count)")
-                            .font(.system(size: 11, weight: .bold, design: .monospaced))
+                            .font(.system(size: 14, weight: .bold, design: .monospaced))
                             .foregroundStyle(AppColors.accent)
                             .frame(width: 36, alignment: .trailing)
                     }

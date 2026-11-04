@@ -54,11 +54,11 @@ struct AIReportCard: View {
 
             VStack(alignment: .leading, spacing: 1) {
                 Text("TRACKSIP")
-                    .font(.system(size: 8, weight: .black))
+                    .font(.system(size: 11, weight: .black))
                     .tracking(3.5)
                     .foregroundStyle(AppColors.accent)
                 Text("HEALTH ANALYSIS")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: 14, weight: .semibold))
                     .tracking(0.8)
                     .foregroundStyle(AppColors.text)
             }
@@ -67,15 +67,15 @@ struct AIReportCard: View {
 
             VStack(alignment: .trailing, spacing: 1) {
                 Text("AI REPORT")
-                    .font(.system(size: 7, weight: .bold))
+                    .font(.system(size: 10, weight: .bold))
                     .tracking(1.5)
                     .foregroundStyle(AppColors.textTertiary)
                 Text(Date(), format: .dateTime.day().month(.abbreviated).year())
-                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .font(.system(size: 13, weight: .medium, design: .monospaced))
                     .foregroundStyle(AppColors.textSecondary)
                 if !isPro {
                     Text("PRO")
-                        .font(.system(size: 7, weight: .black))
+                        .font(.system(size: 10, weight: .black))
                         .tracking(1.5)
                         .foregroundStyle(AppColors.accent)
                         .padding(.horizontal, 5)
@@ -114,11 +114,11 @@ struct AIReportCard: View {
 
             VStack(spacing: 5) {
                 Text("ANALYZING YOUR NIGHT")
-                    .font(.system(size: 9, weight: .black))
+                    .font(.system(size: 12, weight: .black))
                     .tracking(2.5)
                     .foregroundStyle(AppColors.accent)
                 Text("Building your personalized health report…")
-                    .font(.system(size: 12))
+                    .font(.system(size: 15))
                     .foregroundStyle(AppColors.textSecondary)
             }
         }
@@ -136,7 +136,7 @@ struct AIReportCard: View {
                     let sections = NightReportParser.parse(text)
                     if sections.isEmpty {
                         Text(text)
-                            .font(.system(size: 14, design: .serif))
+                            .font(.system(size: 17, design: .serif))
                             .foregroundStyle(AppColors.text)
                             .lineSpacing(5)
                             .fixedSize(horizontal: false, vertical: true)
@@ -177,24 +177,24 @@ struct AIReportCard: View {
                     .fill(AppColors.accent.opacity(0.12))
                     .frame(width: 52, height: 52)
                 Image(systemName: "lock.shield.fill")
-                    .font(.system(size: 24))
+                    .font(.system(size: 26))
                     .foregroundStyle(AppColors.accent)
             }
 
             VStack(spacing: 5) {
                 Text("PRO REPORT")
-                    .font(.system(size: 12, weight: .black))
+                    .font(.system(size: 15, weight: .black))
                     .tracking(2)
                     .foregroundStyle(AppColors.text)
                 Text("Your AI analysis is ready. Upgrade to read it.")
-                    .font(.system(size: 12))
+                    .font(.system(size: 15))
                     .foregroundStyle(AppColors.textSecondary)
                     .multilineTextAlignment(.center)
             }
 
             Button { showPaywall = true } label: {
                 Text("Upgrade to Pro")
-                    .font(.system(size: 13, weight: .bold))
+                    .font(.system(size: 16, weight: .bold))
                     .foregroundStyle(.black)
                     .padding(.horizontal, 24)
                     .padding(.vertical, 11)
@@ -543,15 +543,15 @@ private struct AnalysisSectionRow: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: section.kind.icon)
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.system(size: 13, weight: .semibold))
                             .foregroundStyle(section.kind.color)
                         Text(section.kind.title)
-                            .font(.system(size: 9, weight: .black))
+                            .font(.system(size: 12, weight: .black))
                             .tracking(2)
                             .foregroundStyle(section.kind.color)
                         Spacer()
                         Image(systemName: "chevron.down")
-                            .font(.system(size: 9, weight: .semibold))
+                            .font(.system(size: 12, weight: .semibold))
                             .foregroundStyle(section.kind.color.opacity(0.6))
                             .rotationEffect(.degrees(collapsed ? -90 : 0))
                     }
@@ -564,7 +564,7 @@ private struct AnalysisSectionRow: View {
 
                 if !collapsed {
                     Text(section.body)
-                        .font(.system(size: 13, design: .serif))
+                        .font(.system(size: 16, design: .serif))
                         .foregroundStyle(AppColors.text)
                         .lineSpacing(5)
                         .fixedSize(horizontal: false, vertical: true)
@@ -742,7 +742,7 @@ struct NightAnalysisCard: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("NIGHT ANALYSIS")
-                        .font(.system(size: 8, weight: .black))
+                        .font(.system(size: 11, weight: .black))
                         .tracking(2.5)
                         .foregroundStyle(AppColors.accent)
                         .padding(.horizontal, 7)
@@ -750,7 +750,7 @@ struct NightAnalysisCard: View {
                         .background(AppColors.accentDim)
                         .cornerRadius(4)
                     Text(event?.displayName ?? "—")
-                        .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                        .font(.system(size: 16, weight: .semibold, design: .monospaced))
                         .foregroundStyle(AppColors.text)
                         .lineLimit(1)
                 }
@@ -759,7 +759,7 @@ struct NightAnalysisCard: View {
 
                 if let event = event {
                     Text(event.startTime, format: .dateTime.month(.abbreviated).day())
-                        .font(.system(size: 10, design: .monospaced))
+                        .font(.system(size: 13, design: .monospaced))
                         .foregroundStyle(AppColors.textTertiary)
                 }
             }
@@ -768,9 +768,9 @@ struct NightAnalysisCard: View {
                 HStack(spacing: 6) {
                     HStack(spacing: 5) {
                         Image(systemName: r.severity.icon)
-                            .font(.system(size: 9, weight: .semibold))
+                            .font(.system(size: 12, weight: .semibold))
                         Text(r.severity.label)
-                            .font(.system(size: 9, weight: .black))
+                            .font(.system(size: 12, weight: .black))
                             .tracking(2)
                     }
                     .foregroundStyle(r.severity.color)
@@ -780,7 +780,7 @@ struct NightAnalysisCard: View {
                     .cornerRadius(5)
 
                     Text("RECOVERY")
-                        .font(.system(size: 8, weight: .semibold))
+                        .font(.system(size: 11, weight: .semibold))
                         .tracking(1.5)
                         .foregroundStyle(AppColors.textTertiary)
                     Spacer()
@@ -833,7 +833,7 @@ struct NightAnalysisCard: View {
                 ))
                 .frame(height: 1)
             Text("RECOVERY")
-                .font(.system(size: 7, weight: .black))
+                .font(.system(size: 10, weight: .black))
                 .tracking(2.5)
                 .foregroundStyle(AppColors.textTertiary)
             Rectangle()
@@ -854,11 +854,11 @@ struct NightAnalysisCard: View {
                 .padding(.horizontal, 4)
             VStack(spacing: 4) {
                 Text(label)
-                    .font(.system(size: 9, weight: .black))
+                    .font(.system(size: 12, weight: .black))
                     .tracking(2.5)
                     .foregroundStyle(color)
                 Text("AI processing…")
-                    .font(.system(size: 11))
+                    .font(.system(size: 14))
                     .foregroundStyle(AppColors.textSecondary)
             }
         }
@@ -870,23 +870,23 @@ struct NightAnalysisCard: View {
     private func analysisFailure(label: String, retryAction: @escaping () -> Void) -> some View {
         VStack(spacing: 16) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 26))
+                .font(.system(size: 28))
                 .foregroundStyle(Color.orange)
             VStack(spacing: 4) {
                 Text(label)
-                    .font(.system(size: 9, weight: .black))
+                    .font(.system(size: 12, weight: .black))
                     .tracking(2.5)
                     .foregroundStyle(Color.orange)
                 Text("Could not reach AI service")
-                    .font(.system(size: 11))
+                    .font(.system(size: 14))
                     .foregroundStyle(AppColors.textSecondary)
             }
             Button(action: retryAction) {
                 HStack(spacing: 6) {
                     Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.system(size: 14, weight: .semibold))
                     Text("RETRY")
-                        .font(.system(size: 11, weight: .bold))
+                        .font(.system(size: 14, weight: .bold))
                         .tracking(1.5)
                 }
                 .foregroundStyle(AppColors.accent)
@@ -910,21 +910,21 @@ struct NightAnalysisCard: View {
                     .frame(width: 60, height: 60)
                 VStack(spacing: 2) {
                     Text("\(AppState.freeMonthlyReportLimit)")
-                        .font(.system(size: 20, weight: .black, design: .monospaced))
+                        .font(.system(size: 22, weight: .black, design: .monospaced))
                         .foregroundStyle(AppColors.accent)
                     Text("/\(AppState.freeMonthlyReportLimit)")
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.system(size: 13, weight: .bold))
                         .foregroundStyle(AppColors.accent.opacity(0.6))
                 }
             }
 
             VStack(spacing: 6) {
                 Text("MONTHLY LIMIT REACHED")
-                    .font(.system(size: 11, weight: .black))
+                    .font(.system(size: 14, weight: .black))
                     .tracking(1.8)
                     .foregroundStyle(AppColors.text)
                 Text("You've used all \(AppState.freeMonthlyReportLimit) free AI reports this month. Upgrade for more night reports.")
-                    .font(.system(size: 12))
+                    .font(.system(size: 15))
                     .foregroundStyle(AppColors.textSecondary)
                     .multilineTextAlignment(.center)
             }
@@ -932,9 +932,9 @@ struct NightAnalysisCard: View {
             Button { showPaywall = true } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "crown.fill")
-                        .font(.system(size: 12))
+                        .font(.system(size: 15))
                     Text("Explore Pro")
-                        .font(.system(size: 13, weight: .bold))
+                        .font(.system(size: 16, weight: .bold))
                 }
                 .foregroundStyle(.black)
                 .padding(.horizontal, 24)

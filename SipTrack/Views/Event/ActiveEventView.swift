@@ -233,9 +233,9 @@ struct ActiveEventView: View {
         Button { showStats = true } label: {
             HStack(spacing: 4) {
                 Image(systemName: "chart.bar.fill")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 15, weight: .semibold))
                 Text("STATS")
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.system(size: 14, weight: .bold))
                     .tracking(0.5)
             }
             .foregroundStyle(Color(hex: "#5BC8FF"))
@@ -339,13 +339,13 @@ private struct DriveWarningBanner: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 8) {
                 Image(systemName: "car.fill")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: 17, weight: .semibold))
                 Text("DO NOT DRIVE")
-                    .font(.system(size: 15, weight: .bold))
+                    .font(.system(size: 17, weight: .bold))
                     .tracking(0.5)
                 Spacer()
                 Text(String(format: "%.3f%%", bac))
-                    .font(.system(size: 12, weight: .medium, design: .monospaced))
+                    .font(.system(size: 15, weight: .medium, design: .monospaced))
                     .foregroundStyle(AppColors.danger.opacity(0.6))
             }
             .foregroundStyle(AppColors.danger)
@@ -355,17 +355,17 @@ private struct DriveWarningBanner: View {
                     Text("\(h)")
                         .font(.system(size: 42, weight: .bold, design: .monospaced))
                     Text("h ")
-                        .font(.system(size: 20, weight: .medium))
+                        .font(.system(size: 22, weight: .medium))
                         .padding(.bottom, 4)
                 }
                 Text("\(m)")
                     .font(.system(size: 42, weight: .bold, design: .monospaced))
                 Text("m")
-                    .font(.system(size: 20, weight: .medium))
+                    .font(.system(size: 22, weight: .medium))
                     .padding(.bottom, 4)
                 Spacer()
                 Text("estimated time\nbelow limit")
-                    .font(.system(size: 12))
+                    .font(.system(size: 15))
                     .foregroundStyle(AppColors.danger.opacity(0.6))
                     .multilineTextAlignment(.trailing)
                     .lineSpacing(2)
@@ -390,21 +390,21 @@ private struct TargetBACBanner: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "target")
-                .font(.system(size: 18, weight: .semibold))
+                .font(.system(size: 20, weight: .semibold))
                 .foregroundStyle(AppColors.accent)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text("You've reached your ceiling")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(AppColors.text)
                 HStack(spacing: 4) {
                     Text(String(format: "%.3f%%", bac))
-                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                        .font(.system(size: 14, weight: .medium, design: .monospaced))
                         .foregroundStyle(AppColors.accent)
                     Text("·")
                         .foregroundStyle(AppColors.textTertiary)
                     Text(String(format: "ceiling %.2f%%", target))
-                        .font(.system(size: 11))
+                        .font(.system(size: 14))
                         .foregroundStyle(AppColors.textTertiary)
                 }
             }
@@ -437,7 +437,7 @@ private struct BACHero: View {
             // Stage badge row — badge centered, info button trailing
             ZStack {
                 Text(stage.name.uppercased())
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.system(size: 12, weight: .bold))
                     .tracking(2.8)
                     .foregroundStyle(stage.color)
                     .padding(.horizontal, 10)
@@ -449,7 +449,7 @@ private struct BACHero: View {
                     Spacer()
                     Button { showLearnView = true } label: {
                         Image(systemName: "info.circle.fill")
-                            .font(.system(size: 17))
+                            .font(.system(size: 19))
                             .foregroundStyle(AppColors.textSecondary)
                     }
                     .buttonStyle(.plain)
@@ -464,14 +464,14 @@ private struct BACHero: View {
                     .font(.system(size: 76, weight: .bold, design: .serif))
                     .foregroundStyle(stage.color)
                 Text("%")
-                    .font(.system(size: 26, weight: .medium, design: .serif))
+                    .font(.system(size: 28, weight: .medium, design: .serif))
                     .foregroundStyle(stage.color.opacity(0.5))
                     .padding(.bottom, 10)
             }
             .padding(.top, 4)
 
             Text(stage.blurb)
-                .font(.system(size: 12))
+                .font(.system(size: 15))
                 .foregroundStyle(AppColors.textSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 28)
@@ -486,7 +486,7 @@ private struct BACHero: View {
                         .fill(AppColors.danger)
                         .frame(width: 14, height: 1.5)
                     Text(String(format: "limit %.2f%%", bacLimit))
-                        .font(.system(size: 11))
+                        .font(.system(size: 14))
                         .foregroundStyle(AppColors.danger.opacity(0.7))
                 }
                 .padding(.top, 6)
@@ -497,7 +497,7 @@ private struct BACHero: View {
                 let h = Int(hours)
                 let m = Int((hours - Double(h)) * 60)
                 Text("~\(h)h \(m)m to sober")
-                    .font(.system(size: 11))
+                    .font(.system(size: 14))
                     .tracking(0.3)
                     .foregroundStyle(AppColors.textTertiary)
                     .padding(.top, 8)
@@ -657,19 +657,19 @@ private struct CurrentDrinkCard: View {
                     HStack(alignment: .firstTextBaseline) {
                         VStack(alignment: .leading, spacing: 1) {
                             Text(dt.name)
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(.system(size: 17, weight: .semibold))
                                 .foregroundStyle(AppColors.text)
                             Text("sipping now")
-                                .font(.system(size: 10))
+                                .font(.system(size: 13))
                                 .foregroundStyle(AppColors.textTertiary)
                         }
                         Spacer()
                         HStack(alignment: .lastTextBaseline, spacing: 1) {
                             Text("\(Int(elapsedMin))")
-                                .font(.system(size: 20, weight: .bold, design: .monospaced))
+                                .font(.system(size: 22, weight: .bold, design: .monospaced))
                                 .foregroundStyle(dt.color)
                             Text(" / \(Int(totalMin))m")
-                                .font(.system(size: 10))
+                                .font(.system(size: 13))
                                 .foregroundStyle(AppColors.textTertiary)
                         }
                     }
@@ -688,7 +688,7 @@ private struct CurrentDrinkCard: View {
                     .frame(height: 4)
 
                     Text("~\(minsLeft)m left to absorb")
-                        .font(.system(size: 10))
+                        .font(.system(size: 13))
                         .foregroundStyle(AppColors.textTertiary)
                 }
             }
@@ -751,13 +751,13 @@ private struct StatsRow: View {
                 Divider().background(AppColors.border).padding(.horizontal, 16)
                 HStack(spacing: 5) {
                     Text(String(format: "%.1fg alcohol", alcoholG))
-                        .font(.system(size: 11))
+                        .font(.system(size: 14))
                         .foregroundStyle(AppColors.textTertiary)
                     Text("·")
-                        .font(.system(size: 11))
+                        .font(.system(size: 14))
                         .foregroundStyle(AppColors.textTertiary)
                     Text(String(format: "%.1f std drinks", stdDrinks))
-                        .font(.system(size: 11))
+                        .font(.system(size: 14))
                         .foregroundStyle(AppColors.textTertiary)
                 }
                 .padding(.vertical, 8)
@@ -794,10 +794,10 @@ private struct StatCell: View {
     var body: some View {
         VStack(spacing: 3) {
             Text(value)
-                .font(.system(size: 22, weight: .bold, design: .serif))
+                .font(.system(size: 24, weight: .bold, design: .serif))
                 .foregroundStyle(color == AppColors.accent ? AppColors.text : color)
             Text(label.uppercased())
-                .font(.system(size: 9, weight: .semibold))
+                .font(.system(size: 12, weight: .semibold))
                 .tracking(1.2)
                 .foregroundStyle(AppColors.textTertiary)
         }
@@ -826,10 +826,10 @@ private struct DrinkChips: View {
                 ForEach(breakdown, id: \.0) { name, count in
                     HStack(spacing: 4) {
                         Text(name)
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.system(size: 15, weight: .medium))
                             .foregroundStyle(AppColors.text)
                         Text("×\(count)")
-                            .font(.system(size: 12, weight: .bold))
+                            .font(.system(size: 15, weight: .bold))
                             .foregroundStyle(AppColors.accent)
                     }
                     .padding(.horizontal, 11)
@@ -858,23 +858,23 @@ private struct DrinkToast: View {
                     .fill(AppColors.accent.opacity(0.18))
                     .frame(width: 40, height: 40)
                 Image(systemName: symbol)
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.system(size: 19, weight: .semibold))
                     .foregroundStyle(AppColors.accent)
             }
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(drinkName)
-                    .font(.system(size: 15, weight: .bold))
+                    .font(.system(size: 17, weight: .bold))
                     .foregroundStyle(.white)
                 Text("added to your night")
-                    .font(.system(size: 12))
+                    .font(.system(size: 15))
                     .foregroundStyle(.white.opacity(0.55))
             }
 
             Spacer()
 
             Button("Undo", action: onUndo)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(AppColors.accent)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
@@ -913,23 +913,23 @@ private struct WaterToast: View {
                     .fill(AppColors.water.opacity(0.18))
                     .frame(width: 40, height: 40)
                 Image(systemName: "drop.fill")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.system(size: 19, weight: .semibold))
                     .foregroundStyle(AppColors.water)
             }
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("Water (\(volumeMl)ml)")
-                    .font(.system(size: 15, weight: .bold))
+                    .font(.system(size: 17, weight: .bold))
                     .foregroundStyle(.white)
                 Text("stay hydrated 💧")
-                    .font(.system(size: 12))
+                    .font(.system(size: 15))
                     .foregroundStyle(.white.opacity(0.55))
             }
 
             Spacer()
 
             Button("Undo", action: onUndo)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(AppColors.water)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
@@ -1003,7 +1003,7 @@ private struct TimelineSection: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 10) {
                 Text("TIMELINE")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.system(size: 13, weight: .semibold))
                     .tracking(1.4)
                     .foregroundStyle(AppColors.textTertiary)
                 Rectangle()
@@ -1140,7 +1140,7 @@ private struct TLDrinkCard: View {
 
             HStack(spacing: 10) {
                 Image(systemName: drinkType?.sfSymbol ?? "cup.and.saucer.fill")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: 17, weight: .medium))
                     .foregroundStyle(tint)
                     .frame(width: 20)
 
@@ -1148,7 +1148,7 @@ private struct TLDrinkCard: View {
                     HStack(spacing: 5) {
                         if entry.quantity > 1 {
                             Text("×\(entry.quantity)")
-                                .font(.system(size: 10, weight: .bold))
+                                .font(.system(size: 13, weight: .bold))
                                 .foregroundStyle(tint)
                                 .padding(.horizontal, 5)
                                 .padding(.vertical, 2)
@@ -1157,14 +1157,14 @@ private struct TLDrinkCard: View {
                         }
                         Text(entry.servingSizeLabel.map { "\(drinkType?.name ?? "Drink") · \($0)" }
                              ?? (drinkType?.name ?? "Drink"))
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.system(size: 17, weight: .semibold))
                             .foregroundStyle(AppColors.text)
                     }
 
                     HStack(spacing: 5) {
                         if displayAbv > 0 {
                             Text(String(format: "%.0f%% ABV", displayAbv))
-                                .font(.system(size: 10, weight: .medium))
+                                .font(.system(size: 13, weight: .medium))
                                 .foregroundStyle(AppColors.textTertiary)
                                 .padding(.horizontal, 5)
                                 .padding(.vertical, 2)
@@ -1173,12 +1173,12 @@ private struct TLDrinkCard: View {
                         }
                         if displayVol > 0 {
                             Text("\(Int(displayVol)) ml")
-                                .font(.system(size: 10))
+                                .font(.system(size: 13))
                                 .foregroundStyle(AppColors.textTertiary)
                         }
                         if let c = entry.comment, !c.isEmpty {
                             Text(c)
-                                .font(.system(size: 10))
+                                .font(.system(size: 13))
                                 .foregroundStyle(AppColors.textSecondary)
                                 .lineLimit(1)
                         }
@@ -1188,7 +1188,7 @@ private struct TLDrinkCard: View {
                 Spacer()
 
                 Text(time)
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .font(.system(size: 14, weight: .medium, design: .monospaced))
                     .foregroundStyle(AppColors.textTertiary)
             }
             .padding(.horizontal, 10)
@@ -1227,23 +1227,23 @@ private struct TLWaterCard: View {
 
             HStack(spacing: 10) {
                 Image(systemName: "drop.fill")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(AppColors.water)
                     .frame(width: 20)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Water")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(AppColors.textSecondary)
                     Text("\(Int(entry.volumeMl)) ml")
-                        .font(.system(size: 10))
+                        .font(.system(size: 13))
                         .foregroundStyle(AppColors.textTertiary)
                 }
 
                 Spacer()
 
                 Text(time)
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .font(.system(size: 14, weight: .medium, design: .monospaced))
                     .foregroundStyle(AppColors.textTertiary)
             }
             .padding(.horizontal, 10)
@@ -1320,9 +1320,9 @@ private struct BottomBar: View {
         Button(action: action) {
             VStack(spacing: 5) {
                 Image(systemName: icon)
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.system(size: 20, weight: .semibold))
                 Text(label)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 15, weight: .semibold))
             }
             .foregroundStyle(tint)
             .frame(maxWidth: .infinity)
@@ -1340,9 +1340,9 @@ private struct BottomBar: View {
         Button(action: onEnd) {
             VStack(spacing: 5) {
                 Image(systemName: "moon.stars.fill")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.system(size: 20, weight: .semibold))
                 Text("End Night")
-                    .font(.system(size: 12, weight: .bold))
+                    .font(.system(size: 15, weight: .bold))
             }
             .foregroundStyle(AppColors.text)
             .frame(maxWidth: .infinity)
@@ -1395,11 +1395,11 @@ struct OverLimitWarningSheet: View {
                     .padding(.top, 24)
 
                 Text("Heads up")
-                    .font(.system(size: 22, weight: .bold))
+                    .font(.system(size: 24, weight: .bold))
                     .foregroundStyle(AppColors.text)
 
                 Text("This \(warning.drinkType.name) would push you past \(warning.thresholdLabel).")
-                    .font(.system(size: 14))
+                    .font(.system(size: 17))
                     .foregroundStyle(AppColors.textSecondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 28)
@@ -1411,13 +1411,13 @@ struct OverLimitWarningSheet: View {
                          value: warning.currentBAC,
                          color: AppColors.textSecondary)
                 Image(systemName: "arrow.right")
-                    .font(.system(size: 12, weight: .bold))
+                    .font(.system(size: 15, weight: .bold))
                     .foregroundStyle(AppColors.textTertiary)
                 bacBlock(label: "After drink",
                          value: warning.projectedBAC,
                          color: stage.color)
                 Image(systemName: "minus")
-                    .font(.system(size: 12, weight: .bold))
+                    .font(.system(size: 15, weight: .bold))
                     .foregroundStyle(AppColors.textTertiary)
                 bacBlock(label: "Ceiling",
                          value: warning.threshold,
@@ -1426,7 +1426,7 @@ struct OverLimitWarningSheet: View {
             .padding(.vertical, 22)
 
             Text(String(format: "That's %.3f%% over.", over))
-                .font(.system(size: 12, weight: .medium))
+                .font(.system(size: 15, weight: .medium))
                 .foregroundStyle(stage.color)
                 .padding(.bottom, 16)
 
@@ -1458,7 +1458,7 @@ struct OverLimitWarningSheet: View {
 
                 Button(action: onDrinkAnyway) {
                     Text("Drink anyway")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(AppColors.danger)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
@@ -1468,7 +1468,7 @@ struct OverLimitWarningSheet: View {
                 .buttonStyle(.plain)
 
                 Button("Cancel", action: onCancel)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.system(size: 16, weight: .medium))
                     .foregroundStyle(AppColors.textSecondary)
                     .padding(.top, 4)
             }
@@ -1482,10 +1482,10 @@ struct OverLimitWarningSheet: View {
     private func bacBlock(label: String, value: Double, color: Color) -> some View {
         VStack(spacing: 3) {
             Text(String(format: "%.3f", value))
-                .font(.system(size: 18, weight: .bold, design: .monospaced))
+                .font(.system(size: 20, weight: .bold, design: .monospaced))
                 .foregroundStyle(color)
             Text(label.uppercased())
-                .font(.system(size: 8, weight: .semibold))
+                .font(.system(size: 11, weight: .semibold))
                 .tracking(1.2)
                 .foregroundStyle(AppColors.textTertiary)
         }
@@ -1499,22 +1499,22 @@ struct OverLimitWarningSheet: View {
         Button(action: onTap) {
             HStack(spacing: 12) {
                 Image(systemName: icon)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.system(size: 18, weight: .semibold))
                     .foregroundStyle(tint)
                     .frame(width: 28, height: 28)
                     .background(tint.opacity(0.15), in: Circle())
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(AppColors.text)
                     Text(subtitle)
-                        .font(.system(size: 11))
+                        .font(.system(size: 14))
                         .foregroundStyle(AppColors.textTertiary)
                         .lineLimit(2)
                 }
                 Spacer()
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(AppColors.textTertiary)
             }
             .padding(12)

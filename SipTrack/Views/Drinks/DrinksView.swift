@@ -108,7 +108,7 @@ struct DrinksView: View {
                         withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) { filter = f }
                     } label: {
                         Text(f.label)
-                            .font(.system(size: 11, weight: .bold))
+                            .font(.system(size: 14, weight: .bold))
                             .padding(.horizontal, 12)
                             .padding(.vertical, 7)
                             .background(filter == f ? AppColors.accent : AppColors.surface)
@@ -129,9 +129,9 @@ struct DrinksView: View {
         Button { showCreate = true } label: {
             HStack(spacing: 8) {
                 Image(systemName: "plus.circle.fill")
-                    .font(.system(size: 15))
+                    .font(.system(size: 17))
                 Text("Create new drink")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 17, weight: .semibold))
             }
             .foregroundStyle(AppColors.accent)
             .frame(maxWidth: .infinity)
@@ -161,16 +161,16 @@ private struct DrinkRow: View {
                     .fill(drink.color.opacity(0.15))
                     .frame(width: 36, height: 36)
                 Image(systemName: drink.sfSymbol)
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.system(size: 18, weight: .medium))
                     .foregroundStyle(drink.color)
             }
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(drink.name)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(AppColors.text)
                 Text(String(format: "%.1f%% · %dml · %d cal", drink.defaultAbv, Int(drink.defaultVolumeMl), Int(drink.caloriesPerServing)))
-                    .font(.system(size: 11))
+                    .font(.system(size: 14))
                     .foregroundStyle(AppColors.textTertiary)
             }
 
@@ -178,7 +178,7 @@ private struct DrinkRow: View {
 
             Button(action: onFavorite) {
                 Image(systemName: isFavorite ? "heart.fill" : "heart")
-                    .font(.system(size: 16))
+                    .font(.system(size: 18))
                     .foregroundStyle(isFavorite ? Color(hex: "#FF6B6B") : AppColors.textTertiary)
                     .frame(width: 36, height: 36)
             }
@@ -186,7 +186,7 @@ private struct DrinkRow: View {
 
             Button(action: onEdit) {
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(AppColors.textTertiary)
                     .frame(width: 28, height: 36)
             }

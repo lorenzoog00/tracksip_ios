@@ -81,7 +81,7 @@ struct HomeView: View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 0) {
                 Text(dayString)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: 14, weight: .semibold))
                     .tracking(2.5)
                     .foregroundStyle(AppColors.textTertiary)
                 Text(dateNumberString)
@@ -89,7 +89,7 @@ struct HomeView: View {
                     .foregroundStyle(AppColors.text)
                     .padding(.top, -2)
                 Text(monthYearString)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.system(size: 16, weight: .medium))
                     .foregroundStyle(AppColors.textSecondary)
                     .padding(.top, -6)
             }
@@ -101,7 +101,7 @@ struct HomeView: View {
                         .frame(width: 40, height: 40)
                         .overlay(Circle().stroke(AppColors.border, lineWidth: 1))
                     Image(systemName: "person.fill")
-                        .font(.system(size: 17))
+                        .font(.system(size: 19))
                         .foregroundStyle(AppColors.textSecondary)
                 }
             }
@@ -119,14 +119,14 @@ struct HomeView: View {
             Image(systemName: "exclamationmark.icloud.fill")
                 .foregroundStyle(AppColors.danger)
             Text("Sync failed")
-                .font(.system(size: 14, weight: .medium))
+                .font(.system(size: 17, weight: .medium))
                 .foregroundStyle(AppColors.text)
             Spacer()
             Button {
                 appState.retrySync()
             } label: {
                 Text("Retry")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(AppColors.accent)
             }
         }
@@ -160,9 +160,9 @@ struct HomeView: View {
     private func fabLabel(title: String, icon: String) -> some View {
         HStack(spacing: 8) {
             Image(systemName: icon)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(size: 17, weight: .semibold))
             Text(title)
-                .font(.system(size: 16, weight: .semibold))
+                .font(.system(size: 18, weight: .semibold))
         }
         .foregroundStyle(.black)
         .padding(.horizontal, 28)
@@ -255,7 +255,7 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 10) {
                     Text("PAST NIGHTS")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.system(size: 13, weight: .semibold))
                         .tracking(1.4)
                         .foregroundStyle(AppColors.textTertiary)
                     Rectangle()
@@ -301,11 +301,11 @@ struct HomeView: View {
 
             VStack(spacing: 8) {
                 Text("Create an account to get started")
-                    .font(.system(size: 20, weight: .bold))
+                    .font(.system(size: 22, weight: .bold))
                     .foregroundStyle(AppColors.text)
                     .multilineTextAlignment(.center)
                 Text("Your nights are saved to your account and stay private to you.")
-                    .font(.system(size: 14))
+                    .font(.system(size: 17))
                     .foregroundStyle(AppColors.textSecondary)
                     .multilineTextAlignment(.center)
             }
@@ -314,7 +314,7 @@ struct HomeView: View {
             VStack(spacing: 12) {
                 NavigationLink(value: Route.auth(signUp: true)) {
                     Text("Create Account")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.system(size: 18, weight: .semibold))
                         .foregroundStyle(.black)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
@@ -332,7 +332,7 @@ struct HomeView: View {
 
                 NavigationLink(value: Route.auth(signUp: false)) {
                     Text("Sign In")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.system(size: 18, weight: .semibold))
                         .foregroundStyle(AppColors.accent)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
@@ -375,7 +375,7 @@ private struct ActiveEventCard: View {
             // Stage badge + elapsed
             HStack {
                 Text(stage.name.uppercased())
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.system(size: 12, weight: .bold))
                     .tracking(2.2)
                     .foregroundStyle(stage.color)
                     .padding(.horizontal, 8)
@@ -390,7 +390,7 @@ private struct ActiveEventCard: View {
                         .scaleEffect(pulse ? 1.6 : 1.0)
                         .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: pulse)
                     Text(elapsed)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.system(size: 15, weight: .medium))
                         .foregroundStyle(AppColors.textSecondary)
                 }
             }
@@ -403,7 +403,7 @@ private struct ActiveEventCard: View {
                     .font(.system(size: 58, weight: .bold, design: .serif))
                     .foregroundStyle(stage.color)
                 Text("%")
-                    .font(.system(size: 22, weight: .medium, design: .serif))
+                    .font(.system(size: 24, weight: .medium, design: .serif))
                     .foregroundStyle(stage.color.opacity(0.55))
                     .padding(.bottom, 6)
             }
@@ -413,19 +413,19 @@ private struct ActiveEventCard: View {
             // Footer: event name + drink count
             HStack {
                 Text(event.displayName)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(AppColors.textSecondary)
                     .lineLimit(1)
                 Spacer()
                 HStack(spacing: 4) {
                     Text("\(drinkCount)")
-                        .font(.system(size: 12, weight: .bold))
+                        .font(.system(size: 15, weight: .bold))
                         .foregroundStyle(AppColors.text)
                     Text(drinkCount == 1 ? "drink" : "drinks")
-                        .font(.system(size: 12))
+                        .font(.system(size: 15))
                         .foregroundStyle(AppColors.textTertiary)
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(AppColors.textTertiary)
                 }
             }
@@ -469,10 +469,10 @@ private struct EmptyNightsState: View {
 
             VStack(spacing: 8) {
                 Text("No nights tracked yet")
-                    .font(.system(size: 20, weight: .bold))
+                    .font(.system(size: 22, weight: .bold))
                     .foregroundStyle(AppColors.text)
                 Text("Tap \"Start New Night\" to begin\ntracking your first evening.")
-                    .font(.system(size: 14))
+                    .font(.system(size: 17))
                     .foregroundStyle(AppColors.textSecondary)
                     .multilineTextAlignment(.center)
                     .lineSpacing(3)
@@ -515,12 +515,12 @@ private struct FeatureCard<Content: View>: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top) {
                 Image(systemName: icon)
-                    .font(.system(size: 18, weight: .medium))
+                    .font(.system(size: 20, weight: .medium))
                     .foregroundStyle(locked ? AppColors.textTertiary : accent)
                 Spacer()
                 if locked {
                     Text("PRO")
-                        .font(.system(size: 9, weight: .bold))
+                        .font(.system(size: 12, weight: .bold))
                         .foregroundStyle(AppColors.accent)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 3)
@@ -537,7 +537,7 @@ private struct FeatureCard<Content: View>: View {
             Spacer(minLength: 10)
 
             Text(title)
-                .font(.system(size: 12, weight: .medium))
+                .font(.system(size: 15, weight: .medium))
                 .foregroundStyle(locked ? AppColors.textTertiary : AppColors.textSecondary)
         }
         .padding(14)
@@ -561,7 +561,7 @@ private struct FeatureSectionHeader: View {
     var body: some View {
         HStack(spacing: 10) {
             Text(label)
-                .font(.system(size: 10, weight: .bold))
+                .font(.system(size: 13, weight: .bold))
                 .tracking(1.8)
                 .foregroundStyle(accentColor.opacity(0.85))
             Rectangle()
@@ -611,16 +611,16 @@ private struct FeatureCardWide: View {
                     .fill(accent.opacity(locked ? 0.08 : 0.14))
                     .frame(width: 42, height: 42)
                 Image(systemName: icon)
-                    .font(.system(size: 18, weight: .medium))
+                    .font(.system(size: 20, weight: .medium))
                     .foregroundStyle(locked ? AppColors.textTertiary : accent)
             }
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(locked ? AppColors.textTertiary : AppColors.text)
                 Text(subtitle)
-                    .font(.system(size: 11))
+                    .font(.system(size: 14))
                     .foregroundStyle(AppColors.textTertiary)
             }
 
@@ -628,16 +628,16 @@ private struct FeatureCardWide: View {
 
             HStack(alignment: .lastTextBaseline, spacing: 3) {
                 Text("\(count)")
-                    .font(.system(size: 18, weight: .bold, design: .monospaced))
+                    .font(.system(size: 20, weight: .bold, design: .monospaced))
                     .foregroundStyle(locked ? AppColors.textTertiary : accent)
                 Text(countLabel)
-                    .font(.system(size: 10))
+                    .font(.system(size: 13))
                     .foregroundStyle(AppColors.textTertiary)
             }
 
             if locked {
                 Text("PRO")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.system(size: 12, weight: .bold))
                     .foregroundStyle(AppColors.accent)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 3)
@@ -646,7 +646,7 @@ private struct FeatureCardWide: View {
             }
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 11, weight: .light))
+                .font(.system(size: 14, weight: .light))
                 .foregroundStyle(AppColors.textTertiary)
         }
         .padding(.horizontal, 16)
@@ -680,7 +680,7 @@ private struct CalendarDotsPreview: View {
                 }
             }
             Text("last 7 days")
-                .font(.system(size: 10))
+                .font(.system(size: 13))
                 .foregroundStyle(AppColors.textTertiary)
         }
     }
@@ -697,10 +697,10 @@ private struct StatsCardPreview: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(lastNightDrinks.map { "\($0)" } ?? "—")
-                .font(.system(size: 24, weight: .bold, design: .monospaced))
+                .font(.system(size: 26, weight: .bold, design: .monospaced))
                 .foregroundStyle(AppColors.text)
             Text(lastNightDrinks != nil ? "last night" : "no data yet")
-                .font(.system(size: 10))
+                .font(.system(size: 13))
                 .foregroundStyle(AppColors.textTertiary)
         }
     }
@@ -712,10 +712,10 @@ private struct ChallengesCardPreview: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text("\(appState.challenges.count)")
-                .font(.system(size: 24, weight: .bold, design: .monospaced))
+                .font(.system(size: 26, weight: .bold, design: .monospaced))
                 .foregroundStyle(AppColors.text)
             Text("active")
-                .font(.system(size: 10))
+                .font(.system(size: 13))
                 .foregroundStyle(AppColors.textTertiary)
         }
     }
@@ -727,10 +727,10 @@ private struct DrinksCardPreview: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text("\(appState.allDrinkTypes.count)")
-                .font(.system(size: 24, weight: .bold, design: .monospaced))
+                .font(.system(size: 26, weight: .bold, design: .monospaced))
                 .foregroundStyle(AppColors.text)
             Text("drink types")
-                .font(.system(size: 10))
+                .font(.system(size: 13))
                 .foregroundStyle(AppColors.textTertiary)
         }
     }
@@ -753,13 +753,13 @@ private struct CoachCardPreview: View {
                         .fill(color)
                         .frame(width: 3, height: 14)
                     Text(label)
-                        .font(.system(size: 9))
+                        .font(.system(size: 12))
                         .foregroundStyle(AppColors.textTertiary)
                 }
             }
             if let report = appState.latestWeeklyReport ?? appState.latestMonthlyReport {
                 Text(report.type == .weekly ? "Weekly ready" : "Monthly ready")
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(Color(hex: "#BF5AF2"))
                     .padding(.top, 2)
             }
@@ -794,26 +794,26 @@ private struct EventRow: View {
             VStack(spacing: 0) {
                 if isToday {
                     Text("NOW")
-                        .font(.system(size: 8, weight: .bold))
+                        .font(.system(size: 11, weight: .bold))
                         .tracking(1.5)
                         .foregroundStyle(AppColors.accent)
                     Text(dayNumber)
-                        .font(.system(size: 26, weight: .bold, design: .serif))
+                        .font(.system(size: 28, weight: .bold, design: .serif))
                         .foregroundStyle(AppColors.accent)
                 } else if isYesterday {
                     Text("YEST")
-                        .font(.system(size: 8, weight: .bold))
+                        .font(.system(size: 11, weight: .bold))
                         .tracking(1.5)
                         .foregroundStyle(AppColors.textTertiary)
                     Text(dayNumber)
-                        .font(.system(size: 26, weight: .bold, design: .serif))
+                        .font(.system(size: 28, weight: .bold, design: .serif))
                         .foregroundStyle(AppColors.text)
                 } else {
                     Text(dayNumber)
-                        .font(.system(size: 26, weight: .bold, design: .serif))
+                        .font(.system(size: 28, weight: .bold, design: .serif))
                         .foregroundStyle(AppColors.text)
                     Text(monthAbbr)
-                        .font(.system(size: 8, weight: .semibold))
+                        .font(.system(size: 11, weight: .semibold))
                         .tracking(1)
                         .foregroundStyle(AppColors.textTertiary)
                 }
@@ -823,11 +823,11 @@ private struct EventRow: View {
             // Event info
             VStack(alignment: .leading, spacing: 3) {
                 Text(event.displayName)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(AppColors.text)
                     .lineLimit(1)
                 Text(timeString)
-                    .font(.system(size: 11))
+                    .font(.system(size: 14))
                     .foregroundStyle(AppColors.textTertiary)
             }
 
@@ -836,14 +836,14 @@ private struct EventRow: View {
             // Drink count pill + chevron
             HStack(spacing: 8) {
                 Text("\(drinkCount)")
-                    .font(.system(size: 12, weight: .bold, design: .serif))
+                    .font(.system(size: 15, weight: .bold, design: .serif))
                     .foregroundStyle(AppColors.accent)
                     .padding(.horizontal, 9)
                     .padding(.vertical, 4)
                     .background(AppColors.accentDim)
                     .cornerRadius(20)
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(AppColors.textTertiary)
             }
         }

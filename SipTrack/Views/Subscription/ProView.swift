@@ -90,7 +90,7 @@ struct ProView: View {
             ToolbarItem(placement: .cancellationAction) {
                 Button { dismiss() } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(AppColors.textTertiary)
                 }
             }
@@ -143,7 +143,7 @@ struct ProView: View {
             .frame(height: 100)
 
             Text(appState.isPro ? "You're on Pro" : "Tracksip Pro")
-                .font(.system(size: 32, weight: .bold))
+                .font(.system(size: 34, weight: .bold))
                 .foregroundStyle(
                     LinearGradient(
                         colors: [AppColors.text, AppColors.textWarm],
@@ -154,7 +154,7 @@ struct ProView: View {
                 .multilineTextAlignment(.center)
 
             Text(appState.isPro ? proStatusSubtitle : "Your drinking habits, understood.")
-                .font(.system(size: 15))
+                .font(.system(size: 17))
                 .foregroundStyle(AppColors.textSecondary)
                 .multilineTextAlignment(.center)
         }
@@ -178,7 +178,7 @@ struct ProView: View {
                     .shadow(color: AppColors.accent.opacity(0.55), radius: 18, y: 4)
 
                 Image(systemName: "checkmark.seal.fill")
-                    .font(.system(size: 22))
+                    .font(.system(size: 24))
                     .foregroundStyle(AppColors.success)
                     .background(Circle().fill(AppColors.background).frame(width: 24, height: 24))
                     .offset(x: 14, y: -8)
@@ -237,10 +237,10 @@ struct ProView: View {
 
             VStack(alignment: .leading, spacing: 5) {
                 Text("Less than one beer a month")
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.system(size: 18, weight: .bold))
                     .foregroundStyle(AppColors.text)
                 Text("Know if your drinking habits are actually okay — for less than the cost of a pint.")
-                    .font(.system(size: 13))
+                    .font(.system(size: 16))
                     .foregroundStyle(AppColors.textSecondary)
                     .lineSpacing(3)
                     .fixedSize(horizontal: false, vertical: true)
@@ -279,7 +279,7 @@ struct ProView: View {
 
         return VStack(alignment: .leading, spacing: 12) {
             Text("EVERYTHING YOU GET")
-                .font(.system(size: 10, weight: .semibold))
+                .font(.system(size: 13, weight: .semibold))
                 .tracking(1.8)
                 .foregroundStyle(AppColors.textTertiary)
 
@@ -290,13 +290,13 @@ struct ProView: View {
                 ForEach(Array(items.enumerated()), id: \.offset) { _, item in
                     HStack(spacing: 9) {
                         Image(systemName: item.0)
-                            .font(.system(size: 12))
+                            .font(.system(size: 15))
                             .foregroundStyle(AppColors.accent)
                             .frame(width: 28, height: 28)
                             .background(AppColors.accentDim)
                             .clipShape(Circle())
                         Text(item.1)
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.system(size: 15, weight: .medium))
                             .foregroundStyle(AppColors.text)
                             .lineLimit(2)
                             .minimumScaleFactor(0.85)
@@ -312,11 +312,11 @@ struct ProView: View {
 
             HStack(alignment: .top, spacing: 6) {
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 11))
+                    .font(.system(size: 14))
                     .foregroundStyle(AppColors.textTertiary)
                     .padding(.top, 1)
                 Text("Plus all free features: live BAC tracking, drink log, Apple Watch, and country-specific legal limits.")
-                    .font(.system(size: 11))
+                    .font(.system(size: 14))
                     .foregroundStyle(AppColors.textTertiary)
                     .lineSpacing(2)
                     .fixedSize(horizontal: false, vertical: true)
@@ -341,14 +341,14 @@ struct ProView: View {
             } else if store.products.isEmpty {
                 VStack(spacing: 10) {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: 28))
+                        .font(.system(size: 30))
                         .foregroundStyle(AppColors.danger)
                     Text(store.loadError ?? "Could not load plans")
-                        .font(.system(size: 13))
+                        .font(.system(size: 16))
                         .foregroundStyle(AppColors.textSecondary)
                         .multilineTextAlignment(.center)
                     Button("Try Again") { store.retryLoadProducts() }
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(AppColors.accent)
                         .padding(.vertical, 8)
                         .padding(.horizontal, 18)
@@ -371,11 +371,11 @@ struct ProView: View {
 
                 HStack(spacing: 6) {
                     Text("🍺")
-                        .font(.system(size: 12))
+                        .font(.system(size: 15))
                     Text(selectedPeriod == .yearly
                          ? "Yearly plan = less than one beer a month"
                          : "Cancel anytime · less than a night out")
-                        .font(.system(size: 12))
+                        .font(.system(size: 15))
                         .foregroundStyle(AppColors.textSecondary)
                 }
                 .frame(maxWidth: .infinity)
@@ -386,7 +386,7 @@ struct ProView: View {
 
                 if let err = errorMessage {
                     Text(err)
-                        .font(.system(size: 13))
+                        .font(.system(size: 16))
                         .foregroundStyle(AppColors.danger)
                         .multilineTextAlignment(.center)
                 }
@@ -406,7 +406,7 @@ struct ProView: View {
                     ProgressView().tint(.black)
                 } else {
                     Text(purchaseLabel)
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.system(size: 18, weight: .bold))
                         .monospacedDigit()
                 }
             }
@@ -430,9 +430,9 @@ struct ProView: View {
         VStack(spacing: 8) {
             HStack(spacing: 6) {
                 Image(systemName: "shield.checkered")
-                    .font(.system(size: 10))
+                    .font(.system(size: 13))
                 Text("Cancel anytime · Auto-renews until cancelled")
-                    .font(.system(size: 11))
+                    .font(.system(size: 14))
             }
             .foregroundStyle(AppColors.textTertiary)
 
@@ -444,7 +444,7 @@ struct ProView: View {
                 }
             } label: {
                 Text("Restore Purchases")
-                    .font(.system(size: 12))
+                    .font(.system(size: 15))
                     .foregroundStyle(AppColors.textTertiary)
             }
 
@@ -454,7 +454,7 @@ struct ProView: View {
                 Link("Terms of Use",
                      destination: URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!)
             }
-            .font(.system(size: 11))
+            .font(.system(size: 14))
             .foregroundStyle(AppColors.textTertiary)
         }
     }
@@ -487,7 +487,7 @@ struct ProView: View {
 
         return VStack(alignment: .leading, spacing: 0) {
             Text("EVERYTHING YOU HAVE")
-                .font(.system(size: 10, weight: .semibold))
+                .font(.system(size: 13, weight: .semibold))
                 .tracking(1.8)
                 .foregroundStyle(AppColors.textTertiary)
                 .padding(.horizontal, 16)
@@ -501,13 +501,13 @@ struct ProView: View {
                 ForEach(Array(items.enumerated()), id: \.offset) { _, item in
                     HStack(spacing: 10) {
                         Image(systemName: item.0)
-                            .font(.system(size: 13))
+                            .font(.system(size: 16))
                             .foregroundStyle(AppColors.accent)
                             .frame(width: 26, height: 26)
                             .background(AppColors.accentDim)
                             .clipShape(Circle())
                         Text(item.1)
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.system(size: 15, weight: .medium))
                             .foregroundStyle(AppColors.text)
                             .lineLimit(2)
                             .minimumScaleFactor(0.85)
@@ -533,7 +533,7 @@ struct ProView: View {
                     }
                 } label: {
                     Text("Manage Subscription")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.system(size: 17, weight: .medium))
                         .foregroundStyle(AppColors.textSecondary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 46)
@@ -551,7 +551,7 @@ struct ProView: View {
                 }
             } label: {
                 Text("Restore Purchases")
-                    .font(.system(size: 12))
+                    .font(.system(size: 15))
                     .foregroundStyle(AppColors.textTertiary)
             }
         }
@@ -580,11 +580,11 @@ struct ProView: View {
                 HStack(spacing: 12) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(stickyPlanLabel.uppercased())
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.system(size: 13, weight: .semibold))
                             .tracking(1.2)
                             .foregroundStyle(AppColors.textTertiary)
                         Text(product?.displayPrice ?? "—")
-                            .font(.system(size: 18, weight: .bold))
+                            .font(.system(size: 20, weight: .bold))
                             .monospacedDigit()
                             .foregroundStyle(AppColors.text)
                     }
@@ -597,7 +597,7 @@ struct ProView: View {
                                 ProgressView().tint(.black)
                             } else {
                                 Text("Subscribe")
-                                    .font(.system(size: 15, weight: .bold))
+                                    .font(.system(size: 17, weight: .bold))
                             }
                         }
                         .frame(width: 134, height: 44)
@@ -722,11 +722,11 @@ struct ProPlanCard: View {
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 6) {
                         Text(title)
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(.system(size: 17, weight: .semibold))
                             .foregroundStyle(AppColors.text)
                         if isRecommended {
                             Text("BEST VALUE")
-                                .font(.system(size: 9, weight: .bold))
+                                .font(.system(size: 12, weight: .bold))
                                 .tracking(0.6)
                                 .foregroundStyle(AppColors.accent)
                                 .padding(.horizontal, 6)
@@ -738,7 +738,7 @@ struct ProPlanCard: View {
                         }
                     }
                     Text(subtitle)
-                        .font(.system(size: 12))
+                        .font(.system(size: 15))
                         .foregroundStyle(AppColors.textSecondary)
                 }
 
@@ -746,12 +746,12 @@ struct ProPlanCard: View {
 
                 VStack(alignment: .trailing, spacing: 2) {
                     Text(product?.displayPrice ?? "—")
-                        .font(.system(size: 17, weight: .bold))
+                        .font(.system(size: 19, weight: .bold))
                         .monospacedDigit()
                         .foregroundStyle(isSelected ? AppColors.accent : AppColors.text)
                     if let equiv = monthlyEquiv {
                         Text(equiv)
-                            .font(.system(size: 11))
+                            .font(.system(size: 14))
                             .monospacedDigit()
                             .foregroundStyle(AppColors.textTertiary)
                     }

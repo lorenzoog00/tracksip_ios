@@ -178,13 +178,13 @@ private struct NoticeOverlay: View {
                     .fill(notice.tone.color.opacity(0.12))
                     .frame(width: 60, height: 60)
                 Image(systemName: notice.icon)
-                    .font(.system(size: 26, weight: .semibold))
+                    .font(.system(size: 28, weight: .semibold))
                     .foregroundStyle(notice.tone.color)
             }
             .padding(.top, 26)
 
             Text(notice.title)
-                .font(.system(size: 20, weight: .bold))
+                .font(.system(size: 22, weight: .bold))
                 .foregroundStyle(AppColors.text)
                 .multilineTextAlignment(.center)
                 .padding(.top, 14)
@@ -192,7 +192,7 @@ private struct NoticeOverlay: View {
 
             if let message = notice.message {
                 Text(message)
-                    .font(.system(size: 14))
+                    .font(.system(size: 17))
                     .foregroundStyle(AppColors.textSecondary)
                     .multilineTextAlignment(.center)
                     .lineSpacing(2)
@@ -241,7 +241,7 @@ private struct NoticeOverlay: View {
         case .primary:
             Button { run(action) } label: {
                 Text(action.title)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.system(size: 18, weight: .semibold))
                     .foregroundStyle(.black)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 15)
@@ -259,7 +259,7 @@ private struct NoticeOverlay: View {
         case .destructive:
             Button { run(action) } label: {
                 Text(action.title)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.system(size: 18, weight: .semibold))
                     .foregroundStyle(AppColors.danger)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 15)
@@ -275,7 +275,7 @@ private struct NoticeOverlay: View {
         case .quiet:
             Button { run(action) } label: {
                 Text(action.title)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: 17, weight: .medium))
                     .foregroundStyle(AppColors.textSecondary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)

@@ -275,4 +275,34 @@ struct BACCalculatorKineticsTests {
         )
         #expect(slowMetaboliser > fastMetaboliser)
     }
+    // MARK: - Per-drink contributions
+
+    @Test func contributions_differForEqualGramsShotAndBeer() {
+        let start = Date(timeIntervalSince1970: 1_700_000_000)
+        let profile = maleProfile()
+        let shot = DrinkEntry(id: "w", eventId: "e", drinkTypeId: "whiskey", timestamp: start,
+                              quantity: 1, comment: nil, volumeOverrideMl: nil, abvOverride: nil)
+        let entries = [shot, beer("b", at: start.addingTimeInterval(120))]
+        let c = BACCalculator.drinkContributions(
+            entries: entries, drinkTypes: DrinkType.presets, profile: profile, eventStart: start
+        )
+        let w = c["w"] ?? 0, b = c["b"] ?? 0
+        #expect(w > 0 && b > 0)
+        // ~14 g each, but the shot is finished (gulped) once the beer is logged and the
+        // beer is sipped and absorbs slowly, so the shot moves the curve more.
+        #expect(w > b + 0.001)
+    }
+
+    @Test func contributions_singleDrinkEqualsPeak() {
+        let start = Date(timeIntervalSince1970: 1_700_000_000)
+        let profile = maleProfile()
+        let entries = [beer("b", at: start)]
+        let c = BACCalculator.drinkContributions(
+            entries: entries, drinkTypes: DrinkType.presets, profile: profile, eventStart: start
+        )
+        let peak = BACCalculator.bacTimeline(
+            entries: entries, drinkTypes: DrinkType.presets, profile: profile, eventStart: start
+        ).map(\.bac).max() ?? 0
+        #expect(abs((c["b"] ?? 0) - peak) < 0.002)
+    }
 }

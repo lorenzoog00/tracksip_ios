@@ -31,10 +31,10 @@ struct EditEntryView: View {
                     if let dt = drinkType {
                         HStack(spacing: 10) {
                             Image(systemName: dt.sfSymbol)
-                                .font(.system(size: 20))
+                                .font(.system(size: 22))
                                 .foregroundStyle(AppColors.accent)
                             Text(dt.name)
-                                .font(.system(size: 18, weight: .semibold))
+                                .font(.system(size: 20, weight: .semibold))
                                 .foregroundStyle(AppColors.text)
                         }
                         .padding(.top)
@@ -43,25 +43,25 @@ struct EditEntryView: View {
                     // Quantity stepper
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Quantity")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.system(size: 16, weight: .medium))
                             .foregroundStyle(AppColors.textSecondary)
                         HStack(spacing: 20) {
                             Button {
                                 if quantity > 1 { quantity -= 1 }
                             } label: {
                                 Image(systemName: "minus.circle.fill")
-                                    .font(.system(size: 28))
+                                    .font(.system(size: 30))
                                     .foregroundStyle(quantity > 1 ? AppColors.accent : AppColors.border)
                             }
                             Text("\(quantity)")
-                                .font(.system(size: 28, weight: .bold))
+                                .font(.system(size: 30, weight: .bold))
                                 .foregroundStyle(AppColors.text)
                                 .frame(minWidth: 40)
                             Button {
                                 if quantity < 20 { quantity += 1 }
                             } label: {
                                 Image(systemName: "plus.circle.fill")
-                                    .font(.system(size: 28))
+                                    .font(.system(size: 30))
                                     .foregroundStyle(quantity < 20 ? AppColors.accent : AppColors.border)
                             }
                         }
@@ -90,7 +90,7 @@ struct EditEntryView: View {
 
                     Button { save() } label: {
                         Text("Save Changes")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.system(size: 18, weight: .semibold))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
                             .background(canSave ? AppColors.accent : AppColors.border)
@@ -115,7 +115,7 @@ struct EditEntryView: View {
     private func optionalField(label: String, placeholder: String, text: Binding<String>) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(label)
-                .font(.system(size: 13, weight: .medium))
+                .font(.system(size: 16, weight: .medium))
                 .foregroundStyle(AppColors.textSecondary)
             TextField(placeholder, text: text)
                 .keyboardType(label.contains("Comment") ? .default : .decimalPad)

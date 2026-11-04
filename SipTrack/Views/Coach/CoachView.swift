@@ -74,15 +74,15 @@ struct CoachView: View {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 7) {
                     Image(systemName: "brain.head.profile")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(AppColors.accent)
                     Text("AI COACH")
-                        .font(.system(size: 11, weight: .black))
+                        .font(.system(size: 14, weight: .black))
                         .tracking(3)
                         .foregroundStyle(AppColors.accent)
                 }
                 Text("HEALTH INTELLIGENCE")
-                    .font(.system(size: 20, weight: .bold))
+                    .font(.system(size: 22, weight: .bold))
                     .foregroundStyle(AppColors.text)
             }
             Spacer()
@@ -109,7 +109,7 @@ struct CoachView: View {
                 } label: {
                     VStack(spacing: 6) {
                         Text(tab.label)
-                            .font(.system(size: 11, weight: selectedTab == tab ? .black : .medium))
+                            .font(.system(size: 14, weight: selectedTab == tab ? .black : .medium))
                             .tracking(1.8)
                             .foregroundStyle(selectedTab == tab ? AppColors.accent : AppColors.textTertiary)
                             .animation(.easeInOut(duration: 0.2), value: selectedTab)
@@ -270,9 +270,9 @@ struct CoachView: View {
         Button { showNewComparison = true } label: {
             HStack(spacing: 10) {
                 Image(systemName: "arrow.triangle.branch")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 17, weight: .semibold))
                 Text("NEW COMPARISON")
-                    .font(.system(size: 12, weight: .black))
+                    .font(.system(size: 15, weight: .black))
                     .tracking(1.5)
             }
             .foregroundStyle(AppColors.accent)
@@ -298,16 +298,16 @@ struct CoachView: View {
                     .fill(AppColors.accent.opacity(0.07))
                     .frame(width: 80, height: 80)
                 Image(systemName: icon)
-                    .font(.system(size: 30))
+                    .font(.system(size: 32))
                     .foregroundStyle(AppColors.accent.opacity(0.5))
             }
             VStack(spacing: 6) {
                 Text(title)
-                    .font(.system(size: 11, weight: .black))
+                    .font(.system(size: 14, weight: .black))
                     .tracking(2)
                     .foregroundStyle(AppColors.textTertiary)
                 Text(message)
-                    .font(.system(size: 13))
+                    .font(.system(size: 16))
                     .foregroundStyle(AppColors.textTertiary)
                     .multilineTextAlignment(.center)
                     .lineSpacing(3)
@@ -354,7 +354,7 @@ struct NewComparisonSheet: View {
                             .font(.system(size: 36))
                             .foregroundStyle(AppColors.textTertiary)
                         Text("No past nights found")
-                            .font(.system(size: 14))
+                            .font(.system(size: 17))
                             .foregroundStyle(AppColors.textTertiary)
                     }
                     Spacer()
@@ -393,11 +393,11 @@ struct NewComparisonSheet: View {
                 .padding(.bottom, 16)
 
             Text("COMPARE TWO NIGHTS")
-                .font(.system(size: 14, weight: .black))
+                .font(.system(size: 17, weight: .black))
                 .tracking(2.5)
                 .foregroundStyle(AppColors.text)
             Text("Tap nights below to select A and B")
-                .font(.system(size: 12))
+                .font(.system(size: 15))
                 .foregroundStyle(AppColors.textSecondary)
                 .padding(.top, 4)
                 .padding(.bottom, 16)
@@ -414,7 +414,7 @@ struct NewComparisonSheet: View {
         HStack(spacing: 12) {
             slot(label: "A", eventId: eventAId, color: Color(hex: "#5BC8FF"))
             Text("VS")
-                .font(.system(size: 10, weight: .black))
+                .font(.system(size: 13, weight: .black))
                 .tracking(2)
                 .foregroundStyle(AppColors.textTertiary)
             slot(label: "B", eventId: eventBId, color: Color(hex: "#BF5AF2"))
@@ -425,20 +425,20 @@ struct NewComparisonSheet: View {
         let event = eventId.flatMap { id in pastEvents.first { $0.id == id } }
         return VStack(alignment: .leading, spacing: 3) {
             Text("NIGHT \(label)")
-                .font(.system(size: 8, weight: .black))
+                .font(.system(size: 11, weight: .black))
                 .tracking(1.5)
                 .foregroundStyle(color)
             if let e = event {
                 Text(e.displayName)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(AppColors.text)
                     .lineLimit(1)
                 Text(e.startTime, format: .dateTime.month(.abbreviated).day().year())
-                    .font(.system(size: 10, design: .monospaced))
+                    .font(.system(size: 13, design: .monospaced))
                     .foregroundStyle(AppColors.textTertiary)
             } else {
                 Text("Not selected")
-                    .font(.system(size: 12))
+                    .font(.system(size: 15))
                     .foregroundStyle(AppColors.textTertiary)
                     .padding(.top, 1)
             }
@@ -467,10 +467,10 @@ struct NewComparisonSheet: View {
         return HStack(spacing: 12) {
             VStack(spacing: 0) {
                 Text(event.startTime, format: .dateTime.day())
-                    .font(.system(size: 22, weight: .bold, design: .serif))
+                    .font(.system(size: 24, weight: .bold, design: .serif))
                     .foregroundStyle(isA ? aColor : isB ? bColor : AppColors.text)
                 Text(event.startTime, format: .dateTime.month(.abbreviated))
-                    .font(.system(size: 8, weight: .semibold))
+                    .font(.system(size: 11, weight: .semibold))
                     .tracking(1)
                     .foregroundStyle(AppColors.textTertiary)
                     .textCase(.uppercase)
@@ -479,11 +479,11 @@ struct NewComparisonSheet: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(event.displayName)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(AppColors.text)
                     .lineLimit(1)
                 Text(event.startTime, format: .dateTime.hour().minute())
-                    .font(.system(size: 11))
+                    .font(.system(size: 14))
                     .foregroundStyle(AppColors.textTertiary)
             }
 
@@ -494,7 +494,7 @@ struct NewComparisonSheet: View {
                 if isB { selectionBadge("B", color: bColor) }
                 if !isA && !isB {
                     Image(systemName: "plus.circle")
-                        .font(.system(size: 18))
+                        .font(.system(size: 20))
                         .foregroundStyle(AppColors.textTertiary)
                 }
             }
@@ -515,7 +515,7 @@ struct NewComparisonSheet: View {
 
     private func selectionBadge(_ label: String, color: Color) -> some View {
         Text(label)
-            .font(.system(size: 11, weight: .black))
+            .font(.system(size: 14, weight: .black))
             .tracking(1)
             .foregroundStyle(color)
             .frame(width: 24, height: 24)
@@ -551,9 +551,9 @@ struct NewComparisonSheet: View {
         } label: {
             HStack(spacing: 10) {
                 Image(systemName: "arrow.triangle.branch")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 17, weight: .semibold))
                 Text("GENERATE COMPARISON")
-                    .font(.system(size: 13, weight: .black))
+                    .font(.system(size: 16, weight: .black))
                     .tracking(1.5)
             }
             .foregroundStyle(.black)

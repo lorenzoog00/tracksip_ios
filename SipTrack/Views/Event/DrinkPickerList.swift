@@ -105,15 +105,15 @@ struct DrinkPickerList: View {
             // Search bar
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 13))
+                    .font(.system(size: 16))
                     .foregroundStyle(AppColors.textTertiary)
                 TextField("Search drinks…", text: $searchText)
-                    .font(.system(size: 14))
+                    .font(.system(size: 17))
                     .foregroundColor(AppColors.text)
                 if !searchText.isEmpty {
                     Button { searchText = "" } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 13))
+                            .font(.system(size: 16))
                             .foregroundStyle(AppColors.textTertiary)
                     }
                     .buttonStyle(.plain)
@@ -137,7 +137,7 @@ struct DrinkPickerList: View {
                             }
                         } label: {
                             Text(f.label)
-                                .font(.system(size: 10, weight: .bold))
+                                .font(.system(size: 13, weight: .bold))
                                 .padding(.horizontal, 11)
                                 .padding(.vertical, 6)
                                 .background(pillBackground(f))
@@ -187,7 +187,7 @@ struct DrinkPickerList: View {
     private var sectionHeader: some View {
         HStack(spacing: 10) {
             Text("ADD A DRINK")
-                .font(.system(size: 10, weight: .semibold))
+                .font(.system(size: 13, weight: .semibold))
                 .tracking(1.4)
                 .foregroundStyle(AppColors.textTertiary)
             Rectangle()
@@ -201,7 +201,7 @@ struct DrinkPickerList: View {
         Text(filter == .favorites
              ? "No favorites yet — heart drinks in the Drinks tab."
              : "No drinks match your search.")
-            .font(.system(size: 13))
+            .font(.system(size: 16))
             .foregroundStyle(AppColors.textTertiary)
             .multilineTextAlignment(.center)
             .padding(.vertical, 24)
@@ -219,7 +219,7 @@ struct DrinkPickerList: View {
     private func pickerSection(label: String?, color: Color, drinks: [DrinkType], showTimestamp: Bool) -> some View {
         if let label {
             Text(label)
-                .font(.system(size: 8, weight: .black))
+                .font(.system(size: 11, weight: .black))
                 .tracking(1.5)
                 .foregroundStyle(color)
                 .padding(.horizontal, 4)
@@ -270,12 +270,12 @@ private struct DrinkTile: View {
                         .fill(drinkType.color.opacity(isRecent ? 0.22 : 0.14))
                         .frame(width: 52, height: 52)
                     Image(systemName: drinkType.sfSymbol)
-                        .font(.system(size: 22, weight: .medium))
+                        .font(.system(size: 24, weight: .medium))
                         .foregroundStyle(drinkType.color)
                 }
 
                 Text(drinkType.name)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(AppColors.text)
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
@@ -283,11 +283,11 @@ private struct DrinkTile: View {
 
                 if let ts = recentTimestamp {
                     Text(DrinkTile.timeFormatter.string(from: ts))
-                        .font(.system(size: 9))
+                        .font(.system(size: 12))
                         .foregroundStyle(AppColors.accent)
                 } else {
                     Text(String(format: "%.1f%%", drinkType.defaultAbv))
-                        .font(.system(size: 9))
+                        .font(.system(size: 12))
                         .foregroundStyle(AppColors.textTertiary)
                 }
             }

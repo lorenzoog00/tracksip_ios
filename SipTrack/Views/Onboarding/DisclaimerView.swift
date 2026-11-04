@@ -11,7 +11,7 @@ struct DisclaimerView: View {
             VStack(spacing: 0) {
                 HStack {
                     Text("Disclaimer")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.system(size: 20, weight: .semibold))
                         .foregroundStyle(AppColors.text)
                     Spacer()
                 }
@@ -22,7 +22,7 @@ struct DisclaimerView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         Text("⚠️ Important Safety Notice")
-                            .font(.system(size: 16, weight: .bold))
+                            .font(.system(size: 18, weight: .bold))
                             .foregroundStyle(AppColors.danger)
 
                         disclaimerText
@@ -32,7 +32,7 @@ struct DisclaimerView: View {
                     }
                     .padding()
                     .foregroundStyle(AppColors.textSecondary)
-                    .font(.system(size: 14))
+                    .font(.system(size: 17))
                 }
 
                 Divider().background(AppColors.border)
@@ -42,7 +42,7 @@ struct DisclaimerView: View {
                     onAccept()
                 } label: {
                     Text("I Understand — Continue")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.system(size: 18, weight: .semibold))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
                         .background(scrolledToBottom ? AppColors.accent : AppColors.border)

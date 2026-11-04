@@ -265,7 +265,8 @@ struct BACCalculator {
         stomachStateTimestamp: Date,
         foodEntries: [FoodEntry],
         until: Date?,
-        sampleSeconds: TimeInterval = 300
+        sampleSeconds: TimeInterval = 300,
+        excludingId: String? = nil
     ) -> [BACDataPoint] {
         guard weightKg > 0, r > 0 else { return [] }
         let sorted = entries.sorted { $0.timestamp < $1.timestamp }
@@ -284,6 +285,9 @@ struct BACCalculator {
         var prepared: [PreparedDrink] = []
         for i in sorted.indices {
             let e   = sorted[i]
+            // Excluded drink is dropped from the dose but stays in `sorted`, so the
+            // previous drink's gulp detection (and the shared time origin) is unchanged.
+            if e.id == excludingId { continue }
             let dt  = drinkTypes.first { $0.id == e.drinkTypeId }
             let vol = e.volumeOverrideMl ?? dt?.defaultVolumeMl ?? 0
             let abv = e.abvOverride ?? dt?.defaultAbv ?? 0
@@ -413,6 +417,45 @@ struct BACCalculator {
             stomachStateTimestamp: stomachStateTimestamp ?? eventStart,
             foodEntries: foodEntries, until: nil, sampleSeconds: 300
         )
+    }
+
+    // What each drink actually adds to the night's curve: the largest gap between the
+    // full curve and the same curve with that one drink removed. Uses the integrated
+    // model, so strength-dependent absorption, gulp (a drink is finished once the next
+    // is logged), first-pass metabolism and elimination all count — a shot and a beer
+    // of equal grams no longer read the same. Keyed by DrinkEntry.id.
+    static func drinkContributions(
+        entries: [DrinkEntry],
+        drinkTypes: [DrinkType],
+        profile: UserProfile,
+        eventStart: Date,
+        stomachState: StomachState = .empty,
+        stomachStateTimestamp: Date? = nil,
+        foodEntries: [FoodEntry] = []
+    ) -> [String: Double] {
+        guard !entries.isEmpty, profile.weightKg > 0 else { return [:] }
+        func curve(excluding id: String?) -> [Double] {
+            integrateBAC(
+                entries: entries, drinkTypes: drinkTypes,
+                weightKg: profile.weightKg, r: profileR(profile: profile),
+                beta: eliminationRate(profile: profile), sex: profile.sex,
+                stomachState: stomachState,
+                stomachStateTimestamp: stomachStateTimestamp ?? eventStart,
+                foodEntries: foodEntries, until: nil, sampleSeconds: 60,
+                excludingId: id
+            ).map(\.bac)
+        }
+        let full = curve(excluding: nil)
+        var out: [String: Double] = [:]
+        for e in entries {
+            let without = curve(excluding: e.id)
+            var maxDelta = 0.0
+            for (i, b) in full.enumerated() {
+                maxDelta = max(maxDelta, b - (i < without.count ? without[i] : 0))
+            }
+            out[e.id] = maxDelta
+        }
+        return out
     }
 
     // MARK: - Mean BAC
