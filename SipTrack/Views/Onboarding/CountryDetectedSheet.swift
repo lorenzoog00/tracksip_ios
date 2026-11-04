@@ -31,14 +31,14 @@ struct CountryDetectedSheet: View {
     @ViewBuilder private var header: some View {
         VStack(spacing: 8) {
             Image(systemName: "location.fill")
-                .font(.system(size: 28, weight: .semibold))
+                .font(.system(size: 30, weight: .semibold))
                 .foregroundStyle(AppColors.accent)
                 .padding(.top, 24)
             Text("We checked your location")
-                .font(.system(size: 22, weight: .bold))
+                .font(.system(size: 24, weight: .bold))
                 .foregroundStyle(AppColors.text)
             Text("So we can apply the right drink-drive limit for where you are.")
-                .font(.system(size: 13))
+                .font(.system(size: 16))
                 .foregroundStyle(AppColors.textSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
@@ -57,19 +57,19 @@ struct CountryDetectedSheet: View {
                     .font(.system(size: 44))
                 VStack(alignment: .leading, spacing: 4) {
                     Text(country.name)
-                        .font(.system(size: 18, weight: .bold))
+                        .font(.system(size: 20, weight: .bold))
                         .foregroundStyle(AppColors.text)
                     HStack(spacing: 6) {
                         Image(systemName: driverType.icon)
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.system(size: 13, weight: .semibold))
                             .foregroundStyle(AppColors.textTertiary)
                         Text(driverType.displayName)
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.system(size: 14, weight: .medium))
                             .foregroundStyle(AppColors.textTertiary)
                     }
                     if let note = country.note {
                         Text(note)
-                            .font(.system(size: 10))
+                            .font(.system(size: 13))
                             .foregroundStyle(AppColors.textTertiary)
                             .lineLimit(2)
                     }
@@ -99,9 +99,9 @@ struct CountryDetectedSheet: View {
             // Source / disclaimer
             HStack(spacing: 6) {
                 Image(systemName: "info.circle")
-                    .font(.system(size: 10))
+                    .font(.system(size: 13))
                 Text("BAC % limits per WHO and national legislation.")
-                    .font(.system(size: 10))
+                    .font(.system(size: 13))
                 Spacer()
             }
             .foregroundStyle(AppColors.textTertiary)
@@ -123,10 +123,10 @@ struct CountryDetectedSheet: View {
                     .font(.system(size: 44))
                 VStack(alignment: .leading, spacing: 4) {
                     Text(name)
-                        .font(.system(size: 18, weight: .bold))
+                        .font(.system(size: 20, weight: .bold))
                         .foregroundStyle(AppColors.text)
                     Text("No drink-drive data on file")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(AppColors.danger.opacity(0.85))
                 }
                 Spacer()
@@ -141,7 +141,7 @@ struct CountryDetectedSheet: View {
                     .foregroundStyle(AppColors.danger)
                     .padding(.top, 1)
                 Text("We don't have the legal BAC limit for \(name) yet. Keep using your saved limit, or set one manually in Profile.")
-                    .font(.system(size: 12))
+                    .font(.system(size: 15))
                     .foregroundStyle(AppColors.textSecondary)
                 Spacer()
             }
@@ -152,7 +152,7 @@ struct CountryDetectedSheet: View {
             VStack(spacing: 10) {
                 Button(action: onKeepMine) {
                     Text("Got it")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.system(size: 17, weight: .semibold))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
                         .background(AppColors.accent, in: RoundedRectangle(cornerRadius: 12))
@@ -161,7 +161,7 @@ struct CountryDetectedSheet: View {
                 .buttonStyle(.plain)
                 Button(action: onDontAskAgain) {
                     Text("Don't check again")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.system(size: 15, weight: .medium))
                         .foregroundStyle(AppColors.textSecondary)
                 }
                 .buttonStyle(.plain)
@@ -182,7 +182,7 @@ struct CountryDetectedSheet: View {
                     Image(systemName: "checkmark.shield.fill")
                     Text("Apply \(applyCountry.name)'s limit")
                 }
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(size: 17, weight: .semibold))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
                 .background(AppColors.accent, in: RoundedRectangle(cornerRadius: 12))
@@ -196,7 +196,7 @@ struct CountryDetectedSheet: View {
                         Text(current.flagEmoji)
                         Text("Keep \(current.name)")
                     }
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.system(size: 16, weight: .medium))
                     .foregroundStyle(AppColors.textSecondary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
@@ -206,7 +206,7 @@ struct CountryDetectedSheet: View {
             } else {
                 Button(action: onKeepMine) {
                     Text("Not now")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.system(size: 16, weight: .medium))
                         .foregroundStyle(AppColors.textSecondary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
@@ -217,7 +217,7 @@ struct CountryDetectedSheet: View {
 
             Button(action: onDontAskAgain) {
                 Text("Don't check again")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(AppColors.textTertiary)
             }
             .buttonStyle(.plain)
@@ -228,15 +228,15 @@ struct CountryDetectedSheet: View {
     @ViewBuilder private func limitRow(label: String, icon: String, value: Double, highlight: Bool) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(highlight ? AppColors.accent : AppColors.textSecondary)
                 .frame(width: 24)
             Text(label)
-                .font(.system(size: 13, weight: highlight ? .semibold : .regular))
+                .font(.system(size: 16, weight: highlight ? .semibold : .regular))
                 .foregroundStyle(highlight ? AppColors.text : AppColors.textSecondary)
             Spacer()
             Text(value == 0 ? "0.00%" : String(format: "%.2f%%", value))
-                .font(.system(size: 13, weight: .bold, design: .monospaced))
+                .font(.system(size: 16, weight: .bold, design: .monospaced))
                 .foregroundStyle(value == 0 ? AppColors.danger : (highlight ? AppColors.accent : AppColors.text))
         }
         .padding(.horizontal, 14)

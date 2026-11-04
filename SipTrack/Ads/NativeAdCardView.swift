@@ -43,11 +43,11 @@ private struct NativeAdContent: View {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
                     Text(loader.headline)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(AppColors.text)
                         .lineLimit(1)
                     Text("Ad")
-                        .font(.system(size: 9, weight: .bold))
+                        .font(.system(size: 12, weight: .bold))
                         .foregroundStyle(AppColors.accent)
                         .padding(.horizontal, 5)
                         .padding(.vertical, 2)
@@ -56,7 +56,7 @@ private struct NativeAdContent: View {
                 }
                 if !loader.body.isEmpty {
                     Text(loader.body)
-                        .font(.system(size: 12))
+                        .font(.system(size: 15))
                         .foregroundStyle(AppColors.textSecondary)
                         .lineLimit(2)
                 }
@@ -66,7 +66,7 @@ private struct NativeAdContent: View {
 
             if !loader.callToAction.isEmpty {
                 Text(loader.callToAction)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(.black)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 8)

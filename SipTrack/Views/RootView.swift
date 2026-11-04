@@ -12,7 +12,7 @@ struct RestoringProfileView: View {
                     .tint(AppColors.accent)
                     .scaleEffect(1.2)
                 Text("Getting your account")
-                    .font(.system(size: 14))
+                    .font(.system(size: 17))
                     .foregroundStyle(AppColors.textSecondary)
             }
         }

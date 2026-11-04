@@ -75,10 +75,10 @@ struct CalendarView: View {
 
                 VStack(spacing: 8) {
                     Text("Calendar Heatmap")
-                        .font(.system(size: 22, weight: .bold))
+                        .font(.system(size: 24, weight: .bold))
                         .foregroundStyle(AppColors.text)
                     Text("See every night mapped on a calendar with BAC colour coding, monthly stats, and trend history.")
-                        .font(.system(size: 14))
+                        .font(.system(size: 17))
                         .foregroundStyle(AppColors.textSecondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 32)
@@ -87,9 +87,9 @@ struct CalendarView: View {
                 Button { showPaywall = true } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "crown.fill")
-                            .font(.system(size: 13))
+                            .font(.system(size: 16))
                         Text("Unlock with Pro")
-                            .font(.system(size: 16, weight: .bold))
+                            .font(.system(size: 18, weight: .bold))
                     }
                     .foregroundStyle(.black)
                     .frame(maxWidth: .infinity)
@@ -132,7 +132,7 @@ struct CalendarView: View {
                     HStack(alignment: .center, spacing: 0) {
                         Button { changeMonth(-1) } label: {
                             Image(systemName: "chevron.left")
-                                .font(.system(size: 13, weight: .ultraLight))
+                                .font(.system(size: 16, weight: .ultraLight))
                                 .foregroundStyle(AppColors.textTertiary)
                                 .frame(width: 44, height: 68)
                                 .contentShape(Rectangle())
@@ -140,12 +140,12 @@ struct CalendarView: View {
 
                         VStack(spacing: 4) {
                             Text(monthName)
-                                .font(.system(size: 28, weight: .black))
+                                .font(.system(size: 30, weight: .black))
                                 .tracking(8)
                                 .foregroundStyle(AppColors.text)
 
                             Text(yearString)
-                                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                .font(.system(size: 13, weight: .bold, design: .monospaced))
                                 .tracking(5)
                                 .foregroundStyle(AppColors.accent.opacity(0.6))
                         }
@@ -153,7 +153,7 @@ struct CalendarView: View {
 
                         Button { changeMonth(1) } label: {
                             Image(systemName: "chevron.right")
-                                .font(.system(size: 13, weight: .ultraLight))
+                                .font(.system(size: 16, weight: .ultraLight))
                                 .foregroundStyle(AppColors.textTertiary)
                                 .frame(width: 44, height: 68)
                                 .contentShape(Rectangle())
@@ -201,7 +201,7 @@ struct CalendarView: View {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: 6) {
                         ForEach(Array(weekdayLetters.enumerated()), id: \.offset) { idx, sym in
                             Text(sym)
-                                .font(.system(size: 10, weight: .bold))
+                                .font(.system(size: 14, weight: .bold))
                                 .tracking(0.5)
                                 .foregroundStyle(
                                     (idx == 5 || idx == 6)
@@ -214,7 +214,7 @@ struct CalendarView: View {
                     .padding(.bottom, 8)
 
                     // MARK: — Calendar Grid
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: 6) {
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 7), spacing: 8) {
                         ForEach(0..<days.count, id: \.self) { i in
                             if let day = days[i] {
                                 let events = eventsOn(day)
@@ -248,7 +248,7 @@ struct CalendarView: View {
                             HStack(alignment: .bottom) {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(dayName(selected).uppercased())
-                                        .font(.system(size: 9, weight: .bold))
+                                        .font(.system(size: 12, weight: .bold))
                                         .tracking(3)
                                         .foregroundStyle(AppColors.accent.opacity(0.65))
 
@@ -257,7 +257,7 @@ struct CalendarView: View {
                                             .font(.system(size: 40, weight: .black))
                                             .foregroundStyle(AppColors.text)
                                         Text(monthAbbrev(selected))
-                                            .font(.system(size: 13, weight: .semibold))
+                                            .font(.system(size: 16, weight: .semibold))
                                             .tracking(2)
                                             .foregroundStyle(AppColors.textTertiary)
                                             .padding(.bottom, 4)
@@ -269,10 +269,10 @@ struct CalendarView: View {
                                 if !dayEvents.isEmpty {
                                     VStack(alignment: .trailing, spacing: 2) {
                                         Text("\(dayEvents.count)")
-                                            .font(.system(size: 26, weight: .bold, design: .monospaced))
+                                            .font(.system(size: 28, weight: .bold, design: .monospaced))
                                             .foregroundStyle(AppColors.accent)
                                         Text(dayEvents.count == 1 ? "NIGHT" : "NIGHTS")
-                                            .font(.system(size: 8, weight: .bold))
+                                            .font(.system(size: 11, weight: .bold))
                                             .tracking(2)
                                             .foregroundStyle(AppColors.textTertiary)
                                     }
@@ -295,7 +295,7 @@ struct CalendarView: View {
                                 HStack {
                                     Spacer()
                                     Text("No nights recorded")
-                                        .font(.system(size: 13))
+                                        .font(.system(size: 16))
                                         .foregroundStyle(AppColors.textTertiary)
                                         .italic()
                                     Spacer()
@@ -354,7 +354,7 @@ struct CalendarView: View {
                     // MARK: — BAC Scale Legend
                     VStack(alignment: .leading, spacing: 10) {
                         Text("BAC SCALE")
-                            .font(.system(size: 8, weight: .bold))
+                            .font(.system(size: 11, weight: .bold))
                             .tracking(3)
                             .foregroundStyle(AppColors.textTertiary)
 
@@ -368,7 +368,7 @@ struct CalendarView: View {
                         HStack(spacing: 0) {
                             ForEach(IntoxicationStage.all.prefix(6), id: \.name) { stage in
                                 Text(stage.name)
-                                    .font(.system(size: 8, weight: .medium))
+                                    .font(.system(size: 11, weight: .medium))
                                     .foregroundStyle(stage.color.opacity(0.65))
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             }
@@ -459,9 +459,11 @@ private struct CalDayCell: View {
                     .stroke(AppColors.accent, lineWidth: 1.5)
             }
 
-            VStack(spacing: 2) {
+            VStack(spacing: 4) {
                 Text("\(Calendar.current.component(.day, from: date))")
-                    .font(.system(size: 13, weight: isSelected || isToday ? .bold : .regular))
+                    .font(.system(size: 22, weight: isSelected || isToday || hasEvents ? .bold : .regular))
+                    .lineLimit(1)
+                    .fixedSize()
                     .foregroundStyle(
                         isSelected ? Color.black :
                         hasEvents  ? stageColor  :
@@ -472,11 +474,13 @@ private struct CalDayCell: View {
                 if hasEvents && !isSelected {
                     Circle()
                         .fill(stageColor)
-                        .frame(width: 3, height: 3)
+                        .frame(width: 5, height: 5)
                 }
             }
         }
-        .aspectRatio(1, contentMode: .fit)
+        // Fixed height: the old aspectRatio(.fit) squashed rows and truncated
+        // day numbers on event days to "…".
+        .frame(maxWidth: .infinity, minHeight: 54)
         .scaleEffect(isSelected ? 1.06 : 1.0)
     }
 }
@@ -491,12 +495,12 @@ private struct CalStatPill: View {
     var body: some View {
         VStack(spacing: 4) {
             Text(value)
-                .font(.system(size: 16, weight: .bold, design: .monospaced))
+                .font(.system(size: 18, weight: .bold, design: .monospaced))
                 .foregroundStyle(valueColor)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
             Text(label)
-                .font(.system(size: 7, weight: .bold))
+                .font(.system(size: 10, weight: .bold))
                 .tracking(2)
                 .foregroundStyle(AppColors.textTertiary)
         }
@@ -535,15 +539,15 @@ private struct CalEventRow: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(event.displayName)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(AppColors.text)
                 HStack(spacing: 6) {
                     Text("\(drinkCount) drinks")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(AppColors.textSecondary)
                     Text("·").foregroundStyle(AppColors.textTertiary)
                     Text("\(calories) cal")
-                        .font(.system(size: 11))
+                        .font(.system(size: 14))
                         .foregroundStyle(AppColors.textSecondary)
                 }
             }
@@ -552,16 +556,16 @@ private struct CalEventRow: View {
 
             VStack(alignment: .trailing, spacing: 3) {
                 Text(String(format: "%.3f%%", peakBAC))
-                    .font(.system(size: 12, weight: .bold, design: .monospaced))
+                    .font(.system(size: 15, weight: .bold, design: .monospaced))
                     .foregroundStyle(stageColor)
                 Text(stageName.uppercased())
-                    .font(.system(size: 7, weight: .bold))
+                    .font(.system(size: 10, weight: .bold))
                     .tracking(1.5)
                     .foregroundStyle(stageColor.opacity(0.6))
             }
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 10, weight: .light))
+                .font(.system(size: 13, weight: .light))
                 .foregroundStyle(AppColors.textTertiary)
         }
         .padding(.horizontal, 4)

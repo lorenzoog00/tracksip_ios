@@ -62,7 +62,7 @@ struct EditDrinkView: View {
                         // Icon picker
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Icon")
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.system(size: 16, weight: .medium))
                                 .foregroundStyle(AppColors.textSecondary)
                             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: 10) {
                                 ForEach(iconOptions, id: \.self) { sym in
@@ -70,7 +70,7 @@ struct EditDrinkView: View {
                                         icon = sym
                                     } label: {
                                         Image(systemName: sym)
-                                            .font(.system(size: 20))
+                                            .font(.system(size: 22))
                                             .foregroundStyle(icon == sym ? .black : AppColors.textSecondary)
                                             .frame(width: 44, height: 44)
                                             .background(icon == sym ? AppColors.accent : AppColors.surface)
@@ -84,11 +84,11 @@ struct EditDrinkView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             HStack(spacing: 6) {
                                 Text("Color")
-                                    .font(.system(size: 13, weight: .medium))
+                                    .font(.system(size: 16, weight: .medium))
                                     .foregroundStyle(AppColors.textSecondary)
                                 if colorHex != nil {
                                     Button("Clear") { colorHex = nil }
-                                        .font(.system(size: 11))
+                                        .font(.system(size: 14))
                                         .foregroundStyle(AppColors.textTertiary)
                                 }
                             }
@@ -106,7 +106,7 @@ struct EditDrinkView: View {
                                                     .strokeBorder(.white.opacity(0.9), lineWidth: 2.5)
                                                     .frame(width: 38, height: 38)
                                                 Image(systemName: "checkmark")
-                                                    .font(.system(size: 11, weight: .bold))
+                                                    .font(.system(size: 14, weight: .bold))
                                                     .foregroundStyle(.white)
                                             }
                                         }
@@ -125,7 +125,7 @@ struct EditDrinkView: View {
                             save()
                         } label: {
                             Text(existing == nil ? "Add Drink" : "Save Changes")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.system(size: 18, weight: .semibold))
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)
                                 .background(isValid ? AppColors.accent : AppColors.border)
@@ -151,7 +151,7 @@ struct EditDrinkView: View {
     private func field(label: String, placeholder: String, text: Binding<String>) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(label)
-                .font(.system(size: 13, weight: .medium))
+                .font(.system(size: 16, weight: .medium))
                 .foregroundStyle(AppColors.textSecondary)
             TextField(placeholder, text: text)
                 .padding(12)
@@ -165,7 +165,7 @@ struct EditDrinkView: View {
     private func numericField(label: String, placeholder: String, text: Binding<String>, footnote: String? = nil) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(label)
-                .font(.system(size: 13, weight: .medium))
+                .font(.system(size: 16, weight: .medium))
                 .foregroundStyle(AppColors.textSecondary)
             TextField(placeholder, text: text)
                 .keyboardType(.decimalPad)
@@ -176,7 +176,7 @@ struct EditDrinkView: View {
                 .foregroundStyle(AppColors.text)
             if let note = footnote {
                 Text(note)
-                    .font(.system(size: 11))
+                    .font(.system(size: 14))
                     .foregroundStyle(AppColors.textTertiary)
                     .lineSpacing(2)
                     .fixedSize(horizontal: false, vertical: true)

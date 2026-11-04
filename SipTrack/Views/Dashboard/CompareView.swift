@@ -115,17 +115,17 @@ private struct PeriodPickerButton: View {
                         .fill(color.opacity(0.18))
                         .frame(width: 24, height: 24)
                     Text(slotLabel)
-                        .font(.system(size: 11, weight: .black))
+                        .font(.system(size: 14, weight: .black))
                         .foregroundStyle(color)
                 }
                 Text(selected.rawValue)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(AppColors.text)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
                 Spacer()
                 Image(systemName: "chevron.up.chevron.down")
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(AppColors.textTertiary)
             }
             .padding(.horizontal, 12)
@@ -192,7 +192,7 @@ private struct CompareHeroCard: View {
                     HStack(spacing: 5) {
                         Circle().fill(AppColors.accent).frame(width: 7, height: 7)
                         Text(a.label)
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.system(size: 15, weight: .medium))
                             .foregroundStyle(AppColors.textSecondary)
                             .lineLimit(1)
                             .minimumScaleFactor(0.8)
@@ -202,7 +202,7 @@ private struct CompareHeroCard: View {
                         .foregroundStyle(AppColors.accent)
                         .minimumScaleFactor(0.6)
                     Text("avg / night")
-                        .font(.system(size: 11))
+                        .font(.system(size: 14))
                         .foregroundStyle(AppColors.textTertiary)
                 }
                 .frame(maxWidth: .infinity)
@@ -210,7 +210,7 @@ private struct CompareHeroCard: View {
                 VStack {
                     Spacer().frame(height: 34)
                     Text("vs")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(AppColors.textTertiary)
                 }
 
@@ -218,7 +218,7 @@ private struct CompareHeroCard: View {
                     HStack(spacing: 5) {
                         Circle().fill(AppColors.water).frame(width: 7, height: 7)
                         Text(b.label)
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.system(size: 15, weight: .medium))
                             .foregroundStyle(AppColors.textSecondary)
                             .lineLimit(1)
                             .minimumScaleFactor(0.8)
@@ -228,7 +228,7 @@ private struct CompareHeroCard: View {
                         .foregroundStyle(AppColors.water)
                         .minimumScaleFactor(0.6)
                     Text("avg / night")
-                        .font(.system(size: 11))
+                        .font(.system(size: 14))
                         .foregroundStyle(AppColors.textTertiary)
                 }
                 .frame(maxWidth: .infinity)
@@ -236,10 +236,10 @@ private struct CompareHeroCard: View {
 
             HStack(spacing: 6) {
                 Image(systemName: headlineIcon)
-                    .font(.system(size: 13))
+                    .font(.system(size: 16))
                     .foregroundStyle(headlineColor)
                 Text(headline)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(headlineColor)
             }
             .padding(.horizontal, 16)
@@ -291,7 +291,7 @@ private struct CompareStatsCard: View {
         VStack(spacing: 0) {
             HStack {
                 Text("BREAKDOWN")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: 14, weight: .semibold))
                     .tracking(1.2)
                     .foregroundStyle(AppColors.textSecondary)
                 Spacer()
@@ -299,17 +299,17 @@ private struct CompareStatsCard: View {
                     HStack(spacing: 4) {
                         Circle().fill(AppColors.accent).frame(width: 6, height: 6)
                         Text("A")
-                            .font(.system(size: 11, weight: .bold))
+                            .font(.system(size: 14, weight: .bold))
                             .foregroundStyle(AppColors.accent)
                     }
                     HStack(spacing: 4) {
                         Circle().fill(AppColors.water).frame(width: 6, height: 6)
                         Text("B")
-                            .font(.system(size: 11, weight: .bold))
+                            .font(.system(size: 14, weight: .bold))
                             .foregroundStyle(AppColors.water)
                     }
                     Text("Δ")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(AppColors.textTertiary)
                         .frame(width: 44, alignment: .trailing)
                 }
@@ -397,23 +397,23 @@ private struct CompareRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 13))
+                .font(.system(size: 16))
                 .foregroundStyle(AppColors.textSecondary)
                 .frame(width: 20)
             Text(label)
-                .font(.system(size: 14))
+                .font(.system(size: 17))
                 .foregroundStyle(AppColors.text)
             Spacer()
             Text(aVal)
-                .font(.system(size: 15, weight: .bold))
+                .font(.system(size: 17, weight: .bold))
                 .foregroundStyle(AppColors.accent)
                 .frame(width: 52, alignment: .trailing)
             Text(bVal)
-                .font(.system(size: 15, weight: .bold))
+                .font(.system(size: 17, weight: .bold))
                 .foregroundStyle(AppColors.water)
                 .frame(width: 52, alignment: .trailing)
             Text(deltaBadge)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(deltaColor)
                 .frame(width: 44, alignment: .trailing)
         }
@@ -448,12 +448,12 @@ private struct DayOfWeekCompareCard: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
                 Text("BY DAY OF WEEK")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: 14, weight: .semibold))
                     .tracking(1.2)
                     .foregroundStyle(AppColors.textSecondary)
                 Spacer()
                 Text("avg drinks")
-                    .font(.system(size: 11))
+                    .font(.system(size: 14))
                     .foregroundStyle(AppColors.textTertiary)
             }
 
@@ -474,7 +474,7 @@ private struct DayOfWeekCompareCard: View {
                     AxisValueLabel {
                         if let s = val.as(String.self) {
                             Text(s)
-                                .font(.system(size: 10))
+                                .font(.system(size: 13))
                                 .foregroundStyle(AppColors.textTertiary)
                         }
                     }
@@ -486,7 +486,7 @@ private struct DayOfWeekCompareCard: View {
                     AxisValueLabel {
                         if let n = val.as(Double.self) {
                             Text(String(format: "%.1f", n))
-                                .font(.system(size: 9))
+                                .font(.system(size: 12))
                                 .foregroundStyle(AppColors.textTertiary)
                         }
                     }
@@ -497,11 +497,11 @@ private struct DayOfWeekCompareCard: View {
             HStack(spacing: 16) {
                 HStack(spacing: 5) {
                     RoundedRectangle(cornerRadius: 2).fill(AppColors.accent).frame(width: 12, height: 10)
-                    Text(a.label).font(.system(size: 11)).foregroundStyle(AppColors.textTertiary)
+                    Text(a.label).font(.system(size: 14)).foregroundStyle(AppColors.textTertiary)
                 }
                 HStack(spacing: 5) {
                     RoundedRectangle(cornerRadius: 2).fill(AppColors.water).frame(width: 12, height: 10)
-                    Text(b.label).font(.system(size: 11)).foregroundStyle(AppColors.textTertiary)
+                    Text(b.label).font(.system(size: 14)).foregroundStyle(AppColors.textTertiary)
                 }
             }
         }
@@ -538,10 +538,10 @@ private struct CompareLockedView: View {
 
                 VStack(spacing: 10) {
                     Text("Compare Periods")
-                        .font(.system(size: 22, weight: .bold))
+                        .font(.system(size: 24, weight: .bold))
                         .foregroundStyle(AppColors.text)
                     Text("Track your progress over time.\nCompare drinks, calories and alcohol\nbetween any two periods.")
-                        .font(.system(size: 15))
+                        .font(.system(size: 17))
                         .foregroundStyle(AppColors.textSecondary)
                         .multilineTextAlignment(.center)
                         .lineSpacing(4)
@@ -557,9 +557,9 @@ private struct CompareLockedView: View {
                     showPaywall = true
                 } label: {
                     HStack(spacing: 8) {
-                        Image(systemName: "crown.fill").font(.system(size: 14))
+                        Image(systemName: "crown.fill").font(.system(size: 17))
                         Text("Unlock with Premium")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.system(size: 18, weight: .semibold))
                     }
                     .foregroundStyle(.black)
                     .frame(maxWidth: .infinity)
@@ -589,10 +589,10 @@ private struct FeaturePill: View {
     var body: some View {
         HStack(spacing: 5) {
             Image(systemName: icon)
-                .font(.system(size: 11))
+                .font(.system(size: 14))
                 .foregroundStyle(AppColors.accent)
             Text(text)
-                .font(.system(size: 12, weight: .medium))
+                .font(.system(size: 15, weight: .medium))
                 .foregroundStyle(AppColors.textSecondary)
         }
         .padding(.horizontal, 12)

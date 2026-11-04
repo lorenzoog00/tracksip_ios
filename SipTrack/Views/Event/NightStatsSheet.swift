@@ -70,34 +70,23 @@ struct NightStatsSheet: View {
         return items
     }
 
-    // Marginal BAC helper. Goes through BACCalculator so this shares the Watson/Forrest
-    // individualised r with every other surface instead of a flat by-sex constant.
-    private func marginalBAC(drinkType: DrinkType, profile: UserProfile) -> Double {
-        let alcoholGrams = BACCalculator.calculateAlcohol(
-            volumeMl: drinkType.defaultVolumeMl, abv: drinkType.defaultAbv, quantity: 1
-        )
-        return BACCalculator.estimateBAC(
-            alcoholGrams: alcoholGrams,
-            weightKg: profile.weightKg,
-            sex: profile.sex,
-            durationHours: 0,
-            r: BACCalculator.profileR(profile: profile)
+    // Per-drink BAC added, from the same integrated model as the night curve.
+    private var drinkContributions: [String: Double] {
+        guard let start = event?.startTime else { return [:] }
+        return BACCalculator.drinkContributions(
+            entries: entries,
+            drinkTypes: appState.allDrinkTypes,
+            profile: appState.userProfile,
+            eventStart: start,
+            stomachState: event?.stomachState ?? .empty,
+            stomachStateTimestamp: event?.stomachStateTimestamp,
+            foodEntries: appState.foodEntries.filter { $0.eventId == eventId }
         )
     }
 
     private var peakBACInfo: (peakBAC: Double, minutesAgo: Int) {
-        // Approximate: cumulative BAC peaks after the last drink.
-        // Use the highest marginal drink as a proxy for peak magnitude,
-        // and the most recent entry timestamp as the time it likely peaked.
-        guard let lastEntry = entries.last else { return (0, 0) }
-        var peak: Double = 0
-        for entry in entries {
-            guard let dt = appState.allDrinkTypes.first(where: { $0.id == entry.drinkTypeId }) else { continue }
-            let bac = marginalBAC(drinkType: dt, profile: appState.userProfile) * Double(entry.quantity)
-            peak += bac
-        }
-        let minutesAgo = max(0, Int(Date().timeIntervalSince(lastEntry.timestamp) / 60))
-        return (peak, minutesAgo)
+        guard let peak = peakPoint else { return (0, 0) }
+        return (peak.bac, max(0, Int(Date().timeIntervalSince(peak.date) / 60)))
     }
 
     // MARK: - BAC Intelligence
@@ -171,15 +160,15 @@ struct NightStatsSheet: View {
         let soberTime = Calendar.current.date(byAdding: .minute, value: Int(hoursToZeroBAC * 60), to: Date())
         return VStack(alignment: .leading, spacing: 4) {
             Text("SOBER IN")
-                .font(.system(size: 8, weight: .black))
+                .font(.system(size: 11, weight: .black))
                 .tracking(1.5)
                 .foregroundStyle(Color(hex: "#5BC8FF"))
             Text(currentBAC < 0.005 ? "Now" : "\(h)h \(String(format: "%02d", m))m")
-                .font(.system(size: 22, weight: .black, design: .monospaced))
+                .font(.system(size: 24, weight: .black, design: .monospaced))
                 .foregroundStyle(Color(hex: "#5BC8FF"))
             if let st = soberTime, currentBAC >= 0.005 {
                 Text("~ \(st, format: .dateTime.hour().minute())")
-                    .font(.system(size: 10))
+                    .font(.system(size: 13))
                     .foregroundStyle(AppColors.textTertiary)
             }
         }
@@ -193,7 +182,7 @@ struct NightStatsSheet: View {
     private var bacArcBar: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("BAC ACROSS THE NIGHT")
-                .font(.system(size: 7, weight: .black))
+                .font(.system(size: 10, weight: .black))
                 .tracking(1.5)
                 .foregroundStyle(AppColors.textTertiary)
 
@@ -229,17 +218,17 @@ struct NightStatsSheet: View {
 
             HStack {
                 Text("start")
-                    .font(.system(size: 8))
+                    .font(.system(size: 11))
                     .foregroundStyle(AppColors.textTertiary)
                 Spacer()
                 if peakBAC > 0.001 {
                     Text("↑ peak")
-                        .font(.system(size: 8, weight: .semibold))
+                        .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(Color(hex: "#FF6B6B"))
                 }
                 Spacer()
                 Text("now")
-                    .font(.system(size: 8))
+                    .font(.system(size: 11))
                     .foregroundStyle(AppColors.textTertiary)
             }
         }
@@ -301,7 +290,7 @@ struct NightStatsSheet: View {
             // Phase badge
             HStack {
                 Text(phaseLabel)
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.system(size: 14, weight: .bold))
                     .foregroundStyle(phaseColor)
                 Spacer()
             }
@@ -334,24 +323,24 @@ struct NightStatsSheet: View {
     private var peakBACTile: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("PEAK BAC")
-                .font(.system(size: 8, weight: .black))
+                .font(.system(size: 11, weight: .black))
                 .tracking(1.5)
                 .foregroundStyle(Color(hex: "#FF6B6B"))
             if peakBAC > 0.001 {
                 Text(String(format: "%.3f", peakBAC))
-                    .font(.system(size: 26, weight: .black, design: .monospaced))
+                    .font(.system(size: 28, weight: .black, design: .monospaced))
                     .foregroundStyle(Color(hex: "#FF6B6B"))
                 if let pt = peakTime {
                     Text("at \(pt, format: .dateTime.hour().minute())")
-                        .font(.system(size: 10))
+                        .font(.system(size: 13))
                         .foregroundStyle(AppColors.textTertiary)
                 }
             } else {
                 Text("—")
-                    .font(.system(size: 26, weight: .black, design: .monospaced))
+                    .font(.system(size: 28, weight: .black, design: .monospaced))
                     .foregroundStyle(AppColors.textTertiary)
                 Text("still rising")
-                    .font(.system(size: 10))
+                    .font(.system(size: 13))
                     .foregroundStyle(AppColors.textTertiary)
             }
         }
@@ -365,16 +354,16 @@ struct NightStatsSheet: View {
     private var currentBACTile: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("CURRENT BAC")
-                .font(.system(size: 8, weight: .black))
+                .font(.system(size: 11, weight: .black))
                 .tracking(1.5)
                 .foregroundStyle(Color(hex: "#F0A830"))
             Text(String(format: "%.3f", currentBAC))
-                .font(.system(size: 26, weight: .black, design: .monospaced))
+                .font(.system(size: 28, weight: .black, design: .monospaced))
                 .foregroundStyle(Color(hex: "#F0A830"))
             Text(bacPhase == .eliminating && peakBAC > 0
                  ? String(format: "↓ %.3f from peak", peakBAC - currentBAC)
                  : "↑ rising")
-                .font(.system(size: 10))
+                .font(.system(size: 13))
                 .foregroundStyle(AppColors.textTertiary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -388,14 +377,14 @@ struct NightStatsSheet: View {
         let exceeded = minutesAboveLimit > 0
         return VStack(alignment: .leading, spacing: 4) {
             Text("ABOVE LIMIT")
-                .font(.system(size: 8, weight: .black))
+                .font(.system(size: 11, weight: .black))
                 .tracking(1.5)
                 .foregroundStyle(exceeded ? Color(hex: "#FF6B6B") : AppColors.textTertiary)
             Text("\(minutesAboveLimit) min")
-                .font(.system(size: 22, weight: .black, design: .monospaced))
+                .font(.system(size: 24, weight: .black, design: .monospaced))
                 .foregroundStyle(exceeded ? Color(hex: "#FF6B6B") : Color(hex: "#4CD964"))
             Text("tonight so far")
-                .font(.system(size: 10))
+                .font(.system(size: 13))
                 .foregroundStyle(AppColors.textTertiary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -420,14 +409,14 @@ struct NightStatsSheet: View {
     private var paceTile: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("PACE")
-                .font(.system(size: 9, weight: .bold))
+                .font(.system(size: 12, weight: .bold))
                 .tracking(2)
                 .foregroundStyle(AppColors.textTertiary)
             Text(String(format: "%.1f", drinksPerHour))
                 .font(.system(size: 34, weight: .bold, design: .rounded))
                 .foregroundStyle(AppColors.text)
             Text("drinks / hr")
-                .font(.system(size: 11, weight: .medium))
+                .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(AppColors.textSecondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -438,7 +427,7 @@ struct NightStatsSheet: View {
     private var timeTile: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("TIME OUT")
-                .font(.system(size: 9, weight: .bold))
+                .font(.system(size: 12, weight: .bold))
                 .tracking(2)
                 .foregroundStyle(AppColors.textTertiary)
             Text(formattedDuration)
@@ -446,7 +435,7 @@ struct NightStatsSheet: View {
                 .foregroundStyle(AppColors.text)
             if let start = event?.startTime {
                 Text("since \(start, format: .dateTime.hour().minute())")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(AppColors.textSecondary)
             }
         }
@@ -491,13 +480,13 @@ struct NightStatsSheet: View {
     private func totalTile(value: String, label: String, icon: String, color: Color) -> some View {
         VStack(spacing: 6) {
             Image(systemName: icon)
-                .font(.system(size: 18, weight: .semibold))
+                .font(.system(size: 20, weight: .semibold))
                 .foregroundStyle(color)
             Text(value)
-                .font(.system(size: 22, weight: .bold, design: .rounded))
+                .font(.system(size: 24, weight: .bold, design: .rounded))
                 .foregroundStyle(AppColors.text)
             Text(label)
-                .font(.system(size: 10, weight: .medium))
+                .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(AppColors.textSecondary)
         }
         .frame(maxWidth: .infinity)
@@ -510,7 +499,7 @@ struct NightStatsSheet: View {
     private var factsSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("INSIGHTS")
-                .font(.system(size: 9, weight: .bold))
+                .font(.system(size: 12, weight: .bold))
                 .tracking(2)
                 .foregroundStyle(AppColors.textTertiary)
                 .padding(.horizontal, 16)
@@ -525,12 +514,12 @@ struct NightStatsSheet: View {
     private func factRow(_ fact: NightFact) -> some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: fact.isSafetyAlert ? "exclamationmark.triangle.fill" : "sparkles")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(fact.isSafetyAlert ? AppColors.danger : AppColors.accent)
                 .frame(width: 20, height: 20)
                 .padding(.top, 1)
             Text(fact.text)
-                .font(.system(size: 13, weight: .regular))
+                .font(.system(size: 16, weight: .regular))
                 .foregroundStyle(AppColors.text)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -550,9 +539,10 @@ struct NightStatsSheet: View {
     // MARK: - Section 4: Timeline
 
     private var timelineSection: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        let contributions = drinkContributions
+        return VStack(alignment: .leading, spacing: 0) {
             Text("TIMELINE")
-                .font(.system(size: 9, weight: .bold))
+                .font(.system(size: 12, weight: .bold))
                 .tracking(2)
                 .foregroundStyle(AppColors.textTertiary)
                 .padding(.horizontal, 16)
@@ -560,7 +550,7 @@ struct NightStatsSheet: View {
 
             if timelineItems.isEmpty {
                 Text("No drinks logged yet — your night starts here.")
-                    .font(.system(size: 13))
+                    .font(.system(size: 16))
                     .foregroundStyle(AppColors.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.vertical, 24)
@@ -582,7 +572,7 @@ struct NightStatsSheet: View {
 
                         // Card
                         VStack(spacing: 0) {
-                            timelineCard(for: item)
+                            timelineCard(for: item, contributions: contributions)
                                 .padding(.bottom, 4)
 
                             // Gap label
@@ -592,7 +582,7 @@ struct NightStatsSheet: View {
                                 if gap > 0 {
                                     HStack {
                                         Text("\(gap) min ↓")
-                                            .font(.system(size: 10, weight: .medium, design: .monospaced))
+                                            .font(.system(size: 13, weight: .medium, design: .monospaced))
                                             .foregroundStyle(AppColors.textTertiary)
                                         Spacer()
                                     }
@@ -628,12 +618,15 @@ struct NightStatsSheet: View {
     }
 
     @ViewBuilder
-    private func timelineCard(for item: TimelineItem) -> some View {
+    private func timelineCard(for item: TimelineItem, contributions: [String: Double]) -> some View {
         switch item {
         case .water(let water):
             waterCard(water)
         case .drink(let entry):
-            drinkCard(entry)
+            DrinkTimelineCard(
+                entry: entry, appState: appState, bacLimit: bacLimit,
+                marginalBAC: contributions[entry.id] ?? 0
+            )
         }
     }
 
@@ -641,18 +634,18 @@ struct NightStatsSheet: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Image(systemName: "drop.fill")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(AppColors.water)
                 Text("Hydration ✓")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(AppColors.water)
                 Spacer()
                 Text(water.timestamp, format: .dateTime.hour().minute())
-                    .font(.system(size: 11, design: .monospaced))
+                    .font(.system(size: 14, design: .monospaced))
                     .foregroundStyle(AppColors.textTertiary)
             }
             Text(String(format: "%.0f ml", water.volumeMl))
-                .font(.system(size: 11))
+                .font(.system(size: 14))
                 .foregroundStyle(AppColors.textSecondary)
         }
         .padding(12)
@@ -662,10 +655,6 @@ struct NightStatsSheet: View {
             RoundedRectangle(cornerRadius: 10)
                 .stroke(AppColors.water.opacity(0.2), lineWidth: 1)
         )
-    }
-
-    private func drinkCard(_ entry: DrinkEntry) -> some View {
-        DrinkTimelineCard(entry: entry, appState: appState, bacLimit: bacLimit)
     }
 
     private func progressColor(for progress: Double) -> Color {
@@ -685,25 +674,10 @@ private struct DrinkTimelineCard: View {
     let entry: DrinkEntry
     let appState: AppState
     let bacLimit: Double
+    let marginalBAC: Double
 
     private var dt: DrinkType? {
         appState.allDrinkTypes.first(where: { $0.id == entry.drinkTypeId })
-    }
-
-    private var marginalBAC: Double {
-        guard let dt else { return 0 }
-        let alcoholGrams = BACCalculator.calculateAlcohol(
-            volumeMl: entry.volumeOverrideMl ?? dt.defaultVolumeMl,
-            abv: entry.abvOverride ?? dt.defaultAbv,
-            quantity: entry.quantity
-        )
-        return BACCalculator.estimateBAC(
-            alcoholGrams: alcoholGrams,
-            weightKg: appState.userProfile.weightKg,
-            sex: appState.userProfile.sex,
-            durationHours: 0,
-            r: BACCalculator.profileR(profile: appState.userProfile)
-        )
     }
 
     private var barProgress: Double { min(1.0, marginalBAC / max(0.001, bacLimit)) }
@@ -734,11 +708,11 @@ private struct DrinkTimelineCard: View {
 
             HStack {
                 Text(dt?.name ?? "Unknown Drink")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(AppColors.text)
                 Spacer()
                 Text(String(format: "+%.3f BAC", marginalBAC))
-                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    .font(.system(size: 14, weight: .semibold, design: .monospaced))
                     .foregroundStyle(barColor)
             }
             .padding(.horizontal, 10)
@@ -746,12 +720,12 @@ private struct DrinkTimelineCard: View {
 
             HStack {
                 Text(entry.timestamp, format: .dateTime.hour().minute())
-                    .font(.system(size: 11, design: .monospaced))
+                    .font(.system(size: 14, design: .monospaced))
                     .foregroundStyle(AppColors.textTertiary)
                 Spacer()
                 if calories > 0 {
                     Text("\(calories) cal")
-                        .font(.system(size: 11))
+                        .font(.system(size: 14))
                         .foregroundStyle(AppColors.textTertiary)
                 }
             }

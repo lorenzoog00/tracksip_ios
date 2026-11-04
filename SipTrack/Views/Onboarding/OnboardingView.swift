@@ -17,10 +17,10 @@ struct OnboardingView: View {
                         Text("🍹")
                             .font(.system(size: 60))
                         Text("Welcome to Tracksip")
-                            .font(.system(size: 28, weight: .bold))
+                            .font(.system(size: 30, weight: .bold))
                             .foregroundStyle(AppColors.text)
                         Text("Set up your profile for accurate BAC estimates.")
-                            .font(.system(size: 15))
+                            .font(.system(size: 17))
                             .foregroundStyle(AppColors.textSecondary)
                             .multilineTextAlignment(.center)
                     }
@@ -30,7 +30,7 @@ struct OnboardingView: View {
                         // Sex
                         VStack(alignment: .leading, spacing: 8) {
                             Label("Biological Sex", systemImage: "person.fill")
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.system(size: 16, weight: .medium))
                                 .foregroundStyle(AppColors.textSecondary)
                             Picker("Sex", selection: $sex) {
                                 ForEach(Sex.allCases, id: \.self) { s in
@@ -43,7 +43,7 @@ struct OnboardingView: View {
                         // Weight
                         VStack(alignment: .leading, spacing: 6) {
                             Label("Weight (kg)", systemImage: "scalemass.fill")
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.system(size: 16, weight: .medium))
                                 .foregroundStyle(AppColors.textSecondary)
                             TextField("e.g. 70", text: $weightKg)
                                 .keyboardType(.decimalPad)
@@ -54,7 +54,7 @@ struct OnboardingView: View {
                                 .foregroundStyle(AppColors.text)
                             if let err = weightError {
                                 Text(err)
-                                    .font(.system(size: 11))
+                                    .font(.system(size: 14))
                                     .foregroundStyle(AppColors.danger)
                             }
                         }
@@ -63,10 +63,10 @@ struct OnboardingView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             HStack {
                                 Label("Height (cm)", systemImage: "ruler.fill")
-                                    .font(.system(size: 13, weight: .medium))
+                                    .font(.system(size: 16, weight: .medium))
                                     .foregroundStyle(AppColors.textSecondary)
                                 Text("· Optional")
-                                    .font(.system(size: 12))
+                                    .font(.system(size: 15))
                                     .foregroundStyle(AppColors.textTertiary)
                             }
                             TextField("e.g. 175", text: $heightCm)
@@ -82,10 +82,10 @@ struct OnboardingView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             HStack {
                                 Label("Birth Year", systemImage: "calendar")
-                                    .font(.system(size: 13, weight: .medium))
+                                    .font(.system(size: 16, weight: .medium))
                                     .foregroundStyle(AppColors.textSecondary)
                                 Text("· Optional")
-                                    .font(.system(size: 12))
+                                    .font(.system(size: 15))
                                     .foregroundStyle(AppColors.textTertiary)
                             }
                             TextField("e.g. 1995", text: $birthYear)
@@ -102,7 +102,7 @@ struct OnboardingView: View {
                     VStack(spacing: 12) {
                         Button { showDisclaimer = true } label: {
                             Text("Continue")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.system(size: 18, weight: .semibold))
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 16)
                                 .background(isValid ? AppColors.accent : AppColors.border)
@@ -113,7 +113,7 @@ struct OnboardingView: View {
                         .padding(.horizontal)
 
                         Text("Your data stays on your device.")
-                            .font(.system(size: 12))
+                            .font(.system(size: 15))
                             .foregroundStyle(AppColors.textTertiary)
                     }
                     .padding(.bottom, 40)

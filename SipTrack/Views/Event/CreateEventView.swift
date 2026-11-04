@@ -49,7 +49,7 @@ struct CreateEventView: View {
                             // Event name
                             VStack(alignment: .leading, spacing: 8) {
                                 Label("Event Name (optional)", systemImage: "pencil")
-                                    .font(.system(size: 13, weight: .medium))
+                                    .font(.system(size: 16, weight: .medium))
                                     .foregroundStyle(AppColors.textSecondary)
                                 TextField("e.g. Friday Rooftop", text: $name)
                                     .focused($nameFocused)
@@ -72,10 +72,10 @@ struct CreateEventView: View {
                                             .foregroundStyle(customStart ? AppColors.accent : AppColors.textSecondary)
                                         VStack(alignment: .leading, spacing: 2) {
                                             Text("Custom Start Time")
-                                                .font(.system(size: 15, weight: .medium))
+                                                .font(.system(size: 17, weight: .medium))
                                                 .foregroundStyle(AppColors.text)
                                             Text("Started drinking earlier tonight")
-                                                .font(.system(size: 12))
+                                                .font(.system(size: 15))
                                                 .foregroundStyle(AppColors.textSecondary)
                                         }
                                     }
@@ -111,10 +111,10 @@ struct CreateEventView: View {
                                             .foregroundStyle(drivingMode ? AppColors.danger : AppColors.textSecondary)
                                         VStack(alignment: .leading, spacing: 2) {
                                             Text("Driving Mode")
-                                                .font(.system(size: 15, weight: .medium))
+                                                .font(.system(size: 17, weight: .medium))
                                                 .foregroundStyle(AppColors.text)
                                             Text("Warnings when approaching your BAC limit")
-                                                .font(.system(size: 12))
+                                                .font(.system(size: 15))
                                                 .foregroundStyle(AppColors.textSecondary)
                                         }
                                     }
@@ -182,7 +182,7 @@ struct CreateEventView: View {
                                     Image(systemName: "exclamationmark.triangle.fill")
                                         .foregroundStyle(AppColors.accent)
                                     Text("You already have an active night. End it first.")
-                                        .font(.system(size: 13))
+                                        .font(.system(size: 16))
                                         .foregroundStyle(AppColors.textSecondary)
                                 }
                                 .padding(12)
@@ -211,7 +211,7 @@ struct CreateEventView: View {
                         dismiss()
                     } label: {
                         Text("Start Night")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.system(size: 18, weight: .semibold))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
                             .background(appState.activeEvent == nil ? AppColors.accent : AppColors.border)
@@ -268,16 +268,16 @@ private struct GoalCeilingMeter: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 Image(systemName: "gauge.with.dots.needle.67percent")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(AppColors.textSecondary)
                 Text("Tonight's Ceiling")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.system(size: 16, weight: .medium))
                     .foregroundStyle(AppColors.textSecondary)
                 Spacer()
                 if let t = targetBAC, let s = currentStage {
                     HStack(spacing: 6) {
                         Text(s.name.uppercased())
-                            .font(.system(size: 9, weight: .bold))
+                            .font(.system(size: 12, weight: .bold))
                             .tracking(1.4)
                             .foregroundStyle(s.color)
                             .padding(.horizontal, 7)
@@ -285,12 +285,12 @@ private struct GoalCeilingMeter: View {
                             .background(s.color.opacity(0.14))
                             .cornerRadius(4)
                         Text(String(format: "%.2f%%", t))
-                            .font(.system(size: 13, weight: .bold, design: .monospaced))
+                            .font(.system(size: 16, weight: .bold, design: .monospaced))
                             .foregroundStyle(AppColors.text)
                     }
                 } else {
                     Text("OFF")
-                        .font(.system(size: 9, weight: .bold))
+                        .font(.system(size: 12, weight: .bold))
                         .tracking(1.6)
                         .foregroundStyle(AppColors.textTertiary)
                         .padding(.horizontal, 7)
@@ -359,7 +359,7 @@ private struct GoalCeilingMeter: View {
             HStack(spacing: 0) {
                 ForEach(Array(stages.enumerated()), id: \.offset) { _, s in
                     Text(s.name.uppercased())
-                        .font(.system(size: 8, weight: .semibold))
+                        .font(.system(size: 11, weight: .semibold))
                         .tracking(1.0)
                         .foregroundStyle(
                             currentStage?.name == s.name ? s.color : AppColors.textTertiary.opacity(0.75)
@@ -377,7 +377,7 @@ private struct GoalCeilingMeter: View {
                         Haptics.shared.play(.light)
                     } label: {
                         Text("Set a ceiling")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(AppColors.accent)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 5)
@@ -385,11 +385,11 @@ private struct GoalCeilingMeter: View {
                     }
                     .buttonStyle(.plain)
                     Text("Drag the bar to pick a max")
-                        .font(.system(size: 11))
+                        .font(.system(size: 14))
                         .foregroundStyle(AppColors.textTertiary)
                 } else {
                     Text("We'll warn before any drink that would cross it.")
-                        .font(.system(size: 11))
+                        .font(.system(size: 14))
                         .foregroundStyle(AppColors.textTertiary)
                     Spacer()
                     Button {
@@ -397,7 +397,7 @@ private struct GoalCeilingMeter: View {
                         Haptics.shared.play(.light)
                     } label: {
                         Text("Clear")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(AppColors.textSecondary)
                     }
                     .buttonStyle(.plain)
@@ -417,33 +417,33 @@ private struct LocationBanner: View {
     var body: some View {
         HStack(spacing: 12) {
             Text(country.flagEmoji)
-                .font(.system(size: 28))
+                .font(.system(size: 30))
 
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 5) {
                     Text("Located in")
-                        .font(.system(size: 11))
+                        .font(.system(size: 14))
                         .foregroundStyle(AppColors.textTertiary)
                     Text(country.name)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(AppColors.text)
                 }
                 HStack(spacing: 6) {
                     Image(systemName: driver.icon)
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(AppColors.textSecondary)
                     Text(driver.displayName)
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(AppColors.textSecondary)
                     Text("·")
                         .foregroundStyle(AppColors.textTertiary)
                     Text("drive limit \(formatPct(limit))")
-                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                        .font(.system(size: 14, weight: .medium, design: .monospaced))
                         .foregroundStyle(limit == 0 ? AppColors.danger : AppColors.textSecondary)
                 }
                 if let note = country.note {
                     Text(note)
-                        .font(.system(size: 10))
+                        .font(.system(size: 13))
                         .foregroundStyle(AppColors.textTertiary)
                         .lineLimit(2)
                 }
@@ -451,7 +451,7 @@ private struct LocationBanner: View {
             Spacer()
             NavigationLink(value: Route.profile) {
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(AppColors.textTertiary)
             }
         }
@@ -481,7 +481,7 @@ private struct DrivingLimitSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("BAC Limit")
-                .font(.system(size: 13, weight: .medium))
+                .font(.system(size: 16, weight: .medium))
                 .foregroundStyle(AppColors.textSecondary)
 
             if let c = country {
@@ -490,11 +490,11 @@ private struct DrivingLimitSection: View {
                     HStack(spacing: 6) {
                         Text(c.flagEmoji)
                         Text("Use \(c.name)'s limit")
-                            .font(.system(size: 13))
+                            .font(.system(size: 16))
                             .foregroundStyle(AppColors.text)
                         Spacer()
                         Text(auto == 0 ? "0.00%" : String(format: "%.2f%%", auto))
-                            .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                            .font(.system(size: 15, weight: .semibold, design: .monospaced))
                             .foregroundStyle(auto == 0 ? AppColors.danger : AppColors.accent)
                     }
                 }
@@ -517,7 +517,7 @@ private struct DrivingLimitSection: View {
                  : (useCountryLimit
                     ? "Auto-applied from your country and driver tier."
                     : "Manual override — used only for this night."))
-                .font(.system(size: 11))
+                .font(.system(size: 14))
                 .foregroundStyle(AppColors.textTertiary)
         }
     }

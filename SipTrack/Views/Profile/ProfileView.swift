@@ -99,20 +99,20 @@ struct ProfileView: View {
                                     .fill(AppColors.accentDim)
                                     .frame(width: 36, height: 36)
                                 Image(systemName: appState.isPro ? "crown.fill" : "crown")
-                                    .font(.system(size: 15))
+                                    .font(.system(size: 17))
                                     .foregroundStyle(AppColors.accent)
                             }
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(appState.isPro ? "Tracksip Pro" : "Upgrade to Pro")
-                                    .font(.system(size: 14, weight: .semibold))
+                                    .font(.system(size: 17, weight: .semibold))
                                     .foregroundStyle(AppColors.accent)
                                 Text(appState.isPro ? "All features unlocked" : "Unlock all features")
-                                    .font(.system(size: 12))
+                                    .font(.system(size: 15))
                                     .foregroundStyle(AppColors.textSecondary)
                             }
                             Spacer()
                             Image(systemName: "chevron.right")
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.system(size: 15, weight: .medium))
                                 .foregroundStyle(AppColors.textTertiary)
                         }
                         .padding(14)
@@ -151,7 +151,7 @@ struct ProfileView: View {
                             // Country picker
                             HStack {
                                 Text("Country")
-                                    .font(.system(size: 14))
+                                    .font(.system(size: 17))
                                     .foregroundStyle(AppColors.text)
                                 Spacer()
                                 Menu {
@@ -177,17 +177,17 @@ struct ProfileView: View {
                                         if let c = LegalBACLimits.find(countryCode) {
                                             Text(c.flagEmoji)
                                             Text(c.name)
-                                                .font(.system(size: 14, weight: .medium))
+                                                .font(.system(size: 17, weight: .medium))
                                                 .foregroundStyle(AppColors.text)
                                         } else {
                                             Image(systemName: "globe")
                                                 .foregroundStyle(AppColors.textTertiary)
                                             Text("Not set")
-                                                .font(.system(size: 14))
+                                                .font(.system(size: 17))
                                                 .foregroundStyle(AppColors.textTertiary)
                                         }
                                         Image(systemName: "chevron.up.chevron.down")
-                                            .font(.system(size: 10))
+                                            .font(.system(size: 13))
                                             .foregroundStyle(AppColors.textTertiary)
                                     }
                                 }
@@ -198,7 +198,7 @@ struct ProfileView: View {
                             // Driver tier
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Driver type")
-                                    .font(.system(size: 13, weight: .medium))
+                                    .font(.system(size: 16, weight: .medium))
                                     .foregroundStyle(AppColors.textSecondary)
                                 HStack(spacing: 8) {
                                     ForEach(DriverType.allCases, id: \.self) { d in
@@ -207,9 +207,9 @@ struct ProfileView: View {
                                         } label: {
                                             VStack(spacing: 4) {
                                                 Image(systemName: d.icon)
-                                                    .font(.system(size: 14, weight: .semibold))
+                                                    .font(.system(size: 17, weight: .semibold))
                                                 Text(d.displayName)
-                                                    .font(.system(size: 11, weight: .semibold))
+                                                    .font(.system(size: 14, weight: .semibold))
                                                     .lineLimit(1)
                                                     .minimumScaleFactor(0.8)
                                             }
@@ -227,7 +227,7 @@ struct ProfileView: View {
                                     }
                                 }
                                 Text(driverType.sub)
-                                    .font(.system(size: 11))
+                                    .font(.system(size: 14))
                                     .foregroundStyle(AppColors.textTertiary)
                             }
 
@@ -239,10 +239,10 @@ struct ProfileView: View {
                                         .foregroundStyle(resolved == 0 ? AppColors.danger : AppColors.accent)
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text("Your drink-drive limit")
-                                            .font(.system(size: 11))
+                                            .font(.system(size: 14))
                                             .foregroundStyle(AppColors.textTertiary)
                                         Text(resolved == 0 ? "Zero tolerance" : String(format: "%.2f%% BAC", resolved))
-                                            .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                                            .font(.system(size: 17, weight: .semibold, design: .monospaced))
                                             .foregroundStyle(resolved == 0 ? AppColors.danger : AppColors.text)
                                     }
                                     Spacer()
@@ -253,7 +253,7 @@ struct ProfileView: View {
 
                                 if let note = c.note {
                                     Text(note)
-                                        .font(.system(size: 11))
+                                        .font(.system(size: 14))
                                         .foregroundStyle(AppColors.textTertiary)
                                 }
                             } else {
@@ -266,7 +266,7 @@ struct ProfileView: View {
                                 }
                                 .pickerStyle(.segmented)
                                 Text("Pick a country above to auto-apply the local limit.")
-                                    .font(.system(size: 11))
+                                    .font(.system(size: 14))
                                     .foregroundStyle(AppColors.textTertiary)
                             }
                         }
@@ -277,10 +277,10 @@ struct ProfileView: View {
                         Toggle(isOn: $waterSuggestions) {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Water reminders")
-                                    .font(.system(size: 14))
+                                    .font(.system(size: 17))
                                     .foregroundStyle(AppColors.text)
                                 Text("Nudges to drink water between alcoholic drinks")
-                                    .font(.system(size: 12))
+                                    .font(.system(size: 15))
                                     .foregroundStyle(AppColors.textSecondary)
                             }
                         }
@@ -291,10 +291,10 @@ struct ProfileView: View {
                         Toggle(isOn: $waterReminderEnabled) {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Push water reminders")
-                                    .font(.system(size: 14))
+                                    .font(.system(size: 17))
                                     .foregroundStyle(AppColors.text)
                                 Text("Notify you if you haven't logged water during a night")
-                                    .font(.system(size: 12))
+                                    .font(.system(size: 15))
                                     .foregroundStyle(AppColors.textSecondary)
                             }
                         }
@@ -313,11 +313,11 @@ struct ProfileView: View {
                             VStack(alignment: .leading, spacing: 8) {
                                 HStack {
                                     Text("Remind every")
-                                        .font(.system(size: 14))
+                                        .font(.system(size: 17))
                                         .foregroundStyle(AppColors.text)
                                     Spacer()
                                     Text("\(waterReminderInterval) min")
-                                        .font(.system(size: 14, weight: .semibold))
+                                        .font(.system(size: 17, weight: .semibold))
                                         .foregroundStyle(AppColors.accent)
                                 }
                                 Slider(value: Binding(
@@ -334,10 +334,10 @@ struct ProfileView: View {
                         Toggle(isOn: $hapticsEnabled) {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Haptics")
-                                    .font(.system(size: 14))
+                                    .font(.system(size: 17))
                                     .foregroundStyle(AppColors.text)
                                 Text("Vibration feedback as you log drinks and track your night")
-                                    .font(.system(size: 12))
+                                    .font(.system(size: 15))
                                     .foregroundStyle(AppColors.textSecondary)
                             }
                         }
@@ -348,7 +348,7 @@ struct ProfileView: View {
                     ProfileSection(title: "Warnings", icon: "bell.fill") {
                         Toggle(isOn: $notificationsEnabled) {
                             Text("Enable in-app warnings")
-                                .font(.system(size: 14))
+                                .font(.system(size: 17))
                                 .foregroundStyle(AppColors.text)
                         }
                         .tint(AppColors.accent)
@@ -361,14 +361,14 @@ struct ProfileView: View {
                             ProfileDivider()
                             Toggle(isOn: $bacApproachWarning) {
                                 Text("BAC approach warning")
-                                    .font(.system(size: 14))
+                                    .font(.system(size: 17))
                                     .foregroundStyle(AppColors.text)
                             }
                             .tint(AppColors.accent)
                             ProfileDivider()
                             Toggle(isOn: $stageChangeWarning) {
                                 Text("Stage change warning")
-                                    .font(.system(size: 14))
+                                    .font(.system(size: 17))
                                     .foregroundStyle(AppColors.text)
                             }
                             .tint(AppColors.accent)
@@ -385,19 +385,19 @@ struct ProfileView: View {
                                 HStack(spacing: 12) {
                                     VStack(alignment: .leading, spacing: 3) {
                                         Text("Lock Screen Drinks")
-                                            .font(.system(size: 14))
+                                            .font(.system(size: 17))
                                             .foregroundStyle(AppColors.text)
                                         let names = appState.userProfile.liveActivityDrinkIds.compactMap { id in
                                             appState.allDrinkTypes.first { $0.id == id }?.name
                                         }
                                         Text(names.isEmpty ? "None selected" : names.joined(separator: ", "))
-                                            .font(.system(size: 12))
+                                            .font(.system(size: 15))
                                             .foregroundStyle(AppColors.textSecondary)
                                             .lineLimit(1)
                                     }
                                     Spacer()
                                     Image(systemName: "chevron.right")
-                                        .font(.system(size: 12, weight: .medium))
+                                        .font(.system(size: 15, weight: .medium))
                                         .foregroundStyle(AppColors.textTertiary)
                                 }
                             }
@@ -411,16 +411,16 @@ struct ProfileView: View {
                                 ZStack {
                                     Circle().fill(AppColors.accentDim).frame(width: 36, height: 36)
                                     Image(systemName: "icloud.fill")
-                                        .font(.system(size: 14))
+                                        .font(.system(size: 17))
                                         .foregroundStyle(AppColors.accent)
                                 }
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("Cloud sync active")
-                                        .font(.system(size: 14, weight: .medium))
+                                        .font(.system(size: 17, weight: .medium))
                                         .foregroundStyle(AppColors.text)
                                     if let email = firebase.userEmail {
                                         Text(email)
-                                            .font(.system(size: 12))
+                                            .font(.system(size: 15))
                                             .foregroundStyle(AppColors.textSecondary)
                                     }
                                 }
@@ -429,7 +429,7 @@ struct ProfileView: View {
                                     Task { await firebase.signOut() }
                                 } label: {
                                     Text("Sign Out")
-                                        .font(.system(size: 13, weight: .medium))
+                                        .font(.system(size: 16, weight: .medium))
                                         .foregroundStyle(AppColors.danger)
                                         .padding(.horizontal, 12)
                                         .padding(.vertical, 6)
@@ -448,10 +448,10 @@ struct ProfileView: View {
                                         ProgressView().scaleEffect(0.8)
                                     } else {
                                         Image(systemName: "trash.fill")
-                                            .font(.system(size: 13))
+                                            .font(.system(size: 16))
                                     }
                                     Text(deletingAccount ? "Deleting…" : "Delete Account")
-                                        .font(.system(size: 14))
+                                        .font(.system(size: 17))
                                     Spacer()
                                 }
                                 .foregroundStyle(AppColors.danger)
@@ -460,12 +460,12 @@ struct ProfileView: View {
 
                             if let err = deleteError {
                                 Text(err)
-                                    .font(.system(size: 12))
+                                    .font(.system(size: 15))
                                     .foregroundStyle(AppColors.danger)
                             }
 
                             Text("Permanently removes your account and all cloud data.")
-                                .font(.system(size: 11))
+                                .font(.system(size: 14))
                                 .foregroundStyle(AppColors.textTertiary)
                         } else {
                             NavigationLink(value: Route.auth(signUp: false)) {
@@ -473,20 +473,20 @@ struct ProfileView: View {
                                     ZStack {
                                         Circle().fill(AppColors.surface).frame(width: 36, height: 36)
                                         Image(systemName: "icloud.slash.fill")
-                                            .font(.system(size: 14))
+                                            .font(.system(size: 17))
                                             .foregroundStyle(AppColors.textSecondary)
                                     }
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text("Sign in to sync")
-                                            .font(.system(size: 14, weight: .medium))
+                                            .font(.system(size: 17, weight: .medium))
                                             .foregroundStyle(AppColors.text)
                                         Text("Back up your data across devices")
-                                            .font(.system(size: 12))
+                                            .font(.system(size: 15))
                                             .foregroundStyle(AppColors.textSecondary)
                                     }
                                     Spacer()
                                     Image(systemName: "chevron.right")
-                                        .font(.system(size: 12))
+                                        .font(.system(size: 15))
                                         .foregroundStyle(AppColors.textTertiary)
                                 }
                             }
@@ -567,7 +567,7 @@ struct ProfileView: View {
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "chevron.left")
-                                .font(.system(size: 14, weight: .medium))
+                                .font(.system(size: 17, weight: .medium))
                             Text("Back")
                         }
                         .foregroundStyle(AppColors.textSecondary)
@@ -655,7 +655,7 @@ struct ProfileView: View {
             }
         } label: {
             Text(versionCopied ? "Copied" : AppVersion.current)
-                .font(.system(size: 12))
+                .font(.system(size: 15))
                 .foregroundStyle(versionCopied ? AppColors.accent : AppColors.textTertiary)
                 .frame(maxWidth: .infinity)
                 .padding(.top, 20)
@@ -669,15 +669,15 @@ struct ProfileView: View {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Alcohol & BAC Guide")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.system(size: 17, weight: .medium))
                         .foregroundStyle(AppColors.text)
                     Text("What BAC is, how it's calculated, safe limits")
-                        .font(.system(size: 12))
+                        .font(.system(size: 15))
                         .foregroundStyle(AppColors.textSecondary)
                 }
                 Spacer()
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(AppColors.textTertiary)
             }
         }
@@ -691,12 +691,12 @@ struct ProfileView: View {
                     .fill(AppColors.accentDim)
                     .frame(width: 72, height: 72)
                 Image(systemName: "person.fill")
-                    .font(.system(size: 30))
+                    .font(.system(size: 32))
                     .foregroundStyle(AppColors.accent)
             }
             if let email = firebase.userEmail {
                 Text(email)
-                    .font(.system(size: 13))
+                    .font(.system(size: 16))
                     .foregroundStyle(AppColors.textSecondary)
             }
         }
@@ -711,7 +711,7 @@ struct ProfileView: View {
                     withAnimation { loadFromProfile(appState.userProfile) }
                 } label: {
                     Text("Discard")
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.system(size: 17, weight: .medium))
                         .foregroundStyle(AppColors.textSecondary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 50)
@@ -730,10 +730,10 @@ struct ProfileView: View {
                                 Image(systemName: "checkmark")
                                 Text("Saved!")
                             }
-                            .font(.system(size: 15, weight: .bold))
+                            .font(.system(size: 17, weight: .bold))
                         case .idle:
                             Text("Save Changes")
-                                .font(.system(size: 15, weight: .bold))
+                                .font(.system(size: 17, weight: .bold))
                         }
                     }
                     .frame(maxWidth: .infinity)
@@ -760,11 +760,11 @@ struct ProfileView: View {
     private func legalRow(label: String) -> some View {
         HStack {
             Text(label)
-                .font(.system(size: 14))
+                .font(.system(size: 17))
                 .foregroundStyle(AppColors.text)
             Spacer()
             Image(systemName: "arrow.up.right")
-                .font(.system(size: 12))
+                .font(.system(size: 15))
                 .foregroundStyle(AppColors.textTertiary)
         }
     }
@@ -775,7 +775,7 @@ struct ProfileView: View {
     private func pickerRow<Content: View>(label: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(label)
-                .font(.system(size: 12, weight: .medium))
+                .font(.system(size: 15, weight: .medium))
                 .foregroundStyle(AppColors.textSecondary)
                 .textCase(.uppercase)
                 .kerning(0.5)
@@ -787,19 +787,19 @@ struct ProfileView: View {
     private func numRow(label: String, unit: String?, text: Binding<String>, placeholder: String, optional: Bool = false) -> some View {
         HStack {
             Text(label + (optional ? " (optional)" : ""))
-                .font(.system(size: 14))
+                .font(.system(size: 17))
                 .foregroundStyle(optional ? AppColors.textSecondary : AppColors.text)
             Spacer()
             HStack(spacing: 4) {
                 TextField(placeholder, text: text)
                     .keyboardType(.numberPad)
                     .multilineTextAlignment(.trailing)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: 17, weight: .medium))
                     .foregroundStyle(AppColors.text)
                     .frame(width: 60)
                 if let unit {
                     Text(unit)
-                        .font(.system(size: 13))
+                        .font(.system(size: 16))
                         .foregroundStyle(AppColors.textTertiary)
                 }
             }
@@ -810,7 +810,7 @@ struct ProfileView: View {
     private func stepperRow(label: String, value: Binding<Int>, range: ClosedRange<Int>, step: Int = 1) -> some View {
         HStack {
             Text(label)
-                .font(.system(size: 14))
+                .font(.system(size: 17))
                 .foregroundStyle(AppColors.text)
             Spacer()
             Stepper("\(value.wrappedValue)", value: value, in: range, step: step)
@@ -903,10 +903,10 @@ private struct ProfileSection<Content: View>: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(AppColors.accent)
                 Text(title.uppercased())
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(AppColors.textTertiary)
                     .kerning(0.8)
             }
@@ -946,7 +946,7 @@ struct LockScreenPickerView: View {
             ScrollView {
                 VStack(spacing: 6) {
                     Text("Choose up to 3 drinks shown as quick-add buttons on your Lock Screen and Dynamic Island while a night is active.")
-                        .font(.system(size: 13))
+                        .font(.system(size: 16))
                         .foregroundStyle(AppColors.textSecondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 24)
@@ -989,28 +989,28 @@ struct LockScreenPickerView: View {
                                             .fill(AppColors.accentDim)
                                             .frame(width: 34, height: 34)
                                         Image(systemName: dt.sfSymbol)
-                                            .font(.system(size: 14))
+                                            .font(.system(size: 17))
                                             .foregroundStyle(AppColors.accent)
                                     }
                                     Text(dt.name)
-                                        .font(.system(size: 14))
+                                        .font(.system(size: 17))
                                         .foregroundStyle(AppColors.text)
                                     Spacer()
                                     if selectedIds.contains(dt.id) {
                                         let pos = (selectedIds.firstIndex(of: dt.id) ?? 0) + 1
                                         Text("\(pos)")
-                                            .font(.system(size: 11, weight: .bold))
+                                            .font(.system(size: 14, weight: .bold))
                                             .foregroundStyle(.black)
                                             .frame(width: 24, height: 24)
                                             .background(AppColors.accent)
                                             .clipShape(Circle())
                                     } else if selectedIds.count >= 3 {
                                         Image(systemName: "circle")
-                                            .font(.system(size: 20))
+                                            .font(.system(size: 22))
                                             .foregroundStyle(AppColors.border)
                                     } else {
                                         Image(systemName: "plus.circle")
-                                            .font(.system(size: 20))
+                                            .font(.system(size: 22))
                                             .foregroundStyle(AppColors.textTertiary)
                                     }
                                 }
@@ -1048,26 +1048,26 @@ private struct SlotPreview: View {
                     .frame(width: 44, height: 44)
                 if let dt = drinkType {
                     Image(systemName: dt.sfSymbol)
-                        .font(.system(size: 18, weight: .medium))
+                        .font(.system(size: 20, weight: .medium))
                         .foregroundStyle(AppColors.accent)
                 } else {
                     Image(systemName: "plus")
-                        .font(.system(size: 16))
+                        .font(.system(size: 18))
                         .foregroundStyle(AppColors.textTertiary)
                 }
             }
             if let dt = drinkType {
                 Text(dt.name)
-                    .font(.system(size: 10, weight: .medium))
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(AppColors.text)
                     .lineLimit(1)
             } else {
                 Text("Empty")
-                    .font(.system(size: 10))
+                    .font(.system(size: 13))
                     .foregroundStyle(AppColors.textTertiary)
             }
             Text("\(position)")
-                .font(.system(size: 9, weight: .bold))
+                .font(.system(size: 12, weight: .bold))
                 .foregroundStyle(drinkType != nil ? .black : AppColors.textTertiary)
                 .frame(width: 15, height: 15)
                 .background(drinkType != nil ? AppColors.accent : AppColors.border)
@@ -1150,10 +1150,10 @@ struct AuthView: View {
                             .font(.system(size: 52))
                             .foregroundStyle(AppColors.accent)
                         Text(isSignUp ? "Create Account" : "Sign In")
-                            .font(.system(size: 22, weight: .bold))
+                            .font(.system(size: 24, weight: .bold))
                             .foregroundStyle(AppColors.text)
                         Text("Sync your nights across devices")
-                            .font(.system(size: 14))
+                            .font(.system(size: 17))
                             .foregroundStyle(AppColors.textSecondary)
                     }
                     .padding(.top, 40)
@@ -1231,7 +1231,7 @@ struct AuthView: View {
                             GoogleGLogo()
                                 .frame(width: 20, height: 20)
                             Text("Continue with Google")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.system(size: 18, weight: .semibold))
                                 .foregroundStyle(Color(red: 0.26, green: 0.26, blue: 0.26))
                         }
                         .frame(maxWidth: .infinity)
@@ -1243,7 +1243,7 @@ struct AuthView: View {
 
                     HStack {
                         Rectangle().fill(AppColors.border).frame(height: 1)
-                        Text("or").font(.system(size: 12)).foregroundStyle(AppColors.textTertiary)
+                        Text("or").font(.system(size: 15)).foregroundStyle(AppColors.textTertiary)
                         Rectangle().fill(AppColors.border).frame(height: 1)
                     }
 
@@ -1276,21 +1276,21 @@ struct AuthView: View {
 
                         if let hint = Self.passwordHint(password: password, isSignUp: isSignUp) {
                             Text(hint)
-                                .font(.system(size: 12))
+                                .font(.system(size: 15))
                                 .foregroundStyle(AppColors.textTertiary)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
                     }
 
                     if let err = errorMsg {
-                        Text(err).font(.system(size: 13)).foregroundStyle(AppColors.danger).multilineTextAlignment(.center)
+                        Text(err).font(.system(size: 16)).foregroundStyle(AppColors.danger).multilineTextAlignment(.center)
                     }
 
                     Button { Task { await submit() } } label: {
                         HStack(spacing: 8) {
                             if isLoading { ProgressView().tint(.black).scaleEffect(0.8) }
                             Text(isSignUp ? "Create Account" : "Sign In")
-                                .font(.system(size: 16, weight: .semibold))
+                                .font(.system(size: 18, weight: .semibold))
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
@@ -1307,7 +1307,7 @@ struct AuthView: View {
                         focused = isSignUp ? .name : .email
                     } label: {
                         Text(isSignUp ? "Already have an account? Sign In" : "No account? Create one")
-                            .font(.system(size: 14))
+                            .font(.system(size: 17))
                             .foregroundStyle(AppColors.accent)
                     }
 
@@ -1316,7 +1316,7 @@ struct AuthView: View {
                             showForgotPassword = true
                         } label: {
                             Text("Forgot password?")
-                                .font(.system(size: 14))
+                                .font(.system(size: 17))
                                 .foregroundStyle(AppColors.textSecondary)
                         }
                     }
@@ -1330,7 +1330,7 @@ struct AuthView: View {
                             appState.shouldShowAuth = false
                         } label: {
                             Text("Not now")
-                                .font(.system(size: 14))
+                                .font(.system(size: 17))
                                 .foregroundStyle(AppColors.textSecondary)
                         }
                         .padding(.top, 4)
