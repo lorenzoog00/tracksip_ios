@@ -47,6 +47,7 @@ struct SipTrackApp: App {
                 }
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
                     Haptics.shared.prepare()
+                    appState.refreshWaterReminder()
                     Task {
                         await store.refreshStatus()
                         appState.syncSubscriptionFromStore()
