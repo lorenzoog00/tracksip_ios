@@ -119,30 +119,16 @@ extension DrinkType {
 }
 
 extension DrinkType {
-    // Real-world pour options per category. The "standard" option equals the type's
-    // default volume; others capture the common under-counted pours (home double, pint,
-    // large wine). Selecting one stores its volume in DrinkEntry.volumeOverrideMl, so the
-    // dose math (calculateAlcohol / integrateBAC) is untouched.
     var servingSizeOptions: [ServingSizeOption] {
-        switch drinkCategory {
-        case "spirits", "agave":
-            return [.init(label: "Single", volumeMl: 44),
-                    .init(label: "Double", volumeMl: 88),
-                    .init(label: "Triple", volumeMl: 132)]
-        case "wine":
-            return [.init(label: "Small",    volumeMl: 100),
-                    .init(label: "Standard", volumeMl: 150),
-                    .init(label: "Large",    volumeMl: 250)]
-        case "beer":
-            return [.init(label: "Bottle/Can", volumeMl: 355),
-                    .init(label: "Pint",       volumeMl: 568),
-                    .init(label: "Tallboy",    volumeMl: 473)]
-        case "cocktails":
-            return [.init(label: "Single", volumeMl: 240),
-                    .init(label: "Strong", volumeMl: 360)]
-        default:
-            return [.init(label: "Standard", volumeMl: defaultVolumeMl),
-                    .init(label: "Double",   volumeMl: defaultVolumeMl * 2)]
+        let categoryLarge: Double = switch drinkCategory {
+        case "spirits", "agave": 88
+        case "wine": 250
+        case "beer": 568
+        default: 360
         }
+        // Custom drinks can already be larger than the category's usual large pour.
+        let largeVolume = categoryLarge > defaultVolumeMl ? categoryLarge : (defaultVolumeMl * 1.5).rounded(.up)
+        return [.init(label: "Standard", volumeMl: defaultVolumeMl),
+                .init(label: "Large", volumeMl: largeVolume)]
     }
 }

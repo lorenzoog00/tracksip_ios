@@ -2,6 +2,9 @@ import SwiftUI
 
 struct EditDrinkView: View {
     let existing: DrinkType?
+    private let highlightsCalories: Bool
+    private let onSave: (DrinkType) -> Void
+    private let calorieFieldID = "calories-per-serving"
     @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) private var dismiss
 
@@ -26,9 +29,14 @@ struct EditDrinkView: View {
         ("#1ABC9C", "Teal"),    ("#E67E22", "Copper"), ("#8E44AD", "Purple"),
     ]
 
-    init(existing: DrinkType?) {
+    init(
+        existing: DrinkType?, highlightsCalories: Bool = false,
+        suggestedName: String = "", onSave: @escaping (DrinkType) -> Void = { _ in }
+    ) {
         self.existing = existing
-        _name         = State(initialValue: existing?.name ?? "")
+        self.highlightsCalories = highlightsCalories
+        self.onSave = onSave
+        _name         = State(initialValue: existing?.name ?? suggestedName)
         _volumeStr    = State(initialValue: existing.map { "\(Int($0.defaultVolumeMl))" } ?? "355")
         _abvStr       = State(initialValue: existing.map { String(format: "%.1f", $0.defaultAbv) } ?? "5.0")
         _caloriesStr  = State(initialValue: existing.map { "\(Int($0.caloriesPerServing))" } ?? "150")
@@ -47,6 +55,12 @@ struct EditDrinkView: View {
 
     var body: some View {
         NavigationStack {
+            editorContent
+        }
+    }
+
+    private var editorContent: some View {
+        ScrollViewReader { scroll in
             ZStack {
                 AppColors.background.ignoresSafeArea()
                 ScrollView {
@@ -117,7 +131,12 @@ struct EditDrinkView: View {
 
                         numericField(label: "Volume (ml)", placeholder: "355", text: $volumeStr)
                         numericField(label: "ABV (%)", placeholder: "5.0", text: $abvStr)
-                        numericField(label: "Calories per serving", placeholder: "150", text: $caloriesStr)
+                        numericField(
+                            label: "Calories per serving", placeholder: "150", text: $caloriesStr,
+                            footnote: highlightsCalories ? "Enter the calories for the serving size above, then save." : nil
+                        )
+                        .guideHighlight(highlightsCalories)
+                        .id(calorieFieldID)
 
                         Spacer(minLength: 20)
 
@@ -135,6 +154,12 @@ struct EditDrinkView: View {
                         .disabled(!isValid)
                     }
                     .padding()
+                }
+                .task {
+                    guard highlightsCalories else { return }
+                    await Task.yield()
+                    guard !Task.isCancelled else { return }
+                    scroll.scrollTo(calorieFieldID, anchor: .center)
                 }
             }
             .navigationTitle(existing == nil ? "New Drink" : "Edit Drink")
@@ -198,6 +223,7 @@ struct EditDrinkView: View {
             defaultDrinkingDurationMinutes: Int(durationStr).flatMap { $0 > 0 ? $0 : nil }
         )
         appState.saveDrinkType(type)
+        onSave(type)
         dismiss()
     }
 

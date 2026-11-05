@@ -31,6 +31,7 @@ private enum DrinkFilter: String, CaseIterable {
 // MARK: - Main view
 
 struct DrinksView: View {
+    var highlightsCalories = false
     @EnvironmentObject var appState: AppState
     @State private var editingDrink: DrinkType? = nil
     @State private var showCreate = false
@@ -45,6 +46,14 @@ struct DrinksView: View {
         ZStack {
             AppColors.background.ignoresSafeArea()
             VStack(spacing: 0) {
+                if highlightsCalories {
+                    Label("Tap the arrow beside a drink to edit its calories per serving.", systemImage: "arrow.down")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AppColors.accentWarm)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal)
+                        .padding(.vertical, 10)
+                }
                 filterPills
                 ScrollView {
                     LazyVStack(spacing: 6) {
@@ -52,6 +61,7 @@ struct DrinksView: View {
                             DrinkRow(
                                 drink: dt,
                                 isFavorite: appState.isFavorite(dt.id),
+                                highlightsEdit: highlightsCalories,
                                 onFavorite: { appState.toggleFavoriteDrink(id: dt.id) },
                                 onEdit: { editingDrink = dt },
                                 onDelete: { deleteConfirm = dt }
@@ -77,8 +87,8 @@ struct DrinksView: View {
                 }
             }
         }
-        .sheet(item: $editingDrink) { EditDrinkView(existing: $0) }
-        .sheet(isPresented: $showCreate) { EditDrinkView(existing: nil) }
+        .sheet(item: $editingDrink) { EditDrinkView(existing: $0, highlightsCalories: highlightsCalories) }
+        .sheet(isPresented: $showCreate) { EditDrinkView(existing: nil, highlightsCalories: highlightsCalories) }
         .onChange(of: deleteConfirm?.id) { _, id in
             guard id != nil, let drink = deleteConfirm else { return }
             deleteConfirm = nil
@@ -150,6 +160,7 @@ struct DrinksView: View {
 private struct DrinkRow: View {
     let drink: DrinkType
     let isFavorite: Bool
+    let highlightsEdit: Bool
     let onFavorite: () -> Void
     let onEdit: () -> Void
     let onDelete: () -> Void
@@ -191,6 +202,8 @@ private struct DrinkRow: View {
                     .frame(width: 28, height: 36)
             }
             .buttonStyle(.plain)
+            .guideHighlight(highlightsEdit, radius: 8)
+            .accessibilityLabel("Edit \(drink.name)")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)

@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct CreateEventView: View {
+    var guideTarget: EventGuideTarget? = nil
     @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) private var dismiss
 
@@ -198,6 +199,13 @@ struct CreateEventView: View {
 
                     // Sticky bottom CTA — outside the ScrollView so the keyboard
                     // can't push the form contents off the top of the screen.
+                    if guideTarget != nil && appState.activeEvent == nil {
+                        Label("Tap Start Night when you're ready to begin tracking.", systemImage: "arrow.down")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(AppColors.accentWarm)
+                            .padding(.horizontal)
+                            .padding(.top, 12)
+                    }
                     Button {
                         let event = appState.createEvent(
                             name: name.isEmpty ? nil : name,
@@ -207,7 +215,7 @@ struct CreateEventView: View {
                             startTime: customStart ? startTime : Date(),
                             stomachState: stomachState
                         )
-                        appState.pendingEventRouteId = event.id
+                        appState.pendingEventRoute = guideTarget.map { .guidedEvent(event.id, $0) } ?? .event(event.id)
                         dismiss()
                     } label: {
                         Text("Start Night")
@@ -219,6 +227,7 @@ struct CreateEventView: View {
                             .cornerRadius(14)
                     }
                     .disabled(appState.activeEvent != nil)
+                    .guideHighlight(guideTarget != nil && appState.activeEvent == nil, radius: 14)
                     .padding(.horizontal)
                     .padding(.vertical, 12)
                     .background(AppColors.background)

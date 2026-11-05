@@ -34,14 +34,17 @@ struct DrinkPickerList: View {
     @EnvironmentObject var appState: AppState
     let event: NightEvent
     let drinkTypes: [DrinkType]
+    var highlightsLogging = false
     let onPick: (DrinkType) -> Void
     let onPickSized: (DrinkType, ServingSizeOption) -> Void
 
     @State private var filter: PickerFilter = .all
     @State private var searchText = ""
+    @State private var showNewDrink = false
+    @FocusState private var searchFocused: Bool
 
-    private var hasFavorites: Bool {
-        drinkTypes.contains { appState.isFavorite($0.id) }
+    private var searchQuery: String {
+        searchText.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private var latestTimestampByDrinkId: [String: Date] {
@@ -54,38 +57,30 @@ struct DrinkPickerList: View {
         return result
     }
 
-    // Drinks added during this session, most recent first, capped at 5
-    private var recentDrinkTypes: [DrinkType] {
-        let sessionEntries = appState.entries
-            .filter { $0.eventId == event.id }
-            .sorted { $0.timestamp > $1.timestamp }
+    private var quickPicks: [DrinkType] {
+        let recentIDs = latestTimestampByDrinkId.sorted { $0.value > $1.value }.map(\.key)
+        let preferredIDs = appState.userProfile.favoriteDrinkIds + appState.userProfile.liveActivityDrinkIds
+        let candidates = (recentIDs + preferredIDs).compactMap { id in
+            drinkTypes.first { $0.id == id }
+        } + drinkTypes
         var seen = Set<String>()
-        var result: [DrinkType] = []
-        for entry in sessionEntries {
-            guard !seen.contains(entry.drinkTypeId) else { continue }
-            seen.insert(entry.drinkTypeId)
-            if let dt = drinkTypes.first(where: { $0.id == entry.drinkTypeId }) {
-                result.append(dt)
-                if result.count == 5 { break }
-            }
-        }
-        return result
+        return Array(candidates.filter { seen.insert($0.id).inserted }.prefix(3))
     }
 
     private var filteredDrinks: [DrinkType] {
         let base = drinkTypes.filter { filter.matches($0, isFav: appState.isFavorite($0.id)) }
-        guard !searchText.isEmpty else { return base }
-        return base.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+        guard !searchQuery.isEmpty else { return base }
+        return base.filter { $0.name.localizedCaseInsensitiveContains(searchQuery) }
     }
 
-    // Pre-computed to avoid let-in-ViewBuilder type-check issues
-    private var allMinusRecent: [DrinkType] {
-        let recentIds = Set(recentDrinkTypes.map(\.id))
-        return filteredDrinks.filter { !recentIds.contains($0.id) }
+    private var catalogDrinks: [DrinkType] {
+        guard showsQuickPicks else { return filteredDrinks }
+        let quickIDs = Set(quickPicks.map(\.id))
+        return filteredDrinks.filter { !quickIDs.contains($0.id) }
     }
 
-    private var showBothSections: Bool {
-        filter == .all && searchText.isEmpty && !recentDrinkTypes.isEmpty
+    private var showsQuickPicks: Bool {
+        filter == .all && searchQuery.isEmpty && !drinkTypes.isEmpty
     }
 
     private func pillBackground(_ f: PickerFilter) -> Color {
@@ -102,6 +97,14 @@ struct DrinkPickerList: View {
         VStack(alignment: .leading, spacing: 10) {
             sectionHeader
 
+            if showsQuickPicks {
+                VStack(alignment: .leading, spacing: 6) {
+                    pickerSection(label: "QUICK PICKS", color: AppColors.accent, drinks: quickPicks, showTimestamp: true)
+                }
+                .guideHighlight(highlightsLogging)
+                .padding(.horizontal)
+            }
+
             // Search bar
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
@@ -110,6 +113,7 @@ struct DrinkPickerList: View {
                 TextField("Search drinks…", text: $searchText)
                     .font(.system(size: 17))
                     .foregroundColor(AppColors.text)
+                    .focused($searchFocused)
                 if !searchText.isEmpty {
                     Button { searchText = "" } label: {
                         Image(systemName: "xmark.circle.fill")
@@ -153,18 +157,13 @@ struct DrinkPickerList: View {
 
             // Content
             VStack(spacing: 5) {
-                if showBothSections {
-                    pickerSection(label: "RECENTLY ADDED", color: AppColors.accent, drinks: recentDrinkTypes, showTimestamp: true)
-                    if !allMinusRecent.isEmpty {
-                        pickerSection(label: "ALL DRINKS", color: AppColors.textTertiary, drinks: allMinusRecent, showTimestamp: false)
-                    }
-                } else if filteredDrinks.isEmpty {
+                if filteredDrinks.isEmpty {
                     emptyState
-                } else {
+                } else if !catalogDrinks.isEmpty {
                     pickerSection(
-                        label: filter == .favorites ? "YOUR FAVORITES" : nil,
+                        label: filter == .favorites ? "YOUR FAVORITES" : (showsQuickPicks ? "ALL DRINKS" : nil),
                         color: filter == .favorites ? Color(hex: "#FF6B6B") : AppColors.textTertiary,
-                        drinks: filteredDrinks,
+                        drinks: catalogDrinks,
                         showTimestamp: false
                     )
                 }
@@ -173,8 +172,13 @@ struct DrinkPickerList: View {
             .animation(.default, value: filter)
             .animation(.default, value: searchText)
         }
+        .sheet(isPresented: $showNewDrink) {
+            EditDrinkView(existing: nil, suggestedName: searchQuery) { drink in
+                filter = .all
+                searchText = drink.name
+            }
+        }
         .onAppear {
-            filter = hasFavorites ? .favorites : .all
             // Once for the whole grid: every tile plays through the shared engine,
             // and prepare() re-reads the profile from disk, so it must not run per
             // tile.
@@ -185,28 +189,44 @@ struct DrinkPickerList: View {
     // MARK: Sub-views
 
     private var sectionHeader: some View {
-        HStack(spacing: 10) {
-            Text("ADD A DRINK")
-                .font(.system(size: 13, weight: .semibold))
-                .tracking(1.4)
-                .foregroundStyle(AppColors.textTertiary)
-            Rectangle()
-                .fill(AppColors.border)
-                .frame(height: 0.5)
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 10) {
+                Text("ADD A DRINK")
+                    .font(.system(size: 13, weight: .semibold))
+                    .tracking(1.4)
+                    .foregroundStyle(AppColors.textTertiary)
+                Rectangle()
+                    .fill(AppColors.border)
+                    .frame(height: 0.5)
+            }
+            Text("Tap to log a serving. Touch and hold for other sizes.")
+                .font(.footnote)
+                .foregroundStyle(highlightsLogging ? AppColors.accentWarm : AppColors.textSecondary)
         }
         .padding(.horizontal)
     }
 
     private var emptyState: some View {
-        Text(filter == .favorites
-             ? "No favorites yet — heart drinks in the Drinks tab."
-             : "No drinks match your search.")
-            .font(.system(size: 16))
-            .foregroundStyle(AppColors.textTertiary)
-            .multilineTextAlignment(.center)
-            .padding(.vertical, 24)
-            .padding(.horizontal, 32)
-            .frame(maxWidth: .infinity)
+        VStack(spacing: 10) {
+            Text(filter == .favorites && searchQuery.isEmpty
+                 ? "No favorites yet. Add them in the Drinks tab."
+                 : "No drinks match your search.")
+                .foregroundStyle(AppColors.textTertiary)
+            if filter == .all && !searchQuery.isEmpty {
+                Button {
+                    searchFocused = false
+                    showNewDrink = true
+                } label: {
+                    Label("Create a drink", systemImage: "plus")
+                }
+                .tint(AppColors.accent)
+            }
+        }
+        .font(.system(size: 16))
+        .multilineTextAlignment(.center)
+        .padding(.vertical, 24)
+        .padding(.horizontal, 32)
+        .frame(maxWidth: .infinity)
     }
 
     private let gridColumns = [
@@ -229,11 +249,46 @@ struct DrinkPickerList: View {
                 DrinkTile(
                     drinkType: dt,
                     recentTimestamp: showTimestamp ? latestTimestampByDrinkId[dt.id] : nil,
-                    onPick: { onPick(dt) },
-                    onPickSized: { onPickSized(dt, $0) }
+                    onPick: {
+                        searchFocused = false
+                        onPick(dt)
+                    },
+                    onPickSized: { size in
+                        searchFocused = false
+                        onPickSized(dt, size)
+                    },
+                    onPickCustom: {
+                        searchFocused = false
+                        showCustomVolume(for: dt)
+                    }
                 )
             }
         }
+    }
+
+    private func showCustomVolume(for drink: DrinkType) {
+        NoticeCenter.shared.show(Notice(
+            icon: "drop.fill",
+            title: "How many milliliters?",
+            message: "Enter 1–2,000 mL for \(drink.name).",
+            field: NoticeField(placeholder: "Milliliters (mL)", isSecure: false, keyboardType: .decimalPad) {
+                Self.customVolume(from: $0) != nil
+            },
+            actions: [
+                NoticeAction("Log Drink") { input in
+                    guard let volume = Self.customVolume(from: input) else { return }
+                    onPickSized(drink, ServingSizeOption(label: "Custom", volumeMl: volume))
+                },
+                NoticeAction("Cancel", kind: .quiet)
+            ]
+        ))
+    }
+
+    private static func customVolume(from input: String) -> Double? {
+        let decimal = input.trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: ",", with: ".")
+        guard let volume = Double(decimal), (1...2_000).contains(volume) else { return nil }
+        return volume
     }
 }
 
@@ -244,6 +299,7 @@ private struct DrinkTile: View {
     let recentTimestamp: Date?
     let onPick: () -> Void
     let onPickSized: (ServingSizeOption) -> Void
+    let onPickCustom: () -> Void
 
     private static let timeFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -307,13 +363,15 @@ private struct DrinkTile: View {
         // starts instead of competing with it.
         .buttonStyle(PressableTile())
         .contextMenu {
-            Text("Pour size")
             ForEach(drinkType.servingSizeOptions) { opt in
                 Button {
                     onPickSized(opt)
                 } label: {
-                    Label("\(opt.label) · \(Int(opt.volumeMl)) mL", systemImage: "drop.fill")
+                    Label("\(opt.label) · \(opt.volumeMl.formatted(.number.precision(.fractionLength(0...2)))) mL", systemImage: "drop.fill")
                 }
+            }
+            Button(action: onPickCustom) {
+                Label("Other…", systemImage: "ellipsis")
             }
         }
     }

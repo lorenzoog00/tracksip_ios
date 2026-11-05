@@ -68,6 +68,7 @@
 		B101B4F62F9CD648009F7DDD /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4BA2F9C2F32009F7DDD /* HomeView.swift */; };
 		B101B4F72F9CD648009F7DDD /* DisclaimerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4BC2F9C2F32009F7DDD /* DisclaimerView.swift */; };
 		B101B4F82F9CD648009F7DDD /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4BD2F9C2F32009F7DDD /* OnboardingView.swift */; };
+		D317628791554B1180EF8C30 /* GettingStartedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D317628791554B1180EF8C31 /* GettingStartedView.swift */; };
 		B101B4F92F9CD648009F7DDD /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4BF2F9C2F32009F7DDD /* ProfileView.swift */; };
 		B101B4FA2F9CD648009F7DDD /* ProView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4C12F9C2F32009F7DDD /* ProView.swift */; };
 		B101B4FC2F9CD648009F7DDD /* SummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4C42F9C2F32009F7DDD /* SummaryView.swift */; };
@@ -242,6 +243,7 @@
 		B101B4BA2F9C2F32009F7DDD /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		B101B4BC2F9C2F32009F7DDD /* DisclaimerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisclaimerView.swift; sourceTree = "<group>"; };
 		B101B4BD2F9C2F32009F7DDD /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		D317628791554B1180EF8C31 /* GettingStartedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GettingStartedView.swift; sourceTree = "<group>"; };
 		B1CC10062FA1000000001006 /* CountryDetectedSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CountryDetectedSheet.swift; sourceTree = "<group>"; };
 		B101B4BF2F9C2F32009F7DDD /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		B101B4C12F9C2F32009F7DDD /* ProView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProView.swift; sourceTree = "<group>"; };
@@ -585,6 +587,7 @@
 			children = (
 				B101B4BC2F9C2F32009F7DDD /* DisclaimerView.swift */,
 				B101B4BD2F9C2F32009F7DDD /* OnboardingView.swift */,
+				D317628791554B1180EF8C31 /* GettingStartedView.swift */,
 				B1CC10062FA1000000001006 /* CountryDetectedSheet.swift */,
 			);
 			path = Onboarding;
@@ -1062,6 +1065,7 @@
 				B101B4F72F9CD648009F7DDD /* DisclaimerView.swift in Sources */,
 				B15DA9AC2FAC184E00345F64 /* ForgotPasswordView.swift in Sources */,
 				B101B4F82F9CD648009F7DDD /* OnboardingView.swift in Sources */,
+				D317628791554B1180EF8C30 /* GettingStartedView.swift in Sources */,
 				B101B4F92F9CD648009F7DDD /* ProfileView.swift in Sources */,
 				B15DA9492FA9733900345F64 /* WaterReminderManager.swift in Sources */,
 				B15DA9AE2FAC1A1600345F64 /* GoogleGLogo.swift in Sources */,
