@@ -44,7 +44,7 @@ struct ActiveEventView: View {
         let bacLimit = BACCalculator.drivingThreshold(limit: event.bacLimit ?? appState.userProfile.resolvedBACLimit)
         let overLimit = event.drivingMode && currentBAC >= bacLimit
 
-        return ZStack(alignment: .bottom) {
+        return ZStack {
             ScrollView {
                 VStack(spacing: 16) {
 
@@ -91,8 +91,6 @@ struct ActiveEventView: View {
 
                     BannerAdView()
                         .padding(.horizontal)
-
-                    Color.clear.frame(height: 90)
                 }
                 .padding(.top)
             }
@@ -104,18 +102,6 @@ struct ActiveEventView: View {
                 guard !Task.isCancelled else { return }
                 scroll.scrollTo(Self.drinkPickerAnchor, anchor: .top)
             }
-
-            BottomBar(
-                onShowDrinks: {
-                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.25)) {
-                        scroll.scrollTo(Self.drinkPickerAnchor, anchor: .top)
-                    }
-                },
-                onAddWater: { appState.addWater(eventId: eventId) },
-                onAddFood:  { showFoodSheet = true },
-                onEnd:      { showEndConfirm = true },
-                guideTarget: guideTarget
-            )
 
             // Top toast — slides in from above when a drink or water is added
             VStack {
@@ -136,6 +122,20 @@ struct ActiveEventView: View {
             .animation(.spring(response: 0.45, dampingFraction: 0.72), value: appState.undoEntry?.id ?? appState.undoWaterEntry?.id)
             .zIndex(10)
         }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            BottomBar(
+                onShowDrinks: {
+                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.25)) {
+                        scroll.scrollTo(Self.drinkPickerAnchor, anchor: .top)
+                    }
+                },
+                onAddWater: { appState.addWater(eventId: eventId) },
+                onAddFood:  { showFoodSheet = true },
+                onEnd:      { showEndConfirm = true },
+                guideTarget: guideTarget
+            )
+        }
+        .background(AppColors.background.ignoresSafeArea())
         .navigationTitle(event.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(false)
@@ -1331,6 +1331,7 @@ private struct BottomBar: View {
                     tint: AppColors.accent, action: onAddFood)
             endButton
         }
+        .buttonStyle(.plain)
         .padding(.horizontal)
         .padding(.vertical, 12)
         .background(.ultraThinMaterial)
