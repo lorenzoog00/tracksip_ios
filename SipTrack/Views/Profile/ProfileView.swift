@@ -354,6 +354,9 @@ struct ProfileView: View {
                                     set: { waterReminderInterval = Int($0) }
                                 ), in: 10...60, step: 1)
                                 .tint(AppColors.accent)
+                                Text("During a night, logging water restarts this interval.")
+                                    .font(.footnote)
+                                    .foregroundStyle(AppColors.textSecondary)
                             }
                             .guideHighlight(guideTarget == .water)
                         }

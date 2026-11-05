@@ -136,8 +136,8 @@ final class AppState: ObservableObject {
         self.store = store
         currentUserId = FirebaseManager.shared.currentUserId()
         loadAll()
+        refreshWaterReminder()
         if let active = activeEvent {
-            WaterReminderManager.shared.schedule(intervalMinutes: userProfile.waterReminderIntervalMinutes)
             startBACRefreshTimer(for: active.id)
         }
         // Signing in pulls the account's data down. Clearing it is driven by the
@@ -172,6 +172,7 @@ final class AppState: ObservableObject {
     }
 
     private func resetProfile() {
+        WaterReminderManager.shared.cancel()
         DataStore.shared.clearAllData()
         events = []; entries = []; waterEntries = []; foodEntries = []
         customDrinkTypes = []; challenges = []; coachReports = []; nightRecoveries = []
@@ -260,7 +261,7 @@ final class AppState: ObservableObject {
         WatchBridge.shared.pushState()
         startBACRefreshTimer(for: event.id)
         startLiveActivity(for: event)
-        WaterReminderManager.shared.schedule(intervalMinutes: userProfile.waterReminderIntervalMinutes)
+        refreshWaterReminder()
         return event
     }
 
@@ -426,7 +427,7 @@ final class AppState: ObservableObject {
         updateEvent(id: id) { $0.endTime = Date() }
         Haptics.shared.play(.success)
         if #available(iOS 16.2, *) { LiveActivityManager.shared.end() }
-        WaterReminderManager.shared.cancel()
+        refreshWaterReminder()
         WatchBridge.shared.pushState()
         generateAiReport(for: id)
         generateRecoveryBrief(for: id)
@@ -1408,6 +1409,7 @@ final class AppState: ObservableObject {
         entries.removeAll { $0.eventId == id }
         waterEntries.removeAll { $0.eventId == id }
         foodEntries.removeAll { $0.eventId == id }
+        refreshWaterReminder()
         push { try await FirebaseManager.shared.deleteEvent(id) }
     }
 
@@ -1487,6 +1489,19 @@ final class AppState: ObservableObject {
 
     // MARK: - Water
 
+    func refreshWaterReminder() {
+        guard let event = activeEvent else {
+            WaterReminderManager.shared.cancel()
+            return
+        }
+        let lastWater = waterEntries.filter { $0.eventId == event.id }.max { $0.timestamp < $1.timestamp }
+        WaterReminderManager.shared.schedule(
+            eventId: event.id,
+            intervalMinutes: userProfile.waterReminderIntervalMinutes,
+            lastWaterEntryId: lastWater?.id
+        )
+    }
+
     func addWater(eventId: String, volumeMl: Double = 250) {
         let entry = WaterEntry(id: generateId(), eventId: eventId, timestamp: Date(), volumeMl: volumeMl)
         DataStore.shared.addWaterEntry(entry)
@@ -1494,7 +1509,7 @@ final class AppState: ObservableObject {
         Haptics.shared.play(.light)
         scheduleUndoWater(entry)
         if activeEvent?.id == eventId {
-            WaterReminderManager.shared.schedule(intervalMinutes: userProfile.waterReminderIntervalMinutes)
+            refreshWaterReminder()
         }
     }
 
@@ -1520,6 +1535,7 @@ final class AppState: ObservableObject {
     func deleteWaterEntry(_ id: String) {
         DataStore.shared.deleteWaterEntry(id)
         waterEntries.removeAll { $0.id == id }
+        refreshWaterReminder()
     }
 
     // MARK: - Food
@@ -1570,9 +1586,7 @@ final class AppState: ObservableObject {
         // synchronous atomic write and AppState and Haptics share the main actor.
         Haptics.shared.setEnabled(profile.hapticsEnabled)
         push { try await FirebaseManager.shared.pushProfile(profile) }
-        if activeEvent != nil {
-            WaterReminderManager.shared.schedule(intervalMinutes: profile.waterReminderIntervalMinutes)
-        }
+        refreshWaterReminder()
     }
 
     func isFavorite(_ drinkId: String) -> Bool {
@@ -1840,6 +1854,7 @@ final class AppState: ObservableObject {
                 DataStore.shared.saveCoachReports(coachReports)
             }
         }
+        refreshWaterReminder()
     }
 
     // MARK: - BAC helpers (for active event view)
