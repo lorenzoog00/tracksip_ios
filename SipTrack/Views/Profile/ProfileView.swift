@@ -9,6 +9,8 @@ struct ProfileView: View {
     @EnvironmentObject var firebase: FirebaseManager
     @ObservedObject private var consent = ConsentManager.shared
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
+    private let guideTarget: ProfileGuideTarget?
 
     @State private var sex: Sex
     @State private var weightStr: String
@@ -21,6 +23,8 @@ struct ProfileView: View {
     @State private var hapticsEnabled: Bool
     @State private var waterReminderEnabled: Bool
     @State private var waterReminderInterval: Int
+    @State private var checkingWaterPermission = false
+    @State private var waterPermissionDenied = false
     @State private var notificationsEnabled: Bool
     @State private var drinksPerHour: Int
     @State private var caloriesPerNight: Int
@@ -37,7 +41,8 @@ struct ProfileView: View {
 
     enum SaveState { case idle, saving, saved }
 
-    init() {
+    init(guideTarget: ProfileGuideTarget? = nil) {
+        self.guideTarget = guideTarget
         let p = DataStore.shared.loadUserProfile()
         _sex                  = State(initialValue: p.sex)
         _weightStr            = State(initialValue: "\(Int(p.weightKg))")
@@ -80,6 +85,12 @@ struct ProfileView: View {
     }
 
     var body: some View {
+        ScrollViewReader { scroll in
+            profileContent(scroll: scroll)
+        }
+    }
+
+    private func profileContent(scroll: ScrollViewProxy) -> some View {
         ZStack(alignment: .bottom) {
             AppColors.background.ignoresSafeArea()
 
@@ -288,6 +299,8 @@ struct ProfileView: View {
 
                         ProfileDivider()
 
+                        guideHint(.water, "Turn on push reminders, choose the interval, and tap Save Changes.")
+
                         Toggle(isOn: $waterReminderEnabled) {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Push water reminders")
@@ -299,13 +312,29 @@ struct ProfileView: View {
                             }
                         }
                         .tint(AppColors.accent)
+                        .guideHighlight(guideTarget == .water && !waterReminderEnabled)
+                        .disabled(checkingWaterPermission)
                         .onChange(of: waterReminderEnabled) { enabled in
                             if enabled {
+                                checkingWaterPermission = true
+                                waterPermissionDenied = false
                                 Task {
                                     let granted = await WaterReminderManager.shared.requestPermissionIfNeeded()
+                                    checkingWaterPermission = false
+                                    waterPermissionDenied = !granted
                                     if !granted { waterReminderEnabled = false }
                                 }
                             }
+                        }
+
+                        if guideTarget == .water && waterPermissionDenied {
+                            Text("Allow Tracksip notifications in iPhone Settings, then try again.")
+                                .font(.footnote)
+                                .foregroundStyle(AppColors.textSecondary)
+                            Button("Open iPhone Settings") {
+                                if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+                            }
+                            .tint(AppColors.accent)
                         }
 
                         if waterReminderEnabled {
@@ -326,6 +355,7 @@ struct ProfileView: View {
                                 ), in: 10...60, step: 1)
                                 .tint(AppColors.accent)
                             }
+                            .guideHighlight(guideTarget == .water)
                         }
                     }
 
@@ -346,18 +376,21 @@ struct ProfileView: View {
 
                     // MARK: Warnings
                     ProfileSection(title: "Warnings", icon: "bell.fill") {
+                        guideHint(.calories, "Turn on in-app warnings, set your nightly calorie limit, and tap Save Changes.")
                         Toggle(isOn: $notificationsEnabled) {
                             Text("Enable in-app warnings")
                                 .font(.system(size: 17))
                                 .foregroundStyle(AppColors.text)
                         }
                         .tint(AppColors.accent)
+                        .guideHighlight(guideTarget == .calories && !notificationsEnabled)
 
                         if notificationsEnabled {
                             ProfileDivider()
                             stepperRow(label: "Drinks per hour limit", value: $drinksPerHour, range: 1...10)
                             ProfileDivider()
                             stepperRow(label: "Calories per night limit", value: $caloriesPerNight, range: 200...2000, step: 10)
+                                .guideHighlight(guideTarget == .calories)
                             ProfileDivider()
                             Toggle(isOn: $bacApproachWarning) {
                                 Text("BAC approach warning")
@@ -495,16 +528,13 @@ struct ProfileView: View {
 
                     // MARK: Learn
                     ProfileSection(title: "AI Reports", icon: "sparkles") {
+                        guideHint(.analysis, "Read what data is shared, then turn on AI reports if you want them.")
                         Toggle("Enable AI reports", isOn: Binding(
                             get: { appState.userProfile.aiReportsEnabled == true },
-                            set: { enabled in
-                                var profile = appState.userProfile
-                                profile.aiReportsEnabled = enabled
-                                appState.updateUserProfile(profile)
-                                if enabled { appState.checkAndGenerateAutoReports() }
-                            }
+                            set: { appState.setAIReportsEnabled($0) }
                         ))
                         .padding()
+                        .guideHighlight(guideTarget == .analysis)
                         Text("When enabled, your drink logs, BAC estimates, body measurements and night details are sent to Anthropic to create reports. Reports may be generated automatically. You can turn this off at any time. AI reports can be wrong and do not provide medical advice.")
                             .font(.footnote)
                             .foregroundStyle(AppColors.textSecondary)
@@ -513,6 +543,14 @@ struct ProfileView: View {
                         Link("Anthropic Privacy Policy", destination: URL(string: "https://www.anthropic.com/legal/privacy")!)
                             .font(.footnote)
                             .padding(.bottom)
+                    }
+
+                    if appState.currentUserId != nil {
+                        ProfileSection(title: "Help", icon: "questionmark.circle") {
+                            NavigationLink(value: Route.gettingStarted) {
+                                legalRow(label: "Getting Started")
+                            }
+                        }
                     }
 
                     ProfileSection(title: "About Alcohol & BAC", icon: "book.closed.fill") {
@@ -548,6 +586,12 @@ struct ProfileView: View {
                 .padding(.vertical, 12)
             }
             .scrollDismissesKeyboard(.immediately)
+            .task(id: guideTarget) {
+                guard let guideTarget else { return }
+                await Task.yield()
+                guard !Task.isCancelled else { return }
+                scroll.scrollTo(guideTarget, anchor: .top)
+            }
 
             // MARK: Sticky save bar
             if hasChanges {
@@ -748,11 +792,22 @@ struct ProfileView: View {
                     .cornerRadius(14)
                     .shadow(color: AppColors.accentGlow, radius: 10, y: 3)
                 }
-                .disabled(saveState == .saving)
+                .disabled(saveState == .saving || checkingWaterPermission)
+                .guideHighlight(guideTarget == .water || guideTarget == .calories, radius: 14)
             }
             .padding(.horizontal)
             .padding(.vertical, 12)
             .background(AppColors.background)
+        }
+    }
+
+    @ViewBuilder
+    private func guideHint(_ target: ProfileGuideTarget, _ title: LocalizedStringKey) -> some View {
+        if guideTarget == target {
+            Label(title, systemImage: "arrow.down")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppColors.accentWarm)
+                .id(target)
         }
     }
 

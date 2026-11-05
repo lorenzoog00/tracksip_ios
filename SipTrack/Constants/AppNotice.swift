@@ -1,5 +1,6 @@
 import SwiftUI
 import Combine
+import UIKit
 
 // A replacement for `.alert` and `.confirmationDialog`.
 //
@@ -49,10 +50,17 @@ struct NoticeAction: Identifiable {
 struct NoticeField {
     let placeholder: String
     let isSecure: Bool
+    let keyboardType: UIKeyboardType
+    let isValid: (String) -> Bool
 
-    init(placeholder: String, isSecure: Bool = true) {
+    init(
+        placeholder: String, isSecure: Bool = true, keyboardType: UIKeyboardType = .default,
+        isValid: @escaping (String) -> Bool = { _ in true }
+    ) {
         self.placeholder = placeholder
         self.isSecure = isSecure
+        self.keyboardType = keyboardType
+        self.isValid = isValid
     }
 }
 
@@ -147,6 +155,8 @@ private struct NoticeOverlay: View {
     @State private var shown = false
     @FocusState private var fieldFocused: Bool
 
+    private var canSubmit: Bool { notice.field?.isValid(fieldText) ?? true }
+
     /// The way out, if the notice offers one. A backdrop tap uses it, so a
     /// notice with no quiet action cannot be dismissed by accident.
     private var escape: NoticeAction? {
@@ -209,6 +219,7 @@ private struct NoticeOverlay: View {
                     }
                 }
                 .textContentType(field.isSecure ? .password : .none)
+                .keyboardType(field.keyboardType)
                 .focused($fieldFocused)
                 .submitLabel(.go)
                 .onSubmit { if let first = notice.actions.first(where: { $0.kind != .quiet }) { run(first) } }
@@ -255,6 +266,8 @@ private struct NoticeOverlay: View {
                     .cornerRadius(14)
             }
             .buttonStyle(.plain)
+            .disabled(!canSubmit)
+            .opacity(canSubmit ? 1 : 0.5)
 
         case .destructive:
             Button { run(action) } label: {
@@ -287,6 +300,7 @@ private struct NoticeOverlay: View {
     /// Dismisses first so the notice is gone before the handler opens anything
     /// of its own — the ordering that the old confirmation dialog got wrong.
     private func run(_ action: NoticeAction) {
+        guard action.kind == .quiet || canSubmit else { return }
         let text = fieldText
         fieldFocused = false
         NoticeCenter.shared.dismiss()

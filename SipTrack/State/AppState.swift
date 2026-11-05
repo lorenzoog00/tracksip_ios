@@ -46,7 +46,7 @@ final class AppState: ObservableObject {
     @Published var pendingSummaryEventId: String? = nil
 
     /// Set by CreateEventView so RootView pushes the new event immediately.
-    @Published var pendingEventRouteId: String? = nil
+    @Published var pendingEventRoute: Route? = nil
 
     let store: StoreManager
 
@@ -797,6 +797,14 @@ final class AppState: ObservableObject {
 
     // MARK: - AI Coach
 
+    func setAIReportsEnabled(_ enabled: Bool) {
+        guard userProfile.aiReportsEnabled != enabled else { return }
+        var profile = userProfile
+        profile.aiReportsEnabled = enabled
+        updateUserProfile(profile)
+        if enabled { checkAndGenerateAutoReports() }
+    }
+
     func checkAndGenerateAutoReports() {
         guard userProfile.aiReportsEnabled == true else { return }
         guard currentUserId != nil else { return }
@@ -1472,6 +1480,7 @@ final class AppState: ObservableObject {
         undoEntry = entry
         undoTask = Task {
             try? await Task.sleep(nanoseconds: 5_000_000_000)
+            guard !Task.isCancelled else { return }
             undoEntry = nil
         }
     }

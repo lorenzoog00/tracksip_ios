@@ -18,6 +18,7 @@ private struct BACIntelligenceData {
 
 struct NightStatsSheet: View {
     let eventId: String
+    var opensAtTimeline = false
     @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) private var dismiss
 
@@ -258,19 +259,28 @@ struct NightStatsSheet: View {
     // MARK: - Body
 
     var body: some View {
+        let timelineAnchor = "timeline"
         NavigationStack {
             ZStack {
                 AppColors.background.ignoresSafeArea()
-                ScrollView {
-                    VStack(spacing: 16) {
-                        paceSection
-                        bacIntelligenceSection
-                        totalsSection
-                        if !facts.isEmpty { factsSection }
-                        timelineSection
-                        Color.clear.frame(height: 20)
+                ScrollViewReader { scroll in
+                    ScrollView {
+                        VStack(spacing: 16) {
+                            paceSection
+                            bacIntelligenceSection
+                            totalsSection
+                            if !facts.isEmpty { factsSection }
+                            timelineSection.id(timelineAnchor)
+                            Color.clear.frame(height: 20)
+                        }
+                        .padding(.top, 16)
                     }
-                    .padding(.top, 16)
+                    .task {
+                        guard opensAtTimeline else { return }
+                        await Task.yield()
+                        guard !Task.isCancelled else { return }
+                        scroll.scrollTo(timelineAnchor, anchor: .top)
+                    }
                 }
             }
             .navigationTitle("How am I going?")

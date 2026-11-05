@@ -14,27 +14,27 @@ struct DrinkServingSizeTests {
         DrinkType.presets.first { $0.id == id }!
     }
 
-    @Test func spirits_offerSingleDoubleTriple() {
-        let opts = type("vodka").servingSizeOptions
-        #expect(opts.count == 3)
-        #expect(opts.contains { $0.label == "Double" && abs($0.volumeMl - 88) < 0.1 })
-        #expect(opts.first?.label == "Single")
+    @Test func everyDrinkOffersItsStandardServingAndOneLargerServing() {
+        for drink in DrinkType.presets {
+            let sizes = drink.servingSizeOptions
+            #expect(sizes.map(\.label) == ["Standard", "Large"])
+            #expect(sizes.first?.volumeMl == drink.defaultVolumeMl)
+            #expect((sizes.last?.volumeMl ?? 0) > drink.defaultVolumeMl)
+        }
     }
 
-    @Test func wine_offersSmallStandardLarge() {
-        let opts = type("red-wine").servingSizeOptions
-        #expect(opts.contains { $0.label == "Large" })
-        #expect(opts.contains { $0.label == "Standard" })
+    @Test func largeUsesTheCategoryServingSize() {
+        #expect(type("vodka").servingSizeOptions.last?.volumeMl == 88)
+        #expect(type("red-wine").servingSizeOptions.last?.volumeMl == 250)
+        #expect(type("beer").servingSizeOptions.last?.volumeMl == 568)
+        #expect(type("margarita").servingSizeOptions.last?.volumeMl == 360)
     }
 
-    @Test func beer_offersPint() {
-        #expect(type("beer").servingSizeOptions.contains { $0.label == "Pint" })
-    }
-
-    @Test func standardOption_matchesDefaultVolume() {
-        // Every category includes its standard pour = the type's default volume.
-        let beer = type("beer")
-        #expect(beer.servingSizeOptions.contains { abs($0.volumeMl - beer.defaultVolumeMl) < 0.1 })
+    @Test func largeStaysAboveAnEditedStandardServing() {
+        var beer = type("beer")
+        beer.defaultVolumeMl = 710
+        #expect(beer.servingSizeOptions.first?.volumeMl == 710)
+        #expect((beer.servingSizeOptions.last?.volumeMl ?? 0) > 710)
     }
 
     @Test func calories_standardPourMatchesServingValue() {
@@ -44,11 +44,11 @@ struct DrinkServingSizeTests {
 
     @Test func calories_scaleWithPourSize() {
         let beer = type("beer")
-        let pint = beer.servingSizeOptions.first { $0.label == "Pint" }!
+        let large = beer.servingSizeOptions.first { $0.label == "Large" }!
         let bottle = beer.calories(volumeMl: beer.defaultVolumeMl, quantity: 1)
-        let asPint = beer.calories(volumeMl: pint.volumeMl, quantity: 1)
-        #expect(asPint > bottle)
-        #expect(abs(asPint - beer.caloriesPerServing * (pint.volumeMl / beer.defaultVolumeMl)) < 0.001)
+        let asLarge = beer.calories(volumeMl: large.volumeMl, quantity: 1)
+        #expect(asLarge > bottle)
+        #expect(abs(asLarge - beer.caloriesPerServing * (large.volumeMl / beer.defaultVolumeMl)) < 0.001)
     }
 
     @Test func calories_doubleShotCountsTwice() {

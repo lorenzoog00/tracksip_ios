@@ -191,6 +191,12 @@ struct HomeView: View {
             .padding(.horizontal)
         }
 
+        if let userID = appState.currentUserId {
+            GettingStartedCard(userID: userID)
+                .id(userID)
+                .padding(.horizontal)
+        }
+
         // YOUR DATA group
         FeatureSectionHeader(label: "YOUR DATA", accentColor: Color(hex: "#6B99FF"))
             .padding(.horizontal)

@@ -2,18 +2,26 @@ import SwiftUI
 
 struct ActiveEventView: View {
     let eventId: String
+    var guideTarget: EventGuideTarget? = nil
     @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var showEndConfirm     = false
     @State private var showFoodSheet      = false
     @State private var showEditEntry: DrinkEntry? = nil
     @State private var pendingDrink: PendingDrinkWarning? = nil
-    @State private var showStats          = false
+    @State private var statsDestination: StatsDestination?
+    private static let drinkPickerAnchor = "drink-picker"
+
+    private enum StatsDestination: Hashable, Identifiable {
+        case overview, timeline
+
+        var id: Self { self }
+    }
 
     private var event: NightEvent? { appState.events.first { $0.id == eventId } }
     private var eventEntries: [DrinkEntry] { appState.entries.filter { $0.eventId == eventId }.sorted { $0.timestamp > $1.timestamp } }
-    private var eventWater: [WaterEntry]  { appState.waterEntries.filter { $0.eventId == eventId }.sorted { $0.timestamp > $1.timestamp } }
     var eventFood: [FoodEntry] { appState.foodEntries.filter { $0.eventId == eventId } }
     private var currentBAC: Double {
         _ = appState.bacTick
@@ -23,14 +31,16 @@ struct ActiveEventView: View {
 
     var body: some View {
         if let event = event {
-            content(event: event)
+            ScrollViewReader { scroll in
+                content(event: event, scroll: scroll)
+            }
         } else {
             Text("Event not found")
                 .foregroundStyle(AppColors.textSecondary)
         }
     }
 
-    private func content(event: NightEvent) -> some View {
+    private func content(event: NightEvent, scroll: ScrollViewProxy) -> some View {
         let bacLimit = BACCalculator.drivingThreshold(limit: event.bacLimit ?? appState.userProfile.resolvedBACLimit)
         let overLimit = event.drivingMode && currentBAC >= bacLimit
 
@@ -63,22 +73,21 @@ struct ActiveEventView: View {
                     }
 
                     // Stats row
-                    StatsRow(eventId: eventId, waterEntries: eventWater)
+                    StatsRow(eventId: eventId)
 
                     // Quick Add — inline, always visible
                     DrinkPickerList(
                         event: event,
                         drinkTypes: appState.allDrinkTypes,
+                        highlightsLogging: guideTarget == .drinks,
                         onPick: { dt in handleDrinkTap(dt, event: event, bacLimit: bacLimit) },
                         onPickSized: { dt, size in
-                            handleSizedDrinkTap(dt, size: size, event: event, bacLimit: bacLimit)
+                            handleDrinkTap(dt, size: size, event: event, bacLimit: bacLimit)
                         }
                     )
+                    .id(Self.drinkPickerAnchor)
 
-                    // Drink breakdown chips (summary of what was had)
-                    if !eventEntries.isEmpty {
-                        DrinkChips(entries: eventEntries, drinkTypes: appState.allDrinkTypes)
-                    }
+                    timelineLink
 
                     BannerAdView()
                         .padding(.horizontal)
@@ -88,12 +97,24 @@ struct ActiveEventView: View {
                 .padding(.top)
             }
             .background(AppColors.background)
+            .scrollDismissesKeyboard(.interactively)
+            .task(id: guideTarget) {
+                guard guideTarget == .drinks else { return }
+                await Task.yield()
+                guard !Task.isCancelled else { return }
+                scroll.scrollTo(Self.drinkPickerAnchor, anchor: .top)
+            }
 
-            // Bottom bar — water + food + end only (drinks are inline above)
             BottomBar(
+                onShowDrinks: {
+                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.25)) {
+                        scroll.scrollTo(Self.drinkPickerAnchor, anchor: .top)
+                    }
+                },
                 onAddWater: { appState.addWater(eventId: eventId) },
                 onAddFood:  { showFoodSheet = true },
-                onEnd:      { showEndConfirm = true }
+                onEnd:      { showEndConfirm = true },
+                guideTarget: guideTarget
             )
 
             // Top toast — slides in from above when a drink or water is added
@@ -205,7 +226,7 @@ struct ActiveEventView: View {
             OverLimitWarningSheet(
                 warning: warning,
                 onDrinkAnyway: {
-                    appState.addDrink(eventId: eventId, drinkTypeId: warning.drinkType.id)
+                    logDrink(warning.drinkType, size: warning.size, eventId: eventId)
                     pendingDrink = nil
                 },
                 onAddWater: {
@@ -222,15 +243,31 @@ struct ActiveEventView: View {
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
         }
-        .sheet(isPresented: $showStats, content: statsSheet)
+        .sheet(item: $statsDestination) { destination in
+            NightStatsSheet(eventId: eventId, opensAtTimeline: destination == .timeline)
+                .environmentObject(appState)
+        }
     }
 
-    private func statsSheet() -> some View {
-        NightStatsSheet(eventId: eventId).environmentObject(appState)
+    private var timelineLink: some View {
+        Button { statsDestination = .timeline } label: {
+            HStack(spacing: 6) {
+                Text("See Timeline").underline()
+                Image(systemName: "arrow.up.right")
+                    .font(.caption.weight(.semibold))
+                    .accessibilityHidden(true)
+            }
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(AppColors.water)
+            .padding(.horizontal, 12)
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private var statsButton: some View {
-        Button { showStats = true } label: {
+        Button { statsDestination = .overview } label: {
             HStack(spacing: 4) {
                 Image(systemName: "chart.bar.fill")
                     .font(.system(size: 15, weight: .semibold))
@@ -252,8 +289,14 @@ struct ActiveEventView: View {
     // ceiling (event.targetBAC) or the driving limit (event.bacLimit), present
     // a warning sheet offering water / snack / wait / drink-anyway. Otherwise
     // just log the drink.
-    private func handleDrinkTap(_ dt: DrinkType, event: NightEvent, bacLimit: Double) {
-        let pBAC = appState.projectedBAC(forEventId: event.id, addingDrinkTypeId: dt.id)
+    private func handleDrinkTap(
+        _ dt: DrinkType, size: ServingSizeOption? = nil, event: NightEvent, bacLimit: Double
+    ) {
+        guard appState.activeEvent?.id == event.id else { return }
+        let sizeOverride: ServingSizeOption? = size.flatMap { $0.volumeMl == dt.defaultVolumeMl ? nil : $0 }
+        let pBAC = appState.projectedBAC(
+            forEventId: event.id, addingDrinkTypeId: dt.id, volumeOverrideMl: sizeOverride?.volumeMl
+        )
         let nowBAC = appState.currentBAC(for: eventId)
         let beta = BACCalculator.eliminationRate(profile: appState.userProfile)
 
@@ -268,7 +311,7 @@ struct ActiveEventView: View {
         }
 
         guard let t = threshold else {
-            appState.addDrink(eventId: event.id, drinkTypeId: dt.id)
+            logDrink(dt, size: sizeOverride, eventId: event.id)
             return
         }
 
@@ -282,6 +325,7 @@ struct ActiveEventView: View {
 
         pendingDrink = PendingDrinkWarning(
             drinkType: dt,
+            size: sizeOverride,
             currentBAC: nowBAC,
             projectedBAC: pBAC,
             threshold: t,
@@ -291,17 +335,13 @@ struct ActiveEventView: View {
         Haptics.shared.play(.warning)
     }
 
-    // Logs a specific pour size chosen from the tile's context menu. A standard-size pick
-    // logs with no override/label (keeps the timeline clean); a larger pour stores its real
-    // volume in volumeOverrideMl so the dose math reflects what was actually drunk.
-    private func handleSizedDrinkTap(_ dt: DrinkType, size: ServingSizeOption,
-                                     event: NightEvent, bacLimit: Double) {
-        let isStandard = abs(size.volumeMl - dt.defaultVolumeMl) < 0.1
+    private func logDrink(_ dt: DrinkType, size: ServingSizeOption?, eventId: String) {
+        guard appState.activeEvent?.id == eventId else { return }
         appState.addDrink(
-            eventId: event.id,
+            eventId: eventId,
             drinkTypeId: dt.id,
-            volumeOverride: isStandard ? nil : size.volumeMl,
-            servingSizeLabel: isStandard ? nil : size.label
+            volumeOverride: size?.volumeMl,
+            servingSizeLabel: size?.label
         )
     }
 
@@ -312,6 +352,7 @@ struct ActiveEventView: View {
 
 struct PendingDrinkWarning: Identifiable {
     let drinkType: DrinkType
+    let size: ServingSizeOption?
     let currentBAC: Double
     let projectedBAC: Double
     let threshold: Double
@@ -722,13 +763,13 @@ private struct LiquidFill: Shape {
 private struct StatsRow: View {
     @EnvironmentObject var appState: AppState
     let eventId: String
-    let waterEntries: [WaterEntry]
 
     var body: some View {
         let entries = appState.entries.filter { $0.eventId == eventId }
         let drinks = entries.reduce(0) { $0 + $1.quantity }
         let calories = appState.totalCalories(for: eventId)
-        let hydration = BACCalculator.hydrationLevel(waterEntries: waterEntries, drinkCount: drinks)
+        let glasses = appState.waterEntries.filter { $0.eventId == eventId }.count
+        let hydrationBalance = glasses - drinks
         let alcoholG = entries.reduce(0.0) { sum, e in
             let dt = appState.allDrinkTypes.first { $0.id == e.drinkTypeId }
             let vol = e.volumeOverrideMl ?? dt?.defaultVolumeMl ?? 0
@@ -739,11 +780,11 @@ private struct StatsRow: View {
 
         VStack(spacing: 0) {
             HStack(spacing: 0) {
-                StatCell(value: "\(drinks)", label: "Drinks", icon: "wineglass.fill", color: AppColors.accent)
+                StatCell(value: "\(drinks)", label: "Drinks", color: AppColors.text)
                 Divider().frame(height: 40).background(AppColors.border)
-                StatCell(value: "\(Int(calories))", label: "Calories", icon: "flame.fill", color: .orange)
+                StatCell(value: "\(Int(calories))", label: "Calories", color: .orange)
                 Divider().frame(height: 40).background(AppColors.border)
-                StatCell(value: hydrationLabel(hydration), label: "Hydration", icon: "drop.fill", color: hydrationColor(hydration))
+                hydrationCell(balance: hydrationBalance)
             }
             .padding(.vertical, 12)
 
@@ -767,80 +808,60 @@ private struct StatsRow: View {
         .padding(.horizontal)
     }
 
-    private func hydrationLabel(_ h: BACCalculator.HydrationLevel) -> String {
-        switch h {
-        case .none: return "-"
-        case .behind: return "Behind"
-        case .balanced: return "OK"
-        case .great: return "Great"
+    private func hydrationCell(balance: Int) -> some View {
+        let value = balance > 0 ? "+\(balance)" : "\(balance)"
+        let color: Color = switch balance {
+        case ..<0: AppColors.danger
+        case 0: AppColors.text
+        default: AppColors.success
         }
-    }
 
-    private func hydrationColor(_ h: BACCalculator.HydrationLevel) -> Color {
-        switch h {
-        case .none, .behind: return AppColors.danger
-        case .balanced: return AppColors.accent
-        case .great: return AppColors.success
+        return Button {
+            NoticeCenter.shared.show(Notice(
+                icon: "drop.fill",
+                tone: .water,
+                title: "Hydration goal",
+                message: "Aim for one glass of water per drink you log. The number is glasses of water logged minus drinks logged.",
+                actions: [NoticeAction("Got it")]
+            ))
+        } label: {
+            StatCell(value: value, label: "Hydration", color: color, showsInfoIcon: true)
+                .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Hydration")
+        .accessibilityValue(value)
+        .accessibilityHint("Explains the water tracking goal")
     }
 }
 
 private struct StatCell: View {
     let value: String
     let label: String
-    let icon: String
     let color: Color
+    var showsInfoIcon = false
 
     var body: some View {
         VStack(spacing: 3) {
             Text(value)
                 .font(.system(size: 24, weight: .bold, design: .serif))
-                .foregroundStyle(color == AppColors.accent ? AppColors.text : color)
-            Text(label.uppercased())
-                .font(.system(size: 12, weight: .semibold))
-                .tracking(1.2)
-                .foregroundStyle(AppColors.textTertiary)
-        }
-        .frame(maxWidth: .infinity)
-    }
-}
-
-// MARK: - Drink Chips
-
-private struct DrinkChips: View {
-    let entries: [DrinkEntry]
-    let drinkTypes: [DrinkType]
-
-    private var breakdown: [(String, Int)] {
-        var counts: [String: Int] = [:]
-        for e in entries {
-            let name = drinkTypes.first { $0.id == e.drinkTypeId }?.name ?? "Unknown"
-            counts[name, default: 0] += e.quantity
-        }
-        return counts.sorted { $0.value > $1.value }
-    }
-
-    var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(breakdown, id: \.0) { name, count in
-                    HStack(spacing: 4) {
-                        Text(name)
-                            .font(.system(size: 15, weight: .medium))
-                            .foregroundStyle(AppColors.text)
-                        Text("×\(count)")
-                            .font(.system(size: 15, weight: .bold))
-                            .foregroundStyle(AppColors.accent)
-                    }
-                    .padding(.horizontal, 11)
-                    .padding(.vertical, 7)
-                    .background(AppColors.surface)
-                    .cornerRadius(20)
-                    .overlay(RoundedRectangle(cornerRadius: 20).stroke(AppColors.border, lineWidth: 1))
+                .foregroundStyle(color)
+            HStack(spacing: 4) {
+                Text(label.uppercased())
+                    .font(.system(size: 12, weight: .semibold))
+                    .tracking(1.2)
+                    .foregroundStyle(AppColors.textTertiary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                if showsInfoIcon {
+                    Image(systemName: "info.circle")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(AppColors.textSecondary)
+                        .accessibilityHidden(true)
                 }
             }
-            .padding(.horizontal)
         }
+        .frame(maxWidth: .infinity)
     }
 }
 
@@ -1291,18 +1312,21 @@ private struct TLFoodCard: View {
 // MARK: - Bottom Bar
 
 private struct BottomBar: View {
+    let onShowDrinks: () -> Void
     let onAddWater: () -> Void
     let onAddFood: () -> Void
     let onEnd: () -> Void
+    let guideTarget: EventGuideTarget?
 
     var body: some View {
-        // Water and Food add something and can be tapped all night. Ending the
-        // night happens once and closes everything. They were three identical
-        // tiles, so the only thing separating "add a snack" from "finish" was
-        // the colour — and a square stop icon borrowed from a music player.
         HStack(spacing: 10) {
+            addTile(icon: "wineglass.fill", label: "Drink",
+                    tint: AppColors.accent, action: onShowDrinks)
+                .guideHighlight(guideTarget == .drinks, radius: 14)
+                .accessibilityHint("Jumps to the drink picker")
             addTile(icon: "drop.fill", label: "Water",
                     tint: AppColors.water, action: onAddWater)
+                .guideHighlight(guideTarget == .water, radius: 14)
             addTile(icon: "fork.knife", label: "Food",
                     tint: AppColors.accent, action: onAddFood)
             endButton
@@ -1323,6 +1347,8 @@ private struct BottomBar: View {
                     .font(.system(size: 20, weight: .semibold))
                 Text(label)
                     .font(.system(size: 15, weight: .semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             }
             .foregroundStyle(tint)
             .frame(maxWidth: .infinity)
@@ -1343,6 +1369,8 @@ private struct BottomBar: View {
                     .font(.system(size: 20, weight: .semibold))
                 Text("End Night")
                     .font(.system(size: 15, weight: .bold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             }
             .foregroundStyle(AppColors.text)
             .frame(maxWidth: .infinity)

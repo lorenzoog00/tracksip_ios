@@ -52,6 +52,8 @@ struct RootView: View {
                             switch route {
                             case .event(let id):
                                 ActiveEventView(eventId: id)
+                            case .guidedEvent(let id, let target):
+                                ActiveEventView(eventId: id, guideTarget: target)
                             case .summary(let id):
                                 SummaryView(eventId: id)
                             case .calendar:
@@ -62,8 +64,17 @@ struct RootView: View {
                                 ChallengesView()
                             case .drinks:
                                 DrinksView()
+                            case .guidedDrinkCalories:
+                                DrinksView(highlightsCalories: true)
                             case .profile:
                                 ProfileView()
+                            case .guidedProfile(let target):
+                                ProfileView(guideTarget: target)
+                            case .gettingStarted:
+                                if let userID = appState.currentUserId {
+                                    GettingStartedView(userID: userID)
+                                        .id(userID)
+                                }
                             case .subscription:
                                 ProView(presentation: .pushed)
                             case .auth(let signUp):
@@ -79,10 +90,10 @@ struct RootView: View {
                     path.append(Route.summary(eventId))
                     appState.pendingSummaryEventId = nil
                 }
-                .onChange(of: appState.pendingEventRouteId) { _, newValue in
-                    guard let eventId = newValue else { return }
-                    path.append(Route.event(eventId))
-                    appState.pendingEventRouteId = nil
+                .onChange(of: appState.pendingEventRoute) { _, route in
+                    guard let route else { return }
+                    path.append(route)
+                    appState.pendingEventRoute = nil
                 }
             }
         }
