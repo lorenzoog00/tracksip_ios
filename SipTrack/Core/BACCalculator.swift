@@ -569,18 +569,32 @@ struct BACCalculator {
         eventStart: Date,
         stomachState: StomachState = .empty,
         stomachStateTimestamp: Date? = nil,
-        foodEntries: [FoodEntry] = []
+        foodEntries: [FoodEntry] = [],
+        asOf time: Date = .now
     ) -> Double {
         let r           = profileR(profile: profile)
         let beta        = eliminationRate(profile: profile)
         let stTimestamp = stomachStateTimestamp ?? eventStart
         return bacAt(
-            Date(),
+            time,
             entries: entries, drinkTypes: drinkTypes,
             weightKg: profile.weightKg, r: r, beta: beta, sex: profile.sex,
             stomachState: stomachState, stomachStateTimestamp: stTimestamp,
             foodEntries: foodEntries
         )
+    }
+
+    static func interpolatedBAC(at time: Date, sorted points: [BACDataPoint]) -> Double {
+        guard let first = points.first, let last = points.last else { return 0 }
+        if time <= first.date { return first.bac }
+        if time >= last.date { return last.bac }
+        guard let upper = points.firstIndex(where: { $0.date >= time }), upper > 0 else { return 0 }
+        let before = points[upper - 1]
+        let after = points[upper]
+        let span = after.date.timeIntervalSince(before.date)
+        guard span > 0 else { return before.bac }
+        let fraction = time.timeIntervalSince(before.date) / span
+        return before.bac + (after.bac - before.bac) * fraction
     }
 
     static func drinksInLastHour(entries: [DrinkEntry]) -> Int {

@@ -14,7 +14,9 @@
 		B2C3D4E5F6A7B8C9D0E1F2A3 /* NightPickerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F6A7B8C9D0E1F2A4 /* NightPickerTests.swift */; };
 		C4D5E6F7A8B9C0D1E2F3A4B5 /* BACCalculatorKineticsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D5E6F7A8B9C0D1E2F3A4B6 /* BACCalculatorKineticsTests.swift */; };
 		D5E6F7A8B9C0D1E2F3A4B5C6 /* DrinkServingSizeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5E6F7A8B9C0D1E2F3A4B5C7 /* DrinkServingSizeTests.swift */; };
+		F60CE20FBF2947D4A1289200 /* NightBACChartTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F60CE20FBF2947D4A1289201 /* NightBACChartTests.swift */; };
 		A7B8C9D0E1F2A3B4C5D6E7F9 /* AuthSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7B8C9D0E1F2A3B4C5D6E7F8 /* AuthSessionTests.swift */; };
+		E8ED4CBC394E4A3881D17C20 /* AppStoreUpdateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8ED4CBC394E4A3881D17C21 /* AppStoreUpdateTests.swift */; };
 		B8C9D0E1F2A3B4C5D6E7F8AA /* AccountDeletionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8C9D0E1F2A3B4C5D6E7F8A9 /* AccountDeletionTests.swift */; };
 		7C1D5A9E3B2F4608A1D4E7F2 /* HapticsPreferenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C1D5A9E3B2F4608A1D4E7F3 /* HapticsPreferenceTests.swift */; };
 		8E3F7C2B5D4A6810C3F6A9B4 /* HapticSpecTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E3F7C2B5D4A6810C3F6A9B5 /* HapticSpecTests.swift */; };
@@ -54,6 +56,7 @@
 		B101B4EA2F9CD648009F7DDD /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4A42F9C2F32009F7DDD /* AppState.swift */; };
 		B101B4EB2F9CD648009F7DDD /* AppStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4A62F9C2F32009F7DDD /* AppStorage.swift */; };
 		B101B4EC2F9CD648009F7DDD /* StoreManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4A82F9C2F32009F7DDD /* StoreManager.swift */; };
+		E8ED4CBC394E4A3881D17C22 /* AppStoreUpdate.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8ED4CBC394E4A3881D17C23 /* AppStoreUpdate.swift */; };
 		B101B4EE2F9CD648009F7DDD /* CalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4AC2F9C2F32009F7DDD /* CalendarView.swift */; };
 		B101B4EF2F9CD648009F7DDD /* ChallengesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4AE2F9C2F32009F7DDD /* ChallengesView.swift */; };
 		B101B4F02F9CD648009F7DDD /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4B02F9C2F32009F7DDD /* DashboardView.swift */; };
@@ -64,6 +67,7 @@
 		B2D1A0012F9CD648009F7DDD /* DrinkPickerList.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2D1A0002F9CD648009F7DDD /* DrinkPickerList.swift */; };
 		B2D1A0032F9CD648009F7DDD /* NightFacts.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2D1A0022F9CD648009F7DDD /* NightFacts.swift */; };
 		B2D1A0052F9CD648009F7DDD /* NightStatsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2D1A0042F9CD648009F7DDD /* NightStatsSheet.swift */; };
+		F60CE20FBF2947D4A1289202 /* NightBACChart.swift in Sources */ = {isa = PBXBuildFile; fileRef = F60CE20FBF2947D4A1289203 /* NightBACChart.swift */; };
 		B101B4F52F9CD648009F7DDD /* CreateEventView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4B82F9C2F32009F7DDD /* CreateEventView.swift */; };
 		B101B4F62F9CD648009F7DDD /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4BA2F9C2F32009F7DDD /* HomeView.swift */; };
 		B101B4F72F9CD648009F7DDD /* DisclaimerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4BC2F9C2F32009F7DDD /* DisclaimerView.swift */; };
@@ -190,7 +194,9 @@
 		B2C3D4E5F6A7B8C9D0E1F2A4 /* NightPickerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NightPickerTests.swift; sourceTree = "<group>"; };
 		C4D5E6F7A8B9C0D1E2F3A4B6 /* BACCalculatorKineticsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BACCalculatorKineticsTests.swift; sourceTree = "<group>"; };
 		D5E6F7A8B9C0D1E2F3A4B5C7 /* DrinkServingSizeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrinkServingSizeTests.swift; sourceTree = "<group>"; };
+		F60CE20FBF2947D4A1289201 /* NightBACChartTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NightBACChartTests.swift; sourceTree = "<group>"; };
 		A7B8C9D0E1F2A3B4C5D6E7F8 /* AuthSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthSessionTests.swift; sourceTree = "<group>"; };
+		E8ED4CBC394E4A3881D17C21 /* AppStoreUpdateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStoreUpdateTests.swift; sourceTree = "<group>"; };
 		B8C9D0E1F2A3B4C5D6E7F8A9 /* AccountDeletionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountDeletionTests.swift; sourceTree = "<group>"; };
 		7C1D5A9E3B2F4608A1D4E7F3 /* HapticsPreferenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticsPreferenceTests.swift; sourceTree = "<group>"; };
 		8E3F7C2B5D4A6810C3F6A9B5 /* HapticSpecTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticSpecTests.swift; sourceTree = "<group>"; };
@@ -229,6 +235,7 @@
 		B101B4A42F9C2F32009F7DDD /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		B101B4A62F9C2F32009F7DDD /* AppStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStorage.swift; sourceTree = "<group>"; };
 		B101B4A82F9C2F32009F7DDD /* StoreManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreManager.swift; sourceTree = "<group>"; };
+		E8ED4CBC394E4A3881D17C23 /* AppStoreUpdate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStoreUpdate.swift; sourceTree = "<group>"; };
 		B101B4AC2F9C2F32009F7DDD /* CalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarView.swift; sourceTree = "<group>"; };
 		B101B4AE2F9C2F32009F7DDD /* ChallengesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChallengesView.swift; sourceTree = "<group>"; };
 		B101B4B02F9C2F32009F7DDD /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
@@ -239,6 +246,7 @@
 		B2D1A0002F9CD648009F7DDD /* DrinkPickerList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrinkPickerList.swift; sourceTree = "<group>"; };
 		B2D1A0022F9CD648009F7DDD /* NightFacts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NightFacts.swift; sourceTree = "<group>"; };
 		B2D1A0042F9CD648009F7DDD /* NightStatsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NightStatsSheet.swift; sourceTree = "<group>"; };
+		F60CE20FBF2947D4A1289203 /* NightBACChart.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NightBACChart.swift; sourceTree = "<group>"; };
 		B101B4B82F9C2F32009F7DDD /* CreateEventView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateEventView.swift; sourceTree = "<group>"; };
 		B101B4BA2F9C2F32009F7DDD /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		B101B4BC2F9C2F32009F7DDD /* DisclaimerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisclaimerView.swift; sourceTree = "<group>"; };
@@ -516,6 +524,7 @@
 			isa = PBXGroup;
 			children = (
 				B101B4A82F9C2F32009F7DDD /* StoreManager.swift */,
+				E8ED4CBC394E4A3881D17C23 /* AppStoreUpdate.swift */,
 			);
 			path = Store;
 			sourceTree = "<group>";
@@ -570,6 +579,7 @@
 				B2D1A0002F9CD648009F7DDD /* DrinkPickerList.swift */,
 				B2D1A0022F9CD648009F7DDD /* NightFacts.swift */,
 				B2D1A0042F9CD648009F7DDD /* NightStatsSheet.swift */,
+				F60CE20FBF2947D4A1289203 /* NightBACChart.swift */,
 			);
 			path = Event;
 			sourceTree = "<group>";
@@ -714,7 +724,9 @@
 				B2C3D4E5F6A7B8C9D0E1F2A4 /* NightPickerTests.swift */,
 				C4D5E6F7A8B9C0D1E2F3A4B6 /* BACCalculatorKineticsTests.swift */,
 				D5E6F7A8B9C0D1E2F3A4B5C7 /* DrinkServingSizeTests.swift */,
+				F60CE20FBF2947D4A1289201 /* NightBACChartTests.swift */,
 				A7B8C9D0E1F2A3B4C5D6E7F8 /* AuthSessionTests.swift */,
+				E8ED4CBC394E4A3881D17C21 /* AppStoreUpdateTests.swift */,
 				B8C9D0E1F2A3B4C5D6E7F8A9 /* AccountDeletionTests.swift */,
 				7C1D5A9E3B2F4608A1D4E7F3 /* HapticsPreferenceTests.swift */,
 				8E3F7C2B5D4A6810C3F6A9B5 /* HapticSpecTests.swift */,
@@ -1046,6 +1058,7 @@
 				B101B4EA2F9CD648009F7DDD /* AppState.swift in Sources */,
 				B101B4EB2F9CD648009F7DDD /* AppStorage.swift in Sources */,
 				B101B4EC2F9CD648009F7DDD /* StoreManager.swift in Sources */,
+				E8ED4CBC394E4A3881D17C22 /* AppStoreUpdate.swift in Sources */,
 				B101B4EE2F9CD648009F7DDD /* CalendarView.swift in Sources */,
 				B101B4EF2F9CD648009F7DDD /* ChallengesView.swift in Sources */,
 				B101B4F02F9CD648009F7DDD /* DashboardView.swift in Sources */,
@@ -1057,6 +1070,7 @@
 				B2D1A0012F9CD648009F7DDD /* DrinkPickerList.swift in Sources */,
 				B2D1A0032F9CD648009F7DDD /* NightFacts.swift in Sources */,
 				B2D1A0052F9CD648009F7DDD /* NightStatsSheet.swift in Sources */,
+				F60CE20FBF2947D4A1289202 /* NightBACChart.swift in Sources */,
 				B15DA9AA2FAC149800345F64 /* EmailVerificationView.swift in Sources */,
 				B101B4F52F9CD648009F7DDD /* CreateEventView.swift in Sources */,
 				B15DA9872FAB993000345F64 /* FirebaseManager.swift in Sources */,
@@ -1097,7 +1111,9 @@
 				B2C3D4E5F6A7B8C9D0E1F2A3 /* NightPickerTests.swift in Sources */,
 				C4D5E6F7A8B9C0D1E2F3A4B5 /* BACCalculatorKineticsTests.swift in Sources */,
 				D5E6F7A8B9C0D1E2F3A4B5C6 /* DrinkServingSizeTests.swift in Sources */,
+				F60CE20FBF2947D4A1289200 /* NightBACChartTests.swift in Sources */,
 				A7B8C9D0E1F2A3B4C5D6E7F9 /* AuthSessionTests.swift in Sources */,
+				E8ED4CBC394E4A3881D17C20 /* AppStoreUpdateTests.swift in Sources */,
 				B8C9D0E1F2A3B4C5D6E7F8AA /* AccountDeletionTests.swift in Sources */,
 				7C1D5A9E3B2F4608A1D4E7F2 /* HapticsPreferenceTests.swift in Sources */,
 				8E3F7C2B5D4A6810C3F6A9B4 /* HapticSpecTests.swift in Sources */,

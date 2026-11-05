@@ -1,19 +1,5 @@
 import SwiftUI
 
-private struct BACIntelligenceData {
-    let timeline: [BACDataPoint]
-    let peakPoint: BACDataPoint?
-    let minutesAboveLimit: Int
-
-    init(timeline: [BACDataPoint], bacLimit: Double) {
-        self.timeline = timeline
-        self.peakPoint = timeline.max(by: { $0.bac < $1.bac })
-        self.minutesAboveLimit = timeline.filter { $0.bac > bacLimit }.count * 5
-    }
-
-    static let empty = BACIntelligenceData(timeline: [], bacLimit: 0.08)
-}
-
 // MARK: - NightStatsSheet
 
 struct NightStatsSheet: View {
@@ -29,7 +15,6 @@ struct NightStatsSheet: View {
     private var waterEntries: [WaterEntry] {
         appState.waterEntries.filter { $0.eventId == eventId }.sorted { $0.timestamp < $1.timestamp }
     }
-    private var currentBAC: Double { appState.currentBAC(for: eventId) }
     private var bacLimit: Double { event?.bacLimit ?? appState.userProfile.resolvedBACLimit }
     private var hoursElapsed: Double {
         guard let start = event?.startTime else { return 0.01 }
@@ -85,77 +70,65 @@ struct NightStatsSheet: View {
         )
     }
 
-    private var peakBACInfo: (peakBAC: Double, minutesAgo: Int) {
-        guard let peak = peakPoint else { return (0, 0) }
-        return (peak.bac, max(0, Int(Date().timeIntervalSince(peak.date) / 60)))
-    }
-
     // MARK: - BAC Intelligence
 
-    private enum BACPhase { case absorbing, atPeak, eliminating }
+    private enum BACPhase { case absorbing, atPeak, eliminating, zero }
 
-    private var bacData: BACIntelligenceData {
-        guard let start = event?.startTime, !entries.isEmpty else { return .empty }
+    private func makeChartData() -> NightBACChartData? {
+        guard let event else { return nil }
+        _ = appState.bacTick
+        let now = Date.now
+        let logged = entries.filter { $0.timestamp <= now }
+        let profile = appState.userProfile
+        let drinkTypes = appState.allDrinkTypes
+        let foods = appState.foodEntries.filter { $0.eventId == eventId && $0.timestamp <= now }
+        let stomach = event.stomachState ?? .empty
         let timeline = BACCalculator.bacTimeline(
-            entries: entries,
-            drinkTypes: appState.allDrinkTypes,
-            profile: appState.userProfile,
-            eventStart: start,
-            stomachState: event?.stomachState ?? .empty,
-            stomachStateTimestamp: event?.stomachStateTimestamp,
-            foodEntries: appState.foodEntries.filter { $0.eventId == eventId }
+            entries: logged, drinkTypes: drinkTypes, profile: profile, eventStart: event.startTime,
+            stomachState: stomach, stomachStateTimestamp: event.stomachStateTimestamp, foodEntries: foods
         )
-        return BACIntelligenceData(timeline: timeline, bacLimit: bacLimit)
+        let current = BACCalculator.currentBAC(
+            entries: logged, waterEntries: waterEntries, drinkTypes: drinkTypes, profile: profile,
+            eventStart: event.startTime, stomachState: stomach, stomachStateTimestamp: event.stomachStateTimestamp,
+            foodEntries: foods, asOf: now
+        )
+        return NightBACChartData(
+            eventStart: event.startTime, now: now, currentBAC: current, samples: timeline,
+            entries: logged, drinkTypes: drinkTypes
+        )
     }
 
-    private var bacTimelinePoints: [BACDataPoint] { bacData.timeline }
-    private var peakPoint: BACDataPoint? { bacData.peakPoint }
-    private var peakBAC: Double { peakPoint?.bac ?? 0 }
-    private var peakTime: Date? { peakPoint?.date }
-
-    private var bacPhase: BACPhase {
-        guard peakBAC > 0.001 else { return .absorbing }
-        let delta = peakBAC - currentBAC
-        // At peak: BAC within 0.5% of highest point
-        if delta <= 0.005 { return .atPeak }
-        // Plateau: peaked less than 20 min ago and still barely dropping
-        if let pt = peakTime, Date().timeIntervalSince(pt) < 1200 && delta < 0.01 { return .atPeak }
-        // Eliminating: clearly below peak
-        if currentBAC < peakBAC - 0.005 { return .eliminating }
-        return .absorbing
+    private func bacPhase(data: NightBACChartData, peak: BACDataPoint?) -> BACPhase {
+        let current = data.current.bac
+        if data.projection.contains(where: { $0.bac > current + 0.005 }) { return .absorbing }
+        guard let peak, current > 0 else { return .zero }
+        let delta = peak.bac - current
+        if delta <= 0.005 || (data.current.date.timeIntervalSince(peak.date) < 1200 && delta < 0.01) {
+            return .atPeak
+        }
+        return .eliminating
     }
 
-    private var minutesAboveLimit: Int { bacData.minutesAboveLimit }
-
-    private var hoursToZeroBAC: Double {
-        BACCalculator.hoursToZeroBAC(currentBAC, profile: appState.userProfile)
-    }
-
-    private var peakFraction: Double {
-        guard let pt = peakTime, let start = event?.startTime else { return 0 }
-        let totalElapsed = max(1, Date().timeIntervalSince(start))
-        return max(0, min(1.0, pt.timeIntervalSince(start) / totalElapsed))
-    }
-
-    // MARK: - BAC Intelligence Helpers
-
-    private var phaseColor: Color {
-        switch bacPhase {
+    private func phaseColor(_ phase: BACPhase) -> Color {
+        switch phase {
         case .absorbing:   return Color(hex: "#FF6B6B")
         case .atPeak:      return Color(hex: "#F0A830")
         case .eliminating: return Color(hex: "#4CD964")
+        case .zero:        return AppColors.textSecondary
         }
     }
 
-    private var phaseLabel: String {
-        switch bacPhase {
+    private func phaseLabel(_ phase: BACPhase) -> String {
+        switch phase {
         case .absorbing:   return "▲ Still absorbing"
         case .atPeak:      return "▲ At your peak"
         case .eliminating: return "▼ Eliminating — BAC dropping"
+        case .zero:        return "Estimated BAC at zero"
         }
     }
 
-    private var soberInTile: some View {
+    private func soberInTile(currentBAC: Double) -> some View {
+        let hoursToZeroBAC = BACCalculator.hoursToZeroBAC(currentBAC, profile: appState.userProfile)
         let h = Int(hoursToZeroBAC)
         let m = Int((hoursToZeroBAC - Double(h)) * 60)
         let soberTime = Calendar.current.date(byAdding: .minute, value: Int(hoursToZeroBAC * 60), to: Date())
@@ -180,86 +153,11 @@ struct NightStatsSheet: View {
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color(hex: "#5BC8FF").opacity(0.2), lineWidth: 1))
     }
 
-    private var bacArcBar: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("BAC ACROSS THE NIGHT")
-                .font(.system(size: 10, weight: .black))
-                .tracking(1.5)
-                .foregroundStyle(AppColors.textTertiary)
-
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Rectangle()
-                        .fill(AppColors.border.opacity(0.4))
-                        .frame(height: 8)
-                        .clipShape(RoundedRectangle(cornerRadius: 4))
-
-                    if !bacTimelinePoints.isEmpty {
-                        Rectangle()
-                            .fill(LinearGradient(
-                                colors: [Color(hex: "#4CD964"), Color(hex: "#F0A830"), Color(hex: "#FF6B6B"), Color(hex: "#F0A830")],
-                                startPoint: .leading, endPoint: .trailing
-                            ))
-                            .frame(height: 8)
-                            .clipShape(RoundedRectangle(cornerRadius: 4))
-                    }
-
-                    if peakBAC > 0.001 && !bacTimelinePoints.isEmpty {
-                        Rectangle()
-                            .fill(Color.white.opacity(0.8))
-                            .frame(width: 2, height: 14)
-                            .clipShape(RoundedRectangle(cornerRadius: 1))
-                            .offset(x: max(0, geo.size.width * peakFraction - 1))
-                            .offset(y: -3)
-                    }
-                }
-            }
-            .frame(height: 8)
-            .padding(.top, 4)
-
-            HStack {
-                Text("start")
-                    .font(.system(size: 11))
-                    .foregroundStyle(AppColors.textTertiary)
-                Spacer()
-                if peakBAC > 0.001 {
-                    Text("↑ peak")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Color(hex: "#FF6B6B"))
-                }
-                Spacer()
-                Text("now")
-                    .font(.system(size: 11))
-                    .foregroundStyle(AppColors.textTertiary)
-            }
-        }
-    }
-
-    private var drinksThisHour: Int {
-        let cutoff = Date().addingTimeInterval(-3600)
-        return entries.filter { $0.timestamp >= cutoff }.count
-    }
-
-    private var facts: [NightFact] {
-        let (peakBAC, peakMinsAgo) = peakBACInfo
-        return computeNightFacts(
-            drinkCount: drinkCount,
-            waterCount: waterCount,
-            currentBAC: currentBAC,
-            bacLimit: bacLimit,
-            hoursElapsed: hoursElapsed,
-            totalCalories: totalCalories,
-            peakBAC: peakBAC,
-            peakBACMinutesAgo: peakMinsAgo,
-            drinksThisHour: drinksThisHour,
-            avgDrinksPerHour: drinksPerHour
-        )
-    }
-
     // MARK: - Body
 
     var body: some View {
         let timelineAnchor = "timeline"
+        let chartData = makeChartData()
         NavigationStack {
             ZStack {
                 AppColors.background.ignoresSafeArea()
@@ -267,9 +165,12 @@ struct NightStatsSheet: View {
                     ScrollView {
                         VStack(spacing: 16) {
                             paceSection
-                            bacIntelligenceSection
+                            if let chartData {
+                                bacIntelligenceSection(chartData)
+                                NightBACChartCard(data: chartData)
+                                    .padding(.horizontal, 16)
+                            }
                             totalsSection
-                            if !facts.isEmpty { factsSection }
                             timelineSection.id(timelineAnchor)
                             Color.clear.frame(height: 20)
                         }
@@ -295,61 +196,60 @@ struct NightStatsSheet: View {
 
     // MARK: - Section: BAC Intelligence
 
-    private var bacIntelligenceSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+    private func bacIntelligenceSection(_ data: NightBACChartData) -> some View {
+        let peak = data.history.max { $0.bac < $1.bac }
+        let phase = bacPhase(data: data, peak: peak)
+        let color = phaseColor(phase)
+        let minutesAboveLimit = data.history.dropLast().filter { $0.bac > bacLimit }.count * 5
+        return VStack(alignment: .leading, spacing: 10) {
             // Phase badge
             HStack {
-                Text(phaseLabel)
+                Text(phaseLabel(phase))
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(phaseColor)
+                    .foregroundStyle(color)
                 Spacer()
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(phaseColor.opacity(0.10))
+            .background(color.opacity(0.10))
             .clipShape(RoundedRectangle(cornerRadius: 10))
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(phaseColor.opacity(0.25), lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(color.opacity(0.25), lineWidth: 1))
 
             // Peak + Current BAC tiles
             HStack(spacing: 10) {
-                peakBACTile
-                currentBACTile
+                peakBACTile(peak)
+                currentBACTile(bac: data.current.bac, peakBAC: peak?.bac ?? 0, phase: phase)
             }
-
-            // Arc bar
-            bacArcBar
 
             // Driving-mode only
             if event?.drivingMode == true {
                 HStack(spacing: 10) {
-                    soberInTile
-                    aboveLimitTile
+                    soberInTile(currentBAC: data.current.bac)
+                    aboveLimitTile(minutes: minutesAboveLimit)
                 }
             }
         }
         .padding(.horizontal, 16)
     }
 
-    private var peakBACTile: some View {
+    private func peakBACTile(_ peak: BACDataPoint?) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("PEAK BAC")
                 .font(.system(size: 11, weight: .black))
                 .tracking(1.5)
                 .foregroundStyle(Color(hex: "#FF6B6B"))
-            if peakBAC > 0.001 {
-                Text(String(format: "%.3f", peakBAC))
+            if let peak, peak.bac > 0.001 {
+                Text(String(format: "%.3f", peak.bac))
                     .font(.system(size: 28, weight: .black, design: .monospaced))
                     .foregroundStyle(Color(hex: "#FF6B6B"))
-                if let pt = peakTime {
-                    Text("at \(pt, format: .dateTime.hour().minute())")
-                        .font(.system(size: 13))
-                        .foregroundStyle(AppColors.textTertiary)
-                }
+                Text("at \(peak.date, format: .dateTime.hour().minute())")
+                    .font(.system(size: 13))
+                    .foregroundStyle(AppColors.textTertiary)
             } else {
                 Text("—")
                     .font(.system(size: 28, weight: .black, design: .monospaced))
                     .foregroundStyle(AppColors.textTertiary)
-                Text("still rising")
+                Text("No peak yet")
                     .font(.system(size: 13))
                     .foregroundStyle(AppColors.textTertiary)
             }
@@ -361,18 +261,22 @@ struct NightStatsSheet: View {
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color(hex: "#FF6B6B").opacity(0.2), lineWidth: 1))
     }
 
-    private var currentBACTile: some View {
-        VStack(alignment: .leading, spacing: 4) {
+    private func currentBACTile(bac: Double, peakBAC: Double, phase: BACPhase) -> some View {
+        let detail = switch phase {
+        case .absorbing: "↑ rising"
+        case .atPeak: "Near peak"
+        case .eliminating: String(format: "↓ %.3f from peak", peakBAC - bac)
+        case .zero: "Estimate"
+        }
+        return VStack(alignment: .leading, spacing: 4) {
             Text("CURRENT BAC")
                 .font(.system(size: 11, weight: .black))
                 .tracking(1.5)
                 .foregroundStyle(Color(hex: "#F0A830"))
-            Text(String(format: "%.3f", currentBAC))
+            Text(String(format: "%.3f", bac))
                 .font(.system(size: 28, weight: .black, design: .monospaced))
                 .foregroundStyle(Color(hex: "#F0A830"))
-            Text(bacPhase == .eliminating && peakBAC > 0
-                 ? String(format: "↓ %.3f from peak", peakBAC - currentBAC)
-                 : "↑ rising")
+            Text(detail)
                 .font(.system(size: 13))
                 .foregroundStyle(AppColors.textTertiary)
         }
@@ -383,14 +287,14 @@ struct NightStatsSheet: View {
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color(hex: "#F0A830").opacity(0.2), lineWidth: 1))
     }
 
-    private var aboveLimitTile: some View {
-        let exceeded = minutesAboveLimit > 0
+    private func aboveLimitTile(minutes: Int) -> some View {
+        let exceeded = minutes > 0
         return VStack(alignment: .leading, spacing: 4) {
             Text("ABOVE LIMIT")
                 .font(.system(size: 11, weight: .black))
                 .tracking(1.5)
                 .foregroundStyle(exceeded ? Color(hex: "#FF6B6B") : AppColors.textTertiary)
-            Text("\(minutesAboveLimit) min")
+            Text("\(minutes) min")
                 .font(.system(size: 24, weight: .black, design: .monospaced))
                 .foregroundStyle(exceeded ? Color(hex: "#FF6B6B") : Color(hex: "#4CD964"))
             Text("tonight so far")
@@ -502,48 +406,6 @@ struct NightStatsSheet: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 14)
         .premiumCard(radius: 12)
-    }
-
-    // MARK: - Section 3: Facts
-
-    private var factsSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("INSIGHTS")
-                .font(.system(size: 12, weight: .bold))
-                .tracking(2)
-                .foregroundStyle(AppColors.textTertiary)
-                .padding(.horizontal, 16)
-
-            ForEach(facts, id: \.text) { fact in
-                factRow(fact)
-                    .padding(.horizontal, 16)
-            }
-        }
-    }
-
-    private func factRow(_ fact: NightFact) -> some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: fact.isSafetyAlert ? "exclamationmark.triangle.fill" : "sparkles")
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(fact.isSafetyAlert ? AppColors.danger : AppColors.accent)
-                .frame(width: 20, height: 20)
-                .padding(.top, 1)
-            Text(fact.text)
-                .font(.system(size: 16, weight: .regular))
-                .foregroundStyle(AppColors.text)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(fact.isSafetyAlert ? AppColors.danger.opacity(0.08) : AppColors.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(
-                    fact.isSafetyAlert ? AppColors.danger.opacity(0.2) : AppColors.border.opacity(0.5),
-                    lineWidth: 1
-                )
-        )
     }
 
     // MARK: - Section 4: Timeline
