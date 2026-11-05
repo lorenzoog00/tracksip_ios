@@ -3,6 +3,10 @@ import SwiftUI
 struct HomeView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var firebase: FirebaseManager
+    @Environment(\.scenePhase) private var scenePhase
+    @AppStorage("appStoreUpdate.dismissedVersion") private var dismissedUpdateVersion = ""
+    @State private var availableUpdate: AppStoreUpdate?
+    @State private var nextUpdateCheck = Date.distantPast
     @State private var showCreateEvent = false
     @State private var deletingEventId: String? = nil
 
@@ -33,6 +37,10 @@ struct HomeView: View {
             ScrollView {
                 VStack(spacing: 24) {
                     header
+                    if let update = availableUpdate, update.version != dismissedUpdateVersion {
+                        updateBanner(update)
+                            .padding(.horizontal)
+                    }
                     if firebase.isSignedIn {
                         signedInContent
                     } else {
@@ -56,6 +64,18 @@ struct HomeView: View {
             }
         }
         .navigationBarHidden(true)
+        .task(id: scenePhase) {
+            guard scenePhase == .active, Date.now >= nextUpdateCheck else { return }
+            do {
+                let update = try await AppStoreUpdate.check()
+                guard !Task.isCancelled else { return }
+                availableUpdate = update
+                nextUpdateCheck = Date.now.addingTimeInterval(60 * 60)
+            } catch {
+                guard !Task.isCancelled else { return }
+                nextUpdateCheck = Date.now.addingTimeInterval(5 * 60)
+            }
+        }
         .sheet(isPresented: $showCreateEvent) {
             CreateEventView()
         }
@@ -73,6 +93,44 @@ struct HomeView: View {
                 ]
             ))
         }
+    }
+
+    private func updateBanner(_ update: AppStoreUpdate) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "arrow.down.app")
+                    .font(.title2)
+                    .foregroundStyle(AppColors.accent)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Update available")
+                        .font(.headline)
+                        .foregroundStyle(AppColors.text)
+                    Text("Tracksip \(update.version) is available on the App Store.")
+                        .font(.subheadline)
+                        .foregroundStyle(AppColors.textSecondary)
+                }
+                Spacer(minLength: 0)
+                Button {
+                    dismissedUpdateVersion = update.version
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(AppColors.textSecondary)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Dismiss this update")
+            }
+            Link("Update", destination: AppStoreUpdate.productURL)
+                .font(.subheadline.weight(.semibold))
+                .buttonStyle(.borderedProminent)
+                .tint(AppColors.accent)
+                .foregroundStyle(.black)
+        }
+        .padding(16)
+        .premiumCard(tint: AppColors.accent, tintOpacity: 0.08)
     }
 
     // MARK: - Header
