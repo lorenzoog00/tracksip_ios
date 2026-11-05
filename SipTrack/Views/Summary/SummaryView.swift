@@ -1048,24 +1048,9 @@ private struct SummaryShareCard: View {
         fmt.dateFormat = "ha"
         return (0...totalHours).map { h in
             let t = start.addingTimeInterval(Double(h) * 3600)
-            let bac = interpolatedBAC(at: t, sorted: sorted)
+            let bac = BACCalculator.interpolatedBAC(at: t, sorted: sorted)
             return (label: fmt.string(from: t).lowercased(), bac: max(0, bac))
         }
-    }
-
-    private func interpolatedBAC(at time: Date, sorted: [BACDataPoint]) -> Double {
-        guard !sorted.isEmpty else { return 0 }
-        if let first = sorted.first, time <= first.date { return first.bac }
-        if let last = sorted.last,  time >= last.date  { return last.bac }
-        for i in 0..<(sorted.count - 1) {
-            if sorted[i].date <= time && time <= sorted[i + 1].date {
-                let span = sorted[i + 1].date.timeIntervalSince(sorted[i].date)
-                guard span > 0 else { return sorted[i].bac }
-                let frac = time.timeIntervalSince(sorted[i].date) / span
-                return sorted[i].bac + (sorted[i + 1].bac - sorted[i].bac) * frac
-            }
-        }
-        return 0
     }
 
     var body: some View {
