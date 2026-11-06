@@ -41,6 +41,10 @@
 	<string>One-time check to apply your country's drink-drive BAC limit. We never track your location, store it, or share it.</string>
 	<key>NSPrivacyPolicyURL</key>
 	<string>https://looqs.online/siptrack/policy</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Tracksip uses photos and clips taken during your night to create a private timeline. Tracksip does not upload your photos or captions.</string>
+	<key>PHPhotoLibraryPreventAutomaticLimitedAccessAlert</key>
+	<true/>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>NSSupportsLiveActivitiesFrequentUpdates</key>
