@@ -89,6 +89,7 @@ final class DataStore {
         if let video = savedNightStoryVideo(eventId: id) {
             try? FileManager.default.removeItem(at: video)
         }
+        NightPhotoStore.deleteAll(eventId: id)
         // Cascade-delete entries and water
         var entries = loadEntries()
         entries.removeAll { $0.eventId == id }
@@ -315,5 +316,6 @@ final class DataStore {
             try? FileManager.default.removeItem(at: url(key: key))
         }
         try? FileManager.default.removeItem(at: nightStoryVideoFolder)
+        NightPhotoStore.deleteEverything()
     }
 }

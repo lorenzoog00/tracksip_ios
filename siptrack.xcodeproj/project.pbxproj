@@ -8,7 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		D77C112605A0000000000002 /* NightReview.swift in Sources */ = {isa = PBXBuildFile; fileRef = D77C112605A0000000000001 /* NightReview.swift */; };
-		D77C112605A0000000000004 /* PhotoLibraryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D77C112605A0000000000003 /* PhotoLibraryService.swift */; };
+		D77C112605A0000000000004 /* NightPhotoStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D77C112605A0000000000003 /* NightPhotoStore.swift */; };
 		D77C112605A0000000000006 /* NightStory.swift in Sources */ = {isa = PBXBuildFile; fileRef = D77C112605A0000000000005 /* NightStory.swift */; };
 		D77C112605A0000000000008 /* StoryVideoExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D77C112605A0000000000007 /* StoryVideoExporter.swift */; };
 		D77C112605A0000000000010 /* StoriesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D77C112605A0000000000009 /* StoriesView.swift */; };
@@ -196,7 +196,7 @@
 
 /* Begin PBXFileReference section */
 		D77C112605A0000000000001 /* NightReview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NightReview.swift; sourceTree = "<group>"; };
-		D77C112605A0000000000003 /* PhotoLibraryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoLibraryService.swift; sourceTree = "<group>"; };
+		D77C112605A0000000000003 /* NightPhotoStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NightPhotoStore.swift; sourceTree = "<group>"; };
 		D77C112605A0000000000005 /* NightStory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NightStory.swift; sourceTree = "<group>"; };
 		D77C112605A0000000000007 /* StoryVideoExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryVideoExporter.swift; sourceTree = "<group>"; };
 		D77C112605A0000000000009 /* StoriesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoriesView.swift; sourceTree = "<group>"; };
@@ -486,7 +486,7 @@
 				B101B4972F9C2F32009F7DDD /* Analytics.swift */,
 				B101B4982F9C2F32009F7DDD /* BACCalculator.swift */,
 				D77C112605A0000000000001 /* NightReview.swift */,
-				D77C112605A0000000000003 /* PhotoLibraryService.swift */,
+				D77C112605A0000000000003 /* NightPhotoStore.swift */,
 				D77C112605A0000000000005 /* NightStory.swift */,
 				D77C112605A0000000000007 /* StoryVideoExporter.swift */,
 				B101B4992F9C2F32009F7DDD /* ChallengeUtils.swift */,
@@ -1111,7 +1111,7 @@
 				B101B4FA2F9CD648009F7DDD /* ProView.swift in Sources */,
 				B101B4FC2F9CD648009F7DDD /* SummaryView.swift in Sources */,
 				D77C112605A0000000000002 /* NightReview.swift in Sources */,
-				D77C112605A0000000000004 /* PhotoLibraryService.swift in Sources */,
+				D77C112605A0000000000004 /* NightPhotoStore.swift in Sources */,
 				D77C112605A0000000000006 /* NightStory.swift in Sources */,
 				D77C112605A0000000000008 /* StoryVideoExporter.swift in Sources */,
 				D77C112605A0000000000010 /* StoriesView.swift in Sources */,

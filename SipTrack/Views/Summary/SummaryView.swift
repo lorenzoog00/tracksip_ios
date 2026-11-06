@@ -1,7 +1,7 @@
 import SwiftUI
 import Charts
 import UIKit
-import Photos
+
 
 struct SummaryView: View {
     let eventId: String
@@ -282,12 +282,12 @@ struct SummaryView: View {
     }
 
     private func refreshStoryPreview(for event: NightEvent) {
-        guard let end = event.endTime else { return }
+        guard event.endTime != nil else { return }
         let state = DataStore.shared.loadNightStoryState(eventId: event.id)
         storyCreated = state.generatedAt != nil
         savedStoryVideo = DataStore.shared.savedNightStoryVideo(eventId: event.id)
-        let assets = PhotoLibraryService.assets(from: event.startTime, to: end)
-        storyHasMedia = PhotoLibraryService.status == .notDetermined ? nil : !assets.isEmpty
+        let assets = NightPhotoStore.assets(eventId: event.id)
+        storyHasMedia = !assets.isEmpty
         let selected = assets.filter { !state.excludedAssetIds.contains($0.id) }
         storyPhotoCount = selected.count
         if selected.count > 3, let first = selected.first, let last = selected.last {
@@ -427,7 +427,7 @@ private struct SummaryStoryPreview: View {
         .buttonStyle(RecapPressStyle())
         .accessibilityLabel("Open \(asset.isVideo ? "clip" : "photo") at \(NightReview.time(asset.timestamp))")
         .task(id: asset.id) {
-            for await thumbnail in PhotoLibraryService.thumbnail(for: asset.id, size: CGSize(width: 420, height: 740)) {
+            for await thumbnail in NightPhotoStore.thumbnail(for: asset.id, size: CGSize(width: 420, height: 740)) {
                 guard !Task.isCancelled else { return }
                 withAnimation(reduceMotion || image != nil ? nil : .easeOut(duration: 0.20)) {
                     image = thumbnail

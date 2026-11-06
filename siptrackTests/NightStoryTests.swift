@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import UIKit
 @testable import siptrack
 
 @MainActor
@@ -32,6 +33,23 @@ struct NightStoryTests {
         #expect(withClip.moments.map(\.id) == ["start", "clip", "end"])
         #expect(withClip.review.timeline.isEmpty)
         #expect(NightStory(review: sober, assets: [], state: NightStoryState()).moments.isEmpty)
+    }
+
+    @Test func cameraPhotosAreStoredPerNightWithTheirTime() throws {
+        let eventId = "photo-test-\(UUID().uuidString)"
+        defer { NightPhotoStore.deleteAll(eventId: eventId) }
+        let image = UIGraphicsImageRenderer(size: CGSize(width: 40, height: 30)).image { context in
+            UIColor.orange.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 40, height: 30))
+        }
+        let taken = origin.addingTimeInterval(900)
+        let saved = try #require(NightPhotoStore.save(image, eventId: eventId, takenAt: taken))
+        let assets = NightPhotoStore.assets(eventId: eventId)
+        #expect(assets.map(\.id) == [saved.id])
+        #expect(abs(assets[0].timestamp.timeIntervalSince(taken)) < 0.01)
+        #expect(NightPhotoStore.assets(eventId: eventId + "-other").isEmpty)
+        NightPhotoStore.delete(saved)
+        #expect(!NightPhotoStore.hasMedia(eventId: eventId))
     }
 
     @Test func comparisonUsesUpToFivePreviousNightsAndTheMedian() throws {
