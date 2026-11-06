@@ -306,15 +306,23 @@ struct CalendarView: View {
                                     ForEach(dayEvents) { event in
                                         let bac   = peakBAC(for: event)
                                         let stage = IntoxicationStage.stage(for: bac)
-                                        NavigationLink(value: Route.summary(event.id)) {
-                                            CalEventRow(
-                                                event: event,
-                                                drinkCount: appState.totalDrinks(for: event.id),
-                                                calories:   Int(appState.totalCalories(for: event.id)),
-                                                peakBAC:    bac,
-                                                stageColor: stage.color,
-                                                stageName:  stage.name
-                                            )
+                                        let count = appState.totalDrinks(for: event.id)
+                                        HStack(spacing: 4) {
+                                            NavigationLink(value: Route.summary(event.id)) {
+                                                CalEventRow(
+                                                    event: event, drinkCount: count,
+                                                    calories: Int(appState.totalCalories(for: event.id)),
+                                                    peakBAC: bac, stageColor: stage.color, stageName: stage.name
+                                                )
+                                            }
+                                            if let end = event.endTime, count > 0 || PhotoLibraryService.hasMedia(from: event.startTime, to: end) != false {
+                                                NavigationLink(value: Route.stories(event.id)) {
+                                                    Image(systemName: "photo.on.rectangle.angled")
+                                                        .foregroundStyle(AppColors.accent)
+                                                        .frame(width: 44, height: 44)
+                                                }
+                                                .accessibilityLabel("Photo timeline for \(event.displayName)")
+                                            }
                                         }
                                         .buttonStyle(.plain)
                                         .padding(.horizontal, 12)

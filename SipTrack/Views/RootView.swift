@@ -56,6 +56,8 @@ struct RootView: View {
                                 ActiveEventView(eventId: id, guideTarget: target)
                             case .summary(let id):
                                 SummaryView(eventId: id)
+                            case .stories(let id):
+                                StoriesView(eventId: id)
                             case .calendar:
                                 CalendarView()
                             case .dashboard:

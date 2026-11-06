@@ -16,6 +16,7 @@ enum Route: Hashable {
     case event(String)
     case guidedEvent(String, EventGuideTarget)
     case summary(String)
+    case stories(String)
     case calendar
     case dashboard
     case challenges
