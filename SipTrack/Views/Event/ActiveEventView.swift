@@ -334,18 +334,27 @@ struct ActiveEventView: View {
     ) {
         guard appState.activeEvent?.id == event.id else { return }
         let sizeOverride: ServingSizeOption? = size.flatMap { $0.volumeMl == dt.defaultVolumeMl ? nil : $0 }
-        let pBAC = appState.projectedBAC(
+        // Compare where the curve is heading, not where it is: a drink logged now
+        // shows up in the BAC over the next 30-90 minutes, so the BAC at this
+        // instant would let the user drink straight past the line.
+        let pBAC = appState.projectedPeakBAC(
             forEventId: event.id, addingDrinkTypeId: dt.id, volumeOverrideMl: sizeOverride?.volumeMl
         )
         let nowBAC = appState.currentBAC(for: eventId)
+        let peakWithout = appState.projectedPeakBAC(forEventId: event.id)
         let beta = BACCalculator.eliminationRate(profile: appState.userProfile)
+        let driveWarnAt = BACCalculator.drivingWarningThreshold(
+            limit: event.bacLimit ?? appState.userProfile.resolvedBACLimit
+        )
 
         var threshold: Double? = nil
         var thresholdLabel: String = ""
-        if event.drivingMode, pBAC >= bacLimit, nowBAC < bacLimit {
-            threshold = bacLimit
+        if event.drivingMode, pBAC >= driveWarnAt {
+            // Every drink that keeps a driver at or over the warning line gets the
+            // sheet, not only the one that first crosses it.
+            threshold = driveWarnAt
             thresholdLabel = "driving limit"
-        } else if let ceiling = event.targetBAC, pBAC >= ceiling, nowBAC < ceiling {
+        } else if let ceiling = event.targetBAC, pBAC >= ceiling, peakWithout < ceiling {
             threshold = ceiling
             thresholdLabel = "your ceiling"
         }
@@ -1467,7 +1476,9 @@ struct OverLimitWarningSheet: View {
                     .font(.system(size: 24, weight: .bold))
                     .foregroundStyle(AppColors.text)
 
-                Text("This \(warning.drinkType.name) would push you past \(warning.thresholdLabel).")
+                Text(warning.thresholdLabel == "driving limit"
+                     ? "With this \(warning.drinkType.name) your BAC is estimated to reach the edge of your driving limit."
+                     : "This \(warning.drinkType.name) would push you past \(warning.thresholdLabel).")
                     .font(.system(size: 17))
                     .foregroundStyle(AppColors.textSecondary)
                     .multilineTextAlignment(.center)
@@ -1482,13 +1493,13 @@ struct OverLimitWarningSheet: View {
                 Image(systemName: "arrow.right")
                     .font(.system(size: 15, weight: .bold))
                     .foregroundStyle(AppColors.textTertiary)
-                bacBlock(label: "After drink",
+                bacBlock(label: "Peak ahead",
                          value: warning.projectedBAC,
                          color: stage.color)
                 Image(systemName: "minus")
                     .font(.system(size: 15, weight: .bold))
                     .foregroundStyle(AppColors.textTertiary)
-                bacBlock(label: "Ceiling",
+                bacBlock(label: warning.thresholdLabel == "driving limit" ? "Warn at" : "Ceiling",
                          value: warning.threshold,
                          color: AppColors.textSecondary)
             }
