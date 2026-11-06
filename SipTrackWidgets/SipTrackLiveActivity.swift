@@ -173,7 +173,15 @@ private struct LockScreenContent: View {
                         }
                         HStack(spacing: 3) {
                             Image(systemName: "clock").font(.system(size: 9))
-                            Text(elapsedText).font(.system(size: 11, weight: .semibold, design: .monospaced))
+                            if let started = context.state.startedAt {
+                                // Ticks on its own between updates from the app.
+                                Text(started, style: .timer)
+                                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                                    .monospacedDigit()
+                                    .frame(maxWidth: 64, alignment: .trailing)
+                            } else {
+                                Text(elapsedText).font(.system(size: 11, weight: .semibold, design: .monospaced))
+                            }
                         }
                     }
                     .foregroundStyle(.white.opacity(0.45))
@@ -194,6 +202,25 @@ private struct LockScreenContent: View {
                 }
             }
             .frame(height: 3)
+            .padding(.horizontal, 14)
+            .padding(.bottom, 6)
+
+            // Row 3b — sober countdown (runs on its own) + when BAC was last updated
+            HStack(spacing: 4) {
+                if let soberAt = context.state.soberAt, soberAt > Date() {
+                    Image(systemName: "hourglass").font(.system(size: 9))
+                    Text(timerInterval: Date()...soberAt, countsDown: true)
+                        .monospacedDigit()
+                    Text("to sober")
+                }
+                Spacer()
+                if context.isStale, let updated = context.state.updatedAt {
+                    Text("BAC as of")
+                    Text(updated, style: .time)
+                }
+            }
+            .font(.system(size: 11, weight: .medium))
+            .foregroundStyle(.white.opacity(0.45))
             .padding(.horizontal, 14)
             .padding(.bottom, 10)
 

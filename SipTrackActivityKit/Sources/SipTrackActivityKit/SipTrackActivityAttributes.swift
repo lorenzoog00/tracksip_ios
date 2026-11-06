@@ -14,6 +14,13 @@ public struct SipTrackActivityAttributes: ActivityAttributes {
         /// Non-nil only when driving mode is on and BAC is above the limit.
         /// The widget uses this to show a live countdown via Text(timerInterval:).
         public var safeToDriveAt: Date?
+        /// When BAC is projected to reach zero with no more drinks. Lets the lock
+        /// screen run its own countdown between updates from the app.
+        public var soberAt: Date?
+        /// Night start, so the elapsed clock ticks on its own.
+        public var startedAt: Date?
+        /// When the app last pushed this state; shown once the state goes stale.
+        public var updatedAt: Date?
 
         public init(
             bac: Double,
@@ -23,7 +30,10 @@ public struct SipTrackActivityAttributes: ActivityAttributes {
             elapsedMinutes: Int,
             eventId: String,
             quickDrinks: [QuickDrink],
-            safeToDriveAt: Date? = nil
+            safeToDriveAt: Date? = nil,
+            soberAt: Date? = nil,
+            startedAt: Date? = nil,
+            updatedAt: Date? = nil
         ) {
             self.bac = bac
             self.drinkCount = drinkCount
@@ -33,6 +43,9 @@ public struct SipTrackActivityAttributes: ActivityAttributes {
             self.eventId = eventId
             self.quickDrinks = quickDrinks
             self.safeToDriveAt = safeToDriveAt
+            self.soberAt = soberAt
+            self.startedAt = startedAt
+            self.updatedAt = updatedAt
         }
     }
 

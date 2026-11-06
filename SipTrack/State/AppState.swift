@@ -410,14 +410,31 @@ final class AppState: ObservableObject {
                 }
             }
 
+            let hoursToSober = BACCalculator.hoursToZeroBAC(resolvedBAC, profile: userProfile)
+            let soberAt: Date? = hoursToSober > 0 ? Date().addingTimeInterval(hoursToSober * 3600) : nil
+
             LiveActivityManager.shared.update(
                 bac: resolvedBAC,
                 drinkCount: totalDrinks(for: eventId),
                 stageName: stage.name,
                 stageColorHex: stage.colorHex,
                 elapsedMinutes: elapsed,
-                safeToDriveAt: safeToDriveAt
+                safeToDriveAt: safeToDriveAt,
+                soberAt: soberAt,
+                startedAt: event.startTime
             )
+        }
+    }
+
+    /// Re-reads the clock and pushes the lock screen at once. Called when the app
+    /// comes back to the foreground: the 10 s tick is suspended in the background,
+    /// so without this the screen showed the time it was left at until the next
+    /// tick, and the lock screen kept the last value from before it was locked.
+    func refreshLiveState() {
+        bacTick = Date()
+        if let active = activeEvent {
+            if bacTimerTask == nil { startBACRefreshTimer(for: active.id) }
+            updateLiveActivity(for: active.id)
         }
     }
 
@@ -1448,6 +1465,9 @@ final class AppState: ObservableObject {
         Haptics.shared.play(.pourEnd)
         scheduleUndo(entry)
         checkWarnings(after: entry, eventId: eventId)
+        // Move the shared clock to now, so the new drink's card starts from its
+        // own timestamp instead of a tick that predates it.
+        bacTick = Date()
         updateLiveActivity(for: eventId)
         push { try await FirebaseManager.shared.pushEntry(entry) }
         WatchBridge.shared.pushState()
