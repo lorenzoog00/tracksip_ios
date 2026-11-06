@@ -45,6 +45,14 @@
 	<string>Take photos during your night. Tracksip places them on your night's timeline with your BAC at that moment. Photos stay on this iPhone and are not uploaded.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Save your night video to your photo library when you choose to.</string>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.lorenzoog.siptrack.liveactivity.refresh</string>
+	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+	</array>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>NSSupportsLiveActivitiesFrequentUpdates</key>

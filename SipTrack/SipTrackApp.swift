@@ -2,6 +2,7 @@ import SwiftUI
 import FirebaseCore
 import FirebaseAppCheck
 import GoogleSignIn
+import BackgroundTasks
 
 @main
 struct SipTrackApp: App {
@@ -58,6 +59,8 @@ struct SipTrackApp: App {
                 }
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
                     Haptics.shared.stop()
+                    appState.refreshLiveState()
+                    LiveActivityRefresh.schedule(active: appState.activeEvent != nil)
                 }
                 .onChange(of: store.isPro) { _, _ in
                     appState.syncSubscriptionFromStore()
@@ -81,6 +84,28 @@ struct SipTrackApp: App {
                     }
                 }
         }
+        // iOS suspends the app when the phone locks, so the 10 s tick stops and the
+        // lock-screen BAC freezes. Background app refresh is the only way to run
+        // without a push server; iOS decides when (often every 15-30 min, less on
+        // low battery), so this narrows the gap rather than closing it.
+        .backgroundTask(.appRefresh(LiveActivityRefresh.identifier)) {
+            await MainActor.run {
+                appState.refreshLiveState()
+                LiveActivityRefresh.schedule(active: appState.activeEvent != nil)
+            }
+        }
+    }
+}
+
+enum LiveActivityRefresh {
+    static let identifier = "com.lorenzoog.siptrack.liveactivity.refresh"
+
+    static func schedule(active: Bool) {
+        BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: identifier)
+        guard active else { return }
+        let request = BGAppRefreshTaskRequest(identifier: identifier)
+        request.earliestBeginDate = Date(timeIntervalSinceNow: 5 * 60)
+        try? BGTaskScheduler.shared.submit(request)
     }
 }
 
