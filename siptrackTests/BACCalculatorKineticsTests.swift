@@ -305,4 +305,28 @@ struct BACCalculatorKineticsTests {
         ).map(\.bac).max() ?? 0
         #expect(abs((c["b"] ?? 0) - peak) < 0.002)
     }
+
+    @Test func drivingWarning_firesBeforeTheLegalLimit() {
+        #expect(abs(BACCalculator.drivingWarningThreshold(limit: 0.08) - 0.075) < 1e-9)
+        #expect(abs(BACCalculator.drivingWarningThreshold(limit: 0.05) - 0.045) < 1e-9)
+        // Zero tolerance never drops below the display floor.
+        #expect(BACCalculator.drivingWarningThreshold(limit: 0) == BACCalculator.bacFloor)
+    }
+
+    @Test func futurePeak_seesADrinkThatHasNotAbsorbedYet() {
+        let start = Date(timeIntervalSince1970: 1_700_000_000)
+        let profile = maleProfile()
+        let now = start.addingTimeInterval(60)
+        let entries = [beer("b", at: now)]
+        let points = BACCalculator.bacTimeline(
+            entries: entries, drinkTypes: DrinkType.presets, profile: profile, eventStart: start
+        )
+        let current = BACCalculator.currentBAC(
+            entries: entries, waterEntries: [], drinkTypes: DrinkType.presets, profile: profile,
+            eventStart: start, asOf: now
+        )
+        let peak = BACCalculator.futurePeakBAC(points, from: now, currentBAC: current)
+        #expect(current < 0.005)
+        #expect(peak > current + 0.01)
+    }
 }

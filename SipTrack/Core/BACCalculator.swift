@@ -609,6 +609,23 @@ struct BACCalculator {
         max(limit, bacFloor)
     }
 
+    /// How far under the driving limit the pre-drink warning fires. The limit
+    /// itself stays the legal number (0.08 shows as 0.08); the warning comes
+    /// earlier, at 0.075 for a 0.08 limit, because the estimate has error and a
+    /// driver should stop before the line, not on it.
+    static let drivingWarningMargin = 0.005
+
+    static func drivingWarningThreshold(limit: Double) -> Double {
+        max(bacFloor, drivingThreshold(limit: limit) - drivingWarningMargin)
+    }
+
+    /// Highest BAC the curve reaches from `now` on. A drink logged this minute has
+    /// barely started absorbing, so the BAC at `now` hides it; the peak ahead is
+    /// what tells whether it will carry the user over a line.
+    static func futurePeakBAC(_ points: [BACDataPoint], from now: Date, currentBAC: Double) -> Double {
+        points.filter { $0.date >= now }.map(\.bac).reduce(currentBAC, max)
+    }
+
     // MARK: - Stomach / food factor
 
     // Returns (kA, FPM) at a drink moment. Effects from the user's declared start-of-night

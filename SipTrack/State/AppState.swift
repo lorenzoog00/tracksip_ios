@@ -1908,6 +1908,34 @@ final class AppState: ObservableObject {
         )
     }
 
+    /// Peak BAC still ahead tonight, optionally with one more drink logged now.
+    /// Used to warn before a drink rather than after the BAC has already risen.
+    func projectedPeakBAC(forEventId eventId: String, addingDrinkTypeId dtId: String? = nil,
+                          volumeOverrideMl: Double? = nil, now: Date = .now) -> Double {
+        guard let event = events.first(where: { $0.id == eventId }) else { return 0 }
+        var eventEntries = entries.filter { $0.eventId == eventId }
+        if let dtId {
+            eventEntries.append(DrinkEntry(
+                id: "__projected__", eventId: eventId, drinkTypeId: dtId, timestamp: now,
+                quantity: 1, comment: nil, volumeOverrideMl: volumeOverrideMl, abvOverride: nil
+            ))
+        }
+        let eventFood = foodEntries.filter { $0.eventId == eventId }
+        let stomach = event.stomachState ?? .empty
+        let stomachAt = event.stomachStateTimestamp ?? event.startTime
+        let points = BACCalculator.bacTimeline(
+            entries: eventEntries, drinkTypes: allDrinkTypes, profile: userProfile,
+            eventStart: event.startTime, stomachState: stomach,
+            stomachStateTimestamp: stomachAt, foodEntries: eventFood
+        )
+        let nowBAC = BACCalculator.currentBAC(
+            entries: eventEntries, waterEntries: [], drinkTypes: allDrinkTypes, profile: userProfile,
+            eventStart: event.startTime, stomachState: stomach, stomachStateTimestamp: stomachAt,
+            foodEntries: eventFood, asOf: now
+        )
+        return BACCalculator.futurePeakBAC(points, from: now, currentBAC: nowBAC)
+    }
+
     func currentBAC(for eventId: String) -> Double {
         guard let event = events.first(where: { $0.id == eventId }) else { return 0 }
         let eventEntries = entries.filter { $0.eventId == eventId }
