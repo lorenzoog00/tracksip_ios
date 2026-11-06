@@ -1,4 +1,17 @@
 import Foundation
+import CryptoKit
+
+struct NightStoryState: Codable {
+    var generatedAt: Date?
+    var captions: [String: String] = [:]
+    var excludedAssetIds: Set<String> = []
+
+    mutating func setCaption(_ text: String, for momentId: String) {
+        let clean = String(text.split(whereSeparator: \.isNewline).joined(separator: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines).prefix(90))
+        captions[momentId] = clean.isEmpty ? nil : clean
+    }
+}
 
 // Stores all data as JSON files in an App Group container so the Watch extension
 // can read/write the same files via the shared group.
@@ -71,6 +84,11 @@ final class DataStore {
         var events = loadEvents()
         events.removeAll { $0.id == id }
         saveEvents(events)
+        var stories = load([String: NightStoryState].self, key: "siptrack_night_stories") ?? [:]
+        if stories.removeValue(forKey: id) != nil { saveNightStories(stories) }
+        if let video = savedNightStoryVideo(eventId: id) {
+            try? FileManager.default.removeItem(at: video)
+        }
         // Cascade-delete entries and water
         var entries = loadEntries()
         entries.removeAll { $0.eventId == id }
@@ -226,6 +244,63 @@ final class DataStore {
         save(ids, key: "siptrack_ceiling_crossed")
     }
 
+    // MARK: - Local night stories
+
+    func loadNightStoryState(eventId: String) -> NightStoryState {
+        let states = load([String: NightStoryState].self, key: "siptrack_night_stories")
+        return states?[eventId] ?? NightStoryState()
+    }
+
+    func saveNightStoryState(_ state: NightStoryState, eventId: String) {
+        var states = load([String: NightStoryState].self, key: "siptrack_night_stories") ?? [:]
+        states[eventId] = state
+        saveNightStories(states)
+    }
+
+    func savedNightStoryVideo(eventId: String) -> URL? {
+        let video = nightStoryVideoURL(eventId: eventId)
+        return FileManager.default.fileExists(atPath: video.path) ? video : nil
+    }
+
+    func saveNightStoryVideo(from source: URL, eventId: String) throws -> URL {
+        guard loadEvents().contains(where: { $0.id == eventId }) else { throw CocoaError(.fileNoSuchFile) }
+        let files = FileManager.default
+        var folder = nightStoryVideoFolder
+        try files.createDirectory(at: folder, withIntermediateDirectories: true)
+        var values = URLResourceValues()
+        values.isExcludedFromBackup = true
+        try folder.setResourceValues(values)
+
+        let video = nightStoryVideoURL(eventId: eventId)
+        if files.fileExists(atPath: video.path) {
+            return try files.replaceItemAt(video, withItemAt: source) ?? video
+        }
+        try files.moveItem(at: source, to: video)
+        return video
+    }
+
+    private var nightStoryVideoFolder: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Night Story Videos", isDirectory: true)
+    }
+
+    private func nightStoryVideoURL(eventId: String) -> URL {
+        let key = SHA256.hash(data: Data(eventId.utf8)).map { String(format: "%02x", $0) }.joined()
+        return nightStoryVideoFolder.appendingPathComponent("\(key).mp4")
+    }
+
+    private func saveNightStories(_ states: [String: NightStoryState]) {
+        var file = url(key: "siptrack_night_stories")
+        do {
+            try encoder.encode(states).write(to: file, options: .atomic)
+            var values = URLResourceValues()
+            values.isExcludedFromBackup = true
+            try file.setResourceValues(values)
+        } catch {
+            NSLog("Could not persist local night story state: %@", error.localizedDescription)
+        }
+    }
+
     // MARK: - Data Management
 
     func pruneOldEvents(olderThan cutoff: Date) {
@@ -235,9 +310,10 @@ final class DataStore {
     }
 
     func clearAllData() {
-        let keys = ["siptrack_events","siptrack_entries","siptrack_water","siptrack_drink_types","siptrack_challenges","siptrack_profile","siptrack_coach_reports","siptrack_night_recoveries","siptrack_food","siptrack_ceiling_crossed"]
+        let keys = ["siptrack_events","siptrack_entries","siptrack_water","siptrack_drink_types","siptrack_challenges","siptrack_profile","siptrack_coach_reports","siptrack_night_recoveries","siptrack_food","siptrack_ceiling_crossed","siptrack_night_stories"]
         for key in keys {
             try? FileManager.default.removeItem(at: url(key: key))
         }
+        try? FileManager.default.removeItem(at: nightStoryVideoFolder)
     }
 }

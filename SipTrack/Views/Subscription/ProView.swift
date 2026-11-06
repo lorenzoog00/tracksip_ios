@@ -479,7 +479,6 @@ struct ProView: View {
             ("calendar.badge.clock", "Calendar heatmap"),
             ("trophy.fill",          "Challenges & goals"),
             ("wineglass.fill",       "Custom drinks"),
-            ("flame.fill",           "Calorie equivalencies"),
             ("doc.text.fill",        "PDF night export"),
             ("xmark.shield.fill",    "No ads"),
             ("applewatch",           "Watch live activity"),
