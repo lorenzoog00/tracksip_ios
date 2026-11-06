@@ -12,6 +12,8 @@ struct ActiveEventView: View {
     @State private var showEditEntry: DrinkEntry? = nil
     @State private var pendingDrink: PendingDrinkWarning? = nil
     @State private var statsDestination: StatsDestination?
+    @State private var showCamera = false
+    @State private var photoCount = 0
     private static let drinkPickerAnchor = "drink-picker"
 
     private enum StatsDestination: Hashable, Identifiable {
@@ -139,7 +141,20 @@ struct ActiveEventView: View {
         .navigationTitle(event.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(false)
-        .toolbar { ToolbarItem(placement: .navigationBarTrailing) { statsButton } }
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) { cameraButton }
+            ToolbarItem(placement: .navigationBarTrailing) { statsButton }
+        }
+        .onAppear { photoCount = NightPhotoStore.assets(eventId: eventId).count }
+        .fullScreenCover(isPresented: $showCamera) {
+            NightCameraPicker { image in
+                if NightPhotoStore.save(image, eventId: eventId) != nil {
+                    photoCount += 1
+                    Haptics.shared.play(.success)
+                }
+            }
+            .ignoresSafeArea()
+        }
         .sheet(item: $showEditEntry) { entry in
             EditEntryView(entry: entry)
         }
@@ -264,6 +279,31 @@ struct ActiveEventView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+
+    /// Takes a photo for this night. It is stamped with the current time, so the
+    /// summary can place it on the BAC timeline.
+    private var cameraButton: some View {
+        Button { showCamera = true } label: {
+            ZStack(alignment: .topTrailing) {
+                Image(systemName: "camera.fill")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(AppColors.accentWarm)
+                    .frame(width: 40, height: 34)
+                    .background(AppColors.accentWarm.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 20))
+                if photoCount > 0 {
+                    Text("\(photoCount)")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.black)
+                        .padding(.horizontal, 5)
+                        .frame(minWidth: 17, minHeight: 17)
+                        .background(AppColors.accentWarm, in: Capsule())
+                        .offset(x: 5, y: -5)
+                }
+            }
+        }
+        .accessibilityLabel(photoCount > 0 ? "Take photo, \(photoCount) taken" : "Take photo")
     }
 
     private var statsButton: some View {

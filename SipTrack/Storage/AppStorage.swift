@@ -89,6 +89,7 @@ final class DataStore {
         if let video = savedNightStoryVideo(eventId: id) {
             try? FileManager.default.removeItem(at: video)
         }
+        try? FileManager.default.removeItem(at: nightPhotoFolder(eventId: id))
         // Cascade-delete entries and water
         var entries = loadEntries()
         entries.removeAll { $0.eventId == id }
@@ -279,6 +280,18 @@ final class DataStore {
         return video
     }
 
+    // Same layout as NightPhotoStore (app target only; this file is shared with
+    // another target, so the path is rebuilt here for deletes).
+    private var nightPhotosRoot: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Night Photos", isDirectory: true)
+    }
+
+    private func nightPhotoFolder(eventId: String) -> URL {
+        let name = String(SHA256.hash(data: Data(eventId.utf8)).map { String(format: "%02x", $0) }.joined().prefix(32))
+        return nightPhotosRoot.appendingPathComponent(name, isDirectory: true)
+    }
+
     private var nightStoryVideoFolder: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("Night Story Videos", isDirectory: true)
@@ -315,5 +328,6 @@ final class DataStore {
             try? FileManager.default.removeItem(at: url(key: key))
         }
         try? FileManager.default.removeItem(at: nightStoryVideoFolder)
+        try? FileManager.default.removeItem(at: nightPhotosRoot)
     }
 }

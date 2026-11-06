@@ -41,10 +41,18 @@
 	<string>One-time check to apply your country's drink-drive BAC limit. We never track your location, store it, or share it.</string>
 	<key>NSPrivacyPolicyURL</key>
 	<string>https://looqs.online/siptrack/policy</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Tracksip uses photos and clips taken during your night to create a private timeline. Tracksip does not upload your photos or captions.</string>
-	<key>PHPhotoLibraryPreventAutomaticLimitedAccessAlert</key>
-	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Take photos during your night. Tracksip places them on your night's timeline with your BAC at that moment. Photos stay on this iPhone and are not uploaded.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Save your night video to your photo library when you choose to.</string>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.lorenzoog.siptrack.liveactivity.refresh</string>
+	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+	</array>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>NSSupportsLiveActivitiesFrequentUpdates</key>
