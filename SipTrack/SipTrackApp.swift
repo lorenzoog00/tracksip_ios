@@ -30,13 +30,15 @@ struct SipTrackApp: App {
         // push server to hear about the change first.
         LiveActivityActions.addDrink = { [weak state] eventId, drinkTypeId in
             guard let state else { return }
+            let name = state.allDrinkTypes.first { $0.id == drinkTypeId }?.name ?? "Drink"
+            LiveActivityManager.shared.alertOnNextUpdate("\(name) logged")
             state.addDrink(eventId: eventId, drinkTypeId: drinkTypeId)
             await LiveActivityManager.shared.flush()
         }
         LiveActivityActions.addWater = { [weak state] eventId in
             guard let state else { return }
+            LiveActivityManager.shared.alertOnNextUpdate("Water logged")
             state.addWater(eventId: eventId)
-            state.refreshLiveState()
             await LiveActivityManager.shared.flush()
         }
     }

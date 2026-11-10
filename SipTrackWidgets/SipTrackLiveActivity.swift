@@ -33,6 +33,9 @@ struct SipTrackLiveActivity: Widget {
                         Text(context.state.drinkCount == 1 ? "drink" : "drinks")
                             .font(.system(size: 9, weight: .medium))
                             .foregroundStyle(.white.opacity(0.4))
+                        if let balance = context.state.hydrationBalance {
+                            HydrationBadge(balance: balance, size: 10)
+                        }
                     }
                     .padding(.trailing, 4)
                 }
@@ -100,11 +103,11 @@ struct SipTrackLiveActivity: Widget {
         Button(intent: AddWaterFromLiveActivityIntent(eventId: eventId)) {
             Image(systemName: "drop.fill")
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(Color(hex: "#4FC3F7"))
+                .foregroundStyle(Color(hex: "#40AAFF"))
                 .frame(width: 44, height: 38)
-                .background(Color(hex: "#4FC3F7").opacity(0.15))
+                .background(Color(hex: "#40AAFF").opacity(0.15))
                 .clipShape(RoundedRectangle(cornerRadius: 8))
-                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color(hex: "#4FC3F7").opacity(0.3), lineWidth: 0.5))
+                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color(hex: "#40AAFF").opacity(0.3), lineWidth: 0.5))
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Add water")
@@ -187,6 +190,9 @@ private struct LockScreenContent: View {
                             Image(systemName: "wineglass.fill").font(.system(size: 9))
                             Text("\(context.state.drinkCount)").font(.system(size: 11, weight: .semibold, design: .monospaced))
                         }
+                        if let balance = context.state.hydrationBalance {
+                            HydrationBadge(balance: balance, size: 11)
+                        }
                         HStack(spacing: 3) {
                             Image(systemName: "clock").font(.system(size: 9))
                             if let started = context.state.startedAt {
@@ -206,18 +212,34 @@ private struct LockScreenContent: View {
             .padding(.horizontal, 14)
             .padding(.bottom, 8)
 
-            // Row 3 — progress bar
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(.white.opacity(0.08)).frame(height: 3)
-                    Capsule().fill(
-                        LinearGradient(colors: [stageColor.opacity(0.7), stageColor],
-                                       startPoint: .leading, endPoint: .trailing)
+            // Row 3 — the current drink's bar: fills over its drinking time on
+            // its own (ProgressView(timerInterval:) needs no updates). Falls back
+            // to the BAC bar before the first drink.
+            Group {
+                if let started = context.state.currentDrinkStartedAt {
+                    let minutes = Double(context.state.currentDrinkMinutes ?? 20)
+                    ProgressView(
+                        timerInterval: started...started.addingTimeInterval(minutes * 60),
+                        countsDown: false,
+                        label: { EmptyView() },
+                        currentValueLabel: { EmptyView() }
                     )
-                    .frame(width: max(3, geo.size.width * barFill), height: 3)
+                    .progressViewStyle(.linear)
+                    .tint(stageColor)
+                } else {
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(.white.opacity(0.08)).frame(height: 3)
+                            Capsule().fill(
+                                LinearGradient(colors: [stageColor.opacity(0.7), stageColor],
+                                               startPoint: .leading, endPoint: .trailing)
+                            )
+                            .frame(width: max(3, geo.size.width * barFill), height: 3)
+                        }
+                    }
+                    .frame(height: 3)
                 }
             }
-            .frame(height: 3)
             .padding(.horizontal, 14)
             .padding(.bottom, 6)
 
@@ -227,12 +249,22 @@ private struct LockScreenContent: View {
                     Image(systemName: "hourglass").font(.system(size: 9))
                     Text(timerInterval: Date()...soberAt, countsDown: true)
                         .monospacedDigit()
+                        .frame(maxWidth: 56, alignment: .leading)
                     Text("to sober")
                 }
                 Spacer()
                 if context.isStale, let updated = context.state.updatedAt {
                     Text("BAC as of")
                     Text(updated, style: .time)
+                } else if let started = context.state.currentDrinkStartedAt {
+                    // Time with the current drink, counting up on its own.
+                    Image(systemName: context.state.currentDrinkSymbol ?? "wineglass.fill")
+                        .font(.system(size: 9))
+                    Text(started, style: .timer)
+                        .monospacedDigit()
+                        .multilineTextAlignment(.trailing)
+                        .frame(maxWidth: 52, alignment: .trailing)
+                    Text("with drink")
                 }
             }
             .font(.system(size: 11, weight: .medium))
@@ -280,17 +312,44 @@ private struct LockScreenContent: View {
         Button(intent: AddWaterFromLiveActivityIntent(eventId: context.state.eventId)) {
             Image(systemName: "drop.fill")
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Color(hex: "#4FC3F7"))
+                .foregroundStyle(Color(hex: "#40AAFF"))
                 .frame(width: 46, height: 38)
-                .background(Color(hex: "#4FC3F7").opacity(0.14))
+                .background(Color(hex: "#40AAFF").opacity(0.14))
                 .clipShape(RoundedRectangle(cornerRadius: 10))
                 .overlay(
                     RoundedRectangle(cornerRadius: 10)
-                        .strokeBorder(Color(hex: "#4FC3F7").opacity(0.3), lineWidth: 0.5)
+                        .strokeBorder(Color(hex: "#40AAFF").opacity(0.3), lineWidth: 0.5)
                 )
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Add water")
+    }
+}
+
+// MARK: - Hydration
+
+/// Glasses of water minus drinks, coloured like the in-app Hydration stat:
+/// red when behind, white when even, green when ahead.
+private struct HydrationBadge: View {
+    let balance: Int
+    let size: CGFloat
+
+    private var color: Color {
+        switch balance {
+        case ..<0: return Color(hex: "#FF4757")
+        case 0: return .white.opacity(0.8)
+        default: return Color(hex: "#2ED573")
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 3) {
+            Image(systemName: "drop.fill").font(.system(size: size - 2))
+            Text(balance > 0 ? "+\(balance)" : "\(balance)")
+                .font(.system(size: size, weight: .semibold, design: .monospaced))
+        }
+        .foregroundStyle(color)
+        .accessibilityLabel("Hydration \(balance)")
     }
 }
 

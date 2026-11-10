@@ -46,7 +46,13 @@ struct ActiveEventView: View {
         let bacLimit = BACCalculator.drivingThreshold(limit: event.bacLimit ?? appState.userProfile.resolvedBACLimit)
         let overLimit = event.drivingMode && currentBAC >= bacLimit
 
-        return ZStack {
+        // The bar sits under the scroll view in a VStack rather than in a
+        // safeAreaInset: with the inset, the scroll view ran on underneath it,
+        // and whenever SwiftUI got the bottom inset wrong (after the camera, or
+        // coming back from the lock screen) the bar floated up with the drink
+        // list showing below it. Here nothing scrolls below the bar.
+        return VStack(spacing: 0) {
+        ZStack {
             ScrollView {
                 VStack(spacing: 16) {
 
@@ -124,19 +130,14 @@ struct ActiveEventView: View {
             .animation(.spring(response: 0.45, dampingFraction: 0.72), value: appState.undoEntry?.id ?? appState.undoWaterEntry?.id)
             .zIndex(10)
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
             BottomBar(
-                onShowDrinks: {
-                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.25)) {
-                        scroll.scrollTo(Self.drinkPickerAnchor, anchor: .top)
-                    }
-                },
                 onAddWater: { appState.addWater(eventId: eventId) },
                 onAddFood:  { showFoodSheet = true },
                 onEnd:      { showEndConfirm = true },
                 guideTarget: guideTarget
             )
         }
+        .ignoresSafeArea(.keyboard, edges: .bottom)
         .background(AppColors.background.ignoresSafeArea())
         .navigationTitle(event.displayName)
         .navigationBarTitleDisplayMode(.inline)
@@ -716,10 +717,13 @@ private struct CurrentDrinkCard: View {
     private var totalMin: Double { Double(drinkType?.effectiveDrinkingMinutes ?? 20) }
     private var progress: Double { min(1.0, elapsedMin / totalMin) }
 
+    /// Stays up for the latest drink (not only while it absorbs) so the count-up
+    /// timer answers "how long have I had this one"; gone after a long gap.
     var body: some View {
-        if let dt = drinkType, elapsedMin < totalMin {
+        if let dt = drinkType, let entry = currentEntry, elapsedMin < 6 * 60 {
             let fillFraction = 1.0 - progress
             let minsLeft = max(1, Int(ceil(totalMin - elapsedMin)))
+            let absorbing = elapsedMin < totalMin
 
             HStack(spacing: 14) {
                 // Animated glass
@@ -749,19 +753,23 @@ private struct CurrentDrinkCard: View {
                             Text(dt.name)
                                 .font(.system(size: 17, weight: .semibold))
                                 .foregroundStyle(AppColors.text)
-                            Text("sipping now")
+                            Text(absorbing ? "sipping now" : "your latest drink")
                                 .font(.system(size: 13))
                                 .foregroundStyle(AppColors.textTertiary)
                         }
                         Spacer()
-                        HStack(alignment: .lastTextBaseline, spacing: 1) {
-                            Text("\(Int(elapsedMin))")
-                                .font(.system(size: 22, weight: .bold, design: .monospaced))
-                                .foregroundStyle(dt.color)
-                            Text(" / \(Int(totalMin))m")
-                                .font(.system(size: 13))
+                        VStack(alignment: .trailing, spacing: 1) {
+                            Text("TIME WITH DRINK")
+                                .font(.system(size: 9, weight: .bold))
+                                .tracking(0.8)
                                 .foregroundStyle(AppColors.textTertiary)
+                            // Counts up every second on its own, from when it was logged.
+                            Text(entry.timestamp, style: .timer)
+                                .font(.system(size: 22, weight: .bold, design: .monospaced))
+                                .monospacedDigit()
+                                .foregroundStyle(dt.color)
                         }
+                        .accessibilityElement(children: .combine)
                     }
 
                     GeometryReader { geo in
@@ -771,13 +779,14 @@ private struct CurrentDrinkCard: View {
                                 .frame(height: 4)
                             Capsule()
                                 .fill(dt.color.opacity(0.85))
-                                .frame(width: max(0, geo.size.width * CGFloat(fillFraction)), height: 4)
-                                .animation(.easeInOut(duration: 3.0), value: fillFraction)
+                                // Fills as the drink goes on, full once it is absorbed.
+                                .frame(width: max(0, geo.size.width * CGFloat(progress)), height: 4)
+                                .animation(.easeInOut(duration: 3.0), value: progress)
                         }
                     }
                     .frame(height: 4)
 
-                    Text("~\(minsLeft)m left to absorb")
+                    Text(absorbing ? "~\(minsLeft)m left to absorb" : "Fully absorbed")
                         .font(.system(size: 13))
                         .foregroundStyle(AppColors.textTertiary)
                 }
@@ -1361,7 +1370,6 @@ private struct TLFoodCard: View {
 // MARK: - Bottom Bar
 
 private struct BottomBar: View {
-    let onShowDrinks: () -> Void
     let onAddWater: () -> Void
     let onAddFood: () -> Void
     let onEnd: () -> Void
@@ -1369,10 +1377,6 @@ private struct BottomBar: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            addTile(icon: "wineglass.fill", label: "Drink",
-                    tint: AppColors.accent, action: onShowDrinks)
-                .guideHighlight(guideTarget == .drinks, radius: 14)
-                .accessibilityHint("Jumps to the drink picker")
             addTile(icon: "drop.fill", label: "Water",
                     tint: AppColors.water, action: onAddWater)
                 .guideHighlight(guideTarget == .water, radius: 14)
@@ -1383,7 +1387,8 @@ private struct BottomBar: View {
         .buttonStyle(.plain)
         .padding(.horizontal)
         .padding(.vertical, 12)
-        .background(.ultraThinMaterial)
+        // Fills down through the home-indicator area so nothing shows below.
+        .background(.ultraThinMaterial, ignoresSafeAreaEdges: .bottom)
         .overlay(Rectangle().frame(height: 0.5).foregroundStyle(AppColors.border), alignment: .top)
     }
 

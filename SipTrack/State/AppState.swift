@@ -423,9 +423,19 @@ final class AppState: ObservableObject {
                 safeToDriveAt: safeToDriveAt,
                 soberAt: soberAt,
                 startedAt: event.startTime,
+                hydrationBalance: waterEntries.filter { $0.eventId == eventId }.count
+                    - totalDrinks(for: eventId),
+                currentDrink: latestDrinkForLockScreen(eventId: eventId),
                 pushSamples: lockScreenPushSamples(for: event, currentBAC: resolvedBAC)
             )
         }
+    }
+
+    private func latestDrinkForLockScreen(eventId: String) -> (name: String, symbol: String, startedAt: Date, minutes: Int)? {
+        guard let entry = entries.filter({ $0.eventId == eventId }).max(by: { $0.timestamp < $1.timestamp }),
+              let type = allDrinkTypes.first(where: { $0.id == entry.drinkTypeId })
+        else { return nil }
+        return (type.name, type.sfSymbol, entry.timestamp, max(1, type.effectiveDrinkingMinutes))
     }
 
     /// What the night's curve depends on. The curve is rebuilt and re-sent to the
@@ -1525,6 +1535,12 @@ final class AppState: ObservableObject {
         DataStore.shared.deleteEntry(id)
         entries.removeAll { $0.id == id }
         push { try await FirebaseManager.shared.deleteEntry(id) }
+        // Undoing a drink changes the curve, so the lock screen and the push
+        // server need the new one; before this they kept counting the drink.
+        if let active = activeEvent {
+            bacTick = Date()
+            updateLiveActivity(for: active.id)
+        }
     }
 
     func undoLastEntry() {
@@ -1570,6 +1586,7 @@ final class AppState: ObservableObject {
         scheduleUndoWater(entry)
         if activeEvent?.id == eventId {
             refreshWaterReminder()
+            updateLiveActivity(for: eventId)
         }
     }
 
@@ -1596,6 +1613,7 @@ final class AppState: ObservableObject {
         DataStore.shared.deleteWaterEntry(id)
         waterEntries.removeAll { $0.id == id }
         refreshWaterReminder()
+        if let active = activeEvent { updateLiveActivity(for: active.id) }
     }
 
     // MARK: - Food
