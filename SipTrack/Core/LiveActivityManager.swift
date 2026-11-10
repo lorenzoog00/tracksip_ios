@@ -22,6 +22,13 @@ final class LiveActivityManager {
     private var pendingUpdate: Task<Void, Never>?
     private var pendingSync: Task<Void, Never>?
 
+    /// Title for an alert on the next update, set by a lock-screen button.
+    private var pendingAlert: String?
+
+    func alertOnNextUpdate(_ title: String) {
+        pendingAlert = title
+    }
+
     func start(eventName: String, eventId: String, quickDrinks: [SipTrackActivityAttributes.QuickDrink]) {
         let info = ActivityAuthorizationInfo()
         guard info.areActivitiesEnabled else {
@@ -86,7 +93,7 @@ final class LiveActivityManager {
 
     /// `pushSamples` is the projected curve from now on, passed only when it has
     /// changed (a drink, food or a profile edit); nil keeps the one already sent.
-    func update(bac: Double, drinkCount: Int, stageName: String, stageColorHex: String, elapsedMinutes: Int, safeToDriveAt: Date?, soberAt: Date?, startedAt: Date?, pushSamples: [[String: Any]]? = nil) {
+    func update(bac: Double, drinkCount: Int, stageName: String, stageColorHex: String, elapsedMinutes: Int, safeToDriveAt: Date?, soberAt: Date?, startedAt: Date?, hydrationBalance: Int? = nil, pushSamples: [[String: Any]]? = nil) {
         guard let activity = currentActivity() else { return }
         let state = SipTrackActivityAttributes.ContentState(
             bac: bac,
@@ -99,10 +106,25 @@ final class LiveActivityManager {
             safeToDriveAt: safeToDriveAt,
             soberAt: soberAt,
             startedAt: startedAt,
-            updatedAt: Date()
+            updatedAt: Date(),
+            hydrationBalance: hydrationBalance
         )
         let content = ActivityContent(state: state, staleDate: Date().addingTimeInterval(600))
-        pendingUpdate = Task { await activity.update(content) }
+        if let alert = pendingAlert {
+            // An alert update lights the screen and plays the notification
+            // feedback (a vibration in silent mode): the confirmation that a tap
+            // on the lock screen logged something, since a background launch
+            // cannot drive the haptic engine.
+            pendingAlert = nil
+            let config = AlertConfiguration(
+                title: LocalizedStringResource(stringLiteral: alert),
+                body: LocalizedStringResource(stringLiteral: String(format: "BAC %.3f%%", bac)),
+                sound: .default
+            )
+            pendingUpdate = Task { await activity.update(content, alertConfiguration: config) }
+        } else {
+            pendingUpdate = Task { await activity.update(content) }
+        }
         lastTemplate = state
         if let pushSamples {
             lastSamples = pushSamples

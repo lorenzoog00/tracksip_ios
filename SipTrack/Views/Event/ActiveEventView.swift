@@ -46,7 +46,13 @@ struct ActiveEventView: View {
         let bacLimit = BACCalculator.drivingThreshold(limit: event.bacLimit ?? appState.userProfile.resolvedBACLimit)
         let overLimit = event.drivingMode && currentBAC >= bacLimit
 
-        return ZStack {
+        // The bar sits under the scroll view in a VStack rather than in a
+        // safeAreaInset: with the inset, the scroll view ran on underneath it,
+        // and whenever SwiftUI got the bottom inset wrong (after the camera, or
+        // coming back from the lock screen) the bar floated up with the drink
+        // list showing below it. Here nothing scrolls below the bar.
+        return VStack(spacing: 0) {
+        ZStack {
             ScrollView {
                 VStack(spacing: 16) {
 
@@ -124,19 +130,14 @@ struct ActiveEventView: View {
             .animation(.spring(response: 0.45, dampingFraction: 0.72), value: appState.undoEntry?.id ?? appState.undoWaterEntry?.id)
             .zIndex(10)
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
             BottomBar(
-                onShowDrinks: {
-                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.25)) {
-                        scroll.scrollTo(Self.drinkPickerAnchor, anchor: .top)
-                    }
-                },
                 onAddWater: { appState.addWater(eventId: eventId) },
                 onAddFood:  { showFoodSheet = true },
                 onEnd:      { showEndConfirm = true },
                 guideTarget: guideTarget
             )
         }
+        .ignoresSafeArea(.keyboard, edges: .bottom)
         .background(AppColors.background.ignoresSafeArea())
         .navigationTitle(event.displayName)
         .navigationBarTitleDisplayMode(.inline)
@@ -1361,7 +1362,6 @@ private struct TLFoodCard: View {
 // MARK: - Bottom Bar
 
 private struct BottomBar: View {
-    let onShowDrinks: () -> Void
     let onAddWater: () -> Void
     let onAddFood: () -> Void
     let onEnd: () -> Void
@@ -1369,10 +1369,6 @@ private struct BottomBar: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            addTile(icon: "wineglass.fill", label: "Drink",
-                    tint: AppColors.accent, action: onShowDrinks)
-                .guideHighlight(guideTarget == .drinks, radius: 14)
-                .accessibilityHint("Jumps to the drink picker")
             addTile(icon: "drop.fill", label: "Water",
                     tint: AppColors.water, action: onAddWater)
                 .guideHighlight(guideTarget == .water, radius: 14)
@@ -1383,7 +1379,8 @@ private struct BottomBar: View {
         .buttonStyle(.plain)
         .padding(.horizontal)
         .padding(.vertical, 12)
-        .background(.ultraThinMaterial)
+        // Fills down through the home-indicator area so nothing shows below.
+        .background(.ultraThinMaterial, ignoresSafeAreaEdges: .bottom)
         .overlay(Rectangle().frame(height: 0.5).foregroundStyle(AppColors.border), alignment: .top)
     }
 

@@ -33,6 +33,9 @@ struct SipTrackLiveActivity: Widget {
                         Text(context.state.drinkCount == 1 ? "drink" : "drinks")
                             .font(.system(size: 9, weight: .medium))
                             .foregroundStyle(.white.opacity(0.4))
+                        if let balance = context.state.hydrationBalance {
+                            HydrationBadge(balance: balance, size: 10)
+                        }
                     }
                     .padding(.trailing, 4)
                 }
@@ -100,11 +103,11 @@ struct SipTrackLiveActivity: Widget {
         Button(intent: AddWaterFromLiveActivityIntent(eventId: eventId)) {
             Image(systemName: "drop.fill")
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(Color(hex: "#4FC3F7"))
+                .foregroundStyle(Color(hex: "#40AAFF"))
                 .frame(width: 44, height: 38)
-                .background(Color(hex: "#4FC3F7").opacity(0.15))
+                .background(Color(hex: "#40AAFF").opacity(0.15))
                 .clipShape(RoundedRectangle(cornerRadius: 8))
-                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color(hex: "#4FC3F7").opacity(0.3), lineWidth: 0.5))
+                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color(hex: "#40AAFF").opacity(0.3), lineWidth: 0.5))
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Add water")
@@ -186,6 +189,9 @@ private struct LockScreenContent: View {
                         HStack(spacing: 3) {
                             Image(systemName: "wineglass.fill").font(.system(size: 9))
                             Text("\(context.state.drinkCount)").font(.system(size: 11, weight: .semibold, design: .monospaced))
+                        }
+                        if let balance = context.state.hydrationBalance {
+                            HydrationBadge(balance: balance, size: 11)
                         }
                         HStack(spacing: 3) {
                             Image(systemName: "clock").font(.system(size: 9))
@@ -280,17 +286,44 @@ private struct LockScreenContent: View {
         Button(intent: AddWaterFromLiveActivityIntent(eventId: context.state.eventId)) {
             Image(systemName: "drop.fill")
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Color(hex: "#4FC3F7"))
+                .foregroundStyle(Color(hex: "#40AAFF"))
                 .frame(width: 46, height: 38)
-                .background(Color(hex: "#4FC3F7").opacity(0.14))
+                .background(Color(hex: "#40AAFF").opacity(0.14))
                 .clipShape(RoundedRectangle(cornerRadius: 10))
                 .overlay(
                     RoundedRectangle(cornerRadius: 10)
-                        .strokeBorder(Color(hex: "#4FC3F7").opacity(0.3), lineWidth: 0.5)
+                        .strokeBorder(Color(hex: "#40AAFF").opacity(0.3), lineWidth: 0.5)
                 )
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Add water")
+    }
+}
+
+// MARK: - Hydration
+
+/// Glasses of water minus drinks, coloured like the in-app Hydration stat:
+/// red when behind, white when even, green when ahead.
+private struct HydrationBadge: View {
+    let balance: Int
+    let size: CGFloat
+
+    private var color: Color {
+        switch balance {
+        case ..<0: return Color(hex: "#FF4757")
+        case 0: return .white.opacity(0.8)
+        default: return Color(hex: "#2ED573")
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 3) {
+            Image(systemName: "drop.fill").font(.system(size: size - 2))
+            Text(balance > 0 ? "+\(balance)" : "\(balance)")
+                .font(.system(size: size, weight: .semibold, design: .monospaced))
+        }
+        .foregroundStyle(color)
+        .accessibilityLabel("Hydration \(balance)")
     }
 }
 
