@@ -5,6 +5,8 @@ const {
   validateRequest,
   reserveQuota,
   remainingQuota,
+  DAILY_REPORT_CAP,
+  MONTHLY_REPORT_CAP,
 } = require("./report-policy");
 
 test("expired, revoked, upgraded, unknown and undated subscriptions cannot grant Pro", () => {
@@ -59,31 +61,37 @@ test("drink lookups stop at five a month without Pro", () => {
   assert.equal(reserveQuota(usage, "night", false, 100).counts.night, 1);
 });
 
-test("Pro drink lookups are capped at fifty a month, unlike reports", () => {
-  // The 30-a-day ceiling applies to Pro too, so fifty lookups take more than
-  // one day to spend. That is the intended brake: the monthly cap bounds the
-  // spend, the daily one stops a single night burning the month.
+test("Pro drink lookups run until the shared monthly budget is spent", () => {
+  // There is no per-kind ceiling for a paying user, lookups included: what
+  // they may spend is the monthly budget, shared across reports, lookups and
+  // whatever is added later. A lookup costs a fraction of a report, so capping
+  // it on its own only withheld calls the budget had already paid for.
+  assert.equal(remainingQuota({lookup: 999}, "lookup", true), null);
+  assert.equal(remainingQuota({night: 999}, "night", true), null);
+
+  // Well past the old ceiling of fifty, in a single day.
   let usage = {};
-  let spent = 0;
-  for (const day of [1, 2, 3]) {
-    const now = Date.UTC(2026, 8, day);
-    for (let i = 0; i < 20 && spent < 50; i++, spent++) {
-      usage = reserveQuota(usage, "lookup", true, now);
-    }
+  const now = Date.UTC(2026, 8, 14);
+  for (let i = 0; i < 120; i++) {
+    usage = reserveQuota(usage, "lookup", true, now);
   }
-  assert.equal(usage.counts.lookup, 50);
-  assert.equal(remainingQuota(usage.counts, "lookup", true), 0);
+  assert.equal(usage.counts.lookup, 120);
+
+  // The budget's own ceilings are the brake, and they are shared: a month
+  // already at the cap turns away a lookup exactly as it would a report.
   assert.throws(
-      () => reserveQuota(usage, "lookup", true, Date.UTC(2026, 8, 4)),
+      () => reserveQuota(
+          {month: "2026-09", total: MONTHLY_REPORT_CAP}, "lookup", true, now),
       /limit/,
   );
-  // The month rolls over and the allowance comes back.
-  assert.equal(
-      reserveQuota(usage, "lookup", true, Date.UTC(2026, 9, 1)).counts.lookup,
-      1,
+  assert.throws(
+      () => reserveQuota(
+          {day: "2026-09-14", daily: DAILY_REPORT_CAP}, "lookup", true, now),
+      /limit/,
   );
-  // A report kind still has no per-kind ceiling for Pro.
-  assert.equal(remainingQuota({night: 999}, "night", true), null);
+
+  // Free is untouched: still five a month.
+  assert.equal(remainingQuota({}, "lookup", false), 5);
 });
 
 test("a lookup cannot be smuggled in as a report kind", () => {
