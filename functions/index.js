@@ -1,5 +1,6 @@
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const {setGlobalOptions} = require("firebase-functions/v2");
+const {onSchedule} = require("firebase-functions/v2/scheduler");
 const {
   defineSecret,
   defineString,
@@ -19,6 +20,7 @@ const {verifyPurchase} = require("./purchases");
 const {validateRequest} = require("./report-policy");
 const {lookupDrink} = require("./drink-lookup");
 const {buildPrompt} = require("./prompts");
+const liveActivity = require("./live-activity");
 
 initializeApp();
 setGlobalOptions({region: "us-central1", maxInstances: 10});
@@ -28,6 +30,14 @@ const keyId = defineString("APPLE_IAP_KEY_ID");
 const issuerId = defineString("APPLE_IAP_ISSUER_ID");
 const appAppleId = defineInt("APPLE_APP_ID");
 const allowSandbox = defineBoolean("APPLE_ALLOW_SANDBOX", {default: false});
+// APNs auth key (.p8) for lock-screen pushes. Separate from the App Store
+// Connect key above: Apple issues push keys under Certificates, IDs & Profiles.
+const apnsKey = defineSecret("APNS_AUTH_KEY");
+const apnsKeyId = defineString("APNS_KEY_ID");
+const appleTeamId = defineString("APPLE_TEAM_ID", {default: "6T5DB8M42N"});
+const liveActivityTopic = defineString("LIVE_ACTIVITY_TOPIC", {
+  default: "com.lorenzoog.siptrack.push-type.liveactivity",
+});
 
 exports.requestReport = onCall(
     {
@@ -154,5 +164,45 @@ exports.deleteAccount = onCall(
         uid: request.auth.uid,
         authTime: request.auth.token.auth_time,
       });
+    },
+);
+
+exports.syncLiveActivity = onCall(
+    {timeoutSeconds: 30, enforceAppCheck: true},
+    async (request) => {
+      if (!request.auth) {
+        throw new HttpsError("unauthenticated", "Please sign in.");
+      }
+      return liveActivity.syncLiveActivity({
+        db: getFirestore(),
+        uid: request.auth.uid,
+        data: request.data,
+      });
+    },
+);
+
+// Every 5 minutes, push each live night's current BAC to its lock screen.
+exports.pushLiveActivities = onSchedule(
+    {schedule: "every 5 minutes", secrets: [apnsKey], timeoutSeconds: 120},
+    async () => {
+      const nowMs = Date.now();
+      const client = liveActivity.apnsClient({
+        jwt: liveActivity.apnsJwt({
+          key: apnsKey.value(),
+          keyId: apnsKeyId.value(),
+          teamId: appleTeamId.value(),
+          nowSeconds: Math.floor(nowMs / 1000),
+        }),
+        topic: liveActivityTopic.value(),
+      });
+      try {
+        await liveActivity.pushDue({
+          db: getFirestore(),
+          nowMs,
+          send: client.send,
+        });
+      } finally {
+        client.close();
+      }
     },
 );

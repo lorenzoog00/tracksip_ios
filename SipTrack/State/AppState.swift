@@ -378,6 +378,7 @@ final class AppState: ObservableObject {
                 .filter { ids.contains($0.id) }
                 .prefix(3)
                 .map { SipTrackActivityAttributes.QuickDrink(id: $0.id, name: $0.name, symbol: $0.sfSymbol) }
+            lockScreenCurveKey = nil
             LiveActivityManager.shared.start(
                 eventName: event.displayName,
                 eventId: event.id,
@@ -421,8 +422,57 @@ final class AppState: ObservableObject {
                 elapsedMinutes: elapsed,
                 safeToDriveAt: safeToDriveAt,
                 soberAt: soberAt,
-                startedAt: event.startTime
+                startedAt: event.startTime,
+                hydrationBalance: waterEntries.filter { $0.eventId == eventId }.count
+                    - totalDrinks(for: eventId),
+                currentDrink: latestDrinkForLockScreen(eventId: eventId),
+                pushSamples: lockScreenPushSamples(for: event, currentBAC: resolvedBAC)
             )
+        }
+    }
+
+    private func latestDrinkForLockScreen(eventId: String) -> (name: String, symbol: String, startedAt: Date, minutes: Int)? {
+        guard let entry = entries.filter({ $0.eventId == eventId }).max(by: { $0.timestamp < $1.timestamp }),
+              let type = allDrinkTypes.first(where: { $0.id == entry.drinkTypeId })
+        else { return nil }
+        return (type.name, type.sfSymbol, entry.timestamp, max(1, type.effectiveDrinkingMinutes))
+    }
+
+    /// What the night's curve depends on. The curve is rebuilt and re-sent to the
+    /// push server only when this changes, not on every 10 s tick.
+    private var lockScreenCurveKey: String?
+
+    /// The projected curve for the push server, or nil when it has not changed
+    /// since the last call. Values are what the lock screen shows: BAC plus the
+    /// stage name and colour it falls in.
+    private func lockScreenPushSamples(for event: NightEvent, currentBAC: Double) -> [[String: Any]]? {
+        let eventEntries = entries.filter { $0.eventId == event.id }
+        let eventFood = foodEntries.filter { $0.eventId == event.id }
+        let key = [
+            event.id,
+            "\(eventEntries.count)",
+            "\(eventEntries.reduce(0.0) { $0 + $1.timestamp.timeIntervalSince1970 + Double($1.quantity) + ($1.volumeOverrideMl ?? 0) })",
+            "\(eventFood.count)",
+            String(describing: event.stomachState),
+            "\(userProfile.weightKg)",
+            "\(BACCalculator.profileR(profile: userProfile))",
+        ].joined(separator: "|")
+        guard key != lockScreenCurveKey else { return nil }
+        lockScreenCurveKey = key
+        let points = BACCalculator.bacTimeline(
+            entries: eventEntries, drinkTypes: allDrinkTypes, profile: userProfile,
+            eventStart: event.startTime, stomachState: event.stomachState ?? .empty,
+            stomachStateTimestamp: event.stomachStateTimestamp ?? event.startTime,
+            foodEntries: eventFood
+        )
+        return BACCalculator.lockScreenSchedule(points, from: Date(), currentBAC: currentBAC).map { point in
+            let stage = IntoxicationStage.stage(for: point.bac)
+            return [
+                "t": point.date.timeIntervalSince1970,
+                "b": (point.bac * 100_000).rounded() / 100_000,
+                "s": stage.name,
+                "c": stage.colorHex,
+            ]
         }
     }
 
@@ -1403,6 +1453,12 @@ final class AppState: ObservableObject {
         DataStore.shared.deleteEntry(id)
         entries.removeAll { $0.id == id }
         push { try await FirebaseManager.shared.deleteEntry(id) }
+        // Undoing a drink changes the curve, so the lock screen and the push
+        // server need the new one; before this they kept counting the drink.
+        if let active = activeEvent {
+            bacTick = Date()
+            updateLiveActivity(for: active.id)
+        }
     }
 
     func undoLastEntry() {
@@ -1448,6 +1504,7 @@ final class AppState: ObservableObject {
         scheduleUndoWater(entry)
         if activeEvent?.id == eventId {
             refreshWaterReminder()
+            updateLiveActivity(for: eventId)
         }
     }
 
@@ -1474,6 +1531,7 @@ final class AppState: ObservableObject {
         DataStore.shared.deleteWaterEntry(id)
         waterEntries.removeAll { $0.id == id }
         refreshWaterReminder()
+        if let active = activeEvent { updateLiveActivity(for: active.id) }
     }
 
     // MARK: - Food
@@ -1824,6 +1882,34 @@ final class AppState: ObservableObject {
             stomachStateTimestamp: event.stomachStateTimestamp ?? event.startTime,
             foodEntries: eventFood
         )
+    }
+
+    /// Peak BAC still ahead tonight, optionally with one more drink logged now.
+    /// Used to warn before a drink rather than after the BAC has already risen.
+    func projectedPeakBAC(forEventId eventId: String, addingDrinkTypeId dtId: String? = nil,
+                          volumeOverrideMl: Double? = nil, now: Date = .now) -> Double {
+        guard let event = events.first(where: { $0.id == eventId }) else { return 0 }
+        var eventEntries = entries.filter { $0.eventId == eventId }
+        if let dtId {
+            eventEntries.append(DrinkEntry(
+                id: "__projected__", eventId: eventId, drinkTypeId: dtId, timestamp: now,
+                quantity: 1, comment: nil, volumeOverrideMl: volumeOverrideMl, abvOverride: nil
+            ))
+        }
+        let eventFood = foodEntries.filter { $0.eventId == eventId }
+        let stomach = event.stomachState ?? .empty
+        let stomachAt = event.stomachStateTimestamp ?? event.startTime
+        let points = BACCalculator.bacTimeline(
+            entries: eventEntries, drinkTypes: allDrinkTypes, profile: userProfile,
+            eventStart: event.startTime, stomachState: stomach,
+            stomachStateTimestamp: stomachAt, foodEntries: eventFood
+        )
+        let nowBAC = BACCalculator.currentBAC(
+            entries: eventEntries, waterEntries: [], drinkTypes: allDrinkTypes, profile: userProfile,
+            eventStart: event.startTime, stomachState: stomach, stomachStateTimestamp: stomachAt,
+            foodEntries: eventFood, asOf: now
+        )
+        return BACCalculator.futurePeakBAC(points, from: now, currentBAC: nowBAC)
     }
 
     func currentBAC(for eventId: String) -> Double {

@@ -315,7 +315,7 @@ struct CalendarView: View {
                                                     peakBAC: bac, stageColor: stage.color, stageName: stage.name
                                                 )
                                             }
-                                            if let end = event.endTime, count > 0 || PhotoLibraryService.hasMedia(from: event.startTime, to: end) != false {
+                                            if event.endTime != nil, count > 0 || NightPhotoStore.hasMedia(eventId: event.id) {
                                                 NavigationLink(value: Route.stories(event.id)) {
                                                     Image(systemName: "photo.on.rectangle.angled")
                                                         .foregroundStyle(AppColors.accent)

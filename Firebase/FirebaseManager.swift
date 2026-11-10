@@ -452,6 +452,33 @@ final class FirebaseManager: ObservableObject {
         try await requestReport(kind: "night", id: eventId, payload: data)
     }
 
+    // MARK: - Lock-screen live BAC
+
+    /// Hands the server the lock screen's push token and this night's projected
+    /// BAC curve so it can keep the number current while the app is asleep. A nil
+    /// token or empty curve tells it to stop. Returns false on any failure; the
+    /// lock screen then simply updates only when the app runs.
+    func syncLiveActivity(token: String?, template: Any?, samples: [[String: Any]]) async -> Bool {
+        guard auth.currentUser != nil else { return false }
+        var data: [String: Any] = ["samples": samples]
+        #if DEBUG
+        data["environment"] = "sandbox"
+        #else
+        data["environment"] = "production"
+        #endif
+        if let token { data["token"] = token }
+        if let template { data["template"] = template }
+        do {
+            _ = try await callFunction("syncLiveActivity", data: data)
+            return true
+        } catch {
+            #if DEBUG
+            print("[LiveActivity] push sync failed: \(error.localizedDescription)")
+            #endif
+            return false
+        }
+    }
+
     var appAccountToken: UUID? {
         guard let uid = currentUserId() else { return nil }
         let hex = Array(sha256(uid).prefix(32))

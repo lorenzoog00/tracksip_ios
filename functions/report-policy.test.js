@@ -41,11 +41,11 @@ test("free reports cannot exceed five nights by resetting client profile", () =>
 test("paid access still enforces daily and monthly spending limits", () => {
   const now = Date.UTC(2026, 8, 14);
   assert.throws(
-      () => reserveQuota({day: "2026-09-14", daily: 30}, "night", true, now),
+      () => reserveQuota({day: "2026-09-14", daily: 150}, "night", true, now),
       /limit/,
   );
   assert.throws(
-      () => reserveQuota({month: "2026-09", total: 300}, "night", true, now),
+      () => reserveQuota({month: "2026-09", total: 3000}, "night", true, now),
       /limit/,
   );
 });

@@ -609,6 +609,43 @@ struct BACCalculator {
         max(limit, bacFloor)
     }
 
+    /// How far under the driving limit the pre-drink warning fires. The limit
+    /// itself stays the legal number (0.08 shows as 0.08); the warning comes
+    /// earlier, at 0.075 for a 0.08 limit, because the estimate has error and a
+    /// driver should stop before the line, not on it.
+    static let drivingWarningMargin = 0.005
+
+    static func drivingWarningThreshold(limit: Double) -> Double {
+        max(bacFloor, drivingThreshold(limit: limit) - drivingWarningMargin)
+    }
+
+    /// Highest BAC the curve reaches from `now` on. A drink logged this minute has
+    /// barely started absorbing, so the BAC at `now` hides it; the peak ahead is
+    /// what tells whether it will carry the user over a line.
+    static func futurePeakBAC(_ points: [BACDataPoint], from now: Date, currentBAC: Double) -> Double {
+        points.filter { $0.date >= now }.map(\.bac).reduce(currentBAC, max)
+    }
+
+    /// The curve from `now` on, one value every `step`, for the server to push to
+    /// the lock screen while the app is asleep. Starts at `currentBAC` so the first
+    /// push matches the number on screen, and stops at the first zero (sober)
+    /// or after `maxCount` values. Empty when there is nothing to count down.
+    static func lockScreenSchedule(
+        _ points: [BACDataPoint], from now: Date, currentBAC: Double,
+        step: TimeInterval = 300, maxCount: Int = 144
+    ) -> [BACDataPoint] {
+        guard currentBAC > 0 || points.contains(where: { $0.date > now && $0.bac > 0 }) else { return [] }
+        var out = [BACDataPoint(date: now, bac: currentBAC)]
+        var t = now.addingTimeInterval(step)
+        while out.count < maxCount {
+            let bac = (points.last.map { t > $0.date } ?? true) ? 0 : max(0, interpolatedBAC(at: t, sorted: points))
+            out.append(BACDataPoint(date: t, bac: bac))
+            if bac <= 0 { break }
+            t = t.addingTimeInterval(step)
+        }
+        return out
+    }
+
     // MARK: - Stomach / food factor
 
     // Returns (kA, FPM) at a drink moment. Effects from the user's declared start-of-night

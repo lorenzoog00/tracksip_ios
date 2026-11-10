@@ -30,7 +30,7 @@ enum StoryVideoExporter {
                 try Task.checkCancellation()
                 let image: UIImage?
                 if let asset = moment.asset {
-                    guard let photo = await PhotoLibraryService.exportImage(for: asset.id) else {
+                    guard let photo = await NightPhotoStore.exportImage(for: asset.id) else {
                         try Task.checkCancellation()
                         throw StoryVideoError.missingPhoto
                     }

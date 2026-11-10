@@ -305,4 +305,55 @@ struct BACCalculatorKineticsTests {
         ).map(\.bac).max() ?? 0
         #expect(abs((c["b"] ?? 0) - peak) < 0.002)
     }
+
+    @Test func drivingWarning_firesBeforeTheLegalLimit() {
+        #expect(abs(BACCalculator.drivingWarningThreshold(limit: 0.08) - 0.075) < 1e-9)
+        #expect(abs(BACCalculator.drivingWarningThreshold(limit: 0.05) - 0.045) < 1e-9)
+        // Zero tolerance never drops below the display floor.
+        #expect(BACCalculator.drivingWarningThreshold(limit: 0) == BACCalculator.bacFloor)
+    }
+
+    @Test func futurePeak_seesADrinkThatHasNotAbsorbedYet() {
+        let start = Date(timeIntervalSince1970: 1_700_000_000)
+        let profile = maleProfile()
+        let now = start.addingTimeInterval(60)
+        let entries = [beer("b", at: now)]
+        let points = BACCalculator.bacTimeline(
+            entries: entries, drinkTypes: DrinkType.presets, profile: profile, eventStart: start
+        )
+        let current = BACCalculator.currentBAC(
+            entries: entries, waterEntries: [], drinkTypes: DrinkType.presets, profile: profile,
+            eventStart: start, asOf: now
+        )
+        let peak = BACCalculator.futurePeakBAC(points, from: now, currentBAC: current)
+        #expect(current < 0.005)
+        #expect(peak > current + 0.01)
+    }
+
+    // MARK: - Lock-screen push schedule
+
+    @Test func lockScreenSchedule_startsAtTheShownValueAndEndsSober() {
+        let now = Date(timeIntervalSince1970: 1_000_000)
+        // Falls 0.06 → 0 over two hours, sampled every five minutes like the timeline.
+        let points = (0...24).map { i in
+            BACDataPoint(date: now.addingTimeInterval(Double(i) * 300), bac: Double(24 - i) * 0.0025)
+        }
+        let schedule = BACCalculator.lockScreenSchedule(points, from: now, currentBAC: 0.061)
+        #expect(schedule.first?.bac == 0.061)
+        #expect(schedule.last?.bac == 0)
+        #expect(schedule.count == 25)
+        let steps = zip(schedule, schedule.dropFirst()).map { $1.date.timeIntervalSince($0.date) }
+        #expect(steps.allSatisfy { $0 == 300 })
+    }
+
+    @Test func lockScreenSchedule_isEmptyWhenAlreadySober() {
+        let now = Date()
+        #expect(BACCalculator.lockScreenSchedule([], from: now, currentBAC: 0).isEmpty)
+    }
+
+    @Test func lockScreenSchedule_isCappedForAVeryLongNight() {
+        let now = Date()
+        let points = (0...300).map { BACDataPoint(date: now.addingTimeInterval(Double($0) * 300), bac: 0.3) }
+        #expect(BACCalculator.lockScreenSchedule(points, from: now, currentBAC: 0.3).count == 144)
+    }
 }

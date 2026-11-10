@@ -15,6 +15,7 @@ async function deleteAccount({db, auth, uid, authTime, now = Date.now()}) {
   // Block writes and late reports while old ID tokens remain valid.
   await db.doc(`account_deletions/${uid}`).set({startedAt: now});
   await db.recursiveDelete(db.doc(`users/${uid}`));
+  await db.doc(`live_activities/${uid}`).delete();
   const owners = await db
       .collection("purchase_owners")
       .where("uid", "==", uid)

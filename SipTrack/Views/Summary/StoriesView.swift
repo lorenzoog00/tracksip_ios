@@ -1,5 +1,4 @@
 import SwiftUI
-import Photos
 import AVKit
 import UIKit
 
@@ -20,11 +19,9 @@ struct StoriesView: View {
     @State private var review: NightReview?
     @State private var assets: [StoryAsset] = []
     @State private var state = NightStoryState()
-    @State private var authorization: PHAuthorizationStatus = .notDetermined
     @State private var momentId: String
     @State private var editor: StoryMoment?
     @State private var curating = false
-    @State private var clip: StoryAsset?
     @State private var progress: Double?
     @State private var exportTask: Task<Void, Never>?
     @State private var movieURL: URL?
@@ -89,18 +86,18 @@ struct StoriesView: View {
             }
         }
         .sheet(isPresented: $curating) {
-            StoryCurationGrid(assets: assets, excluded: state.excludedAssetIds, isLimited: authorization == .limited) { asset in
+            StoryCurationGrid(assets: assets, excluded: state.excludedAssetIds) { asset in
                 if state.excludedAssetIds.contains(asset.id) {
                     state.excludedAssetIds.remove(asset.id)
                 } else {
                     state.excludedAssetIds.insert(asset.id)
                 }
                 DataStore.shared.saveNightStoryState(state, eventId: eventId)
-            } pickMore: {
-                PhotoLibraryService.pickMore { reloadAssets() }
+            } delete: { asset in
+                NightPhotoStore.delete(asset)
+                reloadAssets()
             }
         }
-        .fullScreenCover(item: $clip) { asset in StoryClipView(asset: asset) }
         .fullScreenCover(isPresented: $previewing) {
             if let movieURL { StoryMoviePreview(url: movieURL) }
         }
@@ -120,18 +117,15 @@ struct StoriesView: View {
         guard review == nil, let event = appState.events.first(where: { $0.id == eventId }) else { return }
         state = DataStore.shared.loadNightStoryState(eventId: eventId)
         movieURL = DataStore.shared.savedNightStoryVideo(eventId: eventId)
-        _ = await PhotoLibraryService.requestAccess()
-        guard !Task.isCancelled else { return }
         review = appState.nightReview(for: event)
         reloadAssets()
     }
 
     private func reloadAssets() {
         guard let review else { return }
-        authorization = PhotoLibraryService.status
-        assets = PhotoLibraryService.assets(from: review.event.startTime, to: review.end)
+        assets = NightPhotoStore.assets(eventId: eventId)
         let hasMoments = review.drinkCount > 0 || assets.contains { !state.excludedAssetIds.contains($0.id) }
-        if state.generatedAt == nil, hasMoments, authorization != .notDetermined {
+        if state.generatedAt == nil, hasMoments {
             state.generatedAt = .now
             DataStore.shared.saveNightStoryState(state, eventId: eventId)
         }
@@ -221,7 +215,7 @@ struct StoriesView: View {
             Spacer()
             Menu {
                 Button("Edit caption", systemImage: "text.bubble") { editor = moment }
-                if !assets.isEmpty || authorization == .limited {
+                if !assets.isEmpty {
                     Button("Choose photos", systemImage: "square.grid.2x2") { curating = true }
                 }
             } label: {
@@ -244,16 +238,8 @@ struct StoriesView: View {
 
     private func footer(moment: StoryMoment) -> some View {
         HStack {
-            if let asset = moment.asset, asset.isVideo {
-                iconButton("play.fill", label: "Play clip") { clip = asset }
-            }
             Spacer()
-            if moment.id == "start", authorization == .denied {
-                Button("Enable photos", action: openSettings).font(.caption.weight(.semibold))
-            } else if moment.id == "start", authorization == .limited {
-                Button("Pick more photos") { PhotoLibraryService.pickMore { reloadAssets() } }
-                    .font(.caption.weight(.semibold))
-            }
+            iconButton("text.bubble", label: "Edit caption") { editor = moment }
         }
         .buttonStyle(.plain)
     }
@@ -265,14 +251,9 @@ struct StoriesView: View {
             } else {
                 Image(systemName: "photo.on.rectangle").font(.system(size: 30))
                 Text("No moments to show").font(.headline)
-                Text("Add photos from the night to see them here.")
+                Text("Tap the camera during a night to take photos. They show up here with your BAC at that moment.")
                     .font(.subheadline)
                     .foregroundStyle(AppColors.textSecondary)
-                if authorization == .denied {
-                    Button("Enable photos", action: openSettings)
-                } else if authorization == .limited {
-                    Button("Pick more photos") { PhotoLibraryService.pickMore { reloadAssets() } }
-                }
                 if !assets.isEmpty { Button("Choose photos") { curating = true } }
                 Button("Done") { dismiss() }
                     .buttonStyle(.bordered)
@@ -295,10 +276,6 @@ struct StoriesView: View {
             .font(.system(size: 16, weight: .semibold))
             .frame(width: 44, height: 44)
             .background(.black.opacity(0.56), in: Circle())
-    }
-
-    private func openSettings() {
-        if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
     }
 
     private func exportOverlay(_ progress: Double) -> some View {
@@ -364,7 +341,7 @@ private struct StoryPhotoPage: View {
         StoryCardView(story: story, moment: moment, image: image, caption: caption)
             .task(id: moment.id) {
                 guard let asset = moment.asset else { return }
-                for await thumbnail in PhotoLibraryService.thumbnail(for: asset.id, size: targetSize) {
+                for await thumbnail in NightPhotoStore.thumbnail(for: asset.id, size: targetSize) {
                     guard !Task.isCancelled else { return }
                     let current = image
                     if let current, current.size.width * current.size.height > thumbnail.size.width * thumbnail.size.height {
@@ -379,7 +356,7 @@ private struct StoryPhotoPage: View {
                 let retained = Set(neighbors.map(\.id) + [moment.id])
                 images = images.filter { retained.contains($0.key) }
                 for asset in neighbors where images[asset.id] == nil {
-                    for await thumbnail in PhotoLibraryService.thumbnail(for: asset.id, size: targetSize, allowsNetwork: false) {
+                    for await thumbnail in NightPhotoStore.thumbnail(for: asset.id, size: targetSize) {
                         guard !Task.isCancelled else { return }
                         images[asset.id] = thumbnail
                     }
@@ -442,15 +419,13 @@ private struct StoryCaptionEditor: View {
 private struct StoryCurationGrid: View {
     let assets: [StoryAsset]
     let excluded: Set<String>
-    let isLimited: Bool
     let toggle: (StoryAsset) -> Void
-    let pickMore: () -> Void
+    let delete: (StoryAsset) -> Void
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                if isLimited { Button("Pick more photos", action: pickMore).padding() }
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) {
                     ForEach(assets) { asset in
                         Button { toggle(asset) } label: {
@@ -458,6 +433,9 @@ private struct StoryCurationGrid: View {
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("\(excluded.contains(asset.id) ? "Include" : "Remove") photo at \(NightReview.time(asset.timestamp))")
+                        .contextMenu {
+                            Button("Delete photo", systemImage: "trash", role: .destructive) { delete(asset) }
+                        }
                     }
                 }
                 .padding()
@@ -492,43 +470,11 @@ private struct StoryThumbnail: View {
         }
         .aspectRatio(1, contentMode: .fit)
         .task(id: asset.id) {
-            for await thumbnail in PhotoLibraryService.thumbnail(for: asset.id, size: CGSize(width: 260, height: 260)) {
+            for await thumbnail in NightPhotoStore.thumbnail(for: asset.id, size: CGSize(width: 260, height: 260)) {
                 guard !Task.isCancelled else { return }
                 image = thumbnail
             }
         }
-    }
-}
-
-private struct StoryClipView: View {
-    let asset: StoryAsset
-    @Environment(\.dismiss) private var dismiss
-    @State private var player = AVQueuePlayer()
-    @State private var looper: AVPlayerLooper?
-    @State private var loading = true
-
-    var body: some View {
-        ZStack(alignment: .topTrailing) {
-            Color.black.ignoresSafeArea()
-            if looper != nil {
-                VideoPlayer(player: player)
-            } else if loading {
-                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                Text("Could not load this clip.").frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
-            Button("Done") { dismiss() }.buttonStyle(.bordered).padding()
-        }
-        .task(id: asset.id) {
-            let item = await PhotoLibraryService.video(for: asset.id)
-            guard !Task.isCancelled else { return }
-            loading = false
-            guard let item else { return }
-            player.isMuted = true
-            looper = AVPlayerLooper(player: player, templateItem: item)
-            player.play()
-        }
-        .onDisappear { player.pause() }
     }
 }
 
