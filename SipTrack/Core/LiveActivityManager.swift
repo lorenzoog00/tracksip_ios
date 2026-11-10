@@ -25,8 +25,12 @@ final class LiveActivityManager {
     /// Title for an alert on the next update, set by a lock-screen button.
     private var pendingAlert: String?
 
+    /// Shown on the card while set; cleared by `clearAction()`.
+    private var actionText: String?
+
     func alertOnNextUpdate(_ title: String) {
         pendingAlert = title
+        actionText = title
     }
 
     func start(eventName: String, eventId: String, quickDrinks: [SipTrackActivityAttributes.QuickDrink]) {
@@ -111,7 +115,8 @@ final class LiveActivityManager {
             currentDrinkName: currentDrink?.name,
             currentDrinkSymbol: currentDrink?.symbol,
             currentDrinkStartedAt: currentDrink?.startedAt,
-            currentDrinkMinutes: currentDrink?.minutes
+            currentDrinkMinutes: currentDrink?.minutes,
+            actionText: actionText
         )
         let content = ActivityContent(state: state, staleDate: Date().addingTimeInterval(600))
         if let alert = pendingAlert {
@@ -141,6 +146,17 @@ final class LiveActivityManager {
     /// Waits for the last lock-screen update and server sync to finish. A
     /// lock-screen button runs in a background launch that iOS ends as soon as
     /// the intent returns, so the intent waits on this first.
+    /// Takes the "added" message off the card, keeping everything else.
+    func clearAction() async {
+        actionText = nil
+        guard let activity = currentActivity() else { return }
+        var state = activity.content.state
+        guard state.actionText != nil else { return }
+        state.actionText = nil
+        await pendingUpdate?.value
+        await activity.update(ActivityContent(state: state, staleDate: Date().addingTimeInterval(600)))
+    }
+
     func flush() async {
         await pendingUpdate?.value
         await pendingSync?.value
@@ -162,8 +178,9 @@ final class LiveActivityManager {
     }
 
     private func syncPush() {
-        guard let token = pushToken, let template = lastTemplate,
-              let templateJSON = try? JSONSerialization.jsonObject(with: JSONEncoder().encode(template))
+        guard let token = pushToken, var template = lastTemplate else { return }
+        template.actionText = nil
+        guard let templateJSON = try? JSONSerialization.jsonObject(with: JSONEncoder().encode(template))
         else { return }
         let samples = lastSamples
         let previous = pendingSync
