@@ -173,7 +173,7 @@ struct CoachView: View {
     private func weeklyLabel(_ report: CoachReport) -> String {
         let cal = Calendar(identifier: .iso8601)
         let weekNum = cal.component(.weekOfYear, from: report.periodStart)
-        let fmt = DateFormatter(); fmt.dateFormat = "MMM d"
+        let fmt = AppDates.formatter("MMM d")
         let start = fmt.string(from: report.periodStart)
         let endDate = cal.date(byAdding: .day, value: -1, to: report.periodEnd) ?? report.periodEnd
         return "WK \(weekNum) • \(start)–\(fmt.string(from: endDate))"
@@ -220,7 +220,7 @@ struct CoachView: View {
     }
 
     private func monthlyLabel(_ report: CoachReport) -> String {
-        let fmt = DateFormatter(); fmt.dateFormat = "MMMM yyyy"
+        let fmt = AppDates.formatter("MMMM yyyy")
         return fmt.string(from: report.periodStart).uppercased()
     }
 
@@ -433,7 +433,7 @@ struct NewComparisonSheet: View {
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(AppColors.text)
                     .lineLimit(1)
-                Text(e.startTime, format: .dateTime.month(.abbreviated).day().year())
+                Text(e.startTime, format: .dateTime.month(.abbreviated).day().year().english)
                     .font(.system(size: 13, design: .monospaced))
                     .foregroundStyle(AppColors.textTertiary)
             } else {
@@ -469,7 +469,7 @@ struct NewComparisonSheet: View {
                 Text(event.startTime, format: .dateTime.day())
                     .font(.system(size: 24, weight: .bold, design: .serif))
                     .foregroundStyle(isA ? aColor : isB ? bColor : AppColors.text)
-                Text(event.startTime, format: .dateTime.month(.abbreviated))
+                Text(event.startTime, format: .dateTime.month(.abbreviated).english)
                     .font(.system(size: 11, weight: .semibold))
                     .tracking(1)
                     .foregroundStyle(AppColors.textTertiary)

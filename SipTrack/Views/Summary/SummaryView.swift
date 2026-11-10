@@ -298,9 +298,7 @@ struct SummaryView: View {
     }
 
     private func eventDateRange(_ event: NightEvent) -> String {
-        let f = DateFormatter()
-        f.dateStyle = .medium
-        f.timeStyle = .short
+        let f = AppDates.formatter(dateStyle: .medium, timeStyle: .short)
         let start = f.string(from: event.startTime)
         if let end = event.endTime {
             f.dateStyle = .none
@@ -612,8 +610,7 @@ private struct SummaryShareCard: View {
     private var peakBAC: Double { timeline.map(\.bac).max() ?? meanBAC }
 
     private var formattedDate: String {
-        let f = DateFormatter()
-        f.dateFormat = "MMM d, yyyy"
+        let f = AppDates.formatter("MMM d, yyyy")
         return f.string(from: event.startTime)
     }
 

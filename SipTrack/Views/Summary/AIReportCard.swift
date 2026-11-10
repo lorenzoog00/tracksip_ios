@@ -70,7 +70,7 @@ struct AIReportCard: View {
                     .font(.system(size: 10, weight: .bold))
                     .tracking(1.5)
                     .foregroundStyle(AppColors.textTertiary)
-                Text(Date(), format: .dateTime.day().month(.abbreviated).year())
+                Text(Date(), format: .dateTime.day().month(.abbreviated).year().english)
                     .font(.system(size: 13, weight: .medium, design: .monospaced))
                     .foregroundStyle(AppColors.textSecondary)
                 if !isPro {
@@ -775,7 +775,7 @@ struct NightAnalysisCard: View {
                 Spacer()
 
                 if let event = event {
-                    Text(event.startTime, format: .dateTime.month(.abbreviated).day())
+                    Text(event.startTime, format: .dateTime.month(.abbreviated).day().english)
                         .font(.system(size: 13, design: .monospaced))
                         .foregroundStyle(AppColors.textTertiary)
                 }

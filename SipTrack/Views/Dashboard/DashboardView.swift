@@ -615,7 +615,7 @@ private struct MonthlyView: View {
     @Binding var offset: Int
 
     private var monthTitle: String {
-        let f = DateFormatter(); f.dateFormat = "MMMM yyyy"
+        let f = AppDates.formatter("MMMM yyyy")
         let date = Calendar.current.date(byAdding: .month, value: offset, to: Date()) ?? Date()
         return f.string(from: date)
     }
