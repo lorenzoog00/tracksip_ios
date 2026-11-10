@@ -196,11 +196,11 @@ struct EditDrinkView: View {
 
     private var autofillCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Describe it instead")
+            Text("Don't know the numbers?")
                 .font(.system(size: 16, weight: .medium))
                 .foregroundStyle(AppColors.textSecondary)
             HStack(spacing: 8) {
-                TextField("e.g. 2 caballitos de mezcal", text: $lookupQuery)
+                TextField("e.g. una paloma con Squirt", text: $lookupQuery)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .submitLabel(.search)
@@ -226,6 +226,33 @@ struct EditDrinkView: View {
                 .disabled(!canAutofill)
                 .accessibilityLabel("Fill in the drink's details")
             }
+            // Only while the field is empty: once there is something to look
+            // up, the suggestions are in the way of the button.
+            if lookupQuery.isEmpty && lookupState != .loading {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(DrinkLookup.examples, id: \.self) { example in
+                            Button {
+                                lookupQuery = example
+                                lookupState = .idle
+                            } label: {
+                                Text(example)
+                                    .font(.system(size: 14, weight: .medium))
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 7)
+                                    .background(AppColors.surface)
+                                    .foregroundStyle(AppColors.textSecondary)
+                                    .cornerRadius(8)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .stroke(AppColors.border, lineWidth: 1)
+                                    )
+                            }
+                        }
+                    }
+                    .padding(.vertical, 1)
+                }
+            }
             if case .failed(let message) = lookupState {
                 Text(message)
                     .font(.system(size: 14))
@@ -237,7 +264,7 @@ struct EditDrinkView: View {
                     .foregroundStyle(AppColors.textTertiary)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
-                Text("We'll estimate the pour, ABV and calories. Check them before saving.")
+                Text("Name any drink — even one that isn't in the list. We'll estimate the pour, ABV and calories for you to check.")
                     .font(.system(size: 14))
                     .foregroundStyle(AppColors.textTertiary)
                     .fixedSize(horizontal: false, vertical: true)
