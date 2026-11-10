@@ -59,10 +59,17 @@ struct DrinkLookupTests {
         #expect(DrinkLookup.localMatch(for: "red wine", in: catalog)?.id == "2")
     }
 
+    @Test func anExactNameWinsOverADrinkThatMerelyContainsIt() {
+        let catalog = [drink("1", "Pale Ale"), drink("2", "Ale")]
+        // Typing a drink's whole name is the strongest signal there is, so it
+        // is not made ambiguous by a longer name containing it.
+        #expect(DrinkLookup.localMatch(for: "ale", in: catalog)?.id == "2")
+    }
+
     @Test func anAmbiguousOrAbsentMatchFallsThroughToTheModel() {
-        let catalog = [drink("1", "Pale Ale"), drink("2", "Ale"), drink("3", "Rum")]
-        // "Ale" is inside "Pale Ale" too, and prefilling the wrong one is
-        // worse than spending a lookup.
+        let catalog = [drink("1", "Pale Ale"), drink("2", "Ginger Ale"), drink("3", "Rum")]
+        // Nothing is named exactly "ale" and two drinks contain it. Prefilling
+        // either is worse than spending a lookup.
         #expect(DrinkLookup.localMatch(for: "ale", in: catalog) == nil)
         #expect(DrinkLookup.localMatch(for: "negroni", in: catalog) == nil)
         // Too short to mean anything.
