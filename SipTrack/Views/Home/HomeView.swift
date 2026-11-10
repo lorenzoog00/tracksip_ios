@@ -11,7 +11,7 @@ struct HomeView: View {
     @State private var deletingEventId: String? = nil
 
     private var dayString: String {
-        let df = DateFormatter(); df.dateFormat = "EEEE"
+        let df = AppDates.formatter("EEEE")
         return df.string(from: Date()).uppercased()
     }
     private var dateNumberString: String {
@@ -19,7 +19,7 @@ struct HomeView: View {
         return df.string(from: Date())
     }
     private var monthYearString: String {
-        let df = DateFormatter(); df.dateFormat = "MMMM yyyy"
+        let df = AppDates.formatter("MMMM yyyy")
         return df.string(from: Date())
     }
 
@@ -842,7 +842,7 @@ private struct EventRow: View {
     }
 
     private var monthAbbr: String {
-        DateFormatter().then { $0.dateFormat = "MMM" }.string(from: event.startTime).uppercased()
+        AppDates.formatter("MMM").string(from: event.startTime).uppercased()
     }
 
     private var timeString: String {

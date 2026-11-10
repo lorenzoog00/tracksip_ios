@@ -31,7 +31,7 @@ struct CalendarView: View {
     }
 
     private var monthName: String {
-        let f = DateFormatter(); f.dateFormat = "MMMM"
+        let f = AppDates.formatter("MMMM")
         return f.string(from: displayMonth).uppercased()
     }
 
@@ -421,7 +421,7 @@ struct CalendarView: View {
     }
 
     private func dayName(_ date: Date) -> String {
-        let f = DateFormatter(); f.dateFormat = "EEEE"; return f.string(from: date)
+        let f = AppDates.formatter("EEEE"); return f.string(from: date)
     }
 
     private func dayNumber(_ date: Date) -> String {
@@ -429,7 +429,7 @@ struct CalendarView: View {
     }
 
     private func monthAbbrev(_ date: Date) -> String {
-        let f = DateFormatter(); f.dateFormat = "MMM"; return f.string(from: date)
+        let f = AppDates.formatter("MMM"); return f.string(from: date)
     }
 }
 

@@ -194,7 +194,7 @@ private struct StoryEndCardView: View {
                 .font(.system(size: 30, weight: .bold, design: .serif))
                 .lineLimit(2)
                 .minimumScaleFactor(0.8)
-            Text(review.event.startTime, format: .dateTime.month(.wide).day().year())
+            Text(review.event.startTime, format: .dateTime.month(.wide).day().year().english)
                 .font(.subheadline)
                 .foregroundStyle(AppColors.textSecondary)
             Text(NightReview.duration(Int(review.end.timeIntervalSince(review.event.startTime) / 60)))

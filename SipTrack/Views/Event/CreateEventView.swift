@@ -10,8 +10,6 @@ struct CreateEventView: View {
     @State private var bacLimit      = 0.08
     @State private var useCountryLimit = true
     @State private var targetBAC: Double? = nil
-    @State private var startTime     = Date()
-    @State private var customStart   = false
     @State private var stomachState: StomachState = .empty
     @FocusState private var nameFocused: Bool
 
@@ -62,45 +60,6 @@ struct CreateEventView: View {
                                     .overlay(RoundedRectangle(cornerRadius: 10).stroke(AppColors.border, lineWidth: 1))
                                     .foregroundStyle(AppColors.text)
                             }
-
-                            Divider().background(AppColors.border)
-
-                            // Start time
-                            VStack(spacing: 10) {
-                                Toggle(isOn: $customStart.animation(.easeInOut(duration: 0.2))) {
-                                    HStack(spacing: 10) {
-                                        Image(systemName: "clock")
-                                            .foregroundStyle(customStart ? AppColors.accent : AppColors.textSecondary)
-                                        VStack(alignment: .leading, spacing: 2) {
-                                            Text("Custom Start Time")
-                                                .font(.system(size: 17, weight: .medium))
-                                                .foregroundStyle(AppColors.text)
-                                            Text("Started drinking earlier tonight")
-                                                .font(.system(size: 15))
-                                                .foregroundStyle(AppColors.textSecondary)
-                                        }
-                                    }
-                                }
-                                .tint(AppColors.accent)
-
-                                if customStart {
-                                    DatePicker(
-                                        "",
-                                        selection: $startTime,
-                                        in: ...Date(),
-                                        displayedComponents: [.date, .hourAndMinute]
-                                    )
-                                    .datePickerStyle(.compact)
-                                    .labelsHidden()
-                                    .padding(12)
-                                    .background(AppColors.surface)
-                                    .cornerRadius(10)
-                                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(AppColors.border, lineWidth: 1))
-                                    .tint(AppColors.accent)
-                                    .transition(.move(edge: .top).combined(with: .opacity))
-                                }
-                            }
-                            .animation(.easeInOut(duration: 0.2), value: customStart)
 
                             Divider().background(AppColors.border)
 
@@ -212,7 +171,7 @@ struct CreateEventView: View {
                             drivingMode: drivingMode,
                             bacLimit: drivingMode ? effectiveBACLimit : nil,
                             targetBAC: targetBAC,
-                            startTime: customStart ? startTime : Date(),
+                            startTime: Date(),
                             stomachState: stomachState
                         )
                         appState.pendingEventRoute = guideTarget.map { .guidedEvent(event.id, $0) } ?? .event(event.id)

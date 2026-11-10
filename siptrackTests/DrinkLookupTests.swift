@@ -76,6 +76,39 @@ struct DrinkLookupTests {
         #expect(DrinkLookup.localMatch(for: "a", in: catalog) == nil)
     }
 
+    @Test func noSuggestedExampleIsAlreadyInTheCatalog() throws {
+        // The whole point of the field is drinks the presets do not cover. An
+        // example that `localMatch` answers from the catalog — "mezcal", say —
+        // demonstrates the feature copying a drink the user could have tapped,
+        // and teaches them it is useless. Add a preset named like an example
+        // and this fails.
+        #expect(!DrinkLookup.examples.isEmpty)
+        for example in DrinkLookup.examples {
+            #expect(DrinkLookup.localMatch(for: example, in: DrinkType.presets) == nil,
+                    "“\(example)” already resolves to a preset")
+            // It also has to survive the same validation the button applies.
+            #expect(throws: Never.self) {
+                try DrinkLookup.normalizedQuery(example)
+            }
+        }
+    }
+
+    @Test func everyPresetIsWithinTheBoundsALookupWouldHaveToClear() {
+        // Presets ship to every user and bypass the lookup's validation
+        // entirely, so nothing else would catch a typo'd pour or a duplicate
+        // id. The bounds are the server's own, which keeps a hand-written
+        // preset and a model-estimated drink held to one standard.
+        var seen = Set<String>()
+        for preset in DrinkType.presets {
+            #expect(seen.insert(preset.id).inserted, "duplicate preset id \(preset.id)")
+            #expect(!preset.name.trimmingCharacters(in: .whitespaces).isEmpty)
+            #expect((5.0...2000.0).contains(preset.defaultVolumeMl), "\(preset.name) volume")
+            #expect((0.0...96.0).contains(preset.defaultAbv), "\(preset.name) ABV")
+            #expect((0.0...2000.0).contains(preset.caloriesPerServing), "\(preset.name) calories")
+            #expect((1...240).contains(preset.effectiveDrinkingMinutes), "\(preset.name) minutes")
+        }
+    }
+
     @Test func aCatalogMatchCarriesItsOwnNumbersThrough() {
         let match = drink("1", "Mezcal", volume: 44, abv: 42, calories: 103,
                           icon: "flask-outline", minutes: 15)

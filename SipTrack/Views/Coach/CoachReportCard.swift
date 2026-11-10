@@ -273,7 +273,7 @@ struct ComparisonReportCard: View {
                 .foregroundStyle(AppColors.text)
                 .lineLimit(1)
             if let e = event {
-                Text(e.startTime, format: .dateTime.month(.abbreviated).day().year())
+                Text(e.startTime, format: .dateTime.month(.abbreviated).day().year().english)
                     .font(.system(size: 13, design: .monospaced))
                     .foregroundStyle(AppColors.textTertiary)
             }

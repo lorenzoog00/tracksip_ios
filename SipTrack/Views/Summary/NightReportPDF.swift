@@ -70,7 +70,7 @@ struct NightReportPDFPage: View {
     private static let sectionNums   = ["01", "02", "03"]
 
     private var eventDateStr: String {
-        let f = DateFormatter(); f.dateFormat = "MMMM d, yyyy"
+        let f = AppDates.formatter("MMMM d, yyyy")
         return f.string(from: data.event.startTime)
     }
     private var durationStr: String {
@@ -366,7 +366,7 @@ struct NightReportPDFPage: View {
                     .foregroundStyle(NightReportPDFPage.inkLight)
             }
             Spacer()
-            Text("Generated \(Date(), format: .dateTime.day().month(.abbreviated).year()) · Personal Health Report · Confidential")
+            Text("Generated \(Date(), format: .dateTime.day().month(.abbreviated).year().english) · Personal Health Report · Confidential")
                 .font(.system(size: 8))
                 .foregroundStyle(NightReportPDFPage.inkLight.opacity(0.6))
         }

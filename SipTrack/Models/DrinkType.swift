@@ -74,6 +74,25 @@ extension DrinkType {
         DrinkType(id: "pina-colada", name: "Piña Colada", defaultVolumeMl: 240,  defaultAbv: 10.0, caloriesPerServing: 245,  isPreset: true, icon: "sunny",          defaultDrinkingDurationMinutes: 25),
         DrinkType(id: "hard-seltzer",name: "Hard Seltzer", defaultVolumeMl: 355, defaultAbv: 5.0,  caloriesPerServing: 100,  isPreset: true, icon: "snow",           defaultDrinkingDurationMinutes: 20),
         DrinkType(id: "michelada",   name: "Michelada",   defaultVolumeMl: 355,  defaultAbv: 3.5,  caloriesPerServing: 160,  isPreset: true, icon: "beer-outline",   defaultDrinkingDurationMinutes: 30),
+        // Popular in Mexico and missing until now, so every user had to build
+        // them by hand. ABV is derived from the pour the recipes agree on
+        // rather than taken from a recipe site's own claim: a Paloma's 2 oz of
+        // 40% tequila is 24 ml of ethanol, and stating the finished volume with
+        // ice is what makes volume × ABV come back to that. Difford's Guide
+        // puts a Paloma at 9.63% and 168 kcal, which is where these land.
+        DrinkType(id: "paloma",      name: "Paloma",      defaultVolumeMl: 240,  defaultAbv: 9.0,  caloriesPerServing: 170,  isPreset: true, icon: "water",          defaultDrinkingDurationMinutes: 25),
+        // 2 oz Licor 43 at 31% over 2 oz espresso. Sweet liqueur, so the
+        // calories sit above what the alcohol alone accounts for.
+        DrinkType(id: "carajillo",   name: "Carajillo",   defaultVolumeMl: 150,  defaultAbv: 12.0, caloriesPerServing: 150,  isPreset: true, icon: "cup",            defaultDrinkingDurationMinutes: 15),
+        // Served in a big clay cup: same tequila as a Paloma, far more juice
+        // and soda around it, so it is weaker per ml and takes longer.
+        DrinkType(id: "cantarito",   name: "Cantarito",   defaultVolumeMl: 350,  defaultAbv: 6.5,  caloriesPerServing: 240,  isPreset: true, icon: "sunny",          defaultDrinkingDurationMinutes: 30),
+        DrinkType(id: "charro-negro", name: "Charro Negro", defaultVolumeMl: 240, defaultAbv: 9.5, caloriesPerServing: 180,  isPreset: true, icon: "water",          defaultDrinkingDurationMinutes: 25),
+        DrinkType(id: "rum-coke",    name: "Rum & Coke",  defaultVolumeMl: 240,  defaultAbv: 9.5,  caloriesPerServing: 180,  isPreset: true, icon: "water",          defaultDrinkingDurationMinutes: 25),
+        DrinkType(id: "vampiro",     name: "Vampiro",     defaultVolumeMl: 300,  defaultAbv: 8.0,  caloriesPerServing: 200,  isPreset: true, icon: "restaurant",     defaultDrinkingDurationMinutes: 30),
+        // Fermented rather than distilled, so it sits near a beer: sources put
+        // it at 4–6% and a commercial can declares 5%.
+        DrinkType(id: "pulque",      name: "Pulque",      defaultVolumeMl: 300,  defaultAbv: 5.0,  caloriesPerServing: 140,  isPreset: true, icon: "leaf",           defaultDrinkingDurationMinutes: 30),
     ]
 
     static func mergedWith(custom: [DrinkType]) -> [DrinkType] {

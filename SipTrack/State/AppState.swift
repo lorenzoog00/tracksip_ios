@@ -555,7 +555,7 @@ final class AppState: ObservableObject {
         }.map { recent in
             ReportAlcoholDose(entries: entries.filter { $0.eventId == recent.id }, drinkTypes: allDrinkTypes)
         }.filter { $0.missingServings == 0 }
-        let dayOfWeekFmt = DateFormatter(); dayOfWeekFmt.dateFormat = "EEEE"
+        let dayOfWeekFmt = AppDates.formatter("EEEE")
         let dayOfWeek = dayOfWeekFmt.string(from: event.startTime)
         let currentYear = Calendar.current.component(.year, from: Date())
 
@@ -877,7 +877,7 @@ final class AppState: ObservableObject {
         let data = buildWeeklyData(from: weekStart, to: weekEnd)
         guard !data.isEmpty else { return }
 
-        let fmt = DateFormatter(); fmt.dateStyle = .medium; fmt.timeStyle = .none
+        let fmt = AppDates.formatter(dateStyle: .medium, timeStyle: .none)
         let placeholder = CoachReport(
             id: reportId, type: .weekly,
             periodStart: weekStart, periodEnd: weekEnd,
@@ -961,7 +961,7 @@ final class AppState: ObservableObject {
                 if let report, let idx = coachReports.firstIndex(where: { $0.id == reportId }) {
                     coachReports[idx].report = report
                     DataStore.shared.saveCoachReports(coachReports)
-                    let fmt = DateFormatter(); fmt.dateFormat = "MMMM yyyy"
+                    let fmt = AppDates.formatter("MMMM yyyy")
                     let label = fmt.string(from: monthStart)
                     scheduleCoachReportNotification(type: .monthly, periodLabel: label)
                 } else {
@@ -1155,7 +1155,7 @@ final class AppState: ObservableObject {
         }
 
         let avgBac = bacValues.isEmpty ? 0.0 : bacValues.reduce(0, +) / Double(bacValues.count)
-        let dateFmt = DateFormatter(); dateFmt.dateFormat = "MMM d"
+        let dateFmt = AppDates.formatter("MMM d")
         let currentYear = cal.component(.year, from: now)
 
         let weekEntries = weekNights.flatMap { event in entries.filter { $0.eventId == event.id } }
@@ -1300,7 +1300,7 @@ final class AppState: ObservableObject {
             && $0.startTime >= prevMonthStart && $0.startTime < monthStart
         }.count
 
-        let monthFmt = DateFormatter(); monthFmt.dateFormat = "MMMM"
+        let monthFmt = AppDates.formatter("MMMM")
         let yearFmt  = DateFormatter(); yearFmt.dateFormat  = "yyyy"
         let currentYear = cal.component(.year, from: Date())
 

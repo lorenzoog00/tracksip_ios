@@ -209,8 +209,7 @@ struct ProView: View {
             }
         }()
         guard let date = p.subscriptionStartedAt else { return periodWord }
-        let df = DateFormatter()
-        df.dateFormat = "MMMM yyyy"
+        let df = AppDates.formatter("MMMM yyyy")
         return "\(periodWord) · since \(df.string(from: date))"
     }
 
