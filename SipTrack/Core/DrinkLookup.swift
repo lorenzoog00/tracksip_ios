@@ -39,7 +39,9 @@ enum DrinkLookup {
     /// an example that `localMatch` answers from the presets teaches the user
     /// that the feature only repeats what they could have tapped, which is the
     /// opposite of the point. `DrinkLookupTests` asserts that.
-    static let examples = ["paloma", "carajillo", "aperol spritz", "cuba libre"]
+    /// Paloma, carajillo and cuba libre were here until they became presets;
+    /// `noSuggestedExampleIsAlreadyInTheCatalog` is what caught it.
+    static let examples = ["aperol spritz", "negroni", "clericot", "espresso martini"]
 
     /// Mirrors the server's bounds. A response that clears the server and
     /// fails here means the two have drifted apart, which is worth failing on

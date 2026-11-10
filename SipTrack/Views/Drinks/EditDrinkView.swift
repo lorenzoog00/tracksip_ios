@@ -200,7 +200,10 @@ struct EditDrinkView: View {
                 .font(.system(size: 16, weight: .medium))
                 .foregroundStyle(AppColors.textSecondary)
             HStack(spacing: 8) {
-                TextField("e.g. una paloma con Squirt", text: $lookupQuery)
+                // Taken from the suggestions so the placeholder is covered by
+                // the same test: a preset's name here would teach the user
+                // that the field only repeats what they could have tapped.
+                TextField("e.g. \(DrinkLookup.examples.first ?? "")", text: $lookupQuery)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .submitLabel(.search)
