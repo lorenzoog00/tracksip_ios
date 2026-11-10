@@ -106,6 +106,15 @@ struct DrinkLookupTests {
             #expect((0.0...96.0).contains(preset.defaultAbv), "\(preset.name) ABV")
             #expect((0.0...2000.0).contains(preset.caloriesPerServing), "\(preset.name) calories")
             #expect((1...240).contains(preset.effectiveDrinkingMinutes), "\(preset.name) minutes")
+            // Ethanol alone is 7 kcal/g, so a serving cannot carry fewer
+            // calories than its own alcohol accounts for. Champagne shipped at
+            // 96 kcal for 150 ml at 12% — 99 kcal of pure ethanol — until this
+            // check existed. The 2% tolerance is the server's own, which keeps
+            // a 44 ml spirit rounded to 97 from failing on arithmetic dust.
+            let ethanolGrams = preset.defaultVolumeMl * (preset.defaultAbv / 100) * 0.789
+            let floor = ethanolGrams * 7
+            #expect(preset.caloriesPerServing >= floor * 0.98,
+                    "\(preset.name): \(Int(preset.caloriesPerServing)) kcal is below the \(Int(floor)) kcal its alcohol alone carries")
         }
     }
 
