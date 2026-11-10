@@ -19,6 +19,20 @@ final class LiveActivityManager {
     private var lastTemplate: SipTrackActivityAttributes.ContentState?
     private var lastSamples: [[String: Any]] = []
     private var syncedToken: String?
+    /// The non-BAC parts of the last state the server holds. The server pushes
+    /// that state back every 5 minutes, so when these change (a water, which
+    /// leaves the BAC curve alone) it must hear about it, or its next push
+    /// puts the old hydration back on the lock screen.
+    private var syncedContentKey: String?
+
+    private static func contentKey(_ state: SipTrackActivityAttributes.ContentState) -> String {
+        [
+            "\(state.drinkCount)",
+            "\(state.hydrationBalance ?? 0)",
+            "\(state.currentDrinkStartedAt?.timeIntervalSince1970 ?? 0)",
+            state.currentDrinkName ?? "",
+        ].joined(separator: "|")
+    }
     private var pendingUpdate: Task<Void, Never>?
     private var pendingSync: Task<Void, Never>?
 
@@ -138,7 +152,8 @@ final class LiveActivityManager {
         if let pushSamples {
             lastSamples = pushSamples
             syncPush()
-        } else if pushToken != nil, pushToken != syncedToken {
+        } else if pushToken != nil,
+                  pushToken != syncedToken || Self.contentKey(state) != syncedContentKey {
             syncPush()
         }
     }
@@ -183,13 +198,21 @@ final class LiveActivityManager {
         guard let templateJSON = try? JSONSerialization.jsonObject(with: JSONEncoder().encode(template))
         else { return }
         let samples = lastSamples
+        // Recorded now, not on success, so the 10 s tick doesn't fire a second
+        // sync while this one is in flight; a failure clears it to retry.
+        let key = Self.contentKey(template)
+        syncedContentKey = key
         let previous = pendingSync
         pendingSync = Task { [weak self] in
             await previous?.value
             let ok = await FirebaseManager.shared.syncLiveActivity(
                 token: token, template: templateJSON, samples: samples
             )
-            if ok { self?.syncedToken = token }
+            if ok {
+                self?.syncedToken = token
+            } else if self?.syncedContentKey == key {
+                self?.syncedContentKey = nil
+            }
         }
     }
 
@@ -198,6 +221,7 @@ final class LiveActivityManager {
         lastSamples = []
         lastTemplate = nil
         syncedToken = nil
+        syncedContentKey = nil
         guard wasSynced else { return }
         let previous = pendingSync
         pendingSync = Task {

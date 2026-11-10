@@ -133,96 +133,88 @@ private struct LockScreenContent: View {
 
     private var stageColor: Color { Color(hex: context.state.stageColorHex) }
     private var barFill: Double { min(1.0, max(0.0, bac / 0.25)) }
-    private var elapsedText: String {
-        let h = context.state.elapsedMinutes / 60
-        let m = context.state.elapsedMinutes % 60
-        return h > 0 ? "\(h)h \(m)m" : "\(m)m"
-    }
 
+    // Laid out for reading at a glance on a dark lock screen: what you're
+    // drinking, BAC, the night's counts and the buttons, in large type with
+    // nothing under 13 pt. The lock screen caps the card at about 160 pt tall,
+    // so each row earns its height.
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
 
-            // Row 1 — event name + LIVE badge
-            HStack(alignment: .center, spacing: 0) {
+            // Row 1 — what you're drinking and for how long. A lock-screen tap
+            // shows "Red Wine added" here for a few seconds instead.
+            HStack(spacing: 6) {
                 if let action = context.state.actionText {
-                    // Confirms a lock-screen tap for a few seconds.
-                    HStack(spacing: 5) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 11, weight: .semibold))
-                        Text(action)
-                            .font(.system(size: 12, weight: .semibold))
-                            .lineLimit(1)
-                    }
-                    .foregroundStyle(stageColor)
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 15, weight: .semibold))
+                    Text(action)
+                        .font(.system(size: 16, weight: .semibold))
+                        .lineLimit(1)
+                    Spacer(minLength: 4)
+                } else if let name = context.state.currentDrinkName,
+                          let started = context.state.currentDrinkStartedAt {
+                    Image(systemName: context.state.currentDrinkSymbol ?? "wineglass.fill")
+                        .font(.system(size: 15, weight: .semibold))
+                    Text(name)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                    Spacer(minLength: 4)
+                    // Time with this drink, counting up on its own.
+                    Text(started, style: .timer)
+                        .font(.system(size: 16, weight: .semibold, design: .monospaced))
+                        .monospacedDigit()
+                        .multilineTextAlignment(.trailing)
+                        .frame(maxWidth: 72, alignment: .trailing)
                 } else {
-                    HStack(spacing: 5) {
-                        Image(systemName: "moon.stars.fill")
-                            .font(.system(size: 10))
-                            .foregroundStyle(.white.opacity(0.4))
-                        Text(context.attributes.eventName)
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(.white.opacity(0.75))
-                            .lineLimit(1)
-                    }
-                }
-                Spacer()
-                HStack(spacing: 3) {
-                    Circle().fill(.red).frame(width: 4, height: 4)
-                    Text("LIVE")
-                        .font(.system(size: 9, weight: .bold))
-                        .tracking(0.5)
-                        .foregroundStyle(.red)
+                    Image(systemName: "moon.stars.fill")
+                        .font(.system(size: 14))
+                    Text(context.attributes.eventName)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.85))
+                        .lineLimit(1)
+                    Spacer(minLength: 4)
                 }
             }
-            .padding(.horizontal, 14)
+            .foregroundStyle(stageColor)
+            .padding(.horizontal, 16)
             .padding(.top, 12)
-            .padding(.bottom, 8)
 
-            // Row 2 — BAC (hero) + stage + stats
-            HStack(alignment: .lastTextBaseline, spacing: 0) {
-                // BAC number — the hero
-                Text(String(format: "%.3f", bac))
-                    .font(.system(size: 46, weight: .bold, design: .monospaced))
-                    .foregroundStyle(stageColor)
-                Text("%")
-                    .font(.system(size: 18, weight: .medium, design: .monospaced))
-                    .foregroundStyle(stageColor.opacity(0.5))
-                    .padding(.bottom, 4)
-
-                Spacer()
-
-                // Stage + stats stacked right
-                VStack(alignment: .trailing, spacing: 3) {
+            // Row 2 — BAC (hero) with stage, drinks and hydration beside it.
+            HStack(alignment: .center, spacing: 0) {
+                HStack(alignment: .lastTextBaseline, spacing: 1) {
+                    Text(String(format: "%.3f", bac))
+                        .font(.system(size: 46, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(stageColor)
+                        .minimumScaleFactor(0.8)
+                        .lineLimit(1)
+                    Text("%")
+                        .font(.system(size: 20, weight: .semibold, design: .rounded))
+                        .foregroundStyle(stageColor.opacity(0.6))
+                }
+                Spacer(minLength: 8)
+                VStack(alignment: .trailing, spacing: 4) {
                     Text(context.state.stageName.uppercased())
-                        .font(.system(size: 9, weight: .bold))
+                        .font(.system(size: 14, weight: .heavy))
                         .tracking(1.0)
-                        .foregroundStyle(stageColor.opacity(0.85))
-                    HStack(spacing: 8) {
-                        HStack(spacing: 3) {
-                            Image(systemName: "wineglass.fill").font(.system(size: 9))
-                            Text("\(context.state.drinkCount)").font(.system(size: 11, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(stageColor)
+                        .lineLimit(1)
+                    HStack(spacing: 12) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "wineglass.fill").font(.system(size: 13))
+                            Text("\(context.state.drinkCount)")
+                                .font(.system(size: 16, weight: .bold, design: .rounded))
                         }
+                        .foregroundStyle(.white.opacity(0.85))
+                        .accessibilityLabel("\(context.state.drinkCount) drinks")
                         if let balance = context.state.hydrationBalance {
-                            HydrationBadge(balance: balance, size: 11)
-                        }
-                        HStack(spacing: 3) {
-                            Image(systemName: "clock").font(.system(size: 9))
-                            if let started = context.state.startedAt {
-                                // Ticks on its own between updates from the app.
-                                Text(started, style: .timer)
-                                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                                    .monospacedDigit()
-                                    .frame(maxWidth: 64, alignment: .trailing)
-                            } else {
-                                Text(elapsedText).font(.system(size: 11, weight: .semibold, design: .monospaced))
-                            }
+                            HydrationBadge(balance: balance, size: 16)
                         }
                     }
-                    .foregroundStyle(.white.opacity(0.45))
                 }
             }
-            .padding(.horizontal, 14)
-            .padding(.bottom, 8)
+            .padding(.horizontal, 16)
 
             // Row 3 — the current drink's bar: fills over its drinking time on
             // its own (ProgressView(timerInterval:) needs no updates). Falls back
@@ -241,57 +233,26 @@ private struct LockScreenContent: View {
                 } else {
                     GeometryReader { geo in
                         ZStack(alignment: .leading) {
-                            Capsule().fill(.white.opacity(0.08)).frame(height: 3)
-                            Capsule().fill(
-                                LinearGradient(colors: [stageColor.opacity(0.7), stageColor],
-                                               startPoint: .leading, endPoint: .trailing)
-                            )
-                            .frame(width: max(3, geo.size.width * barFill), height: 3)
+                            Capsule().fill(.white.opacity(0.1)).frame(height: 4)
+                            Capsule().fill(stageColor)
+                                .frame(width: max(4, geo.size.width * barFill), height: 4)
                         }
                     }
-                    .frame(height: 3)
+                    .frame(height: 4)
                 }
             }
-            .padding(.horizontal, 14)
-            .padding(.bottom, 6)
-
-            // Row 3b — sober countdown (runs on its own) + when BAC was last updated
-            HStack(spacing: 4) {
-                if let soberAt = context.state.soberAt, soberAt > Date() {
-                    Image(systemName: "hourglass").font(.system(size: 9))
-                    Text(timerInterval: Date()...soberAt, countsDown: true)
-                        .monospacedDigit()
-                        .frame(maxWidth: 56, alignment: .leading)
-                    Text("to sober")
-                }
-                Spacer()
-                if context.isStale, let updated = context.state.updatedAt {
-                    Text("BAC as of")
-                    Text(updated, style: .time)
-                } else if let started = context.state.currentDrinkStartedAt {
-                    // Time with the current drink, counting up on its own.
-                    Image(systemName: context.state.currentDrinkSymbol ?? "wineglass.fill")
-                        .font(.system(size: 9))
-                    Text(started, style: .timer)
-                        .monospacedDigit()
-                        .multilineTextAlignment(.trailing)
-                        .frame(maxWidth: 52, alignment: .trailing)
-                    Text("with drink")
-                }
-            }
-            .font(.system(size: 11, weight: .medium))
-            .foregroundStyle(.white.opacity(0.45))
-            .padding(.horizontal, 14)
+            .padding(.horizontal, 16)
+            .padding(.top, 4)
             .padding(.bottom, 10)
 
-            // Row 4 — drink buttons
-            HStack(spacing: 7) {
+            // Row 4 — one-tap buttons
+            HStack(spacing: 8) {
                 ForEach(context.state.quickDrinks.prefix(3)) { drink in
                     lockDrinkButton(drink)
                 }
                 lockWaterButton
             }
-            .padding(.horizontal, 14)
+            .padding(.horizontal, 16)
             .padding(.bottom, 12)
         }
     }
@@ -300,17 +261,17 @@ private struct LockScreenContent: View {
         Button(intent: AddDrinkFromLiveActivityIntent(drinkTypeId: drink.id, eventId: context.state.eventId)) {
             HStack(spacing: 6) {
                 Image(systemName: drink.symbol)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(stageColor)
                 Text(drink.name)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(.white)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 38)
-            .background(.white.opacity(0.07))
+            .frame(height: 42)
+            .background(.white.opacity(0.09))
             .clipShape(RoundedRectangle(cornerRadius: 10))
             .overlay(
                 RoundedRectangle(cornerRadius: 10)
@@ -323,9 +284,9 @@ private struct LockScreenContent: View {
     private var lockWaterButton: some View {
         Button(intent: AddWaterFromLiveActivityIntent(eventId: context.state.eventId)) {
             Image(systemName: "drop.fill")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(Color(hex: "#40AAFF"))
-                .frame(width: 46, height: 38)
+                .frame(width: 50, height: 42)
                 .background(Color(hex: "#40AAFF").opacity(0.14))
                 .clipShape(RoundedRectangle(cornerRadius: 10))
                 .overlay(
