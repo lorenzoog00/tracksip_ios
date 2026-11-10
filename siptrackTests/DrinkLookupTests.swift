@@ -93,6 +93,22 @@ struct DrinkLookupTests {
         }
     }
 
+    @Test func everyPresetIsWithinTheBoundsALookupWouldHaveToClear() {
+        // Presets ship to every user and bypass the lookup's validation
+        // entirely, so nothing else would catch a typo'd pour or a duplicate
+        // id. The bounds are the server's own, which keeps a hand-written
+        // preset and a model-estimated drink held to one standard.
+        var seen = Set<String>()
+        for preset in DrinkType.presets {
+            #expect(seen.insert(preset.id).inserted, "duplicate preset id \(preset.id)")
+            #expect(!preset.name.trimmingCharacters(in: .whitespaces).isEmpty)
+            #expect((5.0...2000.0).contains(preset.defaultVolumeMl), "\(preset.name) volume")
+            #expect((0.0...96.0).contains(preset.defaultAbv), "\(preset.name) ABV")
+            #expect((0.0...2000.0).contains(preset.caloriesPerServing), "\(preset.name) calories")
+            #expect((1...240).contains(preset.effectiveDrinkingMinutes), "\(preset.name) minutes")
+        }
+    }
+
     @Test func aCatalogMatchCarriesItsOwnNumbersThrough() {
         let match = drink("1", "Mezcal", volume: 44, abv: 42, calories: 103,
                           icon: "flask-outline", minutes: 15)
