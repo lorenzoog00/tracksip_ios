@@ -144,14 +144,26 @@ private struct LockScreenContent: View {
 
             // Row 1 — event name + LIVE badge
             HStack(alignment: .center, spacing: 0) {
-                HStack(spacing: 5) {
-                    Image(systemName: "moon.stars.fill")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.white.opacity(0.4))
-                    Text(context.attributes.eventName)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.75))
-                        .lineLimit(1)
+                if let action = context.state.actionText {
+                    // Confirms a lock-screen tap for a few seconds.
+                    HStack(spacing: 5) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 11, weight: .semibold))
+                        Text(action)
+                            .font(.system(size: 12, weight: .semibold))
+                            .lineLimit(1)
+                    }
+                    .foregroundStyle(stageColor)
+                } else {
+                    HStack(spacing: 5) {
+                        Image(systemName: "moon.stars.fill")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.white.opacity(0.4))
+                        Text(context.attributes.eventName)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.75))
+                            .lineLimit(1)
+                    }
                 }
                 Spacer()
                 HStack(spacing: 3) {

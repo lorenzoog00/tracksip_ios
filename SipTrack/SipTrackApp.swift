@@ -31,15 +31,17 @@ struct SipTrackApp: App {
         LiveActivityActions.addDrink = { [weak state] eventId, drinkTypeId in
             guard let state else { return }
             let name = state.allDrinkTypes.first { $0.id == drinkTypeId }?.name ?? "Drink"
-            LiveActivityManager.shared.alertOnNextUpdate("\(name) logged")
+            LiveActivityManager.shared.alertOnNextUpdate("\(name) added")
             state.addDrink(eventId: eventId, drinkTypeId: drinkTypeId)
             await LiveActivityManager.shared.flush()
+            await LiveActivityActions.showActionBriefly()
         }
         LiveActivityActions.addWater = { [weak state] eventId in
             guard let state else { return }
-            LiveActivityManager.shared.alertOnNextUpdate("Water logged")
+            LiveActivityManager.shared.alertOnNextUpdate("Water added")
             state.addWater(eventId: eventId)
             await LiveActivityManager.shared.flush()
+            await LiveActivityActions.showActionBriefly()
         }
     }
 
@@ -110,6 +112,16 @@ struct SipTrackApp: App {
                 LiveActivityRefresh.schedule(active: appState.activeEvent != nil)
             }
         }
+    }
+}
+
+extension LiveActivityActions {
+    /// Leaves "Red Wine added" on the card for a few seconds, then clears it.
+    /// iOS keeps the background launch alive while an intent runs, so waiting
+    /// here is what lets the message go away without the app being opened.
+    static func showActionBriefly() async {
+        try? await Task.sleep(for: .seconds(5))
+        await LiveActivityManager.shared.clearAction()
     }
 }
 

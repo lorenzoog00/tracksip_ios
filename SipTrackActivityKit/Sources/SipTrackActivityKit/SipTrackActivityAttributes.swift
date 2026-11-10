@@ -30,6 +30,9 @@ public struct SipTrackActivityAttributes: ActivityAttributes {
         public var currentDrinkSymbol: String?
         public var currentDrinkStartedAt: Date?
         public var currentDrinkMinutes: Int?
+        /// A few seconds of "Red Wine added" after a lock-screen tap. Never sent
+        /// to the push server, so a later push always clears it.
+        public var actionText: String?
 
         public init(
             bac: Double,
@@ -47,7 +50,8 @@ public struct SipTrackActivityAttributes: ActivityAttributes {
             currentDrinkName: String? = nil,
             currentDrinkSymbol: String? = nil,
             currentDrinkStartedAt: Date? = nil,
-            currentDrinkMinutes: Int? = nil
+            currentDrinkMinutes: Int? = nil,
+            actionText: String? = nil
         ) {
             self.bac = bac
             self.drinkCount = drinkCount
@@ -65,6 +69,7 @@ public struct SipTrackActivityAttributes: ActivityAttributes {
             self.currentDrinkSymbol = currentDrinkSymbol
             self.currentDrinkStartedAt = currentDrinkStartedAt
             self.currentDrinkMinutes = currentDrinkMinutes
+            self.actionText = actionText
         }
     }
 
