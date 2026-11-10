@@ -69,6 +69,24 @@ struct NightBACChartData {
         hours.first { date >= $0.start && date < $0.end }
     }
 
+    /// Hours between x-axis labels.
+    ///
+    /// `.automatic(desiredCount:)` is only a hint: Charts happily lands on an
+    /// hourly tick for a long night, and an hour label is wide enough that
+    /// eight of them overlap into mush. Deriving the stride from the span the
+    /// chart actually covers caps how many labels can ever be drawn.
+    static func xStrideHours(span: TimeInterval) -> Int {
+        let hours = span / 3600
+        switch hours {
+        case ..<4: return 1
+        case ..<8: return 2
+        case ..<14: return 3
+        default: return 4
+        }
+    }
+
+    var xStrideHours: Int { Self.xStrideHours(span: end.timeIntervalSince(start)) }
+
     private static func groupByHour(entries: [DrinkEntry], drinkTypes: [DrinkType], calendar: Calendar) -> [Hour] {
         let byHour = Dictionary(grouping: entries) { entry in
             calendar.dateInterval(of: .hour, for: entry.timestamp)?.start ?? entry.timestamp
@@ -102,7 +120,7 @@ struct NightBACChartCard: View {
             Label("BAC Timeline", systemImage: "waveform.path.ecg")
                 .font(.headline)
                 .foregroundStyle(AppColors.text)
-            NightBACPlot(data: data, selection: selection, tickCount: 4, relatedTime: relatedTime)
+            NightBACPlot(data: data, selection: selection, relatedTime: relatedTime)
                 .frame(height: 160)
             chartLegend
             NightBACSelection(data: data, selection: selection.wrappedValue)
@@ -183,7 +201,7 @@ struct NightBACChartCard: View {
             }
             HStack(alignment: .top, spacing: 14) {
                 VStack(alignment: .leading, spacing: 8) {
-                    NightBACPlot(data: data, selection: selection, tickCount: 6, relatedTime: relatedTime)
+                    NightBACPlot(data: data, selection: selection, relatedTime: relatedTime)
                         .frame(minHeight: 110, maxHeight: .infinity)
                     chartLegend
                     NightBACSelection(data: data, selection: selection.wrappedValue)
@@ -251,7 +269,6 @@ struct NightBACChartCard: View {
 private struct NightBACPlot: View {
     let data: NightBACChartData
     @Binding var selection: Date?
-    let tickCount: Int
     let relatedTime: Date?
 
     var body: some View {
@@ -310,11 +327,17 @@ private struct NightBACPlot: View {
         .chartYScale(domain: 0...data.yMax)
         .chartXSelection(value: $selection)
         .chartXAxis {
-            AxisMarks(values: .automatic(desiredCount: tickCount)) { value in
+            AxisMarks(values: .stride(by: .hour, count: data.xStrideHours)) { value in
                 AxisGridLine().foregroundStyle(AppColors.border)
-                AxisValueLabel {
+                // The stride keeps labels apart in the usual case; collision
+                // resolution is the net for a locale or width that still packs
+                // them too close, so one gets dropped instead of overlapping.
+                AxisValueLabel(collisionResolution: .greedy) {
                     if let date = value.as(Date.self) {
-                        Text(date, format: .dateTime.hour().minute())
+                        // Minutes are what made these labels wide enough to
+                        // collide, and the selection readout below already
+                        // shows them to the minute.
+                        Text(date, format: .dateTime.hour())
                             .font(.caption2)
                             .foregroundStyle(AppColors.textSecondary)
                     }
