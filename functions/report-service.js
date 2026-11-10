@@ -1,6 +1,7 @@
 const {randomUUID, createHash} = require("node:crypto");
 const {HttpsError} = require("firebase-functions/v2/https");
 const {validateRequest, reserveQuota} = require("./report-policy");
+const {formatAlcoholLog, ALCOHOL_LOG_HEADING} = require("./prompts");
 
 // eslint-disable-next-line require-jsdoc
 async function generateReport({
@@ -12,6 +13,7 @@ async function generateReport({
   now = Date.now,
 }) {
   const {kind, id, payload} = validateRequest(data);
+  const doseVersion = kind === "night" && payload.alcoholDose ? 1 : 0;
   const root = db.doc(`users/${uid}`);
   const deletion = db.doc(`account_deletions/${uid}`);
   const job = root
@@ -58,12 +60,18 @@ async function generateReport({
       );
     }
     const report = result.data()?.[kind === "night" ? "ai_report" : "report"];
-    if (report) return {report};
+    const currentReport = typeof report === "string" &&
+      report.startsWith(ALCOHOL_LOG_HEADING);
+    if (report && (!doseVersion || currentReport)) {
+      return {report};
+    }
     const old = existing.data() || {};
     if (old.status === "processing" && old.leaseUntil > now()) {
       return {pending: true};
     }
-    if ((old.attempts || 0) >= 3) {
+    const sameVersion = (old.doseVersion || 0) === doseVersion;
+    const attempts = sameVersion ? old.attempts || 0 : 0;
+    if (attempts >= 3) {
       throw new HttpsError(
           "resource-exhausted",
           "This report could not be completed after three attempts.",
@@ -74,17 +82,19 @@ async function generateReport({
     tx.set(job, {
       status: "processing",
       token,
-      attempts: (old.attempts || 0) + 1,
+      attempts: attempts + 1,
+      doseVersion,
       leaseUntil: now() + 150000,
     });
     return {claimed: true};
   });
   if (!claim.claimed) return claim;
   try {
-    const report = await generate(kind, payload);
-    if (typeof report !== "string" || !report.trim() || report.length > 12000) {
+    const body = await generate(kind, payload);
+    if (typeof body !== "string" || !body.trim() || body.length > 12000) {
       throw new Error("Invalid model response");
     }
+    const report = doseVersion ? `${formatAlcoholLog(payload)}\n\n${body}` : body;
     await db.runTransaction(async (tx) => {
       const [deleted, current, result] = await Promise.all([
         tx.get(deletion),

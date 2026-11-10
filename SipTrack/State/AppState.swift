@@ -467,12 +467,14 @@ final class AppState: ObservableObject {
 
     func generateAiReport(for eventId: String) {
         guard userProfile.aiReportsEnabled == true else { return }
-        guard canGenerateNightReport else { return }
+        guard canGenerateNightReport, generatingReportForEventId == nil else { return }
         guard let event = events.first(where: { $0.id == eventId }),
               let endTime = event.endTime else { return }
+        if event.aiReport?.hasPrefix(ReportAlcoholDose.reportHeading) == true { return }
         let eventEntries = entries.filter { $0.eventId == eventId }
         let eventWater = waterEntries.filter { $0.eventId == eventId }
         let eventFoodEntries = foodEntries.filter { $0.eventId == eventId }
+        let dose = ReportAlcoholDose(entries: eventEntries, drinkTypes: allDrinkTypes)
 
         let timeline = BACCalculator.bacTimeline(
             entries: eventEntries,
@@ -488,45 +490,21 @@ final class AppState: ObservableObject {
             return f.string(from: date)
         }()
         let durationMinutes = Int(event.duration / 60)
-        let drinkData: [[String: Any]] = Dictionary(grouping: eventEntries) { $0.drinkTypeId }
-            .compactMap { typeId, es -> [String: Any]? in
-                guard let dt = allDrinkTypes.first(where: { $0.id == typeId }) else { return nil }
-                return ["name": dt.name, "quantity": es.reduce(0) { $0 + $1.quantity }]
-            }
-        let drinkCount = eventEntries.reduce(0) { $0 + $1.quantity }
-
-        // Pre-computed insights for AI prompt.
-        // Note: custom drink types with unrecognised icons fall to "cocktails" via drinkCategory's default case.
-        var drinkCategoryCounts: [String: Int] = [:]
-        for entry in eventEntries {
-            guard let dt = allDrinkTypes.first(where: { $0.id == entry.drinkTypeId }) else { continue }
-            drinkCategoryCounts[dt.drinkCategory, default: 0] += entry.quantity
-        }
-        let dominantDrinkType: String = {
-            guard !drinkCategoryCounts.isEmpty, drinkCount > 0 else { return "mixed" }
-            guard let top = drinkCategoryCounts.max(by: { $0.value < $1.value }) else { return "mixed" }
-            return Double(top.value) / Double(drinkCount) >= 0.6 ? top.key : "mixed"
-        }()
         let nightOutcome: String = {
-            if drinkCount == 0 { return "sober" }
+            if dose.grams == 0, dose.missingServings == 0 { return "sober" }
+            if dose.missingServings > 0 { return "heavy" }
             if let target = event.targetBAC { return peakBAC <= target ? "solid" : "heavy" }
             return peakBAC <= 0.06 ? "solid" : "heavy"
         }()
 
-        let limit = 0.08
-        let minutesAboveLimit = timeline.filter { $0.bac > limit }.count * 5
-        let waterCount = eventWater.count
-        let hydrationLevel = BACCalculator.hydrationLevel(waterEntries: eventWater, drinkCount: drinkCount)
         let cals = totalCalories(for: eventId)
-        let lastDrinkTime = eventEntries.max(by: { $0.timestamp < $1.timestamp })?.timestamp ?? event.startTime
-        let recoveryMinutes = Int(endTime.timeIntervalSince(lastDrinkTime) / 60)
-        let thirtyDaysAgo = Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? Date(timeIntervalSinceNow: -(30 * 24 * 3600))
-        let recentEvents = events.filter {
-            $0.userId == currentUserId && $0.endTime != nil
+        let thirtyDaysAgo = event.startTime.addingTimeInterval(-30 * 24 * 3600)
+        let recentDoses = events.filter {
+            $0.userId == currentUserId && ($0.endTime ?? .distantFuture) <= event.startTime
             && $0.id != eventId && $0.startTime >= thirtyDaysAgo
-        }
-        let avgDrinksLast30Days: Double = recentEvents.isEmpty ? 0
-            : Double(recentEvents.reduce(0) { $0 + totalDrinks(for: $1.id) }) / Double(recentEvents.count)
+        }.map { recent in
+            ReportAlcoholDose(entries: entries.filter { $0.eventId == recent.id }, drinkTypes: allDrinkTypes)
+        }.filter { $0.missingServings == 0 }
         let dayOfWeekFmt = DateFormatter(); dayOfWeekFmt.dateFormat = "EEEE"
         let dayOfWeek = dayOfWeekFmt.string(from: event.startTime)
         let currentYear = Calendar.current.component(.year, from: Date())
@@ -534,45 +512,26 @@ final class AppState: ObservableObject {
         var params: [String: Any] = [
             "eventId": eventId,
             "durationMinutes": durationMinutes,
-            "drinks": drinkData,
             "peakBac": peakBAC,
             "peakBacTime": peakBacTime,
-            "minutesAboveLimit": minutesAboveLimit,
-            "waterCount": waterCount,
-            "hydrationLevel": hydrationLevel.rawValue,
+            "waterMl": eventWater.reduce(0) { $0 + $1.volumeMl },
             "totalCalories": cals,
-            "recoveryMinutes": recoveryMinutes,
             "userSex": userProfile.sex.rawValue,
             "userWeightKg": userProfile.weightKg,
-            "avgDrinksLast30Days": avgDrinksLast30Days,
             "dayOfWeek": dayOfWeek,
             "stomachState": (event.stomachState ?? .empty).rawValue,
             "foodEntryCount": eventFoodEntries.count,
         ]
         if let name = event.name { params["eventName"] = name }
         if let birthYear = userProfile.birthYear { params["userAge"] = currentYear - birthYear }
-        params["dominantDrinkType"] = dominantDrinkType
         params["nightOutcome"] = nightOutcome
-
-        // Drinking pace — classified by drinks per hour, not sip duration
-        let eventHours = max(0.01, (event.endTime ?? Date()).timeIntervalSince(event.startTime) / 3600)
-        let dph        = Double(drinkCount) / eventHours
-        let pace: String
-        if dph > 2.0 { pace = "fast" } else if dph >= 1.0 { pace = "moderate" } else { pace = "slow" }
-        params["drinksPerHour"] = round(dph * 10) / 10
-        params["paceSummary"]   = pace
-
-        let sipResults = drinkSipDurations(entries: eventEntries, drinkTypes: allDrinkTypes)
-        if !sipResults.isEmpty {
-            let totalSipMin = sipResults.reduce(0) { $0 + $1.sipMinutes }
-            let avgSip      = Double(totalSipMin) / Double(sipResults.count)
-            params["avgSipMinutes"] = Int(avgSip)
-            if let f = sipResults.min(by: { $0.sipMinutes < $1.sipMinutes }) {
-                params["fastestDrinkName"] = f.drinkType?.name ?? "Unknown"
-            }
-            if let s = sipResults.max(by: { $0.sipMinutes < $1.sipMinutes }) {
-                params["slowestDrinkName"] = s.drinkType?.name ?? "Unknown"
-            }
+        params.merge(dose.fields(start: event.startTime, end: endTime)) { _, new in new }
+        if !recentDoses.isEmpty, dose.missingServings == 0 {
+            params["avgStandardDrinksLast30Days"] = recentDoses.reduce(0) { $0 + $1.standardDrinks } / Double(recentDoses.count)
+        }
+        if event.drivingMode {
+            params["drivingMode"] = true
+            params["drivingLimit"] = event.bacLimit ?? userProfile.resolvedBACLimit
         }
 
         // Tonight's goal (targetBAC)
@@ -594,8 +553,11 @@ final class AppState: ObservableObject {
                 var report: String?
                 for _ in 0..<15 {
                     try? await Task.sleep(nanoseconds: 3_000_000_000)
-                    report = await FirebaseManager.shared.fetchAiReport(eventId: eventId)
-                    if report != nil { break }
+                    if let fetched = await FirebaseManager.shared.fetchAiReport(eventId: eventId),
+                       fetched.hasPrefix(ReportAlcoholDose.reportHeading) {
+                        report = fetched
+                        break
+                    }
                 }
                 guard let report else {
                     failedReportEventIds.insert(eventId)
@@ -692,11 +654,12 @@ final class AppState: ObservableObject {
             alreadyRequested: nightRecoveries.contains(where: { $0.id == eventId })
         ) else { return }
         guard let event = events.first(where: { $0.id == eventId }),
-              event.endTime != nil else { return }
+              let endTime = event.endTime else { return }
 
         let evEntries = entries.filter { $0.eventId == eventId }
         guard !evEntries.isEmpty else { return }
         let evWater = waterEntries.filter { $0.eventId == eventId }
+        let dose = ReportAlcoholDose(entries: evEntries, drinkTypes: allDrinkTypes)
 
         let timeline = BACCalculator.bacTimeline(
             entries: evEntries, drinkTypes: allDrinkTypes,
@@ -707,12 +670,6 @@ final class AppState: ObservableObject {
         let hydration = BACCalculator.hydrationLevel(waterEntries: evWater, drinkCount: drinkCount)
         let severity = recoverySeverity(peakBAC: peakBAC, hydration: hydration)
 
-        let drinkList = Dictionary(grouping: evEntries) { $0.drinkTypeId }
-            .compactMap { typeId, es -> String? in
-                guard let dt = allDrinkTypes.first(where: { $0.id == typeId }) else { return nil }
-                return "\(es.reduce(0) { $0 + $1.quantity })x \(dt.name)"
-            }.joined(separator: ", ")
-
         let placeholder = NightRecovery(id: eventId, severity: severity, report: nil, createdAt: Date())
         nightRecoveries.append(placeholder)
         DataStore.shared.saveNightRecoveries(nightRecoveries)
@@ -721,13 +678,11 @@ final class AppState: ObservableObject {
         var requestData: [String: Any] = [
             "userSex": userProfile.sex.rawValue,
             "userWeightKg": userProfile.weightKg,
-            "drinkList": drinkList,
-            "drinkCount": drinkCount,
             "peakBac": peakBAC,
-            "waterCount": evWater.count,
-            "hydrationLevel": hydration.rawValue,
-            "severity": severity.rawValue,
+            "waterMl": evWater.reduce(0) { $0 + $1.volumeMl },
+            "totalCalories": totalCalories(for: eventId),
         ]
+        requestData.merge(dose.fields(start: event.startTime, end: endTime)) { _, new in new }
         if let birthYear = userProfile.birthYear { requestData["userAge"] = currentYear - birthYear }
 
         Task {
@@ -1087,10 +1042,10 @@ final class AppState: ObservableObject {
         }
         guard !weekNights.isEmpty else { return [:] }
 
-        var weekTotalDrinks = 0; var totalCals = 0.0; var totalWater = 0
+        var totalCals = 0.0; var totalWater = 0
         var peakBac = 0.0; var peakBacNight = ""
         var bacValues: [Double] = []
-        var worstNight = ""; var worstCount = 0
+        var highestAlcoholNight = ""; var highestAlcoholGrams = 0.0
         var drivingNights = 0; var drivingExceeded = 0
         var bestHydrationNight = ""; var bestHydrationCount = 0 // one WaterEntry == one logged glass
         var bestBACNight = ""; var bestBACValue = Double.infinity
@@ -1098,8 +1053,7 @@ final class AppState: ObservableObject {
         for event in weekNights {
             let evEntries = entries.filter { $0.eventId == event.id }
             let evWater   = waterEntries.filter { $0.eventId == event.id }
-            let drinkCount = evEntries.reduce(0) { $0 + $1.quantity }
-            weekTotalDrinks += drinkCount
+            let nightDose = ReportAlcoholDose(entries: evEntries, drinkTypes: allDrinkTypes)
             totalCals   += totalCalories(for: event.id)
             totalWater  += evWater.count
 
@@ -1113,7 +1067,10 @@ final class AppState: ObservableObject {
             bacValues.append(nightPeak)
             if nightPeak > peakBac { peakBac = nightPeak; peakBacNight = event.displayName }
 
-            if drinkCount > worstCount { worstCount = drinkCount; worstNight = event.displayName }
+            if nightDose.grams > highestAlcoholGrams {
+                highestAlcoholGrams = nightDose.grams
+                highestAlcoholNight = event.displayName
+            }
 
             if evWater.count > bestHydrationCount {
                 bestHydrationCount = evWater.count
@@ -1148,23 +1105,11 @@ final class AppState: ObservableObject {
         }
 
         let avgBac = bacValues.isEmpty ? 0.0 : bacValues.reduce(0, +) / Double(bacValues.count)
-        let thirtyDaysAgo = cal.date(byAdding: .day, value: -30, to: now) ?? Date(timeIntervalSinceNow: -(30 * 24 * 3600))
-        let recentEvents = events.filter {
-            $0.userId == currentUserId && $0.endTime != nil && $0.startTime >= thirtyDaysAgo
-        }
-        let avg30 = recentEvents.isEmpty ? 0.0
-            : Double(recentEvents.reduce(0) { $0 + totalDrinks(for: $1.id) }) / Double(recentEvents.count)
-
         let dateFmt = DateFormatter(); dateFmt.dateFormat = "MMM d"
         let currentYear = cal.component(.year, from: now)
 
         let weekEntries = weekNights.flatMap { event in entries.filter { $0.eventId == event.id } }
-        var drinkByType: [String: Int] = [:]
-        for entry in weekEntries {
-            let name = allDrinkTypes.first { $0.id == entry.drinkTypeId }?.name ?? "Other"
-            drinkByType[name, default: 0] += entry.quantity
-        }
-        let drinkBreakdown = drinkByType.sorted { $0.value > $1.value }.map { "\($0.value)x \($0.key)" }.joined(separator: ", ")
+        let dose = ReportAlcoholDose(entries: weekEntries, drinkTypes: allDrinkTypes)
 
         var d: [String: Any] = [
             "userSex": userProfile.sex.rawValue,
@@ -1172,22 +1117,19 @@ final class AppState: ObservableObject {
             "weekStart": dateFmt.string(from: weekStart),
             "weekEnd":   dateFmt.string(from: cal.date(byAdding: .day, value: -1, to: weekEnd) ?? weekEnd),
             "nightCount": weekNights.count,
-            "totalDrinks": weekTotalDrinks,
-            "totalStdDrinks": weekTotalDrinks,
             "totalCalories": totalCals,
             "peakBac": peakBac,
             "peakBacNight": peakBacNight,
             "avgBacPerNight": avgBac,
             "totalWater": totalWater,
-            "avg30DayDrinksPerNight": avg30,
-            "worstNight": worstNight,
+            "highestAlcoholNight": highestAlcoholNight,
             "bestBehaviorType": bestBehaviorType,
             "bestBehaviorNight": bestBehaviorNight,
             "bestBehaviorDetail": bestBehaviorDetail,
-            "drinkBreakdown": drinkBreakdown,
             "drivingNights": drivingNights,
             "drivingExceededBACLimit": drivingExceeded,
         ]
+        d.merge(dose.fields()) { _, new in new }
         if let birthYear = userProfile.birthYear { d["userAge"] = currentYear - birthYear }
         if let h = userProfile.heightCm {
             d["userHeightCm"] = h
@@ -1204,7 +1146,7 @@ final class AppState: ObservableObject {
         }
         guard !monthNights.isEmpty else { return [:] }
 
-        var monthTotalDrinks = 0; var totalCals = 0.0; var totalWater = 0
+        var totalCals = 0.0; var totalWater = 0
         var peakBac = 0.0; var peakBacNight = ""
         var bacValues: [Double] = []
         var nightDates = Set<Date>()
@@ -1215,8 +1157,7 @@ final class AppState: ObservableObject {
         for event in monthNights {
             let evEntries = entries.filter { $0.eventId == event.id }
             let evWater   = waterEntries.filter { $0.eventId == event.id }
-            let drinkCount = evEntries.reduce(0) { $0 + $1.quantity }
-            monthTotalDrinks += drinkCount
+            let nightDose = ReportAlcoholDose(entries: evEntries, drinkTypes: allDrinkTypes)
             totalCals   += totalCalories(for: event.id)
             totalWater  += evWater.count
             nightDates.insert(cal.startOfDay(for: event.startTime))
@@ -1237,14 +1178,13 @@ final class AppState: ObservableObject {
                 bestMonthBACNight = event.displayName
             }
 
-            // Front-loading detection (>60% of drinks in first half of night)
+            // Front-loading measures alcohol mass in the first half of the night.
             if let evEnd = event.endTime {
                 let duration = evEnd.timeIntervalSince(event.startTime)
                 if duration > 0 {
                     let midPoint = event.startTime.addingTimeInterval(duration / 2)
-                    let firstHalf = evEntries.filter { $0.timestamp <= midPoint }
-                        .reduce(0) { $0 + $1.quantity }
-                    if drinkCount > 0 && Double(firstHalf) / Double(drinkCount) > 0.6 {
+                    if nightDose.grams > 0, nightDose.missingServings == 0,
+                       nightDose.grams(upTo: midPoint) / nightDose.grams > 0.6 {
                         frontLoadedNights += 1
                     }
                 }
@@ -1289,7 +1229,8 @@ final class AppState: ObservableObject {
         while weekStart < monthEnd {
             let weekEnd = min(cal.date(byAdding: .day, value: 7, to: weekStart) ?? monthEnd, monthEnd)
             let wNights = monthNights.filter { $0.startTime >= weekStart && $0.startTime < weekEnd }
-            let wDrinks = wNights.reduce(0) { $0 + totalDrinks(for: $1.id) }
+            let wEntries = wNights.flatMap { night in entries.filter { $0.eventId == night.id } }
+            let weekDose = ReportAlcoholDose(entries: wEntries, drinkTypes: allDrinkTypes)
             let wPeakBac = wNights.reduce(0.0) { (acc, event) -> Double in
                 let evEntries = entries.filter { $0.eventId == event.id }
                 let timeline = BACCalculator.bacTimeline(
@@ -1298,7 +1239,8 @@ final class AppState: ObservableObject {
                 )
                 return max(acc, timeline.max(by: { $0.bac < $1.bac })?.bac ?? 0)
             }
-            weekBreakdowns.append(["nights": wNights.count, "drinks": wDrinks, "peakBac": wPeakBac])
+            weekBreakdowns.append(["nights": wNights.count, "standardDrinks": weekDose.standardDrinks,
+                                   "missingServings": weekDose.missingServings, "peakBac": wPeakBac])
             weekStart = weekEnd
         }
 
@@ -1313,12 +1255,7 @@ final class AppState: ObservableObject {
         let currentYear = cal.component(.year, from: Date())
 
         let monthEntries = monthNights.flatMap { event in entries.filter { $0.eventId == event.id } }
-        var drinkByType: [String: Int] = [:]
-        for entry in monthEntries {
-            let name = allDrinkTypes.first { $0.id == entry.drinkTypeId }?.name ?? "Other"
-            drinkByType[name, default: 0] += entry.quantity
-        }
-        let drinkBreakdown = drinkByType.sorted { $0.value > $1.value }.map { "\($0.value)x \($0.key)" }.joined(separator: ", ")
+        let dose = ReportAlcoholDose(entries: monthEntries, drinkTypes: allDrinkTypes)
 
         var d: [String: Any] = [
             "userSex": userProfile.sex.rawValue,
@@ -1326,8 +1263,6 @@ final class AppState: ObservableObject {
             "monthName": monthFmt.string(from: monthStart),
             "year": yearFmt.string(from: monthStart),
             "nightCount": monthNights.count,
-            "totalDrinks": monthTotalDrinks,
-            "totalStdDrinks": monthTotalDrinks,
             "totalCalories": totalCals,
             "peakBac": peakBac,
             "peakBacNight": peakBacNight,
@@ -1336,12 +1271,12 @@ final class AppState: ObservableObject {
             "soberDays": soberDays,
             "prevMonthNightCount": prevMonthNightCount,
             "weekBreakdowns": weekBreakdowns,
-            "drinkBreakdown": drinkBreakdown,
             "signatureMove": signatureMove,
             "bestMonthNight": bestMonthBACNight,
             "drivingNights": drivingNights,
             "drivingExceededBACLimit": drivingExceeded,
         ]
+        d.merge(dose.fields()) { _, new in new }
         if let birthYear = userProfile.birthYear { d["userAge"] = currentYear - birthYear }
         if let h = userProfile.heightCm {
             d["userHeightCm"] = h
@@ -1355,6 +1290,7 @@ final class AppState: ObservableObject {
         let evEntries = entries.filter { $0.eventId == event.id }
         guard !evEntries.isEmpty else { return [:] }
         let evWater = waterEntries.filter { $0.eventId == event.id }
+        let dose = ReportAlcoholDose(entries: evEntries, drinkTypes: allDrinkTypes)
 
         let timeline = BACCalculator.bacTimeline(
             entries: evEntries, drinkTypes: allDrinkTypes,
@@ -1368,35 +1304,17 @@ final class AppState: ObservableObject {
             return f.string(from: date)
         }()
         let durationMinutes = Int(event.duration / 60)
-        let drinkCount = evEntries.reduce(0) { $0 + $1.quantity }
-        let drinkList = Dictionary(grouping: evEntries) { $0.drinkTypeId }
-            .compactMap { typeId, es -> String? in
-                guard let dt = allDrinkTypes.first(where: { $0.id == typeId }) else { return nil }
-                return "\(es.reduce(0) { $0 + $1.quantity })x \(dt.name)"
-            }.joined(separator: ", ")
-        let drinksPerHour = durationMinutes > 0
-            ? String(format: "%.1f", Double(drinkCount) / (Double(durationMinutes) / 60))
-            : "0"
-        let minutesAboveLimit = timeline.filter { $0.bac > 0.08 }.count * 5
-        let waterCount = evWater.count
-        let hydrationLevel = BACCalculator.hydrationLevel(waterEntries: evWater, drinkCount: drinkCount)
         let cals = totalCalories(for: event.id)
-        let lastDrinkTime = evEntries.max(by: { $0.timestamp < $1.timestamp })?.timestamp ?? event.startTime
-        let recoveryMinutes = Int(endTime.timeIntervalSince(lastDrinkTime) / 60)
 
         var result: [String: Any] = [
             "name": event.displayName,
             "durationMinutes": durationMinutes,
-            "drinkList": drinkList,
-            "drinksPerHour": drinksPerHour,
             "peakBac": peakBAC,
             "peakBacTime": peakBacTime,
-            "minutesAboveLimit": minutesAboveLimit,
-            "waterCount": waterCount,
-            "hydrationLevel": hydrationLevel.rawValue,
+            "waterMl": evWater.reduce(0) { $0 + $1.volumeMl },
             "totalCalories": cals,
-            "recoveryMinutes": recoveryMinutes,
         ]
+        result.merge(dose.fields(start: event.startTime, end: endTime)) { _, new in new }
         if event.drivingMode {
             result["drivingMode"] = true
             result["drivedAboveLimit"] = peakBAC > (event.bacLimit ?? 0.08)

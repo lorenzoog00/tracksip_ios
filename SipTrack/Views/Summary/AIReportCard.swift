@@ -422,13 +422,14 @@ extension RecoverySeverity {
 
 struct AnalysisSection {
     enum Kind {
-        case physiology, insight
+        case alcohol, physiology, insight
         case tonight, tomorrow
         case recovery, hydration
         case unknown
 
         var title: String {
             switch self {
+            case .alcohol:    return "ALCOHOL LOGGED"
             case .physiology: return "PHYSIOLOGY"
             case .insight:    return "NEXT TIME"
             case .tonight:    return "TONIGHT"
@@ -441,6 +442,7 @@ struct AnalysisSection {
 
         var icon: String {
             switch self {
+            case .alcohol:    return "chart.bar.fill"
             case .physiology: return "waveform.path.ecg"
             case .insight:    return "brain.head.profile"
             case .tonight:    return "moon.stars.fill"
@@ -453,6 +455,7 @@ struct AnalysisSection {
 
         var color: Color {
             switch self {
+            case .alcohol:    return AppColors.accent
             case .physiology: return Color(hex: "#5BC8FF")
             case .insight:    return Color(hex: "#BF5AF2")
             case .tonight:    return Color(hex: "#5BC8FF")
@@ -472,6 +475,7 @@ struct AnalysisSection {
 
 enum NightReportParser {
     private static let labelMap: [(String, AnalysisSection.Kind)] = [
+        ("ALCOHOL LOGGED", .alcohol),
         ("TONIGHT",    .tonight),
         ("TOMORROW",   .tomorrow),
         ("NEXT TIME",  .insight),
@@ -706,12 +710,25 @@ struct NightAnalysisCard: View {
                 freeReportLimitGate
             } else if event?.aiReport != nil {
                 cardBody
+                if appState.userProfile.aiReportsEnabled == true,
+                   event?.aiReport?.hasPrefix(ReportAlcoholDose.reportHeading) == false {
+                    Button(isFailedNight ? "Retry alcohol analysis" : "Update alcohol analysis") {
+                        appState.retryNightReport(eventId: eventId)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(AppColors.accent)
+                    .disabled(!appState.canGenerateNightReport)
+                    .padding([.horizontal, .bottom], 16)
+                }
             } else if isFailedNight {
                 analysisFailure(label: "ANALYSIS FAILED") {
                     appState.retryNightReport(eventId: eventId)
                 }
-            } else {
-                analysisLoading(label: "SCANNING", color: AppColors.accent)
+            } else if hasEnded {
+                Button("Analyze this night") { appState.generateAiReport(for: eventId) }
+                    .buttonStyle(.bordered)
+                    .tint(AppColors.accent)
+                    .padding(16)
             }
         }
         .background(dotGridBackground)

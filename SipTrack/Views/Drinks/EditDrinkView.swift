@@ -16,6 +16,16 @@ struct EditDrinkView: View {
     @State private var icon: String
     @State private var colorHex: String?
 
+    @State private var lookupQuery = ""
+    @State private var lookupState = LookupState.idle
+    @State private var lookupNote: String?
+    @State private var lookupsLeft: Int?
+
+    private enum LookupState: Equatable {
+        case idle, loading
+        case failed(String)
+    }
+
     private let iconOptions = [
         "mug.fill", "wineglass.fill", "wineglass", "sparkles",
         "flask.fill", "flask", "drop.fill", "leaf.fill",
@@ -43,6 +53,9 @@ struct EditDrinkView: View {
         _durationStr  = State(initialValue: "\(existing?.effectiveDrinkingMinutes ?? 20)")
         _icon         = State(initialValue: existing?.sfSymbol ?? "cup.and.saucer.fill")
         _colorHex     = State(initialValue: existing?.colorHex)
+        // Arriving from the picker's search, the name is already typed: it is
+        // the one thing the user should not have to write twice.
+        _lookupQuery  = State(initialValue: existing == nil ? suggestedName : "")
     }
 
     private var isValid: Bool {
@@ -65,6 +78,7 @@ struct EditDrinkView: View {
                 AppColors.background.ignoresSafeArea()
                 ScrollView {
                     VStack(spacing: 20) {
+                        if existing == nil { autofillCard }
                         field(label: "Name", placeholder: "e.g. Rosé Wine", text: $name)
                         numericField(
                             label: "Avg. time to finish (min)",
@@ -171,6 +185,113 @@ struct EditDrinkView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Autofill
+
+    private var canAutofill: Bool {
+        lookupState != .loading &&
+        (try? DrinkLookup.normalizedQuery(lookupQuery)) != nil
+    }
+
+    private var autofillCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Describe it instead")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(AppColors.textSecondary)
+            HStack(spacing: 8) {
+                TextField("e.g. 2 caballitos de mezcal", text: $lookupQuery)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .submitLabel(.search)
+                    .onSubmit { autofill() }
+                    .padding(12)
+                    .background(AppColors.surface)
+                    .cornerRadius(10)
+                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(AppColors.border, lineWidth: 1))
+                    .foregroundStyle(AppColors.text)
+                Button(action: autofill) {
+                    Group {
+                        if lookupState == .loading {
+                            ProgressView().tint(.black)
+                        } else {
+                            Image(systemName: "sparkles").font(.system(size: 18, weight: .semibold))
+                        }
+                    }
+                    .frame(width: 52, height: 46)
+                    .background(canAutofill ? AppColors.accent : AppColors.border)
+                    .foregroundStyle(canAutofill ? Color.black : AppColors.textTertiary)
+                    .cornerRadius(10)
+                }
+                .disabled(!canAutofill)
+                .accessibilityLabel("Fill in the drink's details")
+            }
+            if case .failed(let message) = lookupState {
+                Text(message)
+                    .font(.system(size: 14))
+                    .foregroundStyle(AppColors.accentWarm)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else if let lookupNote {
+                Text(lookupNote)
+                    .font(.system(size: 14))
+                    .foregroundStyle(AppColors.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                Text("We'll estimate the pour, ABV and calories. Check them before saving.")
+                    .font(.system(size: 14))
+                    .foregroundStyle(AppColors.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(14)
+        .background(AppColors.surface.opacity(0.5))
+        .cornerRadius(12)
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(AppColors.border, lineWidth: 1))
+    }
+
+    private func autofill() {
+        guard canAutofill else { return }
+        // A drink the user already has costs nothing to copy, and the monthly
+        // allowance is small enough that spending one on a repeat would be the
+        // worst use of it.
+        if let match = DrinkLookup.localMatch(for: lookupQuery, in: appState.allDrinkTypes) {
+            let quantity = DrinkLookup.leadingCount(in: lookupQuery)
+            apply(DrinkLookup.result(from: match, quantity: quantity),
+                  note: "Copied from your “\(match.name)”. No lookup used.")
+            return
+        }
+        lookupState = .loading
+        Task { @MainActor in
+            do {
+                let (result, remaining) = try await FirebaseManager.shared.lookupDrink(query: lookupQuery)
+                lookupsLeft = remaining
+                apply(result, note: nil)
+            } catch {
+                lookupState = .failed(error.localizedDescription)
+            }
+        }
+    }
+
+    private func apply(_ result: DrinkLookupResult, note: String?) {
+        name = result.name
+        volumeStr = "\(Int(result.volumeMl.rounded()))"
+        abvStr = String(format: "%.1f", result.abv)
+        caloriesStr = "\(Int(result.calories.rounded()))"
+        durationStr = "\(result.minutes)"
+        icon = DrinkLookup.sfSymbol(for: result.category)
+        lookupState = .idle
+        var lines = [note ?? "Estimated — check the numbers below before saving."]
+        if result.quantity > 1 {
+            // The form creates a drink, it does not log one, so saying this is
+            // the honest thing to do rather than quietly logging servings the
+            // user never tapped.
+            lines.append("You said \(result.quantity) servings — tap the drink that many times to log them.")
+        }
+        if let left = lookupsLeft, note == nil {
+            lines.append(left == 1 ? "1 autofill left this month." : "\(left) autofills left this month.")
+        }
+        lookupNote = lines.joined(separator: " ")
+        Haptics.shared.play(.success)
     }
 
     private func field(label: String, placeholder: String, text: Binding<String>) -> some View {
