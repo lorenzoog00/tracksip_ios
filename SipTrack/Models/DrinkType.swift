@@ -88,7 +88,7 @@ extension DrinkType {
         // and soda around it, so it is weaker per ml and takes longer.
         DrinkType(id: "cantarito",   name: "Cantarito",   defaultVolumeMl: 350,  defaultAbv: 6.5,  caloriesPerServing: 240,  isPreset: true, icon: "sunny",          defaultDrinkingDurationMinutes: 30),
         DrinkType(id: "charro-negro", name: "Charro Negro", defaultVolumeMl: 240, defaultAbv: 9.5, caloriesPerServing: 180,  isPreset: true, icon: "water",          defaultDrinkingDurationMinutes: 25),
-        DrinkType(id: "cuba-libre",  name: "Cuba Libre",  defaultVolumeMl: 240,  defaultAbv: 9.5,  caloriesPerServing: 180,  isPreset: true, icon: "water",          defaultDrinkingDurationMinutes: 25),
+        DrinkType(id: "rum-coke",    name: "Rum & Coke",  defaultVolumeMl: 240,  defaultAbv: 9.5,  caloriesPerServing: 180,  isPreset: true, icon: "water",          defaultDrinkingDurationMinutes: 25),
         DrinkType(id: "vampiro",     name: "Vampiro",     defaultVolumeMl: 300,  defaultAbv: 8.0,  caloriesPerServing: 200,  isPreset: true, icon: "restaurant",     defaultDrinkingDurationMinutes: 30),
         // Fermented rather than distilled, so it sits near a beer: sources put
         // it at 4–6% and a commercial can declares 5%.
