@@ -14,6 +14,10 @@
 		D77C112605A0000000000010 /* StoriesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D77C112605A0000000000009 /* StoriesView.swift */; };
 		D77C112605A0000000000012 /* StoryCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = D77C112605A0000000000011 /* StoryCards.swift */; };
 		D77C112605A0000000000014 /* NightStoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D77C112605A0000000000013 /* NightStoryTests.swift */; };
+		E34D6123C210440E9E1B4401 /* ReportAlcoholDose.swift in Sources */ = {isa = PBXBuildFile; fileRef = E34D6123C210440E9E1B4402 /* ReportAlcoholDose.swift */; };
+		E34D6123C210440E9E1B4403 /* ReportAlcoholDoseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E34D6123C210440E9E1B4404 /* ReportAlcoholDoseTests.swift */; };
+		E34D6123C210440E9E1B4411 /* DrinkLookup.swift in Sources */ = {isa = PBXBuildFile; fileRef = E34D6123C210440E9E1B4412 /* DrinkLookup.swift */; };
+		E34D6123C210440E9E1B4413 /* DrinkLookupTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E34D6123C210440E9E1B4414 /* DrinkLookupTests.swift */; };
 		E2E812588FC9455192A150D0 /* siptrackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAF9F98AA68F4B26B64B7E55 /* siptrackTests.swift */; };
 		EFB0728D3D5C4E0EB8F0A888 /* BACCalculatorFoodTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05D89EE3EAB14D6EB6AF92BD /* BACCalculatorFoodTests.swift */; };
 		19A3D1F4240845CD897E3D12 /* BACCalculatorCoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94366D3F8A174A8A9ED74019 /* BACCalculatorCoreTests.swift */; };
@@ -203,6 +207,10 @@
 		D77C112605A0000000000009 /* StoriesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoriesView.swift; sourceTree = "<group>"; };
 		D77C112605A0000000000011 /* StoryCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryCards.swift; sourceTree = "<group>"; };
 		D77C112605A0000000000013 /* NightStoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NightStoryTests.swift; sourceTree = "<group>"; };
+		E34D6123C210440E9E1B4402 /* ReportAlcoholDose.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportAlcoholDose.swift; sourceTree = "<group>"; };
+		E34D6123C210440E9E1B4404 /* ReportAlcoholDoseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportAlcoholDoseTests.swift; sourceTree = "<group>"; };
+		E34D6123C210440E9E1B4412 /* DrinkLookup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrinkLookup.swift; sourceTree = "<group>"; };
+		E34D6123C210440E9E1B4414 /* DrinkLookupTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrinkLookupTests.swift; sourceTree = "<group>"; };
 		CAF9F98AA68F4B26B64B7E55 /* siptrackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = siptrackTests.swift; sourceTree = "<group>"; };
 		05D89EE3EAB14D6EB6AF92BD /* BACCalculatorFoodTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BACCalculatorFoodTests.swift; sourceTree = "<group>"; };
 		94366D3F8A174A8A9ED74019 /* BACCalculatorCoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BACCalculatorCoreTests.swift; sourceTree = "<group>"; };
@@ -491,6 +499,8 @@
 				D77C112605A0000000000003 /* NightPhotoStore.swift */,
 				D77C112605A0000000000005 /* NightStory.swift */,
 				D77C112605A0000000000007 /* StoryVideoExporter.swift */,
+				E34D6123C210440E9E1B4402 /* ReportAlcoholDose.swift */,
+				E34D6123C210440E9E1B4412 /* DrinkLookup.swift */,
 				B101B4992F9C2F32009F7DDD /* ChallengeUtils.swift */,
 				B101B49A2F9C2F32009F7DDD /* IntoxicationStage.swift */,
 				B101B49B2F9C2F32009F7DDD /* WarningSystem.swift */,
@@ -745,6 +755,8 @@
 				CAF9F98AA68F4B26B64B7E55 /* siptrackTests.swift */,
 				05D89EE3EAB14D6EB6AF92BD /* BACCalculatorFoodTests.swift */,
 				94366D3F8A174A8A9ED74019 /* BACCalculatorCoreTests.swift */,
+				E34D6123C210440E9E1B4404 /* ReportAlcoholDoseTests.swift */,
+				E34D6123C210440E9E1B4414 /* DrinkLookupTests.swift */,
 				A1B2C3D4E5F6A7B8C9D0E1F3 /* AIInsightsTests.swift */,
 				B2C3D4E5F6A7B8C9D0E1F2A4 /* NightPickerTests.swift */,
 				C4D5E6F7A8B9C0D1E2F3A4B6 /* BACCalculatorKineticsTests.swift */,
@@ -1069,6 +1081,8 @@
 				A0WB1001000000000000001A /* WatchBridge.swift in Sources */,
 				B101B4E02F9CD648009F7DDD /* Analytics.swift in Sources */,
 				B101B4E12F9CD648009F7DDD /* BACCalculator.swift in Sources */,
+				E34D6123C210440E9E1B4401 /* ReportAlcoholDose.swift in Sources */,
+				E34D6123C210440E9E1B4411 /* DrinkLookup.swift in Sources */,
 				8E3F7C2B5D4A6810C3F6A9B6 /* HapticSpec.swift in Sources */,
 				B1F0A7D32FC10A010011AAAA /* Haptics.swift in Sources */,
 				B101B4E22F9CD648009F7DDD /* ChallengeUtils.swift in Sources */,
@@ -1141,6 +1155,8 @@
 				E2E812588FC9455192A150D0 /* siptrackTests.swift in Sources */,
 				EFB0728D3D5C4E0EB8F0A888 /* BACCalculatorFoodTests.swift in Sources */,
 				19A3D1F4240845CD897E3D12 /* BACCalculatorCoreTests.swift in Sources */,
+				E34D6123C210440E9E1B4403 /* ReportAlcoholDoseTests.swift in Sources */,
+				E34D6123C210440E9E1B4413 /* DrinkLookupTests.swift in Sources */,
 				A1B2C3D4E5F6A7B8C9D0E1F2 /* AIInsightsTests.swift in Sources */,
 				B2C3D4E5F6A7B8C9D0E1F2A3 /* NightPickerTests.swift in Sources */,
 				C4D5E6F7A8B9C0D1E2F3A4B5 /* BACCalculatorKineticsTests.swift in Sources */,

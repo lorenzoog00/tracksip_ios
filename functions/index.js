@@ -18,6 +18,7 @@ const {generateReport} = require("./report-service");
 const {deleteAccount} = require("./accounts");
 const {verifyPurchase} = require("./purchases");
 const {validateRequest} = require("./report-policy");
+const {lookupDrink} = require("./drink-lookup");
 const {buildPrompt} = require("./prompts");
 const liveActivity = require("./live-activity");
 
@@ -89,6 +90,56 @@ exports.requestReport = onCall(
             model: "claude-haiku-5-5",
             thinking: {type: "disabled"},
             max_tokens: 700,
+            system: prompt.system,
+            messages: [{role: "user", content: prompt.prompt}],
+          });
+          return response.content
+              .filter((block) => block.type === "text")
+              .map((block) => block.text)
+              .join("\n");
+        },
+      });
+    },
+);
+
+exports.lookupDrink = onCall(
+    {
+      secrets: [claudeKey, appleKey],
+      timeoutSeconds: 30,
+      enforceAppCheck: true,
+    },
+    async (request) => {
+      if (!request.auth) {
+        throw new HttpsError("unauthenticated", "Please sign in.");
+      }
+      const purchase = await verifyPurchase(
+          request.data?.signedTransaction,
+          request.auth.uid,
+          {
+            key: appleKey.value(),
+            keyId: keyId.value(),
+            issuerId: issuerId.value(),
+            appAppleId: appAppleId.value(),
+            allowSandbox: allowSandbox.value(),
+          },
+      );
+      return lookupDrink({
+        db: getFirestore(),
+        uid: request.auth.uid,
+        data: request.data,
+        purchase,
+        generate: async (prompt) => {
+          const client = new Anthropic({
+            apiKey: claudeKey.value(),
+            timeout: 20000,
+            maxRetries: 1,
+          });
+          const response = await client.messages.create({
+            // Same model and the same reasons as the report above. Keep
+            // max_tokens in step with MAX_OUTPUT_TOKENS in drink-lookup.js.
+            model: "claude-haiku-5-5",
+            thinking: {type: "disabled"},
+            max_tokens: 200,
             system: prompt.system,
             messages: [{role: "user", content: prompt.prompt}],
           });

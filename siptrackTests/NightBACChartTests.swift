@@ -53,6 +53,26 @@ struct NightBACChartTests {
         )
     }
 
+    @Test func axisStrideWidensWithTheSpanSoHourLabelsCannotCollide() {
+        let hours = { (h: Double) in NightBACChartData.xStrideHours(span: h * 3600) }
+        #expect(hours(0) == 1)
+        #expect(hours(2) == 1)
+        #expect(hours(3.9) == 1)
+        #expect(hours(4) == 2)
+        #expect(hours(7.9) == 2)
+        #expect(hours(8) == 3)
+        #expect(hours(13.9) == 3)
+        #expect(hours(14) == 4)
+        #expect(hours(30) == 4)
+    }
+
+    @Test func anEightHourNightLabelsAtMostFourHours() {
+        let now = date(minutes: 8 * 60)
+        let data = chart(now: now, currentBAC: 0, samples: [BACDataPoint(date: now, bac: 0)])
+        let span = data.end.timeIntervalSince(data.start)
+        #expect(span / 3600 / Double(data.xStrideHours) <= 4)
+    }
+
     private func date(minutes: Int) -> Date {
         start.addingTimeInterval(Double(minutes) * 60)
     }

@@ -495,17 +495,43 @@ final class FirebaseManager: ObservableObject {
         }
         var data: [String: Any] = ["kind": kind, "id": id, "payload": payload]
         data["metadata"] = metadata.filter { ["period_start", "period_end", "event_a_id", "event_b_id"].contains($0.key) }
+        if let signed = await signedProTransaction() {
+            data["signedTransaction"] = signed
+        }
+        _ = try await callFunction("requestReport", data: data)
+    }
+
+    /// Fill a new drink's numbers from a free-text description.
+    ///
+    /// Gated on the same consent as the reports: the query is the user's own
+    /// text and it goes to Anthropic, which is exactly what that toggle is
+    /// about.
+    func lookupDrink(query: String) async throws -> (result: DrinkLookupResult, remaining: Int?) {
+        guard DataStore.shared.loadUserProfile().aiReportsEnabled == true else {
+            throw NSError(domain: "FirebaseManager", code: 403,
+                          userInfo: [NSLocalizedDescriptionKey: "Enable AI features in Profile before sharing data with Anthropic."])
+        }
+        var data: [String: Any] = ["query": try DrinkLookup.normalizedQuery(query)]
+        if let signed = await signedProTransaction() {
+            data["signedTransaction"] = signed
+        }
+        let payload = try await callFunction("lookupDrink", data: data)
+        return try DrinkLookup.parse(payload)
+    }
+
+    /// The JWS for an active Pro entitlement, which the server re-verifies
+    /// against Apple. Nothing here is trusted on the client's say-so.
+    private func signedProTransaction() async -> String? {
         for await result in StoreKit.Transaction.currentEntitlements {
             if case .verified(let transaction) = result,
                StoreManager.grantsPro(productID: transaction.productID,
                                       expirationDate: transaction.expirationDate,
                                       revocationDate: transaction.revocationDate,
                                       isUpgraded: transaction.isUpgraded) {
-                data["signedTransaction"] = result.jwsRepresentation
-                break
+                return result.jwsRepresentation
             }
         }
-        _ = try await callFunction("requestReport", data: data)
+        return nil
     }
 
     /// `idToken` lets a caller supply one it obtained earlier.

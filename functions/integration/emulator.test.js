@@ -17,6 +17,7 @@ const {
 const {initializeApp, deleteApp} = require("firebase-admin/app");
 const {getFirestore} = require("firebase-admin/firestore");
 const {generateReport} = require("../report-service");
+const {lookupDrink} = require("../drink-lookup");
 const {deleteAccount} = require("../accounts");
 let env;
 let app;
@@ -216,6 +217,36 @@ test("parallel duplicate requests spend once and cached result is reused", async
   );
 });
 
+test("an old night report can be updated once with alcohol dose data", async () => {
+  await seed();
+  await report(async () => "TONIGHT: You logged one serving.");
+  const vodka = {
+    name: "Vodka", quantity: 1, volumeMlPerServing: 2000, abv: 40,
+    grams: 631.2, standardDrinks: 631.2 / 14,
+  };
+  const upgraded = {data: {...data, payload: {
+    drinks: [vodka],
+    alcoholDose: {
+      grams: vodka.grams, standardDrinks: vodka.standardDrinks,
+      loggedServings: 1, missingServings: 0, otherGroups: 0, otherGrams: 0,
+      largestEntry: vodka,
+    },
+  }}};
+  let calls = 0;
+  const generate = async () => {
+    calls++;
+    return "TONIGHT: Double-check the logged volume and strength.";
+  };
+  await Promise.all([report(generate, upgraded), report(generate, upgraded)]);
+  const current = await report(generate, upgraded);
+  assert.match(current.report, /^ALCOHOL LOGGED:/);
+  assert.match(current.report, /45\.1 U\.S\. standard drinks/);
+  assert.equal(calls, 1);
+  assert.equal((await db.doc("users/alice/report_usage/current").get()).data().total, 2);
+  const legacyAgain = await report(generate);
+  assert.equal(legacyAgain.report, current.report);
+});
+
 test("API failure records failure and allows bounded retry", async () => {
   await seed();
   await assert.rejects(
@@ -274,6 +305,77 @@ test("deletion requires recent authentication before deleting data", async () =>
   assert.equal(
       (await db.doc("users/alice/night_events/night1").get()).exists,
       true,
+  );
+});
+
+// eslint-disable-next-line require-jsdoc
+function lookup(overrides = {}) {
+  return lookupDrink({
+    db,
+    uid: "alice",
+    data: {query: "2 caballitos de mezcal"},
+    purchase: null,
+    generate: async () => JSON.stringify({
+      name: "Mezcal", volumeMl: 44, abv: 42, calories: 103,
+      minutes: 15, category: "agave", quantity: 2,
+    }),
+    ...overrides,
+  });
+}
+
+test("a free account gets five drink lookups and is told what is left", async () => {
+  for (let i = 0; i < 5; i++) {
+    const result = await lookup();
+    assert.equal(result.drink.name, "Mezcal");
+    assert.equal(result.remaining, 4 - i);
+  }
+  await assert.rejects(lookup(), /limit/);
+  assert.equal(
+      (await db.doc("users/alice/report_usage/current").get()).data()
+          .counts.lookup,
+      5,
+  );
+});
+
+test("spent lookups leave the free night report untouched", async () => {
+  await seed();
+  for (let i = 0; i < 5; i++) await lookup();
+  const result = await report(async () => "TONIGHT: Arrange a sober ride.");
+  assert.match(result.report, /sober ride/);
+});
+
+test("a failed lookup still costs the quota it reserved", async () => {
+  // The reservation is committed before the model is asked, so a model that
+  // answers with junk cannot be retried for free.
+  await assert.rejects(
+      lookup({generate: async () => "I am not JSON"}),
+      /Could not read/,
+  );
+  assert.equal(
+      (await db.doc("users/alice/report_usage/current").get()).data()
+          .counts.lookup,
+      1,
+  );
+});
+
+test("a lookup is refused while the account is being deleted", async () => {
+  await db.doc("account_deletions/alice").set({requested_at: 1});
+  await assert.rejects(lookup(), /deletion is in progress/);
+  assert.equal(
+      (await db.doc("users/alice/report_usage/current").get()).exists,
+      false,
+  );
+});
+
+test("a purchase bound to another account cannot grant paid lookups", async () => {
+  await db.doc("purchase_owners/Production-123").set({uid: "bob"});
+  await assert.rejects(
+      lookup({purchase: {key: "Production-123"}}),
+      /another account/,
+  );
+  assert.equal(
+      (await db.doc("users/alice/report_usage/current").get()).exists,
+      false,
   );
 });
 
