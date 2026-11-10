@@ -378,6 +378,7 @@ final class AppState: ObservableObject {
                 .filter { ids.contains($0.id) }
                 .prefix(3)
                 .map { SipTrackActivityAttributes.QuickDrink(id: $0.id, name: $0.name, symbol: $0.sfSymbol) }
+            lockScreenCurveKey = nil
             LiveActivityManager.shared.start(
                 eventName: event.displayName,
                 eventId: event.id,
@@ -421,8 +422,47 @@ final class AppState: ObservableObject {
                 elapsedMinutes: elapsed,
                 safeToDriveAt: safeToDriveAt,
                 soberAt: soberAt,
-                startedAt: event.startTime
+                startedAt: event.startTime,
+                pushSamples: lockScreenPushSamples(for: event, currentBAC: resolvedBAC)
             )
+        }
+    }
+
+    /// What the night's curve depends on. The curve is rebuilt and re-sent to the
+    /// push server only when this changes, not on every 10 s tick.
+    private var lockScreenCurveKey: String?
+
+    /// The projected curve for the push server, or nil when it has not changed
+    /// since the last call. Values are what the lock screen shows: BAC plus the
+    /// stage name and colour it falls in.
+    private func lockScreenPushSamples(for event: NightEvent, currentBAC: Double) -> [[String: Any]]? {
+        let eventEntries = entries.filter { $0.eventId == event.id }
+        let eventFood = foodEntries.filter { $0.eventId == event.id }
+        let key = [
+            event.id,
+            "\(eventEntries.count)",
+            "\(eventEntries.reduce(0.0) { $0 + $1.timestamp.timeIntervalSince1970 + Double($1.quantity) + ($1.volumeOverrideMl ?? 0) })",
+            "\(eventFood.count)",
+            String(describing: event.stomachState),
+            "\(userProfile.weightKg)",
+            "\(BACCalculator.profileR(profile: userProfile))",
+        ].joined(separator: "|")
+        guard key != lockScreenCurveKey else { return nil }
+        lockScreenCurveKey = key
+        let points = BACCalculator.bacTimeline(
+            entries: eventEntries, drinkTypes: allDrinkTypes, profile: userProfile,
+            eventStart: event.startTime, stomachState: event.stomachState ?? .empty,
+            stomachStateTimestamp: event.stomachStateTimestamp ?? event.startTime,
+            foodEntries: eventFood
+        )
+        return BACCalculator.lockScreenSchedule(points, from: Date(), currentBAC: currentBAC).map { point in
+            let stage = IntoxicationStage.stage(for: point.bac)
+            return [
+                "t": point.date.timeIntervalSince1970,
+                "b": (point.bac * 100_000).rounded() / 100_000,
+                "s": stage.name,
+                "c": stage.colorHex,
+            ]
         }
     }
 

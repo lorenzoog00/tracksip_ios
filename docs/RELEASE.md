@@ -40,6 +40,25 @@ Older clients' direct report writes will be rejected by the new rules.
    Existing purchases without an app-account token bind to the first verified
    account that submits them; a second account cannot reuse that binding.
 
+5. For the lock-screen BAC to update while the app is asleep, create an **APNs
+   key** in Apple Developer → Certificates, IDs & Profiles → Keys (enable Apple
+   Push Notifications service, environment "Sandbox & Production"). This is not
+   the In-App Purchase key. Store the `.p8` as a secret with `--data-file` (the
+   interactive prompt truncates multi-line keys) and add its Key ID to the
+   `.env` file:
+
+   ```powershell
+   npx firebase functions:secrets:set APNS_AUTH_KEY --data-file C:\path\AuthKey_XXXXXXXXXX.p8 --project YOUR_PROJECT_ID
+   ```
+
+   ```dotenv
+   APNS_KEY_ID=XXXXXXXXXX
+   ```
+
+   `syncLiveActivity` stores each night's projected curve in `live_activities/{uid}`
+   and `pushLiveActivities` pushes the current value every 5 minutes. Without the
+   key the lock screen still works but only updates when the app runs.
+
 ### Validate and deploy
 
 ```powershell

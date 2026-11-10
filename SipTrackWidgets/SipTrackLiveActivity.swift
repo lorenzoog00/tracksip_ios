@@ -1,4 +1,5 @@
 import ActivityKit
+import AppIntents
 import SipTrackActivityKit
 import SwiftUI
 import WidgetKit
@@ -38,9 +39,10 @@ struct SipTrackLiveActivity: Widget {
 
                 DynamicIslandExpandedRegion(.bottom) {
                     HStack(spacing: 6) {
-                        ForEach(context.state.quickDrinks.prefix(4)) { drink in
+                        ForEach(context.state.quickDrinks.prefix(3)) { drink in
                             islandDrinkButton(drink: drink, eventId: context.state.eventId)
                         }
+                        islandWaterButton(eventId: context.state.eventId)
                     }
                     .padding(.horizontal, 4)
                     .padding(.bottom, 4)
@@ -72,26 +74,40 @@ struct SipTrackLiveActivity: Widget {
         }
     }
 
-    @ViewBuilder
+    // Button(intent:) runs the intent in the background, so one tap logs the
+    // drink without opening the app (the old Link opened it every time).
     private func islandDrinkButton(drink: SipTrackActivityAttributes.QuickDrink, eventId: String) -> some View {
-        if let url = URL(string: "siptrack://drink?type=\(drink.id)&event=\(eventId)") {
-            Link(destination: url) {
-                HStack(spacing: 4) {
-                    Image(systemName: drink.symbol)
-                        .font(.system(size: 13, weight: .medium))
-                    Text(drink.name)
-                        .font(.system(size: 10, weight: .semibold))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.75)
-                }
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity)
-                .frame(height: 38)
-                .background(.white.opacity(0.1))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(.white.opacity(0.12), lineWidth: 0.5))
+        Button(intent: AddDrinkFromLiveActivityIntent(drinkTypeId: drink.id, eventId: eventId)) {
+            HStack(spacing: 4) {
+                Image(systemName: drink.symbol)
+                    .font(.system(size: 13, weight: .medium))
+                Text(drink.name)
+                    .font(.system(size: 10, weight: .semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
             }
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity)
+            .frame(height: 38)
+            .background(.white.opacity(0.1))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(.white.opacity(0.12), lineWidth: 0.5))
         }
+        .buttonStyle(.plain)
+    }
+
+    private func islandWaterButton(eventId: String) -> some View {
+        Button(intent: AddWaterFromLiveActivityIntent(eventId: eventId)) {
+            Image(systemName: "drop.fill")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Color(hex: "#4FC3F7"))
+                .frame(width: 44, height: 38)
+                .background(Color(hex: "#4FC3F7").opacity(0.15))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color(hex: "#4FC3F7").opacity(0.3), lineWidth: 0.5))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Add water")
     }
 }
 
@@ -229,36 +245,52 @@ private struct LockScreenContent: View {
                 ForEach(context.state.quickDrinks.prefix(3)) { drink in
                     lockDrinkButton(drink)
                 }
+                lockWaterButton
             }
             .padding(.horizontal, 14)
             .padding(.bottom, 12)
         }
     }
 
-    @ViewBuilder
     private func lockDrinkButton(_ drink: SipTrackActivityAttributes.QuickDrink) -> some View {
-        if let url = URL(string: "siptrack://drink?type=\(drink.id)&event=\(context.state.eventId)") {
-            Link(destination: url) {
-                HStack(spacing: 6) {
-                    Image(systemName: drink.symbol)
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(stageColor)
-                    Text(drink.name)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                }
-                .frame(maxWidth: .infinity)
-                .frame(height: 38)
-                .background(.white.opacity(0.07))
+        Button(intent: AddDrinkFromLiveActivityIntent(drinkTypeId: drink.id, eventId: context.state.eventId)) {
+            HStack(spacing: 6) {
+                Image(systemName: drink.symbol)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(stageColor)
+                Text(drink.name)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 38)
+            .background(.white.opacity(0.07))
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .strokeBorder(.white.opacity(0.1), lineWidth: 0.5)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var lockWaterButton: some View {
+        Button(intent: AddWaterFromLiveActivityIntent(eventId: context.state.eventId)) {
+            Image(systemName: "drop.fill")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Color(hex: "#4FC3F7"))
+                .frame(width: 46, height: 38)
+                .background(Color(hex: "#4FC3F7").opacity(0.14))
                 .clipShape(RoundedRectangle(cornerRadius: 10))
                 .overlay(
                     RoundedRectangle(cornerRadius: 10)
-                        .strokeBorder(.white.opacity(0.1), lineWidth: 0.5)
+                        .strokeBorder(Color(hex: "#4FC3F7").opacity(0.3), lineWidth: 0.5)
                 )
-            }
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Add water")
     }
 }
 
