@@ -717,10 +717,13 @@ private struct CurrentDrinkCard: View {
     private var totalMin: Double { Double(drinkType?.effectiveDrinkingMinutes ?? 20) }
     private var progress: Double { min(1.0, elapsedMin / totalMin) }
 
+    /// Stays up for the latest drink (not only while it absorbs) so the count-up
+    /// timer answers "how long have I had this one"; gone after a long gap.
     var body: some View {
-        if let dt = drinkType, elapsedMin < totalMin {
+        if let dt = drinkType, let entry = currentEntry, elapsedMin < 6 * 60 {
             let fillFraction = 1.0 - progress
             let minsLeft = max(1, Int(ceil(totalMin - elapsedMin)))
+            let absorbing = elapsedMin < totalMin
 
             HStack(spacing: 14) {
                 // Animated glass
@@ -750,19 +753,23 @@ private struct CurrentDrinkCard: View {
                             Text(dt.name)
                                 .font(.system(size: 17, weight: .semibold))
                                 .foregroundStyle(AppColors.text)
-                            Text("sipping now")
+                            Text(absorbing ? "sipping now" : "your latest drink")
                                 .font(.system(size: 13))
                                 .foregroundStyle(AppColors.textTertiary)
                         }
                         Spacer()
-                        HStack(alignment: .lastTextBaseline, spacing: 1) {
-                            Text("\(Int(elapsedMin))")
-                                .font(.system(size: 22, weight: .bold, design: .monospaced))
-                                .foregroundStyle(dt.color)
-                            Text(" / \(Int(totalMin))m")
-                                .font(.system(size: 13))
+                        VStack(alignment: .trailing, spacing: 1) {
+                            Text("TIME WITH DRINK")
+                                .font(.system(size: 9, weight: .bold))
+                                .tracking(0.8)
                                 .foregroundStyle(AppColors.textTertiary)
+                            // Counts up every second on its own, from when it was logged.
+                            Text(entry.timestamp, style: .timer)
+                                .font(.system(size: 22, weight: .bold, design: .monospaced))
+                                .monospacedDigit()
+                                .foregroundStyle(dt.color)
                         }
+                        .accessibilityElement(children: .combine)
                     }
 
                     GeometryReader { geo in
@@ -772,13 +779,14 @@ private struct CurrentDrinkCard: View {
                                 .frame(height: 4)
                             Capsule()
                                 .fill(dt.color.opacity(0.85))
-                                .frame(width: max(0, geo.size.width * CGFloat(fillFraction)), height: 4)
-                                .animation(.easeInOut(duration: 3.0), value: fillFraction)
+                                // Fills as the drink goes on, full once it is absorbed.
+                                .frame(width: max(0, geo.size.width * CGFloat(progress)), height: 4)
+                                .animation(.easeInOut(duration: 3.0), value: progress)
                         }
                     }
                     .frame(height: 4)
 
-                    Text("~\(minsLeft)m left to absorb")
+                    Text(absorbing ? "~\(minsLeft)m left to absorb" : "Fully absorbed")
                         .font(.system(size: 13))
                         .foregroundStyle(AppColors.textTertiary)
                 }

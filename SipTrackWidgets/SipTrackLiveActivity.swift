@@ -212,18 +212,34 @@ private struct LockScreenContent: View {
             .padding(.horizontal, 14)
             .padding(.bottom, 8)
 
-            // Row 3 — progress bar
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(.white.opacity(0.08)).frame(height: 3)
-                    Capsule().fill(
-                        LinearGradient(colors: [stageColor.opacity(0.7), stageColor],
-                                       startPoint: .leading, endPoint: .trailing)
+            // Row 3 — the current drink's bar: fills over its drinking time on
+            // its own (ProgressView(timerInterval:) needs no updates). Falls back
+            // to the BAC bar before the first drink.
+            Group {
+                if let started = context.state.currentDrinkStartedAt {
+                    let minutes = Double(context.state.currentDrinkMinutes ?? 20)
+                    ProgressView(
+                        timerInterval: started...started.addingTimeInterval(minutes * 60),
+                        countsDown: false,
+                        label: { EmptyView() },
+                        currentValueLabel: { EmptyView() }
                     )
-                    .frame(width: max(3, geo.size.width * barFill), height: 3)
+                    .progressViewStyle(.linear)
+                    .tint(stageColor)
+                } else {
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(.white.opacity(0.08)).frame(height: 3)
+                            Capsule().fill(
+                                LinearGradient(colors: [stageColor.opacity(0.7), stageColor],
+                                               startPoint: .leading, endPoint: .trailing)
+                            )
+                            .frame(width: max(3, geo.size.width * barFill), height: 3)
+                        }
+                    }
+                    .frame(height: 3)
                 }
             }
-            .frame(height: 3)
             .padding(.horizontal, 14)
             .padding(.bottom, 6)
 
@@ -233,12 +249,22 @@ private struct LockScreenContent: View {
                     Image(systemName: "hourglass").font(.system(size: 9))
                     Text(timerInterval: Date()...soberAt, countsDown: true)
                         .monospacedDigit()
+                        .frame(maxWidth: 56, alignment: .leading)
                     Text("to sober")
                 }
                 Spacer()
                 if context.isStale, let updated = context.state.updatedAt {
                     Text("BAC as of")
                     Text(updated, style: .time)
+                } else if let started = context.state.currentDrinkStartedAt {
+                    // Time with the current drink, counting up on its own.
+                    Image(systemName: context.state.currentDrinkSymbol ?? "wineglass.fill")
+                        .font(.system(size: 9))
+                    Text(started, style: .timer)
+                        .monospacedDigit()
+                        .multilineTextAlignment(.trailing)
+                        .frame(maxWidth: 52, alignment: .trailing)
+                    Text("with drink")
                 }
             }
             .font(.system(size: 11, weight: .medium))

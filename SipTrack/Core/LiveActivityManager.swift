@@ -93,7 +93,7 @@ final class LiveActivityManager {
 
     /// `pushSamples` is the projected curve from now on, passed only when it has
     /// changed (a drink, food or a profile edit); nil keeps the one already sent.
-    func update(bac: Double, drinkCount: Int, stageName: String, stageColorHex: String, elapsedMinutes: Int, safeToDriveAt: Date?, soberAt: Date?, startedAt: Date?, hydrationBalance: Int? = nil, pushSamples: [[String: Any]]? = nil) {
+    func update(bac: Double, drinkCount: Int, stageName: String, stageColorHex: String, elapsedMinutes: Int, safeToDriveAt: Date?, soberAt: Date?, startedAt: Date?, hydrationBalance: Int? = nil, currentDrink: (name: String, symbol: String, startedAt: Date, minutes: Int)? = nil, pushSamples: [[String: Any]]? = nil) {
         guard let activity = currentActivity() else { return }
         let state = SipTrackActivityAttributes.ContentState(
             bac: bac,
@@ -107,7 +107,11 @@ final class LiveActivityManager {
             soberAt: soberAt,
             startedAt: startedAt,
             updatedAt: Date(),
-            hydrationBalance: hydrationBalance
+            hydrationBalance: hydrationBalance,
+            currentDrinkName: currentDrink?.name,
+            currentDrinkSymbol: currentDrink?.symbol,
+            currentDrinkStartedAt: currentDrink?.startedAt,
+            currentDrinkMinutes: currentDrink?.minutes
         )
         let content = ActivityContent(state: state, staleDate: Date().addingTimeInterval(600))
         if let alert = pendingAlert {

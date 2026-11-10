@@ -425,9 +425,17 @@ final class AppState: ObservableObject {
                 startedAt: event.startTime,
                 hydrationBalance: waterEntries.filter { $0.eventId == eventId }.count
                     - totalDrinks(for: eventId),
+                currentDrink: latestDrinkForLockScreen(eventId: eventId),
                 pushSamples: lockScreenPushSamples(for: event, currentBAC: resolvedBAC)
             )
         }
+    }
+
+    private func latestDrinkForLockScreen(eventId: String) -> (name: String, symbol: String, startedAt: Date, minutes: Int)? {
+        guard let entry = entries.filter({ $0.eventId == eventId }).max(by: { $0.timestamp < $1.timestamp }),
+              let type = allDrinkTypes.first(where: { $0.id == entry.drinkTypeId })
+        else { return nil }
+        return (type.name, type.sfSymbol, entry.timestamp, max(1, type.effectiveDrinkingMinutes))
     }
 
     /// What the night's curve depends on. The curve is rebuilt and re-sent to the

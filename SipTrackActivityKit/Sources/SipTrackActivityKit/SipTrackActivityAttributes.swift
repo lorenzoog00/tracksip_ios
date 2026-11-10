@@ -24,6 +24,12 @@ public struct SipTrackActivityAttributes: ActivityAttributes {
         /// Glasses of water minus drinks, the same number as the in-app
         /// Hydration stat. Optional so older pushed states still decode.
         public var hydrationBalance: Int?
+        /// The latest drink, so the lock screen can count up "time with drink"
+        /// and fill its bar over the drinking time without any updates.
+        public var currentDrinkName: String?
+        public var currentDrinkSymbol: String?
+        public var currentDrinkStartedAt: Date?
+        public var currentDrinkMinutes: Int?
 
         public init(
             bac: Double,
@@ -37,7 +43,11 @@ public struct SipTrackActivityAttributes: ActivityAttributes {
             soberAt: Date? = nil,
             startedAt: Date? = nil,
             updatedAt: Date? = nil,
-            hydrationBalance: Int? = nil
+            hydrationBalance: Int? = nil,
+            currentDrinkName: String? = nil,
+            currentDrinkSymbol: String? = nil,
+            currentDrinkStartedAt: Date? = nil,
+            currentDrinkMinutes: Int? = nil
         ) {
             self.bac = bac
             self.drinkCount = drinkCount
@@ -51,6 +61,10 @@ public struct SipTrackActivityAttributes: ActivityAttributes {
             self.startedAt = startedAt
             self.updatedAt = updatedAt
             self.hydrationBalance = hydrationBalance
+            self.currentDrinkName = currentDrinkName
+            self.currentDrinkSymbol = currentDrinkSymbol
+            self.currentDrinkStartedAt = currentDrinkStartedAt
+            self.currentDrinkMinutes = currentDrinkMinutes
         }
     }
 
