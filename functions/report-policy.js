@@ -44,15 +44,19 @@ const PRO_LIMITS = {
 // and sends a shorter prompt than a report, so pricing every call at a
 // report's worst case stays an upper bound; spend.test.js asserts that no
 // request in index.js asks for more output than is priced here.
-const MONTHLY_BUDGET_MXN = 40; // US$2 per user per month
+const MONTHLY_BUDGET_MXN = 15; // the most one user may cost us in a month
 const MXN_PER_USD = 20; // deliberately low: fewer dollars bought per budget
 const PRICE_INPUT_USD_PER_MTOK = 0.1; // claude-haiku-5-5
 const PRICE_OUTPUT_USD_PER_MTOK = 0.5;
 const MAX_INPUT_TOKENS = 2000;
 const MAX_OUTPUT_TOKENS = 700; // must match max_tokens in index.js
 
+// The monthly cap is what the budget actually buys: at the worst case priced
+// above, 1300 calls is 14.30 MXN. It is the binding limit — 150 a day would
+// otherwise allow far more over a month — and spend.test.js fails if the two
+// ever drift apart.
 const DAILY_REPORT_CAP = 150;
-const MONTHLY_REPORT_CAP = 3000;
+const MONTHLY_REPORT_CAP = 1300;
 
 // eslint-disable-next-line require-jsdoc
 function worstCaseUsdPerReport() {
