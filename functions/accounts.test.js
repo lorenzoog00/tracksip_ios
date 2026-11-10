@@ -8,12 +8,18 @@ const FRESH = NOW / 1000 - 30;
 /** Records every write the function makes so tests can assert the order. */
 // eslint-disable-next-line require-jsdoc
 function fakeDb({owners = []} = {}) {
-  const calls = {tombstone: null, recursiveDeleted: [], ownerDeletes: []};
+  const calls = {
+    tombstone: null, recursiveDeleted: [], ownerDeletes: [], docDeletes: [],
+  };
   const db = {
     doc: (path) => ({
       path,
       set: (data) => {
         calls.tombstone = {path, data};
+        return Promise.resolve();
+      },
+      delete: () => {
+        calls.docDeletes.push(path);
         return Promise.resolve();
       },
     }),
@@ -109,6 +115,8 @@ test("a fresh delete writes the tombstone before erasing the user", async () => 
   });
   assert.deepEqual(calls.recursiveDeleted, ["users/u1"]);
   assert.deepEqual(calls.ownerDeletes, ["o1", "o2"]);
+  // The lock-screen push curve sits outside users/ and holds a device token.
+  assert.deepEqual(calls.docDeletes, ["live_activities/u1"]);
   assert.deepEqual(deleted, ["u1"]);
 });
 

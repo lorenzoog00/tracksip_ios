@@ -329,4 +329,31 @@ struct BACCalculatorKineticsTests {
         #expect(current < 0.005)
         #expect(peak > current + 0.01)
     }
+
+    // MARK: - Lock-screen push schedule
+
+    @Test func lockScreenSchedule_startsAtTheShownValueAndEndsSober() {
+        let now = Date(timeIntervalSince1970: 1_000_000)
+        // Falls 0.06 → 0 over two hours, sampled every five minutes like the timeline.
+        let points = (0...24).map { i in
+            BACDataPoint(date: now.addingTimeInterval(Double(i) * 300), bac: Double(24 - i) * 0.0025)
+        }
+        let schedule = BACCalculator.lockScreenSchedule(points, from: now, currentBAC: 0.061)
+        #expect(schedule.first?.bac == 0.061)
+        #expect(schedule.last?.bac == 0)
+        #expect(schedule.count == 25)
+        let steps = zip(schedule, schedule.dropFirst()).map { $1.date.timeIntervalSince($0.date) }
+        #expect(steps.allSatisfy { $0 == 300 })
+    }
+
+    @Test func lockScreenSchedule_isEmptyWhenAlreadySober() {
+        let now = Date()
+        #expect(BACCalculator.lockScreenSchedule([], from: now, currentBAC: 0).isEmpty)
+    }
+
+    @Test func lockScreenSchedule_isCappedForAVeryLongNight() {
+        let now = Date()
+        let points = (0...300).map { BACDataPoint(date: now.addingTimeInterval(Double($0) * 300), bac: 0.3) }
+        #expect(BACCalculator.lockScreenSchedule(points, from: now, currentBAC: 0.3).count == 144)
+    }
 }

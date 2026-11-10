@@ -10,6 +10,18 @@ final class LiveActivityManager {
     private var activity: Activity<SipTrackActivityAttributes>?
     private init() {}
 
+    // Server push. The lock screen cannot run code, so between app launches the
+    // BAC only changes when a push arrives: the app hands the server this night's
+    // projected curve plus the activity's push token, and the server sends the
+    // value for "now" every few minutes (functions/live-activity.js).
+    private var pushToken: String?
+    private var observedTokenFor: String?
+    private var lastTemplate: SipTrackActivityAttributes.ContentState?
+    private var lastSamples: [[String: Any]] = []
+    private var syncedToken: String?
+    private var pendingUpdate: Task<Void, Never>?
+    private var pendingSync: Task<Void, Never>?
+
     func start(eventName: String, eventId: String, quickDrinks: [SipTrackActivityAttributes.QuickDrink]) {
         let info = ActivityAuthorizationInfo()
         guard info.areActivitiesEnabled else {
@@ -34,7 +46,14 @@ final class LiveActivityManager {
         )
         let content = ActivityContent(state: state, staleDate: Date().addingTimeInterval(300))
         do {
-            activity = try Activity.request(attributes: attrs, content: content, pushType: nil)
+            do {
+                activity = try Activity.request(attributes: attrs, content: content, pushType: .token)
+                if let activity { observePushToken(activity) }
+            } catch {
+                // No push entitlement in this build: still show the lock screen,
+                // it just updates only when the app runs.
+                activity = try Activity.request(attributes: attrs, content: content, pushType: nil)
+            }
             #if DEBUG
             let startedId = activity?.id ?? "nil"
             print("[LiveActivity] Started: \(startedId), state: \(String(describing: activity?.activityState))")
@@ -61,10 +80,13 @@ final class LiveActivityManager {
         activity = Activity<SipTrackActivityAttributes>.activities.first {
             $0.activityState == .active || $0.activityState == .stale
         }
+        if let activity { observePushToken(activity) }
         return activity
     }
 
-    func update(bac: Double, drinkCount: Int, stageName: String, stageColorHex: String, elapsedMinutes: Int, safeToDriveAt: Date?, soberAt: Date?, startedAt: Date?) {
+    /// `pushSamples` is the projected curve from now on, passed only when it has
+    /// changed (a drink, food or a profile edit); nil keeps the one already sent.
+    func update(bac: Double, drinkCount: Int, stageName: String, stageColorHex: String, elapsedMinutes: Int, safeToDriveAt: Date?, soberAt: Date?, startedAt: Date?, pushSamples: [[String: Any]]? = nil) {
         guard let activity = currentActivity() else { return }
         let state = SipTrackActivityAttributes.ContentState(
             bac: bac,
@@ -79,8 +101,70 @@ final class LiveActivityManager {
             startedAt: startedAt,
             updatedAt: Date()
         )
-        let content = ActivityContent(state: state, staleDate: Date().addingTimeInterval(300))
-        Task { await activity.update(content) }
+        let content = ActivityContent(state: state, staleDate: Date().addingTimeInterval(600))
+        pendingUpdate = Task { await activity.update(content) }
+        lastTemplate = state
+        if let pushSamples {
+            lastSamples = pushSamples
+            syncPush()
+        } else if pushToken != nil, pushToken != syncedToken {
+            syncPush()
+        }
+    }
+
+    /// Waits for the last lock-screen update and server sync to finish. A
+    /// lock-screen button runs in a background launch that iOS ends as soon as
+    /// the intent returns, so the intent waits on this first.
+    func flush() async {
+        await pendingUpdate?.value
+        await pendingSync?.value
+    }
+
+    private func observePushToken(_ activity: Activity<SipTrackActivityAttributes>) {
+        guard observedTokenFor != activity.id else { return }
+        observedTokenFor = activity.id
+        if let data = activity.pushToken { pushToken = Self.hex(data) }
+        Task { [weak self] in
+            for await data in activity.pushTokenUpdates {
+                guard let self else { return }
+                let token = Self.hex(data)
+                guard token != self.pushToken || self.syncedToken != token else { continue }
+                self.pushToken = token
+                self.syncPush()
+            }
+        }
+    }
+
+    private func syncPush() {
+        guard let token = pushToken, let template = lastTemplate,
+              let templateJSON = try? JSONSerialization.jsonObject(with: JSONEncoder().encode(template))
+        else { return }
+        let samples = lastSamples
+        let previous = pendingSync
+        pendingSync = Task { [weak self] in
+            await previous?.value
+            let ok = await FirebaseManager.shared.syncLiveActivity(
+                token: token, template: templateJSON, samples: samples
+            )
+            if ok { self?.syncedToken = token }
+        }
+    }
+
+    private func stopPush() {
+        let wasSynced = syncedToken != nil || !lastSamples.isEmpty
+        lastSamples = []
+        lastTemplate = nil
+        syncedToken = nil
+        guard wasSynced else { return }
+        let previous = pendingSync
+        pendingSync = Task {
+            await previous?.value
+            _ = await FirebaseManager.shared.syncLiveActivity(token: nil, template: nil, samples: [])
+        }
+    }
+
+    private static func hex(_ data: Data) -> String {
+        data.map { String(format: "%02x", $0) }.joined()
     }
 
     func end() {
@@ -92,6 +176,9 @@ final class LiveActivityManager {
             Task { await a.end(content, dismissalPolicy: .immediate) }
         }
         self.activity = nil
+        pushToken = nil
+        observedTokenFor = nil
+        stopPush()
     }
 
 }

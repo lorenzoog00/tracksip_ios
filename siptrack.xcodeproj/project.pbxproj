@@ -118,6 +118,7 @@
 		B1AE99152FA02308001DD5F8 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B1AE99142FA02308001DD5F8 /* SwiftUI.framework */; };
 		B1AE99262FA0230A001DD5F8 /* SipTrackWidgetsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B1AE99112FA02308001DD5F8 /* SipTrackWidgetsExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		B1CC00042FA00000000BBBBB /* LiveActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1CC00022FA00000000BBBBB /* LiveActivityManager.swift */; };
+		B1CC00112FA00000000BBBBB /* LiveActivityIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1CC00102FA00000000BBBBB /* LiveActivityIntents.swift */; };
 		B1CC00072FA00001000CCCCC /* SipTrackActivityKit in Frameworks */ = {isa = PBXBuildFile; productRef = B1CC00052FA00001000CCCCC /* SipTrackActivityKit */; };
 		B1CC00082FA00001000CCCCC /* SipTrackActivityKit in Frameworks */ = {isa = PBXBuildFile; productRef = B1CC00062FA00001000CCCCC /* SipTrackActivityKit */; };
 		CC1A2B3D4E5F6A7B8C9D0E1F /* LearnView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1A2B3D4E5F6A7B8C9D0E10 /* LearnView.swift */; };
@@ -300,6 +301,7 @@
 		B1AE99122FA02308001DD5F8 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		B1AE99142FA02308001DD5F8 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		B1CC00022FA00000000BBBBB /* LiveActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityManager.swift; sourceTree = "<group>"; };
+		B1CC00102FA00000000BBBBB /* LiveActivityIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LiveActivityIntents.swift; path = SipTrackWidgets/LiveActivityIntents.swift; sourceTree = SOURCE_ROOT; };
 		B2AA00012F9FF000000AAAAA /* SipTrack.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SipTrack.entitlements; sourceTree = "<group>"; };
 		CC1A2B3D4E5F6A7B8C9D0E10 /* LearnView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LearnView.swift; sourceTree = "<group>"; };
 		D0303E6B5D734A7E92B6E68C /* CompareView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompareView.swift; sourceTree = "<group>"; };
@@ -493,6 +495,7 @@
 				B101B49A2F9C2F32009F7DDD /* IntoxicationStage.swift */,
 				B101B49B2F9C2F32009F7DDD /* WarningSystem.swift */,
 				B1CC00022FA00000000BBBBB /* LiveActivityManager.swift */,
+				B1CC00102FA00000000BBBBB /* LiveActivityIntents.swift */,
 				B1CC10012FA1000000001001 /* LocationCountryDetector.swift */,
 				B1CC20022FA20002000020A2 /* PresentationAnchor.swift */,
 				B1CC10032FA1000000001003 /* LegalBACLimit.swift */,
@@ -1119,6 +1122,7 @@
 				B101B4FD2F9CD648009F7DDD /* RootView.swift in Sources */,
 				B101B4D92F9CD5E0009F7DDD /* SipTrackApp.swift in Sources */,
 				B1CC00042FA00000000BBBBB /* LiveActivityManager.swift in Sources */,
+				B1CC00112FA00000000BBBBB /* LiveActivityIntents.swift in Sources */,
 				2A41B90C2B57482B91131763 /* CoachView.swift in Sources */,
 				EB905CE970424234994954D0 /* CoachReportCard.swift in Sources */,
 				A5E1F2C3D4B5009F7DDE0002 /* NightRecovery.swift in Sources */,

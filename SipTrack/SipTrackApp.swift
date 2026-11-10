@@ -25,6 +25,20 @@ struct SipTrackApp: App {
         _store    = StateObject(wrappedValue: s)
         _appState = StateObject(wrappedValue: state)
         WatchBridge.shared.appState = state
+        // Lock-screen buttons. iOS runs these in a background launch and ends it
+        // when the intent returns, so each one waits for the lock screen and the
+        // push server to hear about the change first.
+        LiveActivityActions.addDrink = { [weak state] eventId, drinkTypeId in
+            guard let state else { return }
+            state.addDrink(eventId: eventId, drinkTypeId: drinkTypeId)
+            await LiveActivityManager.shared.flush()
+        }
+        LiveActivityActions.addWater = { [weak state] eventId in
+            guard let state else { return }
+            state.addWater(eventId: eventId)
+            state.refreshLiveState()
+            await LiveActivityManager.shared.flush()
+        }
     }
 
     var body: some Scene {
