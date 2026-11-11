@@ -480,11 +480,9 @@ private struct StoryThumbnail: View {
 
 struct StoryMoviePreview: View {
     let url: URL
-    @EnvironmentObject private var appState: AppState
     @Environment(\.dismiss) private var dismiss
     @State private var player: AVPlayer?
     @State private var sharing = false
-    @State private var paywall = false
 
     var body: some View {
         VStack(spacing: 12) {
@@ -501,7 +499,11 @@ struct StoryMoviePreview: View {
             VideoPlayer(player: player)
             Button {
                 player?.pause()
-                if appState.isPro { sharing = true } else { paywall = true }
+                // Free too: taking the photos and exporting the video were
+                // already unpaid, so charging only for the share button put the
+                // paywall at the one step that costs us nothing and left the
+                // user holding a video they could not send anywhere.
+                sharing = true
             } label: {
                 Label("Share video", systemImage: "square.and.arrow.up")
                     .frame(maxWidth: .infinity)
@@ -517,6 +519,5 @@ struct StoryMoviePreview: View {
         }
         .onDisappear { player?.pause() }
         .sheet(isPresented: $sharing) { ShareSheet(items: [url]) }
-        .sheet(isPresented: $paywall) { ProView(presentation: .modal) }
     }
 }

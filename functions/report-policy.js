@@ -23,13 +23,13 @@ const FREE_LIMITS = {
   comparison: 5,
   lookup: 5,
 };
-// Paid access is unlimited for reports — the daily and monthly ceilings below
-// are the only brake. The drink lookup is the exception: a Pro user gets 50 a
-// month, because a lookup is a convenience and an unbounded one invites a
-// script, not a thirsty night.
-const PRO_LIMITS = {
-  lookup: 50,
-};
+// Paid access has no per-kind ceiling at all, drink lookups included: what a
+// Pro user may spend is the monthly budget below, shared across reports,
+// lookups and anything added later. A lookup costs a fraction of a report, so
+// a per-kind cap on top of the budget only took away calls the budget had
+// already paid for. `remainingQuota` returns null for every kind here, which
+// is how the app knows not to show an allowance.
+const PRO_LIMITS = {};
 
 // What one user may cost us in model spend per month. The report caps below
 // are counts, so this file states the arithmetic that ties them to money and
@@ -54,7 +54,8 @@ const MAX_OUTPUT_TOKENS = 700; // must match max_tokens in index.js
 // The monthly cap is what the budget actually buys: at the worst case priced
 // above, 1300 calls is 14.30 MXN. It is the binding limit — 150 a day would
 // otherwise allow far more over a month — and spend.test.js fails if the two
-// ever drift apart.
+// ever drift apart. For a Pro user it is now the *only* limit, so this number
+// is the 15 MXN ceiling expressed in calls.
 const DAILY_REPORT_CAP = 150;
 const MONTHLY_REPORT_CAP = 1300;
 
@@ -253,4 +254,6 @@ module.exports = {
   MAX_OUTPUT_TOKENS,
   FREE_LIMITS,
   PRO_LIMITS,
+  DAILY_REPORT_CAP,
+  MONTHLY_REPORT_CAP,
 };

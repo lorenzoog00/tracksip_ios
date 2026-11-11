@@ -63,7 +63,9 @@ extension DrinkType {
         DrinkType(id: "ipa",         name: "IPA",         defaultVolumeMl: 355,  defaultAbv: 6.5,  caloriesPerServing: 195,  isPreset: true, icon: "beer-outline",   defaultDrinkingDurationMinutes: 25),
         DrinkType(id: "red-wine",    name: "Red Wine",    defaultVolumeMl: 150,  defaultAbv: 13.5, caloriesPerServing: 125,  isPreset: true, icon: "wine",           defaultDrinkingDurationMinutes: 30),
         DrinkType(id: "white-wine",  name: "White Wine",  defaultVolumeMl: 150,  defaultAbv: 12.0, caloriesPerServing: 121,  isPreset: true, icon: "wine-sharp",     defaultDrinkingDurationMinutes: 30),
-        DrinkType(id: "champagne",   name: "Champagne",   defaultVolumeMl: 150,  defaultAbv: 12.0, caloriesPerServing: 96,   isPreset: true, icon: "sparkles",       defaultDrinkingDurationMinutes: 30),
+        // 96 kcal was impossible: 150 ml at 12% is 14.2 g of ethanol, which is
+        // 99 kcal before any sugar at all. Brut lands at about 120.
+        DrinkType(id: "champagne",   name: "Champagne",   defaultVolumeMl: 150,  defaultAbv: 12.0, caloriesPerServing: 120,  isPreset: true, icon: "sparkles",       defaultDrinkingDurationMinutes: 30),
         DrinkType(id: "tequila",     name: "Tequila",     defaultVolumeMl: 44,   defaultAbv: 40.0, caloriesPerServing: 97,   isPreset: true, icon: "flask-outline",  defaultDrinkingDurationMinutes: 1),
         DrinkType(id: "vodka",       name: "Vodka",       defaultVolumeMl: 44,   defaultAbv: 40.0, caloriesPerServing: 97,   isPreset: true, icon: "flask-outline",  defaultDrinkingDurationMinutes: 1),
         DrinkType(id: "whiskey",     name: "Whiskey",     defaultVolumeMl: 44,   defaultAbv: 40.0, caloriesPerServing: 105,  isPreset: true, icon: "flask",          defaultDrinkingDurationMinutes: 5),
