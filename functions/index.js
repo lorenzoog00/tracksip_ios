@@ -17,7 +17,7 @@ const {Anthropic} = require("@anthropic-ai/sdk");
 const {generateReport} = require("./report-service");
 const {deleteAccount} = require("./accounts");
 const {verifyPurchase} = require("./purchases");
-const {validateRequest} = require("./report-policy");
+const {validateRequest, isProTester} = require("./report-policy");
 const {lookupDrink} = require("./drink-lookup");
 const {buildPrompt} = require("./prompts");
 const liveActivity = require("./live-activity");
@@ -30,6 +30,10 @@ const keyId = defineString("APPLE_IAP_KEY_ID");
 const issuerId = defineString("APPLE_IAP_ISSUER_ID");
 const appAppleId = defineInt("APPLE_APP_ID");
 const allowSandbox = defineBoolean("APPLE_ALLOW_SANDBOX", {default: false});
+// Uids billed as paid without a verifiable receipt. A TestFlight purchase is
+// a sandbox one and cannot be verified while allowSandbox is false, which
+// left our own testers on the free tier. Server configuration only.
+const proTesters = defineString("PRO_TESTER_UIDS", {default: ""});
 // APNs auth key (.p8) for lock-screen pushes. Separate from the App Store
 // Connect key above: Apple issues push keys under Certificates, IDs & Profiles.
 const apnsKey = defineSecret("APNS_AUTH_KEY");
@@ -73,6 +77,7 @@ exports.requestReport = onCall(
         uid: request.auth.uid,
         data: request.data,
         purchase,
+        tester: isProTester(request.auth.uid, proTesters.value()),
         generate: async (kind, data) => {
           const prompt = buildPrompt(kind, data);
           const client = new Anthropic({
@@ -128,6 +133,7 @@ exports.lookupDrink = onCall(
         uid: request.auth.uid,
         data: request.data,
         purchase,
+        tester: isProTester(request.auth.uid, proTesters.value()),
         generate: async (prompt) => {
           const client = new Anthropic({
             apiKey: claudeKey.value(),

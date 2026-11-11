@@ -73,6 +73,32 @@ function maxMonthlySpendMxn() {
   return MONTHLY_REPORT_CAP * worstCaseUsdPerReport() * MXN_PER_USD;
 }
 
+/**
+ * Whether `uid` is on the server-side tester allowlist.
+ *
+ * A TestFlight subscription is a *sandbox* purchase, and production runs with
+ * `APPLE_ALLOW_SANDBOX=false`, so `verifyPurchase` cannot honour it and the
+ * tester silently falls to the free tier — paid screens unlocked by local
+ * StoreKit, five night reports from the server, and a "limit reached" they
+ * cannot explain. Turning sandbox verification on instead would let anyone
+ * present a sandbox receipt in production, so the allowlist is the narrow fix.
+ *
+ * It grants the paid *quota tier* and nothing else: the daily and monthly
+ * ceilings still apply, so a listed uid cannot cost more than the budget any
+ * paying user may. It is read from server configuration, never from the
+ * request, so a client cannot put itself on it.
+ *
+ * @param {string} uid The caller's Firebase uid.
+ * @param {string} raw Comma or whitespace separated uids from configuration.
+ * @return {boolean} True when the caller should be billed as a paid account.
+ */
+function isProTester(uid, raw) {
+  if (!uid || typeof raw !== "string") return false;
+  return raw
+      .split(/[\s,]+/)
+      .some((entry) => entry.length > 0 && entry === uid);
+}
+
 // eslint-disable-next-line require-jsdoc
 function activePurchase(transaction, now = Date.now()) {
   return (
@@ -246,6 +272,7 @@ function remainingQuota(counts, kind, pro) {
 
 module.exports = {
   activePurchase,
+  isProTester,
   validateRequest,
   reserveQuota,
   remainingQuota,

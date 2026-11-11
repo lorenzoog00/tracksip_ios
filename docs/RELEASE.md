@@ -33,10 +33,30 @@ Older clients' direct report writes will be rejected by the new rules.
    APPLE_IAP_ISSUER_ID=your_issuer_uuid
    APPLE_APP_ID=your_numeric_app_store_id
    APPLE_ALLOW_SANDBOX=false
+   PRO_TESTER_UIDS=
    ```
 
    Use a staging project with `APPLE_ALLOW_SANDBOX=true` for TestFlight purchase
    testing. Sandbox purchases do not grant paid backend access when false.
+
+   `PRO_TESTER_UIDS` is the way to test paid behaviour on TestFlight against
+   *this* project without turning sandbox verification on for everybody. A
+   TestFlight subscription is a sandbox purchase, so with `APPLE_ALLOW_SANDBOX`
+   false the server cannot verify it and the tester falls to the free tier —
+   paid screens unlocked by local StoreKit, five night reports from the
+   backend, and a "limit reached" with no visible cause. List the Firebase uids
+   (comma or whitespace separated) that should be billed as paid:
+
+   ```dotenv
+   PRO_TESTER_UIDS=uid_one,uid_two
+   ```
+
+   It grants the paid *quota tier* only. The daily and monthly ceilings still
+   apply, so a listed uid cannot cost more than any paying user, and no
+   `purchase_owners` entry is written because there is no transaction to bind.
+   Matching is on the whole uid, and an empty value grants nothing. Find a uid
+   in Firebase Console → Authentication, or in the app's own account screen.
+   Leave it empty unless you are actively testing.
    Existing purchases without an app-account token bind to the first verified
    account that submits them; a second account cannot reuse that binding.
 

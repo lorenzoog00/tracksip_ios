@@ -337,6 +337,24 @@ test("a free account gets five drink lookups and is told what is left", async ()
   );
 });
 
+test("a listed tester is paid without a receipt and binds no purchase", async () => {
+  // The case the allowlist exists for: a TestFlight tester has a sandbox
+  // purchase that cannot be verified in production, so `purchase` is null.
+  // Past the free five, and with no allowance reported back.
+  for (let i = 0; i < 8; i++) {
+    const result = await lookup({tester: true});
+    assert.equal(result.remaining, null);
+  }
+  assert.equal(
+      (await db.doc("users/alice/report_usage/current").get()).data()
+          .counts.lookup,
+      8,
+  );
+  // No receipt means nothing to bind: a tester must not take ownership of a
+  // transaction key, which is what stops two accounts sharing one purchase.
+  assert.equal((await db.collection("purchase_owners").get()).empty, true);
+});
+
 test("spent lookups leave the free night report untouched", async () => {
   await seed();
   for (let i = 0; i < 5; i++) await lookup();

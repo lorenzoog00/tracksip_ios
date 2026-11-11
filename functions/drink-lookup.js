@@ -138,6 +138,7 @@ async function lookupDrink({
   uid,
   data,
   purchase,
+  tester = false,
   generate,
   now = Date.now,
 }) {
@@ -146,7 +147,9 @@ async function lookupDrink({
   const deletion = db.doc(`account_deletions/${uid}`);
   const usage = root.collection("report_usage").doc("current");
   const owner = purchase ? db.doc(`purchase_owners/${purchase.key}`) : null;
-  const pro = !!purchase;
+  // A listed tester is billed as paid without a verifiable receipt; the
+  // purchase itself stays null, so nothing is bound in `purchase_owners`.
+  const pro = !!purchase || tester;
   const reserved = await db.runTransaction(async (tx) => {
     const [deleted, counters] = await Promise.all([
       tx.get(deletion),
