@@ -17,7 +17,11 @@ const {Anthropic} = require("@anthropic-ai/sdk");
 const {generateReport} = require("./report-service");
 const {deleteAccount} = require("./accounts");
 const {verifyPurchase} = require("./purchases");
-const {validateRequest, isProTester} = require("./report-policy");
+const {
+  validateRequest,
+  isProTester,
+  assertPromptFits,
+} = require("./report-policy");
 const {lookupDrink} = require("./drink-lookup");
 const {buildPrompt} = require("./prompts");
 const liveActivity = require("./live-activity");
@@ -53,7 +57,12 @@ exports.requestReport = onCall(
       if (!request.auth) {
         throw new HttpsError("unauthenticated", "Please sign in.");
       }
-      validateRequest(request.data);
+      const {kind: reportKind, payload} = validateRequest(request.data);
+      // Before any quota is reserved: an oversized prompt is refused, so it
+      // must not also cost the caller one of their reports. The guard inside
+      // `generate` below is the billing boundary; this one is the fair one.
+      const preview = buildPrompt(reportKind, payload);
+      assertPromptFits(preview.system, preview.prompt);
       const db = getFirestore();
       if ((await db.doc(`account_deletions/${request.auth.uid}`).get()).exists) {
         throw new HttpsError(
@@ -80,6 +89,9 @@ exports.requestReport = onCall(
         tester: isProTester(request.auth.uid, proTesters.value()),
         generate: async (kind, data) => {
           const prompt = buildPrompt(kind, data);
+          // What we pay for is this prompt, not the payload it came
+          // from; the two sizes are not the same.
+          assertPromptFits(prompt.system, prompt.prompt);
           const client = new Anthropic({
             apiKey: claudeKey.value(),
             timeout: 25000,

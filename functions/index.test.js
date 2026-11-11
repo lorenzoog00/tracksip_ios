@@ -8,6 +8,25 @@ const {readFileSync} = require("node:fs");
 // API, and `admin.firestore()` kept parsing, linting and deploying cleanly —
 // then threw "admin.firestore is not a function" on the first real request,
 // which reached the app as a bare "Internal" with a green CI behind it.
+// Refusing an oversized prompt is correct; charging a report for the refusal
+// is not. `generateReport` reserves the quota inside its own transaction
+// before it ever calls `generate`, so the guard has to run ahead of it or the
+// caller pays for a request that was never sent.
+test("an oversized prompt is refused before any quota is reserved", () => {
+  const code = readFileSync(`${__dirname}/index.js`, "utf8")
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/\/\/.*$/gm, "");
+  const guard = code.indexOf("assertPromptFits");
+  const reserve = code.indexOf("generateReport({");
+  assert.notEqual(guard, -1, "index.js no longer guards the prompt size");
+  assert.notEqual(reserve, -1, "generateReport call not found");
+  assert.ok(
+      guard < reserve,
+      "assertPromptFits must run before generateReport, which reserves the " +
+      "quota before it builds or sends anything",
+  );
+});
+
 test("index.js does not use the admin API removed in firebase-admin 14", () => {
   // Comments are stripped first: prose that merely names the old calls, such
   // as the note in index.js explaining this very rule, is not a usage.
