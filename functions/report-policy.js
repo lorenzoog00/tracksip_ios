@@ -48,7 +48,23 @@ const MONTHLY_BUDGET_MXN = 15; // the most one user may cost us in a month
 const MXN_PER_USD = 20; // deliberately low: fewer dollars bought per budget
 const PRICE_INPUT_USD_PER_MTOK = 0.1; // claude-haiku-5-5
 const PRICE_OUTPUT_USD_PER_MTOK = 0.5;
-const MAX_INPUT_TOKENS = 2000;
+// The prompt is what Anthropic bills us for, so the input ceiling is enforced
+// on the built prompt and `MAX_INPUT_TOKENS` is *derived* from it. That order
+// matters: it used to be a bare 2000 sitting next to a 24 KB payload limit
+// that allowed a 6100-token prompt, so `maxMonthlySpendMxn()` understated the
+// real worst case by 3x and the 15 MXN budget was not a limit at all. The
+// tests could not see it either — they checked the arithmetic against this
+// number rather than checking the number against a prompt.
+//
+// Counted in characters, not tokens: tokenisation is the model's business and
+// cannot be reproduced here, so the conversion is deliberately pessimistic at
+// 3 characters per token where English prose runs nearer 4.
+const CHARS_PER_TOKEN = 3;
+// 6000 leaves ~27% headroom over the largest prompt the app can legitimately
+// build (a comparison of two nights with six maximal drink groups each, 4702
+// characters). `spend.test.js` fails if a prompt change eats that headroom.
+const MAX_PROMPT_CHARS = 6000;
+const MAX_INPUT_TOKENS = MAX_PROMPT_CHARS / CHARS_PER_TOKEN;
 const MAX_OUTPUT_TOKENS = 700; // must match max_tokens in index.js
 
 // The monthly cap is what the budget actually buys: at the worst case priced
@@ -71,6 +87,31 @@ function worstCaseUsdPerReport() {
 // eslint-disable-next-line require-jsdoc
 function maxMonthlySpendMxn() {
   return MONTHLY_REPORT_CAP * worstCaseUsdPerReport() * MXN_PER_USD;
+}
+
+/**
+ * Refuses a prompt larger than the monthly budget is priced for.
+ *
+ * Called with the prompt that is about to be sent, after every validation
+ * step, because the payload size and the prompt size are not the same thing:
+ * a payload well inside the 24 KB limit rendered a prompt three times the
+ * priced ceiling. Rather than truncate — which would hand the model an
+ * incomplete drink log and produce a confidently wrong report — this refuses,
+ * loudly, before anything is spent.
+ *
+ * @param {string} system The system prompt.
+ * @param {string} prompt The user prompt.
+ * @return {number} The prompt's size in characters.
+ */
+function assertPromptFits(system, prompt) {
+  const chars = String(system || "").length + String(prompt || "").length;
+  if (chars > MAX_PROMPT_CHARS) {
+    throw new HttpsError(
+        "invalid-argument",
+        "There is too much data in this request to summarise.",
+    );
+  }
+  return chars;
 }
 
 /**
@@ -273,12 +314,15 @@ function remainingQuota(counts, kind, pro) {
 module.exports = {
   activePurchase,
   isProTester,
+  assertPromptFits,
   validateRequest,
   reserveQuota,
   remainingQuota,
   maxMonthlySpendMxn,
   MONTHLY_BUDGET_MXN,
   MAX_OUTPUT_TOKENS,
+  MAX_INPUT_TOKENS,
+  MAX_PROMPT_CHARS,
   FREE_LIMITS,
   PRO_LIMITS,
   DAILY_REPORT_CAP,

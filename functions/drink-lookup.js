@@ -1,5 +1,9 @@
 const {HttpsError} = require("firebase-functions/v2/https");
-const {reserveQuota, remainingQuota} = require("./report-policy");
+const {
+  reserveQuota,
+  remainingQuota,
+  assertPromptFits,
+} = require("./report-policy");
 
 // Output ceiling for one lookup. It must stay at or under MAX_OUTPUT_TOKENS in
 // report-policy.js: lookups share the monthly call counter that the budget
@@ -178,7 +182,12 @@ async function lookupDrink({
   // A spent quota is not refunded on a model failure. Refunding it would mean
   // a second write per call and a way to burn the model for free by making the
   // parse fail; the cost of a wasted lookup falls on us, not the user's month.
-  const drink = parseLookupResult(await generate(buildLookupPrompt(query)));
+  // Bounded by the 120-character query already, so this should never fire.
+  // It is here so that every prompt we pay for passes the same gate: the
+  // hole this closes was a size nobody had measured.
+  const prompt = buildLookupPrompt(query);
+  assertPromptFits(prompt.system, prompt.prompt);
+  const drink = parseLookupResult(await generate(prompt));
   return {drink, remaining};
 }
 
