@@ -9,6 +9,7 @@ async function generateReport({
   uid,
   data,
   purchase,
+  tester = false,
   generate,
   now = Date.now,
 }) {
@@ -77,7 +78,8 @@ async function generateReport({
           "This report could not be completed after three attempts.",
       );
     }
-    tx.set(usage, reserveQuota(counters.data() || {}, kind, !!purchase, now()));
+    tx.set(usage, reserveQuota(
+        counters.data() || {}, kind, !!purchase || tester, now()));
     if (owner) tx.set(owner, {uid});
     tx.set(job, {
       status: "processing",

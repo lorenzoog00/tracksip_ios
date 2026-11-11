@@ -5,9 +5,50 @@ const {
   validateRequest,
   reserveQuota,
   remainingQuota,
+  isProTester,
   DAILY_REPORT_CAP,
   MONTHLY_REPORT_CAP,
 } = require("./report-policy");
+
+test("the tester allowlist matches whole uids and nothing else", () => {
+  const list = " abc123 , def456\nghi789 ";
+  assert.equal(isProTester("abc123", list), true);
+  assert.equal(isProTester("def456", list), true);
+  assert.equal(isProTester("ghi789", list), true);
+  // A prefix, a suffix or a substring is not a match: uids are opaque and a
+  // partial one must never inherit someone else's paid tier.
+  assert.equal(isProTester("abc", list), false);
+  assert.equal(isProTester("abc1234", list), false);
+  assert.equal(isProTester("bc12", list), false);
+  assert.equal(isProTester("xyz", list), false);
+  // An unset or empty list grants nothing, which is the production default.
+  for (const empty of ["", "   ", ",", ", ,\n", undefined, null, 5, {}]) {
+    assert.equal(isProTester("abc123", empty), false);
+  }
+  // A missing uid can never match, however the list is written.
+  for (const uid of ["", undefined, null]) {
+    assert.equal(isProTester(uid, list), false);
+    assert.equal(isProTester(uid, ""), false);
+  }
+});
+
+test("a listed tester gets the paid tier but not a bigger budget", () => {
+  // The allowlist moves a uid onto the paid quota tier; it does not lift the
+  // ceilings that cap what any one user may cost. Otherwise a tester uid would
+  // be a hole in the 15 MXN budget rather than a way around sandbox receipts.
+  assert.equal(remainingQuota({lookup: 99}, "lookup", true), null);
+  const now = Date.UTC(2026, 8, 14);
+  assert.throws(
+      () => reserveQuota(
+          {month: "2026-09", total: MONTHLY_REPORT_CAP}, "night", true, now),
+      /limit/,
+  );
+  assert.throws(
+      () => reserveQuota(
+          {day: "2026-09-14", daily: DAILY_REPORT_CAP}, "night", true, now),
+      /limit/,
+  );
+});
 
 test("expired, revoked, upgraded, unknown and undated subscriptions cannot grant Pro", () => {
   const base = {
