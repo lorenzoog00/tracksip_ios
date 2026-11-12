@@ -72,7 +72,9 @@ struct SipTrackApp: App {
                         await store.refreshStatus()
                         appState.syncSubscriptionFromStore()
                         await ConsentManager.shared.refreshOnForeground()
-                        AdManager.shared.showAppOpenAdIfReady(isPro: appState.isPro)
+                        if firebase.isSignedIn {
+                            AdManager.shared.showAppOpenAdIfReady(isPro: appState.isPro)
+                        }
                     }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
