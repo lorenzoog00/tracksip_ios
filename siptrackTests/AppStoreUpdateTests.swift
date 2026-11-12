@@ -43,6 +43,21 @@ struct AppStoreUpdateTests {
         #expect(AppStoreUpdate.lookupCountryCode("419") == nil)
     }
 
+    @Test func blocksOnlyVersionsBelowTheMinimum() {
+        #expect(RequiredUpdate.isRequired(installed: "1.0.32", minimum: "1.0.33"))
+        #expect(RequiredUpdate.isRequired(installed: "1.9", minimum: "1.10"))
+        #expect(!RequiredUpdate.isRequired(installed: "1.0.33", minimum: "1.0.33"))
+        #expect(!RequiredUpdate.isRequired(installed: "1.0.33", minimum: "1.0.33.0"))
+        #expect(!RequiredUpdate.isRequired(installed: "1.1", minimum: "1.0.40"))
+    }
+
+    @Test func missingOrMalformedMinimumNeverBlocks() {
+        #expect(!RequiredUpdate.isRequired(installed: "1.0.32", minimum: nil))
+        #expect(!RequiredUpdate.isRequired(installed: "1.0.32", minimum: ""))
+        #expect(!RequiredUpdate.isRequired(installed: "1.0.32", minimum: "1.0.x"))
+        #expect(!RequiredUpdate.isRequired(installed: "1.0.32", minimum: "v1.1"))
+    }
+
     private func available(
         published: String, installed: String, minimumOS: String = "18.0",
         systemOS: String = "18.0", listingBundleID: String = "com.lorenzoog.siptrack"
