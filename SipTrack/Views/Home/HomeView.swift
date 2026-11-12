@@ -43,13 +43,15 @@ struct HomeView: View {
                     }
                     if firebase.isSignedIn {
                         signedInContent
+                        // Free users always get at least this one slot — the native
+                        // cards above need two past nights before they appear.
+                        // Never on the signed-out screen: an ad under "Create
+                        // Account" competes with the one thing it asks for.
+                        BannerAdView()
+                            .padding(.horizontal)
                     } else {
                         noAccountContent
                     }
-                    // Free users always get at least this one slot — the native
-                    // cards above need two past nights before they appear.
-                    BannerAdView()
-                        .padding(.horizontal)
                     Color.clear.frame(height: 90)
                 }
                 .padding(.top, 16)
