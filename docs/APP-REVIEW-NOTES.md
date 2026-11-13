@@ -76,6 +76,30 @@ for that calculation, and are not required to create the account.
 Users can delete their account and all associated cloud data from inside the
 app: Profile → Account → Delete Account.
 
+SOCIAL (FRIENDS)
+
+TrackSip has an optional Friends feature. Users pick a username, find people by
+username, and send or accept friend requests. Accepted friends can see each
+other's current night and nights closed in the last 24 hours (drinks and BAC
+estimate). Nothing is public: only accepted friends see anything, data expires
+24 hours after a night closes, and a user can switch on Incognito to share
+nothing. There are no leaderboards and no rankings, and BAC is never compared or
+ranked between users. There is no chat and no free-text messaging.
+
+User-generated content safeguards (Guideline 1.2):
+- Report: every user (username or profile photo) can be reported from the
+  friends list, search results and incoming requests. Reports email the
+  developer, who acts on them within 24 hours.
+- Block: any user can be blocked from the same places. Blocking removes the
+  friendship and hides both users from each other in search and the feed.
+- Photo filtering: profile photos are screened with SafeSearch on upload and
+  rejected if adult, violent or racy.
+- Friends can be removed at any time, and deleting the account removes all of
+  the user's social data.
+
+The demo account has one friend with a recent night, so the Social tab has
+content to review.
+
 Privacy Policy: https://looqs.online/siptrack/policy
 Terms of Use (EULA): https://www.apple.com/legal/internet-services/itunes/dev/stdeula/
 
@@ -127,6 +151,11 @@ giving the gate a "Not now" exit so a failed sign-in can never trap the app.
 
 - [ ] Demo account exists, its email is **verified**, and sign-in with it was
       tested on a clean install of the exact build being submitted.
+- [ ] Demo account has one accepted friend (a second seeded account) whose
+      night closed in the last 24 hours, or is live now: shared nights expire
+      after 24 h, so re-seed that night right before each submission.
+- [ ] Social backend (functions, indexes, TTL, Cloud Vision, report alert) is
+      deployed per `docs/RELEASE.md` → "Friends / social release checklist".
 - [ ] Demo account has finished nights in the last 30 days — the non-Pro history
       view only shows the last 30 days, so older seed data looks like an empty app.
 - [ ] The notes match what the demo account actually is. A free demo account
