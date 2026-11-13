@@ -264,6 +264,7 @@ final class AppState: ObservableObject {
         startBACRefreshTimer(for: event.id)
         startLiveActivity(for: event)
         refreshWaterReminder()
+        syncSharedNight()
         return event
     }
 
@@ -461,12 +462,7 @@ final class AppState: ObservableObject {
         ].joined(separator: "|")
         guard key != lockScreenCurveKey else { return nil }
         lockScreenCurveKey = key
-        let points = BACCalculator.bacTimeline(
-            entries: eventEntries, drinkTypes: allDrinkTypes, profile: userProfile,
-            eventStart: event.startTime, stomachState: event.stomachState ?? .empty,
-            stomachStateTimestamp: event.stomachStateTimestamp ?? event.startTime,
-            foodEntries: eventFood
-        )
+        let points = fullNightPoints(for: event, entries: eventEntries, foodEntries: eventFood)
         return BACCalculator.lockScreenSchedule(points, from: Date(), currentBAC: currentBAC).map { point in
             let stage = IntoxicationStage.stage(for: point.bac)
             return [
@@ -475,6 +471,62 @@ final class AppState: ObservableObject {
                 "s": stage.name,
                 "c": stage.colorHex,
             ]
+        }
+    }
+
+    /// The BAC curve for a whole night, shared by the lock screen push and the shared night.
+    private func fullNightPoints(for event: NightEvent, entries eventEntries: [DrinkEntry], foodEntries eventFood: [FoodEntry]) -> [BACDataPoint] {
+        BACCalculator.bacTimeline(
+            entries: eventEntries, drinkTypes: allDrinkTypes, profile: userProfile,
+            eventStart: event.startTime, stomachState: event.stomachState ?? .empty,
+            stomachStateTimestamp: event.stomachStateTimestamp ?? event.startTime,
+            foodEntries: eventFood
+        )
+    }
+
+    // MARK: - Shared night (friends)
+
+    /// Set by the friends store once the user has a username. Until then nothing is shared.
+    @Published var hasSocialProfile = false
+    /// What was last written to `shared_nights/{uid}`; nil after incognito so the whole
+    /// night is re-sent when incognito turns off.
+    private var lastSentSharedNight: SharedNight?
+
+    /// Syncs the active night (or, with none active, the most recently ended one so its
+    /// story is written once more with `ended_at`). Incognito deletes and never writes.
+    func syncSharedNight() {
+        let event: NightEvent?
+        if let active = activeEvent {
+            event = active
+        } else {
+            event = events
+                .filter { $0.userId == currentUserId && $0.endTime != nil }
+                .max { ($0.endTime ?? .distantPast) < ($1.endTime ?? .distantPast) }
+        }
+
+        var night: SharedNight?
+        if let event, !event.isIncognito {
+            let eventEntries = entries.filter { $0.eventId == event.id }
+            let eventFood = foodEntries.filter { $0.eventId == event.id }
+            let built = SharedNight.build(
+                event: event, entries: eventEntries, drinkTypes: allDrinkTypes,
+                points: fullNightPoints(for: event, entries: eventEntries, foodEntries: eventFood)
+            )
+            // An expired night is not worth writing (friends hide it).
+            night = built.expiresAt > Date() ? built : nil
+        }
+
+        switch SharedNightSync.action(event: event, night: night, lastSent: lastSentSharedNight, hasUsername: hasSocialProfile) {
+        case .write(let toSend):
+            push {
+                try await FirebaseManager.shared.writeSharedNight(toSend)
+                self.lastSentSharedNight = toSend
+            }
+        case .delete:
+            lastSentSharedNight = nil
+            push { try await FirebaseManager.shared.deleteSharedNight() }
+        case .none:
+            break
         }
     }
 
@@ -500,6 +552,7 @@ final class AppState: ObservableObject {
         WatchBridge.shared.pushState()
         generateAiReport(for: id)
         generateRecoveryBrief(for: id)
+        syncSharedNight()
     }
 
     /// nil means the caller didn't choose (Watch, intents): use the profile default.
@@ -511,8 +564,9 @@ final class AppState: ObservableObject {
     /// pushes the event (with `incognito`) to Firestore.
     func setIncognito(_ on: Bool, for eventId: String) {
         updateEvent(id: eventId) { $0.incognito = on }
-        // Task 9 hooks sharing here: going incognito stops/removes the shared night,
-        // coming back (on == false) starts it again.
+        // Going incognito deletes the shared night (and clears lastSent); coming back
+        // re-sends the whole night.
+        syncSharedNight()
     }
 
     // MARK: - AI Report
@@ -1454,6 +1508,7 @@ final class AppState: ObservableObject {
         updateLiveActivity(for: eventId)
         push { try await FirebaseManager.shared.pushEntry(entry) }
         WatchBridge.shared.pushState()
+        syncSharedNight()
     }
 
     func updateEntry(_ entry: DrinkEntry) {
@@ -1462,6 +1517,7 @@ final class AppState: ObservableObject {
             entries[idx] = entry
         }
         push { try await FirebaseManager.shared.pushEntry(entry) }
+        syncSharedNight()
     }
 
     func deleteEntry(_ id: String) {
@@ -1474,6 +1530,7 @@ final class AppState: ObservableObject {
             bacTick = Date()
             updateLiveActivity(for: active.id)
         }
+        syncSharedNight()
     }
 
     func undoLastEntry() {

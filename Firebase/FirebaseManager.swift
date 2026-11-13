@@ -176,6 +176,17 @@ final class FirebaseManager: ObservableObject {
         try await col.document(event.id).setData(data, merge: true)
     }
 
+    /// Full replace (no merge) so removed keys such as a stale `ended_at` cannot linger.
+    func writeSharedNight(_ night: SharedNight) async throws {
+        guard let uid = currentUserId() else { return }
+        try await db.collection("shared_nights").document(uid).setData(night.firestoreData())
+    }
+
+    func deleteSharedNight() async throws {
+        guard let uid = currentUserId() else { return }
+        try await db.collection("shared_nights").document(uid).delete()
+    }
+
     func deleteEvent(_ id: String) async throws {
         try await col("night_events")?.document(id).delete()
     }
