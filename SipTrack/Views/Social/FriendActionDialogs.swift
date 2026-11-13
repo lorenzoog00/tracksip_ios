@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 /// State and helpers shared by every screen that can remove, block or report someone.
 @MainActor
