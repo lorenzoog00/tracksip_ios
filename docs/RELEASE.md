@@ -175,8 +175,8 @@ it is done by the developer with their own credentials.
    the `shared_nights.expires_at` TTL policy. **A missing `blocked.uid` index makes
    `deleteAccount` fail in production**, because deletion queries who blocked the
    user. The TTL policy is what actually deletes expired shared nights.
-4. Confirm all 11 new callables exist (the secrets from the first section are
-   still required to deploy):
+4. Confirm all 11 new callables exist (the secrets from "One-time
+   configuration" above are still required to deploy):
 
    ```powershell
    npx firebase functions:list --project device-streaming-8326abff
@@ -188,12 +188,14 @@ it is done by the developer with their own credentials.
    callable that is missing from this list is a 404 in the app.
 5. **Report alert.** In Google Cloud Console → Logging → Log-based alerts, create
    an alert on log text `SOCIAL_REPORT` (the `reportUser` function logs it) that
-   emails the developer. Apple expects reports to be acted on within 24 hours.
+   emails the developer. We act on reports within 24 hours, as Apple asks of apps with
+   user-generated content.
    Test it by filing a report from a test account.
 6. **App Privacy and privacy policy.** In App Store Connect → App Privacy add:
-   **Name** (the username), **Photos or Videos** (the profile photo), and keep
-   Health and User ID; all linked to the user, not used for tracking, purpose App
-   Functionality. State in the privacy policy (https://looqs.online/siptrack/policy)
+   **Photos or Videos** (the profile photo). The username is a handle, covered by
+   the existing **User ID**; drink and BAC data shared with friends stays under
+   **Health** (also shared with other users). All linked to the user, not used for
+   tracking, purpose App Functionality. State in the privacy policy (https://looqs.online/siptrack/policy)
    that drink and BAC data of a night is shared with the user's friends for 24
    hours (unless incognito), that profile photos are checked by Google Cloud
    Vision SafeSearch, and that account deletion removes friendships, requests,

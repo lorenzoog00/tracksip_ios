@@ -89,7 +89,8 @@ ranked between users. There is no chat and no free-text messaging.
 User-generated content safeguards (Guideline 1.2):
 - Report: every user (username or profile photo) can be reported from the
   friends list, search results and incoming requests. Reports email the
-  developer, who acts on them within 24 hours.
+  developer. We act on reports within 24 hours, as Apple asks of apps with
+  user-generated content.
 - Block: any user can be blocked from the same places. Blocking removes the
   friendship and hides both users from each other in search and the feed.
 - Photo filtering: profile photos are screened with SafeSearch on upload and
