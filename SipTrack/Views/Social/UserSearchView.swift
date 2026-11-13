@@ -10,6 +10,7 @@ struct UserSearchView: View {
     @State private var searchTask: Task<Void, Never>?
     /// Requests sent from this screen, so the button flips before the Firestore listener catches up.
     @State private var sent: Set<String> = []
+    @StateObject private var coordinator = FriendActionCoordinator()
     @State private var busy: Set<String> = []
 
     private enum RowState { case add, pending, friend, accept }
@@ -52,7 +53,13 @@ struct UserSearchView: View {
         .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search @username")
         .textInputAutocapitalization(.never)
         .autocorrectionDisabled()
+        .friendActionDialogs(coordinator)
         .onChange(of: query) { _, _ in scheduleSearch() }
+        .onChange(of: friends.outgoing.map(\.uid)) { _, ids in
+            // The snapshot has arrived; Pending now comes from `outgoing`, so a later
+            // cancel or decline must not leave a stale "Pending" behind.
+            sent.subtract(ids)
+        }
         .onDisappear { searchTask?.cancel() }
     }
 
@@ -72,6 +79,7 @@ struct UserSearchView: View {
                 .foregroundStyle(AppColors.text)
             Spacer()
             actionButton(profile)
+            ReportBlockMenu(profile: profile, coordinator: coordinator)
         }
     }
 

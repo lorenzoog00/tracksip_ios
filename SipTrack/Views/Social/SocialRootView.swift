@@ -39,7 +39,29 @@ struct SocialRootView: View {
     private var feed: some View {
         ZStack {
             AppColors.background.ignoresSafeArea()
-            FeedView(onAddFriend: { showSearch = true })
+            VStack(spacing: 0) {
+                if friends.incoming.count > 0 {
+                    NavigationLink {
+                        MyFriendsView()
+                    } label: {
+                        HStack {
+                            Text(friends.incoming.count == 1 ? "1 friend request" : "\(friends.incoming.count) friend requests")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(AppColors.text)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(AppColors.textTertiary)
+                        }
+                        .padding(14)
+                        .background(AppColors.surface)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+                    }
+                }
+                FeedView(onAddFriend: { showSearch = true })
+            }
         }
         .navigationDestination(isPresented: $showSearch) { searchDestination }
         .navigationTitle("Social")
