@@ -36,3 +36,13 @@ test("offensive words are blocked even when embedded in a longer name", () => {
   assert.deepEqual(validateUsername("xxpendejoxx"), {ok: false, reason: "blocked"});
   assert.deepEqual(validateUsername("Mierda.99"), {ok: false, reason: "blocked"});
 });
+
+test("normalizeUsername returns an empty string for non-string input", () => {
+  assert.equal(normalizeUsername(undefined), "");
+  assert.equal(normalizeUsername(null), "");
+  assert.equal(normalizeUsername(42), "");
+});
+
+test("surnames containing short slurs are allowed", () => {
+  assert.deepEqual(validateUsername("vergara"), {ok: true});
+});

@@ -32,7 +32,6 @@ const OFFENSIVE = [
   "cabron",
   "chingar",
   "maricon",
-  "verga",
 ];
 
 /**
@@ -41,7 +40,8 @@ const OFFENSIVE = [
  * @return {string} the canonical form used for storage and comparison
  */
 function normalizeUsername(raw) {
-  return String(raw).trim().toLowerCase();
+  if (typeof raw !== "string") return "";
+  return raw.trim().toLowerCase();
 }
 
 /**

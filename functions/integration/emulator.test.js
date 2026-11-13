@@ -409,3 +409,83 @@ test("a purchase bound to another account cannot grant paid quotas", async () =>
       false,
   );
 });
+
+// social: usernames
+const {claimUsername, searchUsers} = require("../social");
+
+const claim = (uid, username) => claimUsername({db, uid, data: {username}});
+const search = (uid, query) => searchUsers({db, uid, data: {query}});
+
+test("social: claiming a username writes the handle and public profile", async () => {
+  const result = await claim("a", "Lorenzo");
+  assert.deepEqual(result, {username: "lorenzo"});
+  const profile = (await db.doc("public_profiles/a").get()).data();
+  assert.equal(profile.username, "lorenzo");
+  assert.match(profile.avatar_color, /^#[0-9A-F]{6}$/i);
+  assert.equal((await db.doc("usernames/lorenzo").get()).data().uid, "a");
+});
+
+test("social: a taken username is rejected case-insensitively", async () => {
+  await claim("a", "lorenzo");
+  await assert.rejects(
+      claim("b", "LORENZO"),
+      (e) => e.code === "already-exists" && e.message === "That username is taken.",
+  );
+});
+
+test("social: disallowed usernames are rejected", async () => {
+  for (const name of ["ab", "admin", "bad name", 7]) {
+    await assert.rejects(
+        claim("a", name),
+        (e) => e.code === "invalid-argument" &&
+          e.message === "That username isn't allowed.",
+    );
+  }
+});
+
+test("social: concurrent claims of one name produce a single owner", async () => {
+  const results = await Promise.allSettled([claim("a", "same"), claim("b", "same")]);
+  assert.equal(results.filter((r) => r.status === "fulfilled").length, 1);
+  const winner = results[0].status === "fulfilled" ? "a" : "b";
+  assert.equal((await db.doc("usernames/same").get()).data().uid, winner);
+});
+
+test("social: renaming frees the old name and keeps the avatar color", async () => {
+  await claim("a", "lorenzo");
+  const before = (await db.doc("public_profiles/a").get()).data();
+  await claim("a", "newname");
+  assert.equal((await db.doc("usernames/lorenzo").get()).exists, false);
+  assert.equal((await db.doc("usernames/newname").get()).data().uid, "a");
+  const after = (await db.doc("public_profiles/a").get()).data();
+  assert.equal(after.username, "newname");
+  assert.equal(after.avatar_color, before.avatar_color);
+  assert.deepEqual(await claim("b", "lorenzo"), {username: "lorenzo"});
+});
+
+test("social: re-claiming your current name succeeds", async () => {
+  await claim("a", "lorenzo");
+  assert.deepEqual(await claim("a", "Lorenzo"), {username: "lorenzo"});
+  assert.equal((await db.doc("usernames/lorenzo").get()).data().uid, "a");
+});
+
+test("social: search matches by prefix and hides blocks in both directions", async () => {
+  await claim("a", "lorenzo");
+  await claim("b", "lola");
+  await claim("c", "other");
+  const found = await search("b", "LO");
+  assert.deepEqual(found.results.map((r) => r.uid), ["a"]);
+  assert.equal(found.results[0].username, "lorenzo");
+  assert.equal(found.results[0].photo_url, null);
+  assert.ok(found.results[0].avatar_color);
+  assert.deepEqual((await search("b", "l")).results, []);
+
+  await db.doc("blocks/a/blocked/b").set({uid: "b", created_at: 1});
+  assert.deepEqual((await search("b", "lo")).results, []);
+  assert.deepEqual((await search("a", "lo")).results, []);
+
+  await claim("d", "lolo");
+  await db.doc("blocks/c/blocked/d").set({uid: "d", created_at: 1});
+  await db.doc("blocks/c/blocked/a").set({uid: "a", created_at: 1});
+  assert.deepEqual((await search("c", "lo")).results.map((r) => r.uid), ["b"]);
+  assert.deepEqual((await search("d", "lo")).results.map((r) => r.uid), ["b", "a"]);
+});
