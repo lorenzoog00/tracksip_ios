@@ -216,7 +216,10 @@ async function sendFriendRequest({db, uid, data, notify}) {
  */
 async function respondToFriendRequest({db, uid, data, notify}) {
   const fromUid = otherUid(data && data.fromUid, uid);
-  const accept = !!(data && data.accept);
+  if (!data || typeof data.accept !== "boolean") {
+    throw new HttpsError("invalid-argument", "Missing accept flag.");
+  }
+  const accept = data.accept;
   const now = Date.now();
 
   const outcome = await db.runTransaction(async (tx) => {

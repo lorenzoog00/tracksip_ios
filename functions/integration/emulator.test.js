@@ -692,3 +692,31 @@ test("social: a block bars accepting an already-pending request", async () => {
   );
   assert.equal(await exists("friendships/A/friends/B"), false);
 });
+
+test("social: responding without an explicit accept flag is rejected", async () => {
+  await twoUsers();
+  const {notify} = makeNotify();
+  await call("sendFriendRequest", "A", {toUid: "B"}, notify);
+  for (const payload of [{fromUid: "A"}, {fromUid: "A", accept: "true"}]) {
+    await assert.rejects(
+        call("respondToFriendRequest", "B", payload, notify),
+        (e) => e.code === "invalid-argument",
+    );
+  }
+  assert.equal(await exists("friend_requests/A_B"), true);
+  assert.equal(await exists("friendships/B/friends/A"), false);
+});
+
+test("social: sending with both request docs already present ends with friends", async () => {
+  await twoUsers();
+  await db.doc("friend_requests/A_B").set({from: "A", to: "B", created_at: 1});
+  await db.doc("friend_requests/B_A").set({from: "B", to: "A", created_at: 1});
+  const {notify} = makeNotify();
+  assert.deepEqual(
+      await call("sendFriendRequest", "A", {toUid: "B"}, notify),
+      {status: "friends"},
+  );
+  assert.equal(await countDocs("friend_requests"), 0);
+  assert.equal(await exists("friendships/A/friends/B"), true);
+  assert.equal(await exists("friendships/B/friends/A"), true);
+});
