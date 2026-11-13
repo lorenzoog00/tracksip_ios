@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		5A7C1E3D9B2F4A60C8D1E701 /* SharedNight.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A7C1E3D9B2F4A60C8D1E702 /* SharedNight.swift */; };
+		5A7C1E3D9B2F4A60C8D1E703 /* FeedOrdering.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A7C1E3D9B2F4A60C8D1E704 /* FeedOrdering.swift */; };
+		5A7C1E3D9B2F4A60C8D1E705 /* SharedNightTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A7C1E3D9B2F4A60C8D1E706 /* SharedNightTests.swift */; };
 		D77C112605A0000000000002 /* NightReview.swift in Sources */ = {isa = PBXBuildFile; fileRef = D77C112605A0000000000001 /* NightReview.swift */; };
 		D77C112605A0000000000004 /* NightPhotoStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D77C112605A0000000000003 /* NightPhotoStore.swift */; };
 		D77C112605A0000000000006 /* NightStory.swift in Sources */ = {isa = PBXBuildFile; fileRef = D77C112605A0000000000005 /* NightStory.swift */; };
@@ -202,6 +205,9 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		5A7C1E3D9B2F4A60C8D1E702 /* SharedNight.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedNight.swift; sourceTree = "<group>"; };
+		5A7C1E3D9B2F4A60C8D1E704 /* FeedOrdering.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedOrdering.swift; sourceTree = "<group>"; };
+		5A7C1E3D9B2F4A60C8D1E706 /* SharedNightTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedNightTests.swift; sourceTree = "<group>"; };
 		D77C112605A0000000000001 /* NightReview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NightReview.swift; sourceTree = "<group>"; };
 		D77C112605A0000000000003 /* NightPhotoStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NightPhotoStore.swift; sourceTree = "<group>"; };
 		D77C112605A0000000000005 /* NightStory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NightStory.swift; sourceTree = "<group>"; };
@@ -436,6 +442,15 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		5A7C1E3D9B2F4A60C8D1E707 /* Social */ = {
+			isa = PBXGroup;
+			children = (
+				5A7C1E3D9B2F4A60C8D1E702 /* SharedNight.swift */,
+				5A7C1E3D9B2F4A60C8D1E704 /* FeedOrdering.swift */,
+			);
+			path = Social;
+			sourceTree = "<group>";
+		};
 		B101B4592F9C2B24009F7DDD = {
 			isa = PBXGroup;
 			children = (
@@ -703,6 +718,7 @@
 				B101B49C2F9C2F32009F7DDD /* Core */,
 				B101B4A12F9C2F32009F7DDD /* Models */,
 				B101B4A32F9C2F32009F7DDD /* Navigation */,
+				5A7C1E3D9B2F4A60C8D1E707 /* Social */,
 				B101B4A52F9C2F32009F7DDD /* State */,
 				B101B4A72F9C2F32009F7DDD /* Storage */,
 				B101B4A92F9C2F32009F7DDD /* Store */,
@@ -776,6 +792,7 @@
 				8E3F7C2B5D4A6810C3F6A9B5 /* HapticSpecTests.swift */,
 				4D2A9E6B1C7F4053B8E1A6C3 /* CeilingCrossingTests.swift */,
 				D0F447A822F34B68A69C0402 /* WaterReminderTests.swift */,
+				5A7C1E3D9B2F4A60C8D1E706 /* SharedNightTests.swift */,
 			);
 			path = siptrackTests;
 			sourceTree = "<group>";
@@ -1107,6 +1124,8 @@
 				B101B4EB2F9CD648009F7DDD /* AppStorage.swift in Sources */,
 				B101B4EC2F9CD648009F7DDD /* StoreManager.swift in Sources */,
 				E8ED4CBC394E4A3881D17C22 /* AppStoreUpdate.swift in Sources */,
+				5A7C1E3D9B2F4A60C8D1E701 /* SharedNight.swift in Sources */,
+				5A7C1E3D9B2F4A60C8D1E703 /* FeedOrdering.swift in Sources */,
 				B101B4EE2F9CD648009F7DDD /* CalendarView.swift in Sources */,
 				B101B4EF2F9CD648009F7DDD /* ChallengesView.swift in Sources */,
 				B101B4F02F9CD648009F7DDD /* DashboardView.swift in Sources */,
@@ -1174,6 +1193,7 @@
 				A7B8C9D0E1F2A3B4C5D6E7F9 /* AuthSessionTests.swift in Sources */,
 				E8ED4CBC394E4A3881D17C20 /* AppStoreUpdateTests.swift in Sources */,
 				B8C9D0E1F2A3B4C5D6E7F8AA /* AccountDeletionTests.swift in Sources */,
+				5A7C1E3D9B2F4A60C8D1E705 /* SharedNightTests.swift in Sources */,
 				7C1D5A9E3B2F4608A1D4E7F2 /* HapticsPreferenceTests.swift in Sources */,
 				8E3F7C2B5D4A6810C3F6A9B4 /* HapticSpecTests.swift in Sources */,
 				4D2A9E6B1C7F4053B8E1A6C2 /* CeilingCrossingTests.swift in Sources */,
