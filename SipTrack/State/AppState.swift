@@ -503,13 +503,27 @@ final class AppState: ObservableObject {
     /// recreating an incognito night, or a late ack overwriting `lastSentSharedNight`).
     private var sharedNightGeneration = 0
 
-    /// False until this session's first cloud pull has been merged. Before that a
+    /// False until this session's first successful cloud pull has been merged. Before that a
     /// local night can still say "not incognito" when another device already turned
     /// incognito on, so shared-night writes wait (deletes may go ahead).
     private var hasAppliedCloudData = false
 
     /// Incognito is sticky across devices: a night incognito in the cloud stays
     /// incognito locally, whatever this device last knew.
+    private var cloudPullRetryInFlight = false
+
+    /// A failed or cache-only pull leaves shared-night writes held. Called when the app
+    /// comes to the foreground so sharing resumes once the network is back.
+    func retryCloudPullIfNeeded() {
+        guard !hasAppliedCloudData, !cloudPullRetryInFlight, currentUserId != nil else { return }
+        cloudPullRetryInFlight = true
+        Task {
+            let data = await FirebaseManager.shared.pullUserData()
+            cloudPullRetryInFlight = false
+            applyCloudData(data)
+        }
+    }
+
     nonisolated static func mergedIncognito(local: Bool?, cloud: Bool?) -> Bool? {
         cloud == true ? true : local
     }
@@ -602,7 +616,8 @@ final class AppState: ObservableObject {
     /// Turns incognito on or off for a night. updateEvent(id:) persists locally and
     /// pushes the event (with `incognito`) to Firestore.
     func setIncognito(_ on: Bool, for eventId: String) {
-        updateEvent(id: eventId) { $0.incognito = on }
+        // The one push allowed to write incognito: false (pushEvent omits it otherwise).
+        updateEvent(id: eventId, explicitIncognito: true) { $0.incognito = on }
         // Going incognito deletes the shared night (and clears lastSent); coming back
         // re-sends the whole night.
         syncSharedNight()
@@ -1511,12 +1526,13 @@ final class AppState: ObservableObject {
         }
     }
 
-    private func updateEvent(id: String, mutate: (inout NightEvent) -> Void) {
+    private func updateEvent(id: String, explicitIncognito: Bool = false,
+                             mutate: (inout NightEvent) -> Void) {
         guard let idx = events.firstIndex(where: { $0.id == id }) else { return }
         mutate(&events[idx])
         DataStore.shared.updateEvent(events[idx])
         let updated = events[idx]
-        push { try await FirebaseManager.shared.pushEvent(updated) }
+        push { try await FirebaseManager.shared.pushEvent(updated, explicitIncognito: explicitIncognito) }
     }
 
     // MARK: - Entries
@@ -1987,8 +2003,9 @@ final class AppState: ObservableObject {
         }
         refreshWaterReminder()
         // Releases any shared-night write held back until now, and deletes the shared
-        // night if the merge just made it incognito.
-        hasAppliedCloudData = true
+        // night if the merge just made it incognito. A failed or cache-only pull keeps writes
+        // held (deletes still go out); retryCloudPullIfNeeded/retrySync try again.
+        if data.succeeded { hasAppliedCloudData = true }
         syncSharedNight()
     }
 

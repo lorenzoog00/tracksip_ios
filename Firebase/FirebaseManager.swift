@@ -161,7 +161,10 @@ final class FirebaseManager: ObservableObject {
 
     // MARK: - Push
 
-    func pushEvent(_ event: NightEvent) async throws {
+    /// `incognito` is only sent when true, or when the user just turned it off
+    /// (`explicitIncognito`). An ordinary push from a device whose copy is stale must
+    /// never downgrade a night another device made incognito; merge keeps the cloud value.
+    func pushEvent(_ event: NightEvent, explicitIncognito: Bool = false) async throws {
         guard let col = col("night_events") else { return }
         var data: [String: Any] = [
             "started_at": event.startTime.timeIntervalSince1970 * 1000,
@@ -172,7 +175,7 @@ final class FirebaseManager: ObservableObject {
         if let e = event.endTime       { data["ended_at"]   = e.timeIntervalSince1970 * 1000 }
         if let b = event.bacLimit      { data["bac_limit"]  = b }
         if let n = event.notes         { data["notes"]      = n }
-        data["incognito"] = event.isIncognito
+        if event.isIncognito || explicitIncognito { data["incognito"] = event.isIncognito }
         try await col.document(event.id).setData(data, merge: true)
     }
 
@@ -275,6 +278,10 @@ final class FirebaseManager: ObservableObject {
         var challenges: [Challenge]
         var profile: UserProfile?
         var coachReports: [CoachReport]
+        /// True only when the night_events read came from the server (signed in, no error,
+        /// not served from the offline cache). A failed or cached read says nothing
+        /// reliable about what another device did to incognito.
+        var succeeded: Bool = false
     }
 
     func pullUserData() async -> PulledData {
@@ -401,7 +408,8 @@ final class FirebaseManager: ObservableObject {
         } ?? []
 
         return PulledData(events: events, entries: entries, drinkTypes: drinkTypes,
-                          challenges: challenges, profile: profile, coachReports: coachReports)
+                          challenges: challenges, profile: profile, coachReports: coachReports,
+                          succeeded: eDocs.map { !$0.metadata.isFromCache } ?? false)
     }
 
     // MARK: - AI Coach Report (Firestore trigger)
