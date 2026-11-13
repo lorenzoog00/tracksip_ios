@@ -175,7 +175,7 @@ struct SharedNightTests {
         for d in drinks {
             #expect(Set(d.keys) == ["name", "icon", "at"])
         }
-        #expect(String(describing: type(of: data["expires_at"]!)) == "Timestamp")
+        #expect(SharedNight(firestore: data)?.expiresAt == closed.expiresAt)
 
         let open = SharedNight.build(
             event: event(), entries: [entry("a", minutes: 0)], drinkTypes: [beer], points: points()
