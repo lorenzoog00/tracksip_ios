@@ -245,33 +245,45 @@ const socialCallable = (fn) => onCall(
     },
 );
 
-// Request and accept pushes go out with an APNs client built per call.
+// Request and accept pushes go out with an APNs client built per call. A
+// bad key or config only loses the push, never the friendship write.
+const alertPushClient = () => {
+  try {
+    return liveActivity.apnsClient({
+      jwt: liveActivity.apnsJwt({
+        key: apnsKey.value(),
+        keyId: apnsKeyId.value(),
+        teamId: appleTeamId.value(),
+        nowSeconds: Math.floor(Date.now() / 1000),
+      }),
+      topic: "com.lorenzoog.siptrack",
+      pushType: "alert",
+    });
+  } catch (error) {
+    console.error("APNs client setup failed; pushes skipped", error);
+    return null;
+  }
+};
+
 const pushingCallable = (fn) => onCall(
     {secrets: [apnsKey], timeoutSeconds: 30, enforceAppCheck: true},
     async (request) => {
       if (!request.auth) {
         throw new HttpsError("unauthenticated", "Please sign in.");
       }
-      const client = liveActivity.apnsClient({
-        jwt: liveActivity.apnsJwt({
-          key: apnsKey.value(),
-          keyId: apnsKeyId.value(),
-          teamId: appleTeamId.value(),
-          nowSeconds: Math.floor(Date.now() / 1000),
-        }),
-        topic: "com.lorenzoog.siptrack",
-        pushType: "alert",
-      });
+      const client = alertPushClient();
       try {
         const db = getFirestore();
         return await social[fn]({
           db,
           uid: request.auth.uid,
           data: request.data,
-          notify: social.notifyFromPushTokens({db, send: client.send}),
+          notify: client ?
+            social.notifyFromPushTokens({db, send: client.send}) :
+            async () => {},
         });
       } finally {
-        client.close();
+        if (client) client.close();
       }
     },
 );
@@ -294,7 +306,14 @@ const safeSearch = async (buffer) => {
   const [result] = await visionClient.safeSearchDetection({
     image: {content: buffer},
   });
-  const {adult, violence, racy} = result.safeSearchAnnotation || {};
+  // A per-image failure comes back as result.error, not a throw. Throwing
+  // here lands in setAvatar's fail-closed "unavailable" path.
+  if (!result || result.error || !result.safeSearchAnnotation) {
+    throw new Error(
+        `SafeSearch returned no verdict: ${result && result.error ?
+          result.error.message : "missing annotation"}`);
+  }
+  const {adult, violence, racy} = result.safeSearchAnnotation;
   return {adult, violence, racy};
 };
 

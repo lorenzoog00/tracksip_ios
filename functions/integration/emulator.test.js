@@ -998,6 +998,7 @@ const {
 const PUSH_TOKEN = "cd".repeat(32);
 
 test("social: reportUser writes a report document", async () => {
+  await claim("B", "bobby");
   const logged = [];
   const original = console.error;
   console.error = (...args) => logged.push(args);
@@ -1028,6 +1029,14 @@ test("social: reportUser rejects bad kinds, self and missing targets", async () 
         (e) => e.code === "invalid-argument",
     );
   }
+  assert.equal(await countDocs("reports"), 0);
+});
+
+test("social: reportUser rejects a target with no public profile", async () => {
+  await assert.rejects(
+      reportUser({db, uid: "A", data: {targetUid: "ghost", kind: "photo"}}),
+      (e) => e.code === "not-found",
+  );
   assert.equal(await countDocs("reports"), 0);
 });
 
@@ -1118,4 +1127,68 @@ test("social: other APNs failures keep the token", async () => {
     db, send: async () => ({status: 429, reason: "TooManyRequests"}),
   })("B", "request", "alice");
   assert.equal(await exists("push_tokens/B"), true);
+});
+
+test("social: a token moves to the account that registered it last", async () => {
+  await registerPushToken({
+    db, uid: "A", data: {token: PUSH_TOKEN, environment: "sandbox"},
+  });
+  await registerPushToken({
+    db, uid: "C", data: {token: "ef".repeat(32), environment: "sandbox"},
+  });
+  await registerPushToken({
+    db, uid: "B", data: {token: PUSH_TOKEN, environment: "sandbox"},
+  });
+  assert.equal(await exists("push_tokens/A"), false);
+  assert.equal((await db.doc("push_tokens/B").get()).data().token, PUSH_TOKEN);
+  assert.equal(await exists("push_tokens/C"), true);
+  // Re-registering your own token keeps it.
+  await registerPushToken({
+    db, uid: "B", data: {token: PUSH_TOKEN, environment: "sandbox"},
+  });
+  assert.equal(await exists("push_tokens/B"), true);
+});
+
+test("social: an account being deleted cannot claim, request, respond or register", async () => {
+  await twoUsers();
+  await call("sendFriendRequest", "B", {toUid: "A"}, makeNotify().notify);
+  await db.doc("account_deletions/A").set({startedAt: 1});
+  const deleting = (e) => e.code === "failed-precondition";
+  await assert.rejects(claim("A", "another"), deleting);
+  assert.equal(await exists("usernames/another"), false);
+  await assert.rejects(
+      call("sendFriendRequest", "A", {toUid: "B"}, makeNotify().notify),
+      deleting,
+  );
+  await assert.rejects(
+      call("respondToFriendRequest", "A", {fromUid: "B", accept: true},
+          makeNotify().notify),
+      deleting,
+  );
+  assert.equal(await exists("friendships/A/friends/B"), false);
+  assert.equal(await exists("friend_requests/B_A"), true);
+  await assert.rejects(
+      registerPushToken({
+        db, uid: "A", data: {token: PUSH_TOKEN, environment: "sandbox"},
+      }),
+      deleting,
+  );
+  assert.equal(await exists("push_tokens/A"), false);
+  // A fresh account that never had a profile is also refused a username.
+  await db.doc("account_deletions/Z").set({startedAt: 1});
+  await assert.rejects(claim("Z", "zed"), deleting);
+  assert.equal(await exists("public_profiles/Z"), false);
+});
+
+test("public_profiles can be fetched by id but not listed", async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), "public_profiles/x"), {username: "x"});
+  });
+  const carol = env.authenticatedContext("carol").firestore();
+  await assertSucceeds(getDoc(doc(carol, "public_profiles/x")));
+  await assertFails(getDocs(collection(carol, "public_profiles")));
+  await assertFails(
+      getDocs(query(collection(carol, "public_profiles"),
+          where("username", "==", "x"))),
+  );
 });

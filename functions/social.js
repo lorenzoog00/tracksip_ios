@@ -30,6 +30,17 @@ function avatarColorFor(uid) {
   return AVATAR_COLORS[hash % AVATAR_COLORS.length];
 }
 
+const DELETING = "This account is being deleted.";
+
+/**
+ * Throws when the account is being deleted, so a late call from a still-valid
+ * ID token can't recreate social data the deletion just removed.
+ * @param {{exists: boolean}} marker the account_deletions/{uid} snapshot
+ */
+function assertNotDeleting(marker) {
+  if (marker.exists) throw new HttpsError("failed-precondition", DELETING);
+}
+
 /**
  * Claims a unique username for the caller, releasing their previous one.
  * The handle and public profile are written in a single transaction so two
@@ -50,10 +61,12 @@ async function claimUsername({db, uid, data}) {
   const profileRef = db.doc(`public_profiles/${uid}`);
 
   await db.runTransaction(async (tx) => {
-    const [handle, profile] = await Promise.all([
+    const [handle, profile, deleting] = await Promise.all([
       tx.get(handleRef),
       tx.get(profileRef),
+      tx.get(db.doc(`account_deletions/${uid}`)),
     ]);
+    assertNotDeleting(deleting);
     const current = profile.exists ? profile.data().username : null;
     if (handle.exists && handle.data().uid !== uid) {
       throw new HttpsError("already-exists", "That username is taken.");
@@ -167,7 +180,7 @@ async function sendFriendRequest({db, uid, data, notify}) {
   const now = Date.now();
 
   const outcome = await db.runTransaction(async (tx) => {
-    const [me, them, blockedThem, blockedMe, friend, reverse, mine] =
+    const [me, them, blockedThem, blockedMe, friend, reverse, mine, deleting] =
       await Promise.all([
         tx.get(db.doc(`public_profiles/${uid}`)),
         tx.get(db.doc(`public_profiles/${toUid}`)),
@@ -176,7 +189,9 @@ async function sendFriendRequest({db, uid, data, notify}) {
         tx.get(db.doc(`friendships/${uid}/friends/${toUid}`)),
         tx.get(db.doc(`friend_requests/${toUid}_${uid}`)),
         tx.get(db.doc(`friend_requests/${uid}_${toUid}`)),
+        tx.get(db.doc(`account_deletions/${uid}`)),
       ]);
+    assertNotDeleting(deleting);
     if (!me.exists) {
       throw new HttpsError("failed-precondition", "Pick a username first.");
     }
@@ -224,12 +239,14 @@ async function respondToFriendRequest({db, uid, data, notify}) {
   const now = Date.now();
 
   const outcome = await db.runTransaction(async (tx) => {
-    const [request, me, blockedThem, blockedMe] = await Promise.all([
+    const [request, me, blockedThem, blockedMe, deleting] = await Promise.all([
       tx.get(db.doc(`friend_requests/${fromUid}_${uid}`)),
       tx.get(db.doc(`public_profiles/${uid}`)),
       tx.get(db.doc(`blocks/${uid}/blocked/${fromUid}`)),
       tx.get(db.doc(`blocks/${fromUid}/blocked/${uid}`)),
+      tx.get(db.doc(`account_deletions/${uid}`)),
     ]);
+    assertNotDeleting(deleting);
     if (!request.exists) {
       throw new HttpsError("not-found", "No such friend request.");
     }
@@ -349,6 +366,9 @@ async function reportUser({db, uid, data}) {
   if (!REPORT_KINDS.includes(kind)) {
     throw new HttpsError("invalid-argument", "Unknown report kind.");
   }
+  if (!(await db.doc(`public_profiles/${targetUid}`).get()).exists) {
+    throw new HttpsError("not-found", "That user doesn't exist.");
+  }
   const report = {
     reporter: uid,
     target_uid: targetUid,
@@ -361,7 +381,9 @@ async function reportUser({db, uid, data}) {
 }
 
 /**
- * Stores the caller's APNs token so friend requests can reach them.
+ * Stores the caller's APNs token so friend requests can reach them. A device
+ * token belongs to one account at a time: any other account still holding it
+ * (signed out on this phone) loses it, so its pushes stop landing here.
  * @param {object} params
  * @param {object} params.db Firestore
  * @param {string} params.uid the caller
@@ -371,11 +393,21 @@ async function reportUser({db, uid, data}) {
 async function registerPushToken({db, uid, data}) {
   const {token, environment} = data || {};
   validatePushToken(token, environment);
-  await db.doc(`push_tokens/${uid}`).set({
+  assertNotDeleting(await db.doc(`account_deletions/${uid}`).get());
+  const holders = await db
+      .collection("push_tokens")
+      .where("token", "==", token)
+      .get();
+  const batch = db.batch();
+  for (const holder of holders.docs) {
+    if (holder.id !== uid) batch.delete(holder.ref);
+  }
+  batch.set(db.doc(`push_tokens/${uid}`), {
     token,
     environment,
     updated_at: Date.now(),
   });
+  await batch.commit();
   return {status: "registered"};
 }
 
@@ -404,6 +436,7 @@ function notifyFromPushTokens({db, send}) {
 }
 
 module.exports = {
+  assertNotDeleting,
   reportUser,
   registerPushToken,
   notifyFromPushTokens,

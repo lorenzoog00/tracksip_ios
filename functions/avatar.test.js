@@ -1,7 +1,7 @@
 const {test} = require("node:test");
 const assert = require("node:assert/strict");
 const {FieldValue} = require("firebase-admin/firestore");
-const {setAvatar, avatarUrl} = require("./avatar");
+const {setAvatar, avatarUrl, isRejected} = require("./avatar");
 
 const JPEG = Buffer.concat([
   Buffer.from([0xff, 0xd8, 0xff, 0xe0]),
@@ -12,14 +12,18 @@ const CLEAN = {adult: "UNLIKELY", violence: "VERY_UNLIKELY", racy: "POSSIBLE"};
 
 /**
  * @param {boolean} profileExists whether public_profiles/{uid} exists
+ * @param {boolean} deleting whether account_deletions/{uid} exists
  * @return {object} a recording fake Firestore
  */
-function fakeDb(profileExists = true) {
+function fakeDb(profileExists = true, deleting = false) {
   const calls = [];
   return {
     calls,
     doc: (path) => ({
-      get: async () => ({exists: profileExists}),
+      get: async () => ({
+        exists: path.startsWith("account_deletions/") ?
+          deleting : profileExists,
+      }),
       update: async (data) => calls.push({path, data}),
     }),
   };
@@ -163,4 +167,37 @@ test("null removes the file and clears photo_url", async () => {
   assert.equal(db.calls.length, 1);
   assert.equal(db.calls[0].path, "public_profiles/u1");
   assert.ok(db.calls[0].data.photo_url.isEqual(FieldValue.delete()));
+});
+
+test("an empty or partial SafeSearch verdict rejects and saves nothing",
+    async () => {
+      for (const verdict of [
+        {},
+        undefined,
+        {adult: "UNLIKELY", violence: "UNLIKELY"},
+        {...CLEAN, adult: "UNKNOWN"},
+        {...CLEAN, violence: undefined},
+      ]) {
+        const {db, bucket, promise} = run({safeSearch: async () => verdict});
+        await assert.rejects(promise, (e) => e.code === "invalid-argument");
+        assert.equal(bucket.calls.length, 0);
+        assert.equal(db.calls.length, 0);
+      }
+    });
+
+test("isRejected passes only known low likelihoods", () => {
+  assert.equal(isRejected(CLEAN), false);
+  assert.equal(isRejected({...CLEAN, racy: "LIKELY"}), false);
+  assert.equal(isRejected({}), true);
+  assert.equal(isRejected(null), true);
+  assert.equal(isRejected({...CLEAN, racy: "UNKNOWN"}), true);
+});
+
+test("an account being deleted cannot set or remove a photo", async () => {
+  for (const data of [{jpegBase64: b64(JPEG)}, {jpegBase64: null}]) {
+    const {db, bucket, promise} = run({db: fakeDb(true, true), args: {data}});
+    await assert.rejects(promise, (e) => e.code === "failed-precondition");
+    assert.equal(bucket.calls.length, 0);
+    assert.equal(db.calls.length, 0);
+  }
 });

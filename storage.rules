@@ -1,0 +1,12 @@
+rules_version = '2';
+
+// Clients never touch Storage directly. Avatars are written by the setAvatar
+// callable through the Admin SDK (which bypasses rules) and served through
+// token download URLs, which keep working under a deny-all rule.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

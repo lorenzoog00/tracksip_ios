@@ -38,16 +38,21 @@ function decodeJpeg(value) {
   return buffer;
 }
 
+// Likelihoods SafeSearch can return that count as a pass for that category.
+const ADULT_OR_VIOLENCE_OK = ["VERY_UNLIKELY", "UNLIKELY", "POSSIBLE"];
+const RACY_OK = [...ADULT_OR_VIOLENCE_OK, "LIKELY"];
+
 /**
- * Whether a SafeSearch verdict is too risky for a public avatar.
- * @param {{adult: string, violence: string, racy: string}} verdict
+ * Whether a SafeSearch verdict is too risky for a public avatar. Anything
+ * missing or unrecognised (UNKNOWN, undefined) fails closed.
+ * @param {?{adult: string, violence: string, racy: string}} verdict
  * @return {boolean}
  */
-function isRejected({adult, violence, racy}) {
-  const likely = ["LIKELY", "VERY_LIKELY"];
-  return likely.includes(adult) ||
-    likely.includes(violence) ||
-    racy === "VERY_LIKELY";
+function isRejected(verdict) {
+  const {adult, violence, racy} = verdict || {};
+  return !ADULT_OR_VIOLENCE_OK.includes(adult) ||
+    !ADULT_OR_VIOLENCE_OK.includes(violence) ||
+    !RACY_OK.includes(racy);
 }
 
 /**
@@ -67,7 +72,15 @@ async function setAvatar({db, bucket, uid, data, safeSearch}) {
   const wantsRemoval = data && data.jpegBase64 === null;
 
   const buffer = wantsRemoval ? null : decodeJpeg(data && data.jpegBase64);
-  if (!(await profileRef.get()).exists) {
+  const [profile, deleting] = await Promise.all([
+    profileRef.get(),
+    db.doc(`account_deletions/${uid}`).get(),
+  ]);
+  if (deleting.exists) {
+    throw new HttpsError(
+        "failed-precondition", "This account is being deleted.");
+  }
+  if (!profile.exists) {
     throw new HttpsError("failed-precondition", "Pick a username first.");
   }
 
@@ -99,4 +112,4 @@ async function setAvatar({db, bucket, uid, data, safeSearch}) {
   return {photo_url: photoUrl};
 }
 
-module.exports = {setAvatar, avatarUrl};
+module.exports = {setAvatar, avatarUrl, isRejected};

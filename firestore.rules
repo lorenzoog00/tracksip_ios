@@ -163,8 +163,10 @@ service cloud.firestore {
     // Everything here is written by the Admin SDK in Cloud Functions, which
     // bypasses rules, so no client write is ever allowed. Anything not named
     // below (usernames, reports, push_tokens) falls to the default deny.
+    // get, not list: profiles are looked up by uid; search goes through the
+    // searchUsers callable, so the collection can't be enumerated.
     match /public_profiles/{uid} {
-      allow read: if request.auth != null;
+      allow get: if request.auth != null;
     }
 
     match /friend_requests/{id} {

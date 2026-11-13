@@ -89,7 +89,7 @@ npm test
 # Requires Java 21+; uses demo-siptrack, never production data.
 npm run test:emulator
 npm audit --omit=dev
-npx firebase deploy --only functions,firestore:rules --project YOUR_PROJECT_ID
+npx firebase deploy --only functions,firestore:rules,storage --project YOUR_PROJECT_ID
 ```
 
 The live project is `device-streaming-8326abff` ("Tracksip" in the Firebase
@@ -162,13 +162,15 @@ it is done by the developer with their own credentials.
    the console). In Google Cloud Console for that project, enable the **Cloud
    Vision API** (avatar SafeSearch runs on it).
 2. Make sure the **default Storage bucket exists** (Firebase Console → Storage →
-   Get started). Avatar uploads fail without it.
-3. Deploy rules, indexes and functions together:
+   Get started; **choose Production mode**). Avatar uploads fail without it.
+   `storage.rules` denies every client read and write; avatars are written by
+   the Admin SDK and served through token download URLs, which still work.
+3. Deploy rules, indexes, Storage rules and functions together:
 
    ```powershell
    cd functions
    $env:FUNCTIONS_DISCOVERY_TIMEOUT=120
-   npx firebase deploy --only firestore:rules,firestore:indexes,functions --project device-streaming-8326abff
+   npx firebase deploy --only firestore:rules,firestore:indexes,storage,functions --project device-streaming-8326abff
    ```
 
    `firestore.indexes.json` declares the `blocked.uid` collection-group index and
