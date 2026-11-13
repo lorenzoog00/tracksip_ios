@@ -18,6 +18,7 @@ struct SocialPlaceholderView: View {
 /// The Social tab: pick a username first, then the friends feed.
 struct SocialRootView: View {
     @EnvironmentObject var friends: FriendsStore
+    @State private var showSearch = false
 
     var body: some View {
         NavigationStack {
@@ -38,17 +39,15 @@ struct SocialRootView: View {
     private var feed: some View {
         ZStack {
             AppColors.background.ignoresSafeArea()
-            // TODO(Task 12): replace with FeedView (and FriendNightView destinations).
-            Text("Friends feed")
-                .foregroundStyle(AppColors.textSecondary)
+            FeedView(onAddFriend: { showSearch = true })
         }
+        .navigationDestination(isPresented: $showSearch) { searchDestination }
         .navigationTitle("Social")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 NavigationLink {
-                    // TODO(Task 13): replace with UserSearchView.
-                    SocialPlaceholderView(title: "Find friends")
+                    searchDestination
                 } label: {
                     Image(systemName: "magnifyingglass")
                 }
@@ -65,5 +64,11 @@ struct SocialRootView: View {
                 }
             }
         }
+    }
+
+    // One destination for the toolbar magnifier and the empty-state button.
+    @ViewBuilder private var searchDestination: some View {
+        // TODO(Task 13): replace with UserSearchView.
+        SocialPlaceholderView(title: "Find friends")
     }
 }

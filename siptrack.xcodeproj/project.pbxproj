@@ -137,6 +137,8 @@
 		CC1A2B3D4E5F6A7B8C9D0E1F /* LearnView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1A2B3D4E5F6A7B8C9D0E10 /* LearnView.swift */; };
 		EB905CE970424234994954D0 /* CoachReportCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F19FB458C03404B93011571 /* CoachReportCard.swift */; };
 		5E1B0001000000000000B001 /* SocialRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E1A0001000000000000A001 /* SocialRootView.swift */; };
+		5E1B0007000000000000B007 /* FriendNightView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E1A0007000000000000A007 /* FriendNightView.swift */; };
+		5E1B0006000000000000B006 /* FeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E1A0006000000000000A006 /* FeedView.swift */; };
 		5E1B0002000000000000B002 /* ChooseUsernameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E1A0002000000000000A002 /* ChooseUsernameView.swift */; };
 		5E1B0003000000000000B003 /* AvatarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E1A0003000000000000A003 /* AvatarView.swift */; };
 		5E1B0004000000000000B004 /* SocialProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E1A0004000000000000A004 /* SocialProfileView.swift */; };
@@ -337,6 +339,8 @@
 		CC1A2B3D4E5F6A7B8C9D0E10 /* LearnView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LearnView.swift; sourceTree = "<group>"; };
 		D0303E6B5D734A7E92B6E68C /* CompareView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompareView.swift; sourceTree = "<group>"; };
 		5E1A0001000000000000A001 /* SocialRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialRootView.swift; sourceTree = "<group>"; };
+		5E1A0007000000000000A007 /* FriendNightView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FriendNightView.swift; sourceTree = "<group>"; };
+		5E1A0006000000000000A006 /* FeedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedView.swift; sourceTree = "<group>"; };
 		5E1A0002000000000000A002 /* ChooseUsernameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChooseUsernameView.swift; sourceTree = "<group>"; };
 		5E1A0003000000000000A003 /* AvatarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AvatarView.swift; sourceTree = "<group>"; };
 		5E1A0004000000000000A004 /* SocialProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialProfileView.swift; sourceTree = "<group>"; };
@@ -717,6 +721,8 @@
 				5E1A0004000000000000A004 /* SocialProfileView.swift */,
 				5E1A0005000000000000A005 /* SocialTabIcon.swift */,
 				5E1A0001000000000000A001 /* SocialRootView.swift */,
+				5E1A0007000000000000A007 /* FriendNightView.swift */,
+				5E1A0006000000000000A006 /* FeedView.swift */,
 			);
 			path = Social;
 			sourceTree = "<group>";
@@ -1198,6 +1204,8 @@
 				D77C112605A0000000000012 /* StoryCards.swift in Sources */,
 				B101B4FD2F9CD648009F7DDD /* RootView.swift in Sources */,
 				5E1B0001000000000000B001 /* SocialRootView.swift in Sources */,
+				5E1B0007000000000000B007 /* FriendNightView.swift in Sources */,
+				5E1B0006000000000000B006 /* FeedView.swift in Sources */,
 				5E1B0002000000000000B002 /* ChooseUsernameView.swift in Sources */,
 				5E1B0003000000000000B003 /* AvatarView.swift in Sources */,
 				5E1B0004000000000000B004 /* SocialProfileView.swift in Sources */,
