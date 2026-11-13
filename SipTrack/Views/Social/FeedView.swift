@@ -172,6 +172,18 @@ private struct FeedRow: View {
                 .stroke(live ? AppColors.success.opacity(0.4) : AppColors.border, lineWidth: 1)
         }
         .contentShape(RoundedRectangle(cornerRadius: 14))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityText(night))
+    }
+
+    private func accessibilityText(_ night: SharedNight) -> String {
+        let value = FriendNightFormat.bac(live ? night.bac(at: now) : night.peakBAC)
+        let drinks = FriendNightFormat.drinkLabel(night.drinkCount)
+        if live {
+            return "@\(item.profile.username), live, \(value), \(drinks), \(FriendNightFormat.duration(now.timeIntervalSince(night.startedAt)))"
+        }
+        let ended = night.endedAt ?? night.lastDrinkAt
+        return "@\(item.profile.username), peak \(value), \(drinks), ended \(FriendNightFormat.ago(now.timeIntervalSince(ended)))"
     }
 
     private func subtitle(_ night: SharedNight) -> String {

@@ -7,30 +7,42 @@ struct FriendNightView: View {
     @EnvironmentObject var friends: FriendsStore
     let item: FeedItem
 
-    /// Prefer the freshest copy from the store; fall back to the one we were opened with.
-    private var current: FeedItem {
-        friends.feed.first { $0.id == item.id } ?? item
+    /// The store's copy only: a removed friend, deleted night or incognito switch drops it.
+    private var current: FeedItem? {
+        friends.feed.first { $0.id == item.id }
     }
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 30)) { context in
             let now = context.date
-            let item = current
-            let night = item.night
-            let live = night.isLive(now: now)
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    header(item, now: now, live: live)
-                    chart(night, now: now, live: live)
-                    stats(night, now: now, live: live)
-                    drinkTimeline(night)
-                }
-                .padding(16)
+            if let item = current, item.night.expiresAt > now {
+                content(item, now: now)
+            } else {
+                Text("This night is no longer available.")
+                    .font(.subheadline)
+                    .foregroundStyle(AppColors.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .padding(16)
             }
         }
         .background(AppColors.background.ignoresSafeArea())
         .navigationTitle("@\(item.profile.username)")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func content(_ item: FeedItem, now: Date) -> some View {
+        let night = item.night
+        let live = night.isLive(now: now)
+        return ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                header(item, now: now, live: live)
+                chart(night, now: now, live: live)
+                stats(night, now: now, live: live)
+                drinkTimeline(night)
+            }
+            .padding(16)
+        }
     }
 
     // MARK: - Header
