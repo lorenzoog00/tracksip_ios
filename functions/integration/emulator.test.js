@@ -13,6 +13,7 @@ const {
   getDoc,
   deleteDoc,
   updateDoc,
+  Timestamp,
 } = require("firebase/firestore");
 const {initializeApp, deleteApp} = require("firebase-admin/app");
 const {getFirestore} = require("firebase-admin/firestore");
@@ -719,4 +720,147 @@ test("social: sending with both request docs already present ends with friends",
   assert.equal(await countDocs("friend_requests"), 0);
   assert.equal(await exists("friendships/A/friends/B"), true);
   assert.equal(await exists("friendships/B/friends/A"), true);
+});
+
+// --- Friends v1: social graph and shared nights rules ----------------------
+const futureTs = () => Timestamp.fromMillis(Date.now() + 3600 * 1000);
+const pastTs = () => Timestamp.fromMillis(Date.now() - 60 * 1000);
+const NIGHT = {
+  started_at: 1, last_drink_at: 2, samples: [], drinks: [],
+};
+const seedFriendship = (owner, friend) =>
+  env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(
+        doc(ctx.firestore(), `friendships/${owner}/friends/${friend}`),
+        {created_at: 1},
+    );
+  });
+const seedNight = (uid, expires) =>
+  env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), `shared_nights/${uid}`), {
+      ...NIGHT, expires_at: expires,
+    });
+  });
+
+test("a friend reads an unexpired shared night; expired, stranger, anon cannot", async () => {
+  await seedFriendship("alice", "bob");
+  await seedNight("alice", futureTs());
+  const bob = env.authenticatedContext("bob").firestore();
+  await assertSucceeds(getDoc(doc(bob, "shared_nights/alice")));
+  const carol = env.authenticatedContext("carol").firestore();
+  await assertFails(getDoc(doc(carol, "shared_nights/alice")));
+  const anon = env.unauthenticatedContext().firestore();
+  await assertFails(getDoc(doc(anon, "shared_nights/alice")));
+  // Owner always reads.
+  const alice = env.authenticatedContext("alice").firestore();
+  await assertSucceeds(getDoc(doc(alice, "shared_nights/alice")));
+});
+
+test("a friend cannot read a shared night once expires_at has passed", async () => {
+  await seedFriendship("alice", "bob");
+  await seedNight("alice", pastTs());
+  const bob = env.authenticatedContext("bob").firestore();
+  await assertFails(getDoc(doc(bob, "shared_nights/alice")));
+  const alice = env.authenticatedContext("alice").firestore();
+  await assertSucceeds(getDoc(doc(alice, "shared_nights/alice")));
+});
+
+test("friendship is directional for the night read", async () => {
+  // bob lists alice as a friend, but alice's doc has no bob entry.
+  await seedFriendship("bob", "alice");
+  await seedNight("alice", futureTs());
+  const bob = env.authenticatedContext("bob").firestore();
+  await assertFails(getDoc(doc(bob, "shared_nights/alice")));
+});
+
+test("owner writes a valid shared night but nothing outside the allowlist or limits", async () => {
+  const alice = env.authenticatedContext("alice").firestore();
+  const ref = doc(alice, "shared_nights/alice");
+  const good = {...NIGHT, ended_at: 3, expires_at: futureTs()};
+  await assertSucceeds(setDoc(ref, good));
+  await assertSucceeds(setDoc(ref, {...good, samples: [{t: 1, bac: 0.01}]}));
+  await assertSucceeds(updateDoc(ref, {last_drink_at: 5}));
+  await assertFails(setDoc(ref, {...good, notes: "secret"}));
+  await assertFails(setDoc(ref, {...good, driving_mode: true}));
+  await assertFails(setDoc(ref, {...good, bac_limit: 0.05}));
+  await assertFails(setDoc(ref, {...good, samples: new Array(301).fill(0)}));
+  await assertFails(setDoc(ref, {...good, drinks: new Array(101).fill(0)}));
+  await assertFails(setDoc(ref, {...good, expires_at: Date.now() + 1000}));
+  await assertFails(setDoc(ref, {...good, started_at: "x"}));
+  await assertFails(setDoc(ref, {...good, ended_at: "x"}));
+  // An update that smuggles a forbidden key is rejected too.
+  await assertFails(updateDoc(ref, {notes: "secret"}));
+  await assertSucceeds(deleteDoc(ref));
+});
+
+test("nobody else writes or deletes someone's shared night", async () => {
+  await seedFriendship("alice", "bob");
+  await seedNight("alice", futureTs());
+  const bob = env.authenticatedContext("bob").firestore();
+  await assertFails(setDoc(doc(bob, "shared_nights/alice"), {
+    ...NIGHT, expires_at: futureTs(),
+  }));
+  await assertFails(deleteDoc(doc(bob, "shared_nights/alice")));
+});
+
+test("server-only social collections reject every client write", async () => {
+  const alice = env.authenticatedContext("alice").firestore();
+  for (const path of [
+    "public_profiles/alice", "usernames/alice", "friend_requests/alice_bob",
+    "friendships/alice/friends/bob", "blocks/alice/blocked/bob",
+    "reports/r1", "push_tokens/alice",
+  ]) {
+    await assertFails(setDoc(doc(alice, path), {from: "alice", to: "bob"}));
+  }
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), "public_profiles/alice"), {a: 1});
+  });
+  await assertFails(deleteDoc(doc(alice, "public_profiles/alice")));
+});
+
+test("social reads: profiles to any signed-in user, graph only to its owner or party", async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const f = ctx.firestore();
+    await setDoc(doc(f, "public_profiles/x"), {username: "x"});
+    await setDoc(doc(f, "usernames/x"), {uid: "x"});
+    await setDoc(doc(f, "friend_requests/alice_bob"), {
+      from: "alice", to: "bob", created_at: 1,
+    });
+    await setDoc(doc(f, "friendships/alice/friends/bob"), {created_at: 1});
+    await setDoc(doc(f, "blocks/alice/blocked/bob"), {created_at: 1});
+    await setDoc(doc(f, "reports/r1"), {a: 1});
+    await setDoc(doc(f, "push_tokens/alice"), {a: 1});
+  });
+  const alice = env.authenticatedContext("alice").firestore();
+  const bob = env.authenticatedContext("bob").firestore();
+  const carol = env.authenticatedContext("carol").firestore();
+  const anon = env.unauthenticatedContext().firestore();
+  await assertSucceeds(getDoc(doc(carol, "public_profiles/x")));
+  await assertFails(getDoc(doc(anon, "public_profiles/x")));
+  await assertFails(getDoc(doc(carol, "usernames/x")));
+  await assertSucceeds(getDoc(doc(alice, "friend_requests/alice_bob")));
+  await assertSucceeds(getDoc(doc(bob, "friend_requests/alice_bob")));
+  await assertFails(getDoc(doc(carol, "friend_requests/alice_bob")));
+  await assertSucceeds(getDoc(doc(alice, "friendships/alice/friends/bob")));
+  await assertFails(getDoc(doc(bob, "friendships/alice/friends/bob")));
+  await assertSucceeds(getDoc(doc(alice, "blocks/alice/blocked/bob")));
+  await assertFails(getDoc(doc(bob, "blocks/alice/blocked/bob")));
+  await assertFails(getDoc(doc(alice, "reports/r1")));
+  await assertFails(getDoc(doc(alice, "push_tokens/alice")));
+});
+
+test("incognito is accepted on night events and incognito_by_default on profiles", async () => {
+  const alice = env.authenticatedContext("alice").firestore();
+  await assertSucceeds(
+      setDoc(doc(alice, "users/alice/night_events/a"), {...EVENT, incognito: true}),
+  );
+  await assertFails(
+      setDoc(doc(alice, "users/alice/night_events/b"), {...EVENT, incognito: "yes"}),
+  );
+  await assertSucceeds(
+      setDoc(doc(alice, "users/alice/profiles/alice"), {...PROFILE, incognito_by_default: true}),
+  );
+  await assertFails(
+      setDoc(doc(alice, "users/alice/profiles/alice"), {...PROFILE, incognito_by_default: 1}),
+  );
 });
