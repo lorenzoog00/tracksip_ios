@@ -47,6 +47,8 @@ final class AppState: ObservableObject {
 
     /// Set by CreateEventView so RootView pushes the new event immediately.
     @Published var pendingEventRoute: Route? = nil
+    /// A friend-request push was tapped: RootView switches to Social, which opens My friends.
+    @Published var pendingOpenFriends = false
 
     let store: StoreManager
 
@@ -163,6 +165,10 @@ final class AppState: ObservableObject {
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 self?.currentUserId = nil
+                self?.hasSocialProfile = false
+                self?.lastSentSharedNight = nil
+                self?.sharedNightGeneration &+= 1
+                self?.hasAppliedCloudData = false
                 self?.resetProfile()
             }
         refreshFromFirebase()
@@ -222,20 +228,63 @@ final class AppState: ObservableObject {
         isRestoringCloudProfile = false
     }
 
+    /// The uid of the cloud pull in flight, if any. The launch refresh, the sign-in
+    /// refresh and the foreground re-pull share it, so one pull runs at a time and a cold
+    /// launch (init + sign-in sink + didBecomeActive) pulls once.
+    private var cloudPullUid: String?
+    /// Whether the pull in flight should also do the post-sign-in work.
+    private var cloudPullIsFull = false
+    /// A refresh for a different account arrived while a pull was in flight.
+    private var cloudPullQueued = false
+
     func refreshFromFirebase() {
-        guard currentUserId != nil else {
+        guard let uid = currentUserId else {
             endCloudRestore()
             return
         }
+        if let inFlight = cloudPullUid {
+            // Same account: the pull in flight answers this too. Another account
+            // (switched while it ran): pull again once it lands.
+            if inFlight == uid { cloudPullIsFull = true } else { cloudPullQueued = true }
+            return
+        }
+        startCloudPull(uid: uid, full: true)
+    }
+
+    /// Called on every foreground. A suspended device may have missed incognito being
+    /// turned on elsewhere, so shared-night writes are held again until a fresh pull
+    /// succeeds (deletes still go out).
+    func refreshOnForeground() {
+        guard let uid = currentUserId else { return }
+        hasAppliedCloudData = false
+        guard cloudPullUid == nil else { return }
+        startCloudPull(uid: uid, full: false)
+    }
+
+    private func startCloudPull(uid: String, full: Bool) {
+        cloudPullUid = uid
+        cloudPullIsFull = full
         Task {
             let data = await FirebaseManager.shared.pullUserData()
-            applyCloudData(data)
-            // Whatever came back — a profile, no profile, or a pull that
-            // failed — "is this someone new?" is now answerable.
-            endCloudRestore()
-            checkAndGenerateAutoReports()
-            checkAndGenerateRecoveries()
-            syncPendingRecoveries()
+            let wasFull = cloudPullIsFull
+            cloudPullUid = nil
+            cloudPullIsFull = false
+            // Another account's data must never be merged into this one.
+            if currentUserId == uid {
+                applyCloudData(data)
+                if wasFull {
+                    // Whatever came back — a profile, no profile, or a pull that
+                    // failed — "is this someone new?" is now answerable.
+                    endCloudRestore()
+                    checkAndGenerateAutoReports()
+                    checkAndGenerateRecoveries()
+                    syncPendingRecoveries()
+                }
+            }
+            if cloudPullQueued {
+                cloudPullQueued = false
+                refreshFromFirebase()
+            }
         }
     }
 
@@ -248,9 +297,11 @@ final class AppState: ObservableObject {
         bacLimit: Double?,
         targetBAC: Double? = nil,
         startTime: Date = Date(),
-        stomachState: StomachState = .empty
+        stomachState: StomachState = .empty,
+        incognito: Bool? = nil
     ) -> NightEvent {
         var event = DataStore.shared.createEvent(name: name, drivingMode: drivingMode, bacLimit: bacLimit, userId: currentUserId, startTime: startTime)
+        event.incognito = Self.resolveIncognito(incognito, profileDefault: userProfile.incognitoByDefault)
         event.stomachState = stomachState
         event.stomachStateTimestamp = startTime
         event.targetBAC = targetBAC
@@ -262,6 +313,7 @@ final class AppState: ObservableObject {
         startBACRefreshTimer(for: event.id)
         startLiveActivity(for: event)
         refreshWaterReminder()
+        syncSharedNight()
         return event
     }
 
@@ -459,12 +511,7 @@ final class AppState: ObservableObject {
         ].joined(separator: "|")
         guard key != lockScreenCurveKey else { return nil }
         lockScreenCurveKey = key
-        let points = BACCalculator.bacTimeline(
-            entries: eventEntries, drinkTypes: allDrinkTypes, profile: userProfile,
-            eventStart: event.startTime, stomachState: event.stomachState ?? .empty,
-            stomachStateTimestamp: event.stomachStateTimestamp ?? event.startTime,
-            foodEntries: eventFood
-        )
+        let points = fullNightPoints(for: event, entries: eventEntries, foodEntries: eventFood)
         return BACCalculator.lockScreenSchedule(points, from: Date(), currentBAC: currentBAC).map { point in
             let stage = IntoxicationStage.stage(for: point.bac)
             return [
@@ -473,6 +520,96 @@ final class AppState: ObservableObject {
                 "s": stage.name,
                 "c": stage.colorHex,
             ]
+        }
+    }
+
+    /// The BAC curve for a whole night, shared by the lock screen push and the shared night.
+    private func fullNightPoints(for event: NightEvent, entries eventEntries: [DrinkEntry], foodEntries eventFood: [FoodEntry]) -> [BACDataPoint] {
+        BACCalculator.bacTimeline(
+            entries: eventEntries, drinkTypes: allDrinkTypes, profile: userProfile,
+            eventStart: event.startTime, stomachState: event.stomachState ?? .empty,
+            stomachStateTimestamp: event.stomachStateTimestamp ?? event.startTime,
+            foodEntries: eventFood
+        )
+    }
+
+    // MARK: - Shared night (friends)
+
+    /// Set by the friends store once the user has a username. Until then nothing is shared.
+    @Published var hasSocialProfile = false
+    /// What was last written to `shared_nights/{uid}`; nil after incognito so the whole
+    /// night is re-sent when incognito turns off.
+    private var lastSentSharedNight: SharedNight?
+
+    /// Bumped by every shared-night write/delete. `FirebaseManager.attempt` retries for
+    /// seconds, so an older operation must not land after a newer one (a retried write
+    /// recreating an incognito night, or a late ack overwriting `lastSentSharedNight`).
+    private var sharedNightGeneration = 0
+
+    /// False until a successful server pull has been merged since launch, sign-in or the
+    /// last foreground. Until then a local night can still say "not incognito" when
+    /// another device already turned incognito on, so shared-night writes wait (deletes
+    /// may go ahead).
+    private var hasAppliedCloudData = false
+
+    /// Incognito is sticky across devices: a night incognito in the cloud stays
+    /// incognito locally, whatever this device last knew.
+    nonisolated static func mergedIncognito(local: Bool?, cloud: Bool?) -> Bool? {
+        cloud == true ? true : local
+    }
+
+    /// The night friends see: the active one, else the most recently ended one.
+    private func sharedNightEvent() -> NightEvent? {
+        if let active = activeEvent { return active }
+        return events
+            .filter { $0.userId == currentUserId && $0.endTime != nil }
+            .max { ($0.endTime ?? .distantPast) < ($1.endTime ?? .distantPast) }
+    }
+
+    private func deleteSharedNightRemotely() {
+        sharedNightGeneration &+= 1
+        let gen = sharedNightGeneration
+        lastSentSharedNight = nil
+        push {
+            guard self.sharedNightGeneration == gen else { return }
+            try await FirebaseManager.shared.deleteSharedNight()
+        }
+    }
+
+    /// Syncs the active night (or, with none active, the most recently ended one so its
+    /// story is written once more with `ended_at`). Incognito deletes and never writes.
+    func syncSharedNight() {
+        let event = sharedNightEvent()
+
+        var night: SharedNight?
+        if let event, !event.isIncognito {
+            let eventEntries = entries.filter { $0.eventId == event.id }
+            let eventFood = foodEntries.filter { $0.eventId == event.id }
+            let built = SharedNight.build(
+                event: event, entries: eventEntries, drinkTypes: allDrinkTypes,
+                points: fullNightPoints(for: event, entries: eventEntries, foodEntries: eventFood)
+            )
+            // An expired night is not worth writing (friends hide it).
+            night = built.expiresAt > Date() ? built : nil
+        }
+
+        switch SharedNightSync.action(isIncognito: event?.isIncognito, night: night, lastSent: lastSentSharedNight, hasUsername: hasSocialProfile) {
+        case .write(let toSend):
+            // applyCloudData calls this again once the first pull is merged.
+            guard hasAppliedCloudData else { return }
+            sharedNightGeneration &+= 1
+            let gen = sharedNightGeneration
+            push {
+                // Checked inside the retried closure, so a superseded write stops retrying.
+                guard self.sharedNightGeneration == gen else { return }
+                try await FirebaseManager.shared.writeSharedNight(toSend)
+                guard self.sharedNightGeneration == gen else { return }
+                self.lastSentSharedNight = toSend
+            }
+        case .delete:
+            deleteSharedNightRemotely()
+        case .none:
+            break
         }
     }
 
@@ -498,6 +635,22 @@ final class AppState: ObservableObject {
         WatchBridge.shared.pushState()
         generateAiReport(for: id)
         generateRecoveryBrief(for: id)
+        syncSharedNight()
+    }
+
+    /// nil means the caller didn't choose (Watch, intents): use the profile default.
+    nonisolated static func resolveIncognito(_ explicit: Bool?, profileDefault: Bool) -> Bool {
+        explicit ?? profileDefault
+    }
+
+    /// Turns incognito on or off for a night. updateEvent(id:) persists locally and
+    /// pushes the event (with `incognito`) to Firestore.
+    func setIncognito(_ on: Bool, for eventId: String) {
+        // The one push allowed to write incognito: false (pushEvent omits it otherwise).
+        updateEvent(id: eventId, explicitIncognito: true) { $0.incognito = on }
+        // Going incognito deletes the shared night (and clears lastSent); coming back
+        // re-sends the whole night.
+        syncSharedNight()
     }
 
     // MARK: - AI Report
@@ -1389,6 +1542,7 @@ final class AppState: ObservableObject {
     }
 
     func deleteEvent(_ id: String) {
+        let wasShared = sharedNightEvent()?.id == id
         DataStore.shared.deleteEvent(id)
         events.removeAll { $0.id == id }
         entries.removeAll { $0.eventId == id }
@@ -1396,14 +1550,19 @@ final class AppState: ObservableObject {
         foodEntries.removeAll { $0.eventId == id }
         refreshWaterReminder()
         push { try await FirebaseManager.shared.deleteEvent(id) }
+        if wasShared {
+            deleteSharedNightRemotely()
+            syncSharedNight()
+        }
     }
 
-    private func updateEvent(id: String, mutate: (inout NightEvent) -> Void) {
+    private func updateEvent(id: String, explicitIncognito: Bool = false,
+                             mutate: (inout NightEvent) -> Void) {
         guard let idx = events.firstIndex(where: { $0.id == id }) else { return }
         mutate(&events[idx])
         DataStore.shared.updateEvent(events[idx])
         let updated = events[idx]
-        push { try await FirebaseManager.shared.pushEvent(updated) }
+        push { try await FirebaseManager.shared.pushEvent(updated, explicitIncognito: explicitIncognito) }
     }
 
     // MARK: - Entries
@@ -1439,6 +1598,7 @@ final class AppState: ObservableObject {
         updateLiveActivity(for: eventId)
         push { try await FirebaseManager.shared.pushEntry(entry) }
         WatchBridge.shared.pushState()
+        syncSharedNight()
     }
 
     func updateEntry(_ entry: DrinkEntry) {
@@ -1447,6 +1607,7 @@ final class AppState: ObservableObject {
             entries[idx] = entry
         }
         push { try await FirebaseManager.shared.pushEntry(entry) }
+        syncSharedNight()
     }
 
     func deleteEntry(_ id: String) {
@@ -1459,6 +1620,7 @@ final class AppState: ObservableObject {
             bacTick = Date()
             updateLiveActivity(for: active.id)
         }
+        syncSharedNight()
     }
 
     func undoLastEntry() {
@@ -1540,11 +1702,13 @@ final class AppState: ObservableObject {
         let entry = FoodEntry(id: generateId(), eventId: eventId, type: type, timestamp: Date())
         DataStore.shared.addFoodEntry(entry)
         foodEntries.append(entry)
+        syncSharedNight()
     }
 
     func deleteFoodEntry(_ id: String) {
         DataStore.shared.deleteFoodEntry(id)
         foodEntries.removeAll { $0.id == id }
+        syncSharedNight()
     }
 
     func foodList(for eventId: String) -> [FoodEntry] {
@@ -1773,6 +1937,8 @@ final class AppState: ObservableObject {
 
     func retrySync() {
         syncFailed = false
+        lastSentSharedNight = nil
+        syncSharedNight()
         Task {
             let data = await FirebaseManager.shared.pullUserData()
             applyCloudData(data)
@@ -1794,8 +1960,23 @@ final class AppState: ObservableObject {
     func applyCloudData(_ data: FirebaseManager.PulledData) {
         let localEventIds = Set(events.map { $0.id })
         let newEvents = data.events.filter { !localEventIds.contains($0.id) }
-        if !newEvents.isEmpty {
-            events.append(contentsOf: newEvents)
+        // Events already here keep the local copy, except incognito: if another
+        // device turned it on, this one must stop sharing that night too.
+        let cloudIncognito = Dictionary(
+            data.events.map { ($0.id, $0.incognito) }, uniquingKeysWith: { first, _ in first }
+        )
+        var mergedEvents = events
+        var incognitoChanged = false
+        for i in mergedEvents.indices {
+            guard let cloud = cloudIncognito[mergedEvents[i].id] else { continue }
+            let merged = Self.mergedIncognito(local: mergedEvents[i].incognito, cloud: cloud)
+            if merged != mergedEvents[i].incognito {
+                mergedEvents[i].incognito = merged
+                incognitoChanged = true
+            }
+        }
+        if incognitoChanged || !newEvents.isEmpty {
+            events = mergedEvents + newEvents
             DataStore.shared.saveEvents(events)
         }
 
@@ -1851,6 +2032,11 @@ final class AppState: ObservableObject {
             }
         }
         refreshWaterReminder()
+        // Releases any shared-night write held back until now, and deletes the shared
+        // night if the merge just made it incognito. A failed or cache-only pull keeps writes
+        // held (deletes still go out); refreshOnForeground/retrySync try again.
+        if data.succeeded { hasAppliedCloudData = true }
+        syncSharedNight()
     }
 
     // MARK: - BAC helpers (for active event view)

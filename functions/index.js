@@ -13,6 +13,8 @@ const {
 const {initializeApp} = require("firebase-admin/app");
 const {getFirestore} = require("firebase-admin/firestore");
 const {getAuth} = require("firebase-admin/auth");
+const {getStorage} = require("firebase-admin/storage");
+const {ImageAnnotatorClient} = require("@google-cloud/vision");
 const {Anthropic} = require("@anthropic-ai/sdk");
 const {generateReport} = require("./report-service");
 const {deleteAccount} = require("./accounts");
@@ -25,6 +27,8 @@ const {
 const {lookupDrink} = require("./drink-lookup");
 const {buildPrompt} = require("./prompts");
 const liveActivity = require("./live-activity");
+const social = require("./social");
+const {setAvatar} = require("./avatar");
 
 initializeApp();
 setGlobalOptions({region: "us-central1", maxInstances: 10});
@@ -179,6 +183,7 @@ exports.deleteAccount = onCall(
       return deleteAccount({
         db: getFirestore(),
         auth: getAuth(),
+        bucket: getStorage().bucket(),
         uid: request.auth.uid,
         authTime: request.auth.token.auth_time,
       });
@@ -222,5 +227,108 @@ exports.pushLiveActivities = onSchedule(
       } finally {
         client.close();
       }
+    },
+);
+
+// Friends v1. Each callable is a thin shell: auth check, then social.js.
+const socialCallable = (fn) => onCall(
+    {timeoutSeconds: 30, enforceAppCheck: true},
+    async (request) => {
+      if (!request.auth) {
+        throw new HttpsError("unauthenticated", "Please sign in.");
+      }
+      return social[fn]({
+        db: getFirestore(),
+        uid: request.auth.uid,
+        data: request.data,
+      });
+    },
+);
+
+// Request and accept pushes go out with an APNs client built per call. A
+// bad key or config only loses the push, never the friendship write.
+const alertPushClient = () => {
+  try {
+    return liveActivity.apnsClient({
+      jwt: liveActivity.apnsJwt({
+        key: apnsKey.value(),
+        keyId: apnsKeyId.value(),
+        teamId: appleTeamId.value(),
+        nowSeconds: Math.floor(Date.now() / 1000),
+      }),
+      topic: "com.lorenzoog.siptrack",
+      pushType: "alert",
+    });
+  } catch (error) {
+    console.error("APNs client setup failed; pushes skipped", error);
+    return null;
+  }
+};
+
+const pushingCallable = (fn) => onCall(
+    {secrets: [apnsKey], timeoutSeconds: 30, enforceAppCheck: true},
+    async (request) => {
+      if (!request.auth) {
+        throw new HttpsError("unauthenticated", "Please sign in.");
+      }
+      const client = alertPushClient();
+      try {
+        const db = getFirestore();
+        return await social[fn]({
+          db,
+          uid: request.auth.uid,
+          data: request.data,
+          notify: client ?
+            social.notifyFromPushTokens({db, send: client.send}) :
+            async () => {},
+        });
+      } finally {
+        if (client) client.close();
+      }
+    },
+);
+
+exports.claimUsername = socialCallable("claimUsername");
+exports.searchUsers = socialCallable("searchUsers");
+exports.cancelFriendRequest = socialCallable("cancelFriendRequest");
+exports.removeFriend = socialCallable("removeFriend");
+exports.blockUser = socialCallable("blockUser");
+exports.unblockUser = socialCallable("unblockUser");
+exports.reportUser = socialCallable("reportUser");
+exports.registerPushToken = socialCallable("registerPushToken");
+exports.sendFriendRequest = pushingCallable("sendFriendRequest");
+exports.respondToFriendRequest = pushingCallable("respondToFriendRequest");
+
+let visionClient;
+// Likelihood strings per category, as the avatar moderation expects.
+const safeSearch = async (buffer) => {
+  visionClient = visionClient || new ImageAnnotatorClient();
+  const [result] = await visionClient.safeSearchDetection({
+    image: {content: buffer},
+  });
+  // A per-image failure comes back as result.error, not a throw. Throwing
+  // here lands in setAvatar's fail-closed "unavailable" path.
+  if (!result || result.error || !result.safeSearchAnnotation) {
+    throw new Error(
+        `SafeSearch returned no verdict: ${result && result.error ?
+          result.error.message : "missing annotation"}`);
+  }
+  const {adult, violence, racy} = result.safeSearchAnnotation;
+  return {adult, violence, racy};
+};
+
+exports.setAvatar = onCall(
+    {timeoutSeconds: 30, enforceAppCheck: true},
+    async (request) => {
+      if (!request.auth) {
+        throw new HttpsError("unauthenticated", "Please sign in.");
+      }
+      return setAvatar({
+        db: getFirestore(),
+        bucket: getStorage().bucket(),
+        uid: request.auth.uid,
+        data: request.data,
+        safeSearch,
+      });
     },
 );

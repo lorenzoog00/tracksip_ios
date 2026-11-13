@@ -155,3 +155,24 @@ test("the last push of a night removes it", async () => {
   await la.pushDue({db, nowMs: 1700 * 1000, send: async () => ({status: 200})});
   assert.equal(db.docs.size, 0);
 });
+
+test("apnsHeaders defaults to a live activity push", () => {
+  const h = la.apnsHeaders({jwt: "J", topic: "com.x", token: "ab"});
+  assert.equal(h["apns-push-type"], "liveactivity");
+  assert.equal(h[":path"], "/3/device/ab");
+  assert.equal(h.authorization, "bearer J");
+  assert.equal(h["apns-topic"], "com.x");
+});
+
+test("apnsHeaders honours an alert push type", () => {
+  const h = la.apnsHeaders({
+    jwt: "J", topic: "com.x", token: "ab", pushType: "alert",
+  });
+  assert.equal(h["apns-push-type"], "alert");
+});
+
+test("parseSync and validatePushToken share token rules", () => {
+  assert.doesNotThrow(() => la.validatePushToken(TOKEN, "sandbox"));
+  assert.throws(() => la.validatePushToken("zz", "sandbox"), /token/i);
+  assert.throws(() => la.validatePushToken(TOKEN, "staging"), /environment/i);
+});

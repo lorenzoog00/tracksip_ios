@@ -40,14 +40,15 @@ service cloud.firestore {
             && text(d.get('name', ''), 200)
             && d.get('ended_at', 0) is number
             && d.get('bac_limit', 0) is number
-            && text(d.get('notes', ''), 4000);
+            && text(d.get('notes', ''), 4000)
+            && d.get('incognito', false) is bool;
         }
         allow read, delete: if owner(uid);
         allow create: if owner(uid) && request.resource.data.keys().hasOnly([
-          'started_at', 'driving_mode', 'created_at', 'name', 'ended_at', 'bac_limit', 'notes'
+          'started_at', 'driving_mode', 'created_at', 'name', 'ended_at', 'bac_limit', 'notes', 'incognito'
         ]) && validEvent(request.resource.data);
         allow update: if owner(uid) && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'started_at', 'driving_mode', 'created_at', 'name', 'ended_at', 'bac_limit', 'notes'
+          'started_at', 'driving_mode', 'created_at', 'name', 'ended_at', 'bac_limit', 'notes', 'incognito'
         ]) && validEvent(request.resource.data);
       }
 
@@ -69,18 +70,21 @@ service cloud.firestore {
             && d.get('country_detection_disabled', false) is bool
             && d.get('favorite_drink_ids', []) is list
             && d.get('favorite_drink_ids', []).size() <= 200
-            && d.get('ai_reports_enabled', false) is bool;
+            && d.get('ai_reports_enabled', false) is bool
+            && d.get('incognito_by_default', false) is bool;
         }
         allow read, delete: if owner(uid);
         allow create: if owner(uid) && request.resource.data.keys().hasOnly([
           'weight_kg', 'sex', 'onboarding_complete', 'height_cm', 'age',
           'disclaimer_accepted_at', 'country_code', 'country_detection_last_dismissed',
-          'country_detection_disabled', 'favorite_drink_ids', 'ai_reports_enabled'
+          'country_detection_disabled', 'favorite_drink_ids', 'ai_reports_enabled',
+          'incognito_by_default'
         ]) && validProfile(request.resource.data);
         allow update: if owner(uid) && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'weight_kg', 'sex', 'onboarding_complete', 'height_cm', 'age',
           'disclaimer_accepted_at', 'country_code', 'country_detection_last_dismissed',
-          'country_detection_disabled', 'favorite_drink_ids', 'ai_reports_enabled'
+          'country_detection_disabled', 'favorite_drink_ids', 'ai_reports_enabled',
+          'incognito_by_default'
         ]) && validProfile(request.resource.data);
       }
 
@@ -154,5 +158,59 @@ service cloud.firestore {
       }
     }
 
+
+    // --- Social graph (Friends v1) ---------------------------------------
+    // Everything here is written by the Admin SDK in Cloud Functions, which
+    // bypasses rules, so no client write is ever allowed. Anything not named
+    // below (usernames, reports, push_tokens) falls to the default deny.
+    // get, not list: profiles are looked up by uid; search goes through the
+    // searchUsers callable, so the collection can't be enumerated.
+    match /public_profiles/{uid} {
+      allow get: if request.auth != null;
+    }
+
+    match /friend_requests/{id} {
+      allow read: if request.auth != null
+        && (resource.data.to == request.auth.uid
+          || resource.data.from == request.auth.uid);
+    }
+
+    match /friendships/{uid}/friends/{fid} {
+      allow read: if owner(uid);
+    }
+
+    match /blocks/{uid}/blocked/{bid} {
+      allow read: if owner(uid);
+    }
+
+    // --- Shared night -----------------------------------------------------
+    // The one document a friend may read, and only for 24 h: expires_at is
+    // checked against request.time on every get, and expires_at may not be
+    // set more than 25 h ahead. The key allowlist keeps notes, driving_mode
+    // and bac_limit out of this doc, but rules cannot inspect list element
+    // contents: the client must build drinks with only name/icon/at. Get only,
+    // so a friend cannot list the collection. Create and update validate the
+    // whole resulting doc. A friend get costs three exists() calls, with the
+    // tombstone lookup shared with owner().
+    match /shared_nights/{uid} {
+      function validNight(d) {
+        return d.started_at is number
+          && d.last_drink_at is number
+          && d.get('ended_at', 0) is number
+          && d.expires_at is timestamp
+          && d.expires_at <= request.time + duration.value(25, 'h')
+          && d.samples is list && d.samples.size() <= 300
+          && d.drinks is list && d.drinks.size() <= 100;
+      }
+      allow get: if owner(uid)
+        || (request.auth != null
+          && !exists(/databases/$(database)/documents/account_deletions/$(uid))
+          && exists(/databases/$(database)/documents/friendships/$(uid)/friends/$(request.auth.uid))
+          && (resource == null || resource.data.expires_at > request.time));
+      allow create, update: if owner(uid) && request.resource.data.keys().hasOnly([
+        'started_at', 'ended_at', 'last_drink_at', 'expires_at', 'samples', 'drinks'
+      ]) && validNight(request.resource.data);
+      allow delete: if owner(uid);
+    }
   }
 }

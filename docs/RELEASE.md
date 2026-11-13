@@ -89,7 +89,7 @@ npm test
 # Requires Java 21+; uses demo-siptrack, never production data.
 npm run test:emulator
 npm audit --omit=dev
-npx firebase deploy --only functions,firestore:rules --project YOUR_PROJECT_ID
+npx firebase deploy --only functions,firestore:rules,storage --project YOUR_PROJECT_ID
 ```
 
 The live project is `device-streaming-8326abff` ("Tracksip" in the Firebase
@@ -150,6 +150,69 @@ retried after signing in. Confirm the retry operationally in staging.
    AI processing is disabled until the user enables it in Profile.
 5. Validate the archive in Organizer and upload to App Store Connect. No upload or
    production deployment is performed by this cleanup.
+
+## Friends / social release checklist
+
+Friends v1 adds 11 callable functions, new Firestore rules and indexes, avatar
+uploads and a report alert. **CI never deploys functions or indexes**, so none of
+this ships with the app build: do every step below before distributing it. All of
+it is done by the developer with their own credentials.
+
+1. **Firebase project `device-streaming-8326abff`** (the live one, "Tracksip" in
+   the console). In Google Cloud Console for that project, enable the **Cloud
+   Vision API** (avatar SafeSearch runs on it).
+2. Make sure the **default Storage bucket exists** (Firebase Console → Storage →
+   Get started; **choose Production mode**). Avatar uploads fail without it.
+   `storage.rules` denies every client read and write; avatars are written by
+   the Admin SDK and served through token download URLs, which still work.
+3. Deploy rules, indexes, Storage rules and functions together:
+
+   ```powershell
+   cd functions
+   $env:FUNCTIONS_DISCOVERY_TIMEOUT=120
+   npx firebase deploy --only firestore:rules,firestore:indexes,storage,functions --project device-streaming-8326abff
+   ```
+
+   `firestore.indexes.json` declares the `blocked.uid` collection-group index and
+   the `shared_nights.expires_at` TTL policy. **A missing `blocked.uid` index makes
+   `deleteAccount` fail in production**, because deletion queries who blocked the
+   user. The TTL policy is what actually deletes expired shared nights.
+4. Confirm all 11 new callables exist (the secrets from "One-time
+   configuration" above are still required to deploy):
+
+   ```powershell
+   npx firebase functions:list --project device-streaming-8326abff
+   ```
+
+   Expect `claimUsername`, `searchUsers`, `sendFriendRequest`,
+   `respondToFriendRequest`, `cancelFriendRequest`, `removeFriend`, `blockUser`,
+   `unblockUser`, `reportUser`, `setAvatar` and `registerPushToken`. A shipped
+   callable that is missing from this list is a 404 in the app.
+5. **Report alert.** In Google Cloud Console → Logging → Log-based alerts, create
+   an alert on log text `SOCIAL_REPORT` (the `reportUser` function logs it) that
+   emails the developer. We act on reports within 24 hours, as Apple asks of apps with
+   user-generated content.
+   Test it by filing a report from a test account.
+6. **App Privacy and privacy policy.** In App Store Connect → App Privacy add:
+   **Photos or Videos** (the profile photo). The username is a handle, covered by
+   the existing **User ID**; drink and BAC data shared with friends stays under
+   **Health** (also shared with other users). All linked to the user, not used for
+   tracking, purpose App Functionality. State in the privacy policy (https://looqs.online/siptrack/policy)
+   that drink and BAC data of a night is shared with the user's friends for 24
+   hours (unless incognito), that profile photos are checked by Google Cloud
+   Vision SafeSearch, and that account deletion removes friendships, requests,
+   blocks, avatar and shared nights. `PrivacyInfo.xcprivacy` is already updated.
+7. **Two-account TestFlight QA.** Use two real devices or accounts, A and B:
+   1. Both claim a username.
+   2. A sends B a request; B accepts. A push arrives on both sides.
+   3. A starts a night: B sees it live in the feed with a matching BAC.
+   4. A turns incognito on mid-night: the night disappears from B's feed.
+   5. A turns incognito off, then ends a normal night: it moves to "Last 24
+      hours" on B.
+   6. B blocks A: search and feed are empty both ways.
+   7. Delete account A: B's friends list no longer shows A.
+   8. Report a user from the friends list, search results and incoming requests,
+      once by username and once by photo; the `SOCIAL_REPORT` email arrives.
 
 ## Dependencies
 

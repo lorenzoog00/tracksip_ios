@@ -19,6 +19,8 @@ struct RestoringProfileView: View {
     }
 }
 
+enum AppTab: Hashable { case home, social }
+
 /// Covers the whole app when this version is below `RequiredUpdate`'s
 /// minimum. No close button: the only way out is the App Store.
 struct UpdateRequiredView: View {
@@ -59,6 +61,8 @@ struct RootView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var firebase: FirebaseManager
     @EnvironmentObject var countryDetector: LocationCountryDetector
+    @EnvironmentObject var friends: FriendsStore
+    @State private var selectedTab: AppTab = .home
     @Environment(\.scenePhase) private var scenePhase
     @State private var path = NavigationPath()
     @State private var updateRequired = false
@@ -79,61 +83,86 @@ struct RootView: View {
                     OnboardingView()
                 }
             } else {
-                NavigationStack(path: $path) {
-                    HomeView()
-                        .task {
-                            if appState.shouldAttemptCountryDetection {
-                                countryDetector.requestOnce()
-                            }
-                        }
-                        .navigationDestination(for: Route.self) { route in
-                            switch route {
-                            case .event(let id):
-                                ActiveEventView(eventId: id)
-                            case .guidedEvent(let id, let target):
-                                ActiveEventView(eventId: id, guideTarget: target)
-                            case .summary(let id):
-                                SummaryView(eventId: id)
-                            case .stories(let id):
-                                StoriesView(eventId: id)
-                            case .calendar:
-                                CalendarView()
-                            case .dashboard:
-                                DashboardView()
-                            case .challenges:
-                                ChallengesView()
-                            case .drinks:
-                                DrinksView()
-                            case .guidedDrinkCalories:
-                                DrinksView(highlightsCalories: true)
-                            case .profile:
-                                ProfileView()
-                            case .guidedProfile(let target):
-                                ProfileView(guideTarget: target)
-                            case .gettingStarted:
-                                if let userID = appState.currentUserId {
-                                    GettingStartedView(userID: userID)
-                                        .id(userID)
+                TabView(selection: $selectedTab) {
+                    NavigationStack(path: $path) {
+                        HomeView()
+                            .task {
+                                if appState.shouldAttemptCountryDetection {
+                                    countryDetector.requestOnce()
                                 }
-                            case .subscription:
-                                ProView(presentation: .pushed)
-                            case .auth(let signUp):
-                                AuthView(startOnSignUp: signUp)
-                            case .coach:
-                                CoachView()
+                            }
+                            .navigationDestination(for: Route.self) { route in
+                                // Group so the tab bar hides for every pushed screen,
+                                // not covering bottom controls.
+                                Group {
+                                switch route {
+                                case .event(let id):
+                                    ActiveEventView(eventId: id)
+                                case .guidedEvent(let id, let target):
+                                    ActiveEventView(eventId: id, guideTarget: target)
+                                case .summary(let id):
+                                    SummaryView(eventId: id)
+                                case .stories(let id):
+                                    StoriesView(eventId: id)
+                                case .calendar:
+                                    CalendarView()
+                                case .dashboard:
+                                    DashboardView()
+                                case .challenges:
+                                    ChallengesView()
+                                case .drinks:
+                                    DrinksView()
+                                case .guidedDrinkCalories:
+                                    DrinksView(highlightsCalories: true)
+                                case .profile:
+                                    ProfileView()
+                                case .guidedProfile(let target):
+                                    ProfileView(guideTarget: target)
+                                case .gettingStarted:
+                                    if let userID = appState.currentUserId {
+                                        GettingStartedView(userID: userID)
+                                            .id(userID)
+                                    }
+                                case .subscription:
+                                    ProView(presentation: .pushed)
+                                case .auth(let signUp):
+                                    AuthView(startOnSignUp: signUp)
+                                case .coach:
+                                    CoachView()
+                                }
+                                }
+                                .toolbar(.hidden, for: .tabBar)
+                            }
+                    }
+                    .onChange(of: appState.pendingSummaryEventId) { _, newValue in
+                        guard let eventId = newValue else { return }
+                        selectedTab = .home
+                        if !path.isEmpty { path.removeLast() }
+                        path.append(Route.summary(eventId))
+                        appState.pendingSummaryEventId = nil
+                    }
+                    .onChange(of: appState.pendingEventRoute) { _, route in
+                        guard let route else { return }
+                        selectedTab = .home
+                        path.append(route)
+                        appState.pendingEventRoute = nil
+                    }
+                    .tabItem { Label("Home", systemImage: "house.fill") }
+                    .tag(AppTab.home)
+
+                    SocialRootView()
+                        .tabItem {
+                            Label {
+                                Text("Social")
+                            } icon: {
+                                SocialTabIcon.image(
+                                    showDot: friends.pendingCount == 0 && friends.liveCount > 0,
+                                    selected: selectedTab == .social
+                                )
                             }
                         }
-                }
-                .onChange(of: appState.pendingSummaryEventId) { _, newValue in
-                    guard let eventId = newValue else { return }
-                    if !path.isEmpty { path.removeLast() }
-                    path.append(Route.summary(eventId))
-                    appState.pendingSummaryEventId = nil
-                }
-                .onChange(of: appState.pendingEventRoute) { _, route in
-                    guard let route else { return }
-                    path.append(route)
-                    appState.pendingEventRoute = nil
+                        .badge(friends.pendingCount)
+                        .tag(AppTab.social)
                 }
             }
         }
@@ -153,6 +182,9 @@ struct RootView: View {
             guard !Task.isCancelled else { return }
             updateRequired = required
         }
+        .onChange(of: appState.pendingOpenFriends) { _, open in
+            if open { selectedTab = .social }
+        }
         .onChange(of: appState.reportErrorMessage) { _, message in
             guard let message else { return }
             NoticeCenter.shared.show(Notice(
@@ -167,6 +199,7 @@ struct RootView: View {
             // re-arms the one-shot detector; the next HomeView.task fires it.
             if signedIn { countryDetector.resetSession() }
             path = NavigationPath()
+            if !signedIn { selectedTab = .home }
         }
         // `path` is state on RootView, so it outlives the NavigationStack that
         // reads it. The Group above tears that stack down whenever the gate

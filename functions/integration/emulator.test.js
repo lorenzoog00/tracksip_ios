@@ -13,6 +13,11 @@ const {
   getDoc,
   deleteDoc,
   updateDoc,
+  Timestamp,
+  collection,
+  query,
+  where,
+  getDocs,
 } = require("firebase/firestore");
 const {initializeApp, deleteApp} = require("firebase-admin/app");
 const {getFirestore} = require("firebase-admin/firestore");
@@ -275,6 +280,7 @@ test("deletion during generation never recreates user report or job", async () =
               authDeleted = true;
             },
           },
+          bucket: {file: () => ({delete: async () => {}})},
           uid: "alice",
           authTime: Date.now() / 1000,
         });
@@ -294,6 +300,76 @@ test("deletion during generation never recreates user report or job", async () =
         true,
     );
   }
+});
+
+test("deleting an account removes every social trace of it", async () => {
+  await seed();
+  const deletedFiles = [];
+  const bucket = {
+    file: (name) => ({
+      delete: async (options) => deletedFiles.push({name, options}),
+    }),
+  };
+  const writes = {
+    "public_profiles/A": {username: "a"},
+    "public_profiles/B": {username: "b"},
+    "usernames/a": {uid: "A"},
+    "usernames/b": {uid: "B"},
+    "friendships/A/friends/B": {uid: "B"},
+    "friendships/B/friends/A": {uid: "A"},
+    "friendships/B/friends/D": {uid: "D"},
+    "friend_requests/C_A": {from: "C", to: "A"},
+    "friend_requests/A_E": {from: "A", to: "E"},
+    "friend_requests/C_E": {from: "C", to: "E"},
+    "blocks/A/blocked/F": {uid: "F"},
+    "blocks/B/blocked/A": {uid: "A"},
+    "blocks/B/blocked/G": {uid: "G"},
+    "shared_nights/A": {x: 1},
+    "push_tokens/A": {token: "t"},
+    "push_tokens/B": {token: "t"},
+  };
+  for (const [path, data] of Object.entries(writes)) {
+    await db.doc(path).set(data);
+  }
+  await deleteAccount({
+    db,
+    auth: {deleteUser: async () => {}},
+    bucket,
+    uid: "A",
+    authTime: Date.now() / 1000,
+  });
+  for (const gone of [
+    "public_profiles/A", "usernames/a", "friendships/A/friends/B",
+    "friendships/B/friends/A", "friend_requests/C_A", "friend_requests/A_E",
+    "blocks/A/blocked/F", "blocks/B/blocked/A", "shared_nights/A",
+    "push_tokens/A",
+  ]) {
+    assert.equal(await exists(gone), false, gone);
+  }
+  for (const kept of [
+    "public_profiles/B", "usernames/b", "friendships/B/friends/D",
+    "friend_requests/C_E", "blocks/B/blocked/G", "push_tokens/B",
+  ]) {
+    assert.equal(await exists(kept), true, kept);
+  }
+  assert.deepEqual(deletedFiles, [
+    {name: "avatars/A.jpg", options: {ignoreNotFound: true}},
+  ]);
+});
+
+test("a retried deletion still releases a handle whose profile is gone", async () => {
+  await seed();
+  await db.doc("usernames/x").set({uid: "A"});
+  await db.doc("usernames/y").set({uid: "B"});
+  await deleteAccount({
+    db,
+    auth: {deleteUser: async () => {}},
+    bucket: {file: () => ({delete: async () => {}})},
+    uid: "A",
+    authTime: Date.now() / 1000,
+  });
+  assert.equal(await exists("usernames/x"), false);
+  assert.equal(await exists("usernames/y"), true);
 });
 
 test("deletion requires recent authentication before deleting data", async () => {
@@ -407,5 +483,712 @@ test("a purchase bound to another account cannot grant paid quotas", async () =>
   assert.equal(
       (await db.doc("users/alice/report_usage/current").get()).exists,
       false,
+  );
+});
+
+// social: usernames
+const {claimUsername, searchUsers} = require("../social");
+
+const claim = (uid, username) => claimUsername({db, uid, data: {username}});
+const search = (uid, query) => searchUsers({db, uid, data: {query}});
+
+test("social: claiming a username writes the handle and public profile", async () => {
+  const result = await claim("a", "Lorenzo");
+  assert.deepEqual(result, {username: "lorenzo"});
+  const profile = (await db.doc("public_profiles/a").get()).data();
+  assert.equal(profile.username, "lorenzo");
+  assert.match(profile.avatar_color, /^#[0-9A-F]{6}$/i);
+  assert.equal((await db.doc("usernames/lorenzo").get()).data().uid, "a");
+});
+
+test("social: a taken username is rejected case-insensitively", async () => {
+  await claim("a", "lorenzo");
+  await assert.rejects(
+      claim("b", "LORENZO"),
+      (e) => e.code === "already-exists" && e.message === "That username is taken.",
+  );
+});
+
+test("social: disallowed usernames are rejected", async () => {
+  for (const name of ["ab", "admin", "bad name", 7]) {
+    await assert.rejects(
+        claim("a", name),
+        (e) => e.code === "invalid-argument" &&
+          e.message === "That username isn't allowed.",
+    );
+  }
+});
+
+test("social: concurrent claims of one name produce a single owner", async () => {
+  const results = await Promise.allSettled([claim("a", "same"), claim("b", "same")]);
+  assert.equal(results.filter((r) => r.status === "fulfilled").length, 1);
+  const winner = results[0].status === "fulfilled" ? "a" : "b";
+  assert.equal((await db.doc("usernames/same").get()).data().uid, winner);
+});
+
+test("social: renaming frees the old name and keeps the avatar color", async () => {
+  await claim("a", "lorenzo");
+  const before = (await db.doc("public_profiles/a").get()).data();
+  await claim("a", "newname");
+  assert.equal((await db.doc("usernames/lorenzo").get()).exists, false);
+  assert.equal((await db.doc("usernames/newname").get()).data().uid, "a");
+  const after = (await db.doc("public_profiles/a").get()).data();
+  assert.equal(after.username, "newname");
+  assert.equal(after.avatar_color, before.avatar_color);
+  assert.deepEqual(await claim("b", "lorenzo"), {username: "lorenzo"});
+});
+
+test("social: re-claiming your current name succeeds", async () => {
+  await claim("a", "lorenzo");
+  assert.deepEqual(await claim("a", "Lorenzo"), {username: "lorenzo"});
+  assert.equal((await db.doc("usernames/lorenzo").get()).data().uid, "a");
+});
+
+test("social: search matches by prefix and hides blocks in both directions", async () => {
+  await claim("a", "lorenzo");
+  await claim("b", "lola");
+  await claim("c", "other");
+  const found = await search("b", "LO");
+  assert.deepEqual(found.results.map((r) => r.uid), ["a"]);
+  assert.equal(found.results[0].username, "lorenzo");
+  assert.equal(found.results[0].photo_url, null);
+  assert.ok(found.results[0].avatar_color);
+  assert.deepEqual((await search("b", "l")).results, []);
+
+  await db.doc("blocks/a/blocked/b").set({uid: "b", created_at: 1});
+  assert.deepEqual((await search("b", "lo")).results, []);
+  assert.deepEqual((await search("a", "lo")).results, []);
+
+  await claim("d", "lolo");
+  await db.doc("blocks/c/blocked/d").set({uid: "d", created_at: 1});
+  await db.doc("blocks/c/blocked/a").set({uid: "a", created_at: 1});
+  assert.deepEqual((await search("c", "lo")).results.map((r) => r.uid), ["b"]);
+  assert.deepEqual((await search("d", "lo")).results.map((r) => r.uid), ["b", "a"]);
+});
+
+// social: requests, friendships, blocks
+const social = require("../social");
+
+const makeNotify = () => {
+  const calls = [];
+  const notify = async (...args) => {
+    calls.push(args);
+  };
+  return {calls, notify};
+};
+const call = (fn, uid, data, notify) => social[fn]({db, uid, data, notify});
+const exists = async (path) => (await db.doc(path).get()).exists;
+const countDocs = async (path) => (await db.collection(path).get()).size;
+
+const twoUsers = async () => {
+  await claim("A", "alice");
+  await claim("B", "bobby");
+};
+
+test("social: request then accept creates both friendships and notifies", async () => {
+  await twoUsers();
+  const {calls, notify} = makeNotify();
+  assert.deepEqual(
+      await call("sendFriendRequest", "A", {toUid: "B"}, notify),
+      {status: "requested"},
+  );
+  const request = (await db.doc("friend_requests/A_B").get()).data();
+  assert.equal(request.from, "A");
+  assert.equal(request.to, "B");
+  assert.equal(typeof request.created_at, "number");
+
+  assert.deepEqual(
+      await call("respondToFriendRequest", "B", {fromUid: "A", accept: true}, notify),
+      {status: "friends"},
+  );
+  assert.equal(await exists("friend_requests/A_B"), false);
+  assert.equal(typeof (await db.doc("friendships/A/friends/B").get()).data().since, "number");
+  assert.equal(typeof (await db.doc("friendships/B/friends/A").get()).data().since, "number");
+  assert.deepEqual(calls, [["B", "request", "alice"], ["A", "accepted", "bobby"]]);
+});
+
+test("social: mutual pending requests become friends with no requests left", async () => {
+  await twoUsers();
+  const {calls, notify} = makeNotify();
+  await call("sendFriendRequest", "A", {toUid: "B"}, notify);
+  assert.deepEqual(
+      await call("sendFriendRequest", "B", {toUid: "A"}, notify),
+      {status: "friends"},
+  );
+  assert.equal(await countDocs("friend_requests"), 0);
+  assert.equal(await exists("friendships/A/friends/B"), true);
+  assert.equal(await exists("friendships/B/friends/A"), true);
+  assert.deepEqual(calls, [["B", "request", "alice"], ["A", "accepted", "bobby"]]);
+});
+
+test("social: declining deletes the request without a friendship", async () => {
+  await twoUsers();
+  const {calls, notify} = makeNotify();
+  await call("sendFriendRequest", "A", {toUid: "B"}, notify);
+  assert.deepEqual(
+      await call("respondToFriendRequest", "B", {fromUid: "A", accept: false}, notify),
+      {status: "declined"},
+  );
+  assert.equal(await countDocs("friend_requests"), 0);
+  assert.equal(await exists("friendships/A/friends/B"), false);
+  assert.equal(await exists("friendships/B/friends/A"), false);
+  assert.deepEqual(calls, [["B", "request", "alice"]]);
+});
+
+test("social: responding to a missing request is not-found", async () => {
+  await twoUsers();
+  await assert.rejects(
+      call("respondToFriendRequest", "B", {fromUid: "A", accept: true}, makeNotify().notify),
+      (e) => e.code === "not-found",
+  );
+  assert.equal(await exists("friendships/A/friends/B"), false);
+});
+
+test("social: cancelling removes only the callers own pending request", async () => {
+  await twoUsers();
+  const {notify} = makeNotify();
+  await call("sendFriendRequest", "A", {toUid: "B"}, notify);
+  await call("cancelFriendRequest", "B", {toUid: "A"}, notify);
+  assert.equal(await exists("friend_requests/A_B"), true);
+  await call("cancelFriendRequest", "A", {toUid: "B"}, notify);
+  assert.equal(await exists("friend_requests/A_B"), false);
+});
+
+test("social: removing a friend deletes both sides without notifying", async () => {
+  await twoUsers();
+  const {calls, notify} = makeNotify();
+  await call("sendFriendRequest", "A", {toUid: "B"}, notify);
+  await call("respondToFriendRequest", "B", {fromUid: "A", accept: true}, notify);
+  calls.length = 0;
+  await call("removeFriend", "A", {friendUid: "B"}, notify);
+  assert.equal(await exists("friendships/A/friends/B"), false);
+  assert.equal(await exists("friendships/B/friends/A"), false);
+  assert.deepEqual(calls, []);
+});
+
+test("social: requests need usernames on both sides", async () => {
+  await claim("B", "bobby");
+  const {calls, notify} = makeNotify();
+  await assert.rejects(
+      call("sendFriendRequest", "A", {toUid: "B"}, notify),
+      (e) => e.code === "failed-precondition",
+  );
+  await claim("A", "alice");
+  await assert.rejects(
+      call("sendFriendRequest", "A", {toUid: "Z"}, notify),
+      (e) => e.code === "not-found",
+  );
+  assert.equal(await countDocs("friend_requests"), 0);
+  assert.deepEqual(calls, []);
+});
+
+test("social: requesting yourself is rejected and an existing friend is a no-op", async () => {
+  await twoUsers();
+  const {calls, notify} = makeNotify();
+  await assert.rejects(
+      call("sendFriendRequest", "A", {toUid: "A"}, notify),
+      (e) => e.code === "invalid-argument",
+  );
+  await call("sendFriendRequest", "A", {toUid: "B"}, notify);
+  await call("respondToFriendRequest", "B", {fromUid: "A", accept: true}, notify);
+  calls.length = 0;
+  assert.deepEqual(
+      await call("sendFriendRequest", "A", {toUid: "B"}, notify),
+      {status: "friends"},
+  );
+  assert.equal(await countDocs("friend_requests"), 0);
+  assert.deepEqual(calls, []);
+});
+
+test("social: a failing notify does not fail the callable", async () => {
+  await twoUsers();
+  const notify = async () => {
+    throw new Error("push down");
+  };
+  assert.deepEqual(
+      await call("sendFriendRequest", "A", {toUid: "B"}, notify),
+      {status: "requested"},
+  );
+  assert.equal(await exists("friend_requests/A_B"), true);
+});
+
+test("social: blocking removes friendship and requests both ways and bars requests", async () => {
+  await twoUsers();
+  await claim("C", "carol");
+  const {notify} = makeNotify();
+  await call("sendFriendRequest", "A", {toUid: "B"}, notify);
+  await call("respondToFriendRequest", "B", {fromUid: "A", accept: true}, notify);
+  await call("sendFriendRequest", "A", {toUid: "C"}, notify);
+  await call("sendFriendRequest", "C", {toUid: "A"}, notify);
+  await db.doc("friend_requests/B_A").set({from: "B", to: "A", created_at: 1});
+
+  await call("blockUser", "A", {targetUid: "B"}, notify);
+  const block = (await db.doc("blocks/A/blocked/B").get()).data();
+  assert.equal(block.uid, "B");
+  assert.equal(typeof block.created_at, "number");
+  assert.equal(await exists("friendships/A/friends/B"), false);
+  assert.equal(await exists("friendships/B/friends/A"), false);
+  assert.equal(await exists("friend_requests/B_A"), false);
+  assert.equal(await exists("friendships/A/friends/C"), true);
+
+  await assert.rejects(
+      call("sendFriendRequest", "B", {toUid: "A"}, notify),
+      (e) => e.code === "permission-denied",
+  );
+  await assert.rejects(
+      call("sendFriendRequest", "A", {toUid: "B"}, notify),
+      (e) => e.code === "permission-denied",
+  );
+  assert.equal(await exists("friend_requests/B_A"), false);
+
+  await call("unblockUser", "A", {targetUid: "B"}, notify);
+  assert.equal(await exists("blocks/A/blocked/B"), false);
+  assert.deepEqual(
+      await call("sendFriendRequest", "B", {toUid: "A"}, notify),
+      {status: "requested"},
+  );
+});
+
+test("social: blocking clears a pending request in the other direction", async () => {
+  await twoUsers();
+  const {notify} = makeNotify();
+  await call("sendFriendRequest", "A", {toUid: "B"}, notify);
+  await call("blockUser", "A", {targetUid: "B"}, notify);
+  assert.equal(await countDocs("friend_requests"), 0);
+});
+
+test("social: a block bars accepting an already-pending request", async () => {
+  await twoUsers();
+  const {notify} = makeNotify();
+  await call("sendFriendRequest", "A", {toUid: "B"}, notify);
+  await db.doc("blocks/B/blocked/A").set({uid: "A", created_at: 1});
+  await assert.rejects(
+      call("respondToFriendRequest", "B", {fromUid: "A", accept: true}, notify),
+      (e) => e.code === "permission-denied",
+  );
+  assert.equal(await exists("friendships/A/friends/B"), false);
+});
+
+test("social: responding without an explicit accept flag is rejected", async () => {
+  await twoUsers();
+  const {notify} = makeNotify();
+  await call("sendFriendRequest", "A", {toUid: "B"}, notify);
+  for (const payload of [{fromUid: "A"}, {fromUid: "A", accept: "true"}]) {
+    await assert.rejects(
+        call("respondToFriendRequest", "B", payload, notify),
+        (e) => e.code === "invalid-argument",
+    );
+  }
+  assert.equal(await exists("friend_requests/A_B"), true);
+  assert.equal(await exists("friendships/B/friends/A"), false);
+});
+
+test("social: sending with both request docs already present ends with friends", async () => {
+  await twoUsers();
+  await db.doc("friend_requests/A_B").set({from: "A", to: "B", created_at: 1});
+  await db.doc("friend_requests/B_A").set({from: "B", to: "A", created_at: 1});
+  const {notify} = makeNotify();
+  assert.deepEqual(
+      await call("sendFriendRequest", "A", {toUid: "B"}, notify),
+      {status: "friends"},
+  );
+  assert.equal(await countDocs("friend_requests"), 0);
+  assert.equal(await exists("friendships/A/friends/B"), true);
+  assert.equal(await exists("friendships/B/friends/A"), true);
+});
+
+// --- Friends v1: social graph and shared nights rules ----------------------
+const futureTs = () => Timestamp.fromMillis(Date.now() + 3600 * 1000);
+const pastTs = () => Timestamp.fromMillis(Date.now() - 60 * 1000);
+const NIGHT = {
+  started_at: 1, last_drink_at: 2, samples: [], drinks: [],
+};
+const seedFriendship = (owner, friend) =>
+  env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(
+        doc(ctx.firestore(), `friendships/${owner}/friends/${friend}`),
+        {created_at: 1},
+    );
+  });
+const seedNight = (uid, expires) =>
+  env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), `shared_nights/${uid}`), {
+      ...NIGHT, expires_at: expires,
+    });
+  });
+
+test("a friend reads an unexpired shared night; expired, stranger, anon cannot", async () => {
+  await seedFriendship("alice", "bob");
+  await seedNight("alice", futureTs());
+  const bob = env.authenticatedContext("bob").firestore();
+  await assertSucceeds(getDoc(doc(bob, "shared_nights/alice")));
+  const carol = env.authenticatedContext("carol").firestore();
+  await assertFails(getDoc(doc(carol, "shared_nights/alice")));
+  const anon = env.unauthenticatedContext().firestore();
+  await assertFails(getDoc(doc(anon, "shared_nights/alice")));
+  // Owner always reads.
+  const alice = env.authenticatedContext("alice").firestore();
+  await assertSucceeds(getDoc(doc(alice, "shared_nights/alice")));
+});
+
+test("a friend cannot read a shared night once expires_at has passed", async () => {
+  await seedFriendship("alice", "bob");
+  await seedNight("alice", pastTs());
+  const bob = env.authenticatedContext("bob").firestore();
+  await assertFails(getDoc(doc(bob, "shared_nights/alice")));
+  const alice = env.authenticatedContext("alice").firestore();
+  await assertSucceeds(getDoc(doc(alice, "shared_nights/alice")));
+});
+
+test("a friend can get a missing shared night; a stranger still cannot", async () => {
+  await seedFriendship("alice", "bob");
+  const bob = env.authenticatedContext("bob").firestore();
+  await assertSucceeds(getDoc(doc(bob, "shared_nights/alice")));
+  const carol = env.authenticatedContext("carol").firestore();
+  await assertFails(getDoc(doc(carol, "shared_nights/alice")));
+  const anon = env.unauthenticatedContext().firestore();
+  await assertFails(getDoc(doc(anon, "shared_nights/alice")));
+});
+
+test("friendship is directional for the night read", async () => {
+  // bob lists alice as a friend, but alice's doc has no bob entry.
+  await seedFriendship("bob", "alice");
+  await seedNight("alice", futureTs());
+  const bob = env.authenticatedContext("bob").firestore();
+  await assertFails(getDoc(doc(bob, "shared_nights/alice")));
+});
+
+test("owner writes a valid shared night but nothing outside the allowlist or limits", async () => {
+  const alice = env.authenticatedContext("alice").firestore();
+  const ref = doc(alice, "shared_nights/alice");
+  const good = {...NIGHT, ended_at: 3, expires_at: futureTs()};
+  await assertSucceeds(setDoc(ref, good));
+  await assertSucceeds(setDoc(ref, {...good, samples: [{t: 1, bac: 0.01}]}));
+  await assertSucceeds(updateDoc(ref, {last_drink_at: 5}));
+  await assertFails(setDoc(ref, {...good, notes: "secret"}));
+  await assertFails(setDoc(ref, {...good, driving_mode: true}));
+  await assertFails(setDoc(ref, {...good, bac_limit: 0.05}));
+  await assertFails(setDoc(ref, {...good, samples: new Array(301).fill(0)}));
+  await assertFails(setDoc(ref, {...good, drinks: new Array(101).fill(0)}));
+  await assertFails(setDoc(ref, {...good, expires_at: Date.now() + 1000}));
+  await assertFails(setDoc(ref, {...good, started_at: "x"}));
+  await assertFails(setDoc(ref, {...good, ended_at: "x"}));
+  // An update that smuggles a forbidden key is rejected too.
+  await assertFails(updateDoc(ref, {notes: "secret"}));
+  await assertSucceeds(deleteDoc(ref));
+});
+
+test("nobody else writes or deletes someone's shared night", async () => {
+  await seedFriendship("alice", "bob");
+  await seedNight("alice", futureTs());
+  const bob = env.authenticatedContext("bob").firestore();
+  await assertFails(setDoc(doc(bob, "shared_nights/alice"), {
+    ...NIGHT, expires_at: futureTs(),
+  }));
+  await assertFails(deleteDoc(doc(bob, "shared_nights/alice")));
+});
+
+test("server-only social collections reject every client write", async () => {
+  const alice = env.authenticatedContext("alice").firestore();
+  for (const path of [
+    "public_profiles/alice", "usernames/alice", "friend_requests/alice_bob",
+    "friendships/alice/friends/bob", "blocks/alice/blocked/bob",
+    "reports/r1", "push_tokens/alice",
+  ]) {
+    await assertFails(setDoc(doc(alice, path), {from: "alice", to: "bob"}));
+  }
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), "public_profiles/alice"), {a: 1});
+  });
+  await assertFails(deleteDoc(doc(alice, "public_profiles/alice")));
+});
+
+test("social reads: profiles to any signed-in user, graph only to its owner or party", async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const f = ctx.firestore();
+    await setDoc(doc(f, "public_profiles/x"), {username: "x"});
+    await setDoc(doc(f, "usernames/x"), {uid: "x"});
+    await setDoc(doc(f, "friend_requests/alice_bob"), {
+      from: "alice", to: "bob", created_at: 1,
+    });
+    await setDoc(doc(f, "friendships/alice/friends/bob"), {created_at: 1});
+    await setDoc(doc(f, "blocks/alice/blocked/bob"), {created_at: 1});
+    await setDoc(doc(f, "reports/r1"), {a: 1});
+    await setDoc(doc(f, "push_tokens/alice"), {a: 1});
+  });
+  const alice = env.authenticatedContext("alice").firestore();
+  const bob = env.authenticatedContext("bob").firestore();
+  const carol = env.authenticatedContext("carol").firestore();
+  const anon = env.unauthenticatedContext().firestore();
+  await assertSucceeds(getDoc(doc(carol, "public_profiles/x")));
+  await assertFails(getDoc(doc(anon, "public_profiles/x")));
+  await assertFails(getDoc(doc(carol, "usernames/x")));
+  await assertSucceeds(getDoc(doc(alice, "friend_requests/alice_bob")));
+  await assertSucceeds(getDoc(doc(bob, "friend_requests/alice_bob")));
+  await assertFails(getDoc(doc(carol, "friend_requests/alice_bob")));
+  await assertSucceeds(getDoc(doc(alice, "friendships/alice/friends/bob")));
+  await assertFails(getDoc(doc(bob, "friendships/alice/friends/bob")));
+  await assertSucceeds(getDoc(doc(alice, "blocks/alice/blocked/bob")));
+  await assertFails(getDoc(doc(bob, "blocks/alice/blocked/bob")));
+  await assertFails(getDoc(doc(alice, "reports/r1")));
+  await assertFails(getDoc(doc(alice, "push_tokens/alice")));
+});
+
+test("incognito is accepted on night events and incognito_by_default on profiles", async () => {
+  const alice = env.authenticatedContext("alice").firestore();
+  await assertSucceeds(
+      setDoc(doc(alice, "users/alice/night_events/a"), {...EVENT, incognito: true}),
+  );
+  await assertFails(
+      setDoc(doc(alice, "users/alice/night_events/b"), {...EVENT, incognito: "yes"}),
+  );
+  await assertSucceeds(
+      setDoc(doc(alice, "users/alice/profiles/alice"), {...PROFILE, incognito_by_default: true}),
+  );
+  await assertFails(
+      setDoc(doc(alice, "users/alice/profiles/alice"), {...PROFILE, incognito_by_default: 1}),
+  );
+});
+
+test("request inbox queries succeed with a party filter, unfiltered list fails", async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), "friend_requests/alice_bob"), {
+      from: "alice", to: "bob", created_at: 1,
+    });
+  });
+  const bob = env.authenticatedContext("bob").firestore();
+  const alice = env.authenticatedContext("alice").firestore();
+  const col = (c) => collection(c, "friend_requests");
+  await assertSucceeds(getDocs(query(col(bob), where("to", "==", "bob"))));
+  await assertSucceeds(
+      getDocs(query(col(alice), where("from", "==", "alice"))),
+  );
+  await assertFails(getDocs(col(bob)));
+  await assertFails(getDocs(query(col(bob), where("to", "==", "alice"))));
+});
+
+test("shared night expires_at is capped near 24 h", async () => {
+  const alice = env.authenticatedContext("alice").firestore();
+  const at = (ms) => ({
+    ...NIGHT, expires_at: Timestamp.fromMillis(Date.now() + ms),
+  });
+  const ref = doc(alice, "shared_nights/alice");
+  await assertSucceeds(setDoc(ref, at(24 * 3600 * 1000)));
+  await assertFails(setDoc(ref, at(30 * 24 * 3600 * 1000)));
+});
+
+test("friends cannot list shared_nights or read after owner tombstone", async () => {
+  await seedFriendship("alice", "bob");
+  await seedNight("alice", futureTs());
+  const bob = env.authenticatedContext("bob").firestore();
+  await assertFails(getDocs(collection(bob, "shared_nights")));
+  await assertSucceeds(getDoc(doc(bob, "shared_nights/alice")));
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), "account_deletions/alice"), {a: 1});
+  });
+  await assertFails(getDoc(doc(bob, "shared_nights/alice")));
+});
+
+// --- Friends v1: reports, push tokens, request pushes -----------------------
+const {
+  reportUser,
+  registerPushToken,
+  notifyFromPushTokens,
+} = require("../social");
+const PUSH_TOKEN = "cd".repeat(32);
+
+test("social: reportUser writes a report document", async () => {
+  await claim("B", "bobby");
+  const logged = [];
+  const original = console.error;
+  console.error = (...args) => logged.push(args);
+  try {
+    await reportUser({db, uid: "A", data: {targetUid: "B", kind: "photo"}});
+  } finally {
+    console.error = original;
+  }
+  const snap = await db.collection("reports").get();
+  assert.equal(snap.size, 1);
+  const report = snap.docs[0].data();
+  assert.equal(report.reporter, "A");
+  assert.equal(report.target_uid, "B");
+  assert.equal(report.kind, "photo");
+  assert.equal(typeof report.created_at, "number");
+  assert.ok(logged.some((args) => args[0] === "SOCIAL_REPORT"));
+});
+
+test("social: reportUser rejects bad kinds, self and missing targets", async () => {
+  for (const data of [
+    {targetUid: "B", kind: "spam"},
+    {targetUid: "A", kind: "photo"},
+    {kind: "photo"},
+    {targetUid: "a/b", kind: "photo"},
+  ]) {
+    await assert.rejects(
+        reportUser({db, uid: "A", data}),
+        (e) => e.code === "invalid-argument",
+    );
+  }
+  assert.equal(await countDocs("reports"), 0);
+});
+
+test("social: reportUser rejects a target with no public profile", async () => {
+  await assert.rejects(
+      reportUser({db, uid: "A", data: {targetUid: "ghost", kind: "photo"}}),
+      (e) => e.code === "not-found",
+  );
+  assert.equal(await countDocs("reports"), 0);
+});
+
+test("social: registerPushToken stores the token and validates it", async () => {
+  await registerPushToken({
+    db, uid: "A", data: {token: PUSH_TOKEN, environment: "sandbox"},
+  });
+  const stored = (await db.doc("push_tokens/A").get()).data();
+  assert.equal(stored.token, PUSH_TOKEN);
+  assert.equal(stored.environment, "sandbox");
+  assert.equal(typeof stored.updated_at, "number");
+  for (const data of [
+    {token: "nothex", environment: "sandbox"},
+    {token: PUSH_TOKEN, environment: "staging"},
+  ]) {
+    await assert.rejects(
+        registerPushToken({db, uid: "B", data}),
+        (e) => e.code === "invalid-argument",
+    );
+  }
+  assert.equal(await exists("push_tokens/B"), false);
+});
+
+test("social: notifyFromPushTokens sends the exact copy", async () => {
+  await registerPushToken({
+    db, uid: "B", data: {token: PUSH_TOKEN, environment: "production"},
+  });
+  const sent = [];
+  const notify = notifyFromPushTokens({
+    db,
+    send: async (environment, token, payload) => {
+      sent.push({environment, token, payload});
+      return {status: 200, reason: ""};
+    },
+  });
+  await notify("B", "request", "alice");
+  await notify("B", "accepted", "alice");
+  assert.deepEqual(sent, [
+    {
+      environment: "production",
+      token: PUSH_TOKEN,
+      payload: {aps: {
+        alert: {body: "@alice sent you a friend request"}, sound: "default",
+      }},
+    },
+    {
+      environment: "production",
+      token: PUSH_TOKEN,
+      payload: {aps: {
+        alert: {body: "@alice accepted your friend request"}, sound: "default",
+      }},
+    },
+  ]);
+  assert.equal(await exists("push_tokens/B"), true);
+});
+
+test("social: notifyFromPushTokens does nothing without a token", async () => {
+  let calls = 0;
+  const notify = notifyFromPushTokens({
+    db, send: async () => {
+      calls++;
+      return {status: 200};
+    },
+  });
+  await notify("nobody", "request", "alice");
+  assert.equal(calls, 0);
+});
+
+test("social: a 410 or BadDeviceToken removes the stored token", async () => {
+  for (const result of [
+    {status: 410, reason: "Unregistered"},
+    {status: 400, reason: "BadDeviceToken"},
+  ]) {
+    await registerPushToken({
+      db, uid: "B", data: {token: PUSH_TOKEN, environment: "sandbox"},
+    });
+    await notifyFromPushTokens({db, send: async () => result})(
+        "B", "request", "alice");
+    assert.equal(await exists("push_tokens/B"), false);
+  }
+});
+
+test("social: other APNs failures keep the token", async () => {
+  await registerPushToken({
+    db, uid: "B", data: {token: PUSH_TOKEN, environment: "sandbox"},
+  });
+  await notifyFromPushTokens({
+    db, send: async () => ({status: 429, reason: "TooManyRequests"}),
+  })("B", "request", "alice");
+  assert.equal(await exists("push_tokens/B"), true);
+});
+
+test("social: a token moves to the account that registered it last", async () => {
+  await registerPushToken({
+    db, uid: "A", data: {token: PUSH_TOKEN, environment: "sandbox"},
+  });
+  await registerPushToken({
+    db, uid: "C", data: {token: "ef".repeat(32), environment: "sandbox"},
+  });
+  await registerPushToken({
+    db, uid: "B", data: {token: PUSH_TOKEN, environment: "sandbox"},
+  });
+  assert.equal(await exists("push_tokens/A"), false);
+  assert.equal((await db.doc("push_tokens/B").get()).data().token, PUSH_TOKEN);
+  assert.equal(await exists("push_tokens/C"), true);
+  // Re-registering your own token keeps it.
+  await registerPushToken({
+    db, uid: "B", data: {token: PUSH_TOKEN, environment: "sandbox"},
+  });
+  assert.equal(await exists("push_tokens/B"), true);
+});
+
+test("social: an account being deleted cannot claim, request, respond or register", async () => {
+  await twoUsers();
+  await call("sendFriendRequest", "B", {toUid: "A"}, makeNotify().notify);
+  await db.doc("account_deletions/A").set({startedAt: 1});
+  const deleting = (e) => e.code === "failed-precondition";
+  await assert.rejects(claim("A", "another"), deleting);
+  assert.equal(await exists("usernames/another"), false);
+  await assert.rejects(
+      call("sendFriendRequest", "A", {toUid: "B"}, makeNotify().notify),
+      deleting,
+  );
+  await assert.rejects(
+      call("respondToFriendRequest", "A", {fromUid: "B", accept: true},
+          makeNotify().notify),
+      deleting,
+  );
+  assert.equal(await exists("friendships/A/friends/B"), false);
+  assert.equal(await exists("friend_requests/B_A"), true);
+  await assert.rejects(
+      registerPushToken({
+        db, uid: "A", data: {token: PUSH_TOKEN, environment: "sandbox"},
+      }),
+      deleting,
+  );
+  assert.equal(await exists("push_tokens/A"), false);
+  // A fresh account that never had a profile is also refused a username.
+  await db.doc("account_deletions/Z").set({startedAt: 1});
+  await assert.rejects(claim("Z", "zed"), deleting);
+  assert.equal(await exists("public_profiles/Z"), false);
+});
+
+test("public_profiles can be fetched by id but not listed", async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), "public_profiles/x"), {username: "x"});
+  });
+  const carol = env.authenticatedContext("carol").firestore();
+  await assertSucceeds(getDoc(doc(carol, "public_profiles/x")));
+  await assertFails(getDocs(collection(carol, "public_profiles")));
+  await assertFails(
+      getDocs(query(collection(carol, "public_profiles"),
+          where("username", "==", "x"))),
   );
 });
