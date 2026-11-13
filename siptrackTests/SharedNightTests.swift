@@ -5,7 +5,6 @@
 
 import Testing
 import Foundation
-import FirebaseFirestore
 @testable import siptrack
 
 struct SharedNightTests {
@@ -71,6 +70,37 @@ struct SharedNightTests {
         #expect(n.drinkCount == 2)
         #expect(n.peakBAC > 0.05)
         #expect(n.lastDrinkAt == start.addingTimeInterval(1800))
+    }
+
+    @Test func singleDrinkAtStartKeepsTheCurve() {
+        let n = SharedNight.build(
+            event: event(), entries: [entry("a", minutes: 0)],
+            drinkTypes: [beer], points: points()
+        )
+        #expect(n.peakBAC > 0)
+        #expect(n.samples.count > 1)
+    }
+
+    @Test func samplingStopsAtTheZeroAfterTheCurve() {
+        // Zero crossing at 7200 s: samples at 0, 300, ... 7200 = 25 values.
+        let n = SharedNight.build(
+            event: event(), entries: [entry("a", minutes: 0)],
+            drinkTypes: [beer], points: points()
+        )
+        #expect(n.samples.count == 25)
+        #expect(n.samples.last == 0)
+    }
+
+    @Test func samplingCapsAtThreeHundred() {
+        let long = [
+            BACDataPoint(date: start, bac: 0),
+            BACDataPoint(date: start.addingTimeInterval(3600), bac: 0.06),
+            BACDataPoint(date: start.addingTimeInterval(40 * 3600), bac: 0.05)
+        ]
+        let n = SharedNight.build(
+            event: event(), entries: [entry("a", minutes: 0)], drinkTypes: [beer], points: long
+        )
+        #expect(n.samples.count == 300)
     }
 
     @Test func openNightExpiresADayAfterLastDrink() {
@@ -145,7 +175,7 @@ struct SharedNightTests {
         for d in drinks {
             #expect(Set(d.keys) == ["name", "icon", "at"])
         }
-        #expect(data["expires_at"] is Timestamp)
+        #expect(String(describing: type(of: data["expires_at"]!)) == "Timestamp")
 
         let open = SharedNight.build(
             event: event(), entries: [entry("a", minutes: 0)], drinkTypes: [beer], points: points()

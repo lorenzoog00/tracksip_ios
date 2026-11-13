@@ -50,7 +50,7 @@ struct SharedNight: Equatable {
             let type = drinkTypes.first { $0.id == entry.drinkTypeId }
             let drink = SharedDrink(
                 name: type?.name ?? "Drink",
-                icon: type?.icon ?? "beer",
+                icon: type?.icon ?? "beer-outline",
                 at: entry.timestamp
             )
             allDrinks.append(contentsOf: Array(repeating: drink, count: max(0, entry.quantity)))
@@ -59,6 +59,7 @@ struct SharedNight: Equatable {
 
         let sortedPoints = points.sorted { $0.date < $1.date }
         var samples: [Double] = []
+        var sawPositive = false
         while samples.count < maxSamples {
             let t = event.startTime.addingTimeInterval(Double(samples.count) * sampleInterval)
             let value: Double
@@ -68,7 +69,11 @@ struct SharedNight: Equatable {
                 value = 0
             }
             samples.append(value)
-            if value <= 0, t >= lastDrinkAt { break }
+            if value > 0 { sawPositive = true }
+            // Stop at the first zero after the last drink, but only once the curve has
+            // risen (or is past its last point): a drink logged at the start begins at 0.
+            let pastCurve = sortedPoints.last.map { t > $0.date } ?? true
+            if value <= 0, t >= lastDrinkAt, sawPositive || pastCurve { break }
         }
 
         let expiresAt = (event.endTime ?? lastDrinkAt).addingTimeInterval(lifetime)
