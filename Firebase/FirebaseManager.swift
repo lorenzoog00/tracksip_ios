@@ -826,3 +826,63 @@ private func recordUnclassifiedAuthError(_ error: NSError) {
     guard FirebaseApp.app() != nil else { return }
     Crashlytics.crashlytics().record(error: error)
 }
+
+// MARK: - Social callables
+
+extension FirebaseManager {
+    @discardableResult
+    func claimUsername(_ username: String) async throws -> String {
+        let r = try await callFunction("claimUsername", data: ["username": username])
+        return r["username"] as? String ?? username
+    }
+
+    func searchUsers(query: String) async throws -> [FriendProfile] {
+        let r = try await callFunction("searchUsers", data: ["query": query])
+        let rows = r["results"] as? [[String: Any]] ?? []
+        return rows.compactMap { row in
+            guard let uid = row["uid"] as? String, let username = row["username"] as? String else { return nil }
+            return FriendProfile(
+                uid: uid,
+                username: username,
+                photoURL: (row["photo_url"] as? String).flatMap { URL(string: $0) },
+                avatarColor: row["avatar_color"] as? String ?? ""
+            )
+        }
+    }
+
+    /// Returns "requested" or "friends" (when they had already asked me).
+    @discardableResult
+    func sendFriendRequest(toUid: String) async throws -> String {
+        let r = try await callFunction("sendFriendRequest", data: ["toUid": toUid])
+        return r["status"] as? String ?? "requested"
+    }
+
+    func respondToFriendRequest(fromUid: String, accept: Bool) async throws {
+        _ = try await callFunction("respondToFriendRequest", data: ["fromUid": fromUid, "accept": accept])
+    }
+
+    func cancelFriendRequest(toUid: String) async throws {
+        _ = try await callFunction("cancelFriendRequest", data: ["toUid": toUid])
+    }
+
+    func removeFriend(friendUid: String) async throws {
+        _ = try await callFunction("removeFriend", data: ["friendUid": friendUid])
+    }
+
+    func blockUser(targetUid: String) async throws {
+        _ = try await callFunction("blockUser", data: ["targetUid": targetUid])
+    }
+
+    func unblockUser(targetUid: String) async throws {
+        _ = try await callFunction("unblockUser", data: ["targetUid": targetUid])
+    }
+
+    func reportUser(targetUid: String, kind: String) async throws {
+        _ = try await callFunction("reportUser", data: ["targetUid": targetUid, "kind": kind])
+    }
+
+    /// `jpegBase64` is a base64 String, or NSNull to remove the photo.
+    func setAvatar(jpegBase64: Any) async throws {
+        _ = try await callFunction("setAvatar", data: ["jpegBase64": jpegBase64])
+    }
+}

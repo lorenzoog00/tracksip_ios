@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		5A7C1E3D9B2F4A60C8D1E701 /* SharedNight.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A7C1E3D9B2F4A60C8D1E702 /* SharedNight.swift */; };
+		5A7C1E3D9B2F4A60C8D1E7C1 /* FriendsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A7C1E3D9B2F4A60C8D1E7C2 /* FriendsStore.swift */; };
 		5A7C1E3D9B2F4A60C8D1E7B1 /* SharedNightSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A7C1E3D9B2F4A60C8D1E7B2 /* SharedNightSync.swift */; };
 		5A7C1E3D9B2F4A60C8D1E7B3 /* SharedNightSyncTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A7C1E3D9B2F4A60C8D1E7B4 /* SharedNightSyncTests.swift */; };
 		5A7C1E3D9B2F4A60C8D1E703 /* FeedOrdering.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A7C1E3D9B2F4A60C8D1E704 /* FeedOrdering.swift */; };
@@ -209,6 +210,7 @@
 
 /* Begin PBXFileReference section */
 		5A7C1E3D9B2F4A60C8D1E702 /* SharedNight.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedNight.swift; sourceTree = "<group>"; };
+		5A7C1E3D9B2F4A60C8D1E7C2 /* FriendsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FriendsStore.swift; sourceTree = "<group>"; };
 		5A7C1E3D9B2F4A60C8D1E7B2 /* SharedNightSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedNightSync.swift; sourceTree = "<group>"; };
 		5A7C1E3D9B2F4A60C8D1E7B4 /* SharedNightSyncTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedNightSyncTests.swift; sourceTree = "<group>"; };
 		5A7C1E3D9B2F4A60C8D1E704 /* FeedOrdering.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedOrdering.swift; sourceTree = "<group>"; };
@@ -452,6 +454,7 @@
 			isa = PBXGroup;
 			children = (
 				5A7C1E3D9B2F4A60C8D1E702 /* SharedNight.swift */,
+				5A7C1E3D9B2F4A60C8D1E7C2 /* FriendsStore.swift */,
 				5A7C1E3D9B2F4A60C8D1E7B2 /* SharedNightSync.swift */,
 				5A7C1E3D9B2F4A60C8D1E704 /* FeedOrdering.swift */,
 			);
@@ -1134,6 +1137,7 @@
 				B101B4EC2F9CD648009F7DDD /* StoreManager.swift in Sources */,
 				E8ED4CBC394E4A3881D17C22 /* AppStoreUpdate.swift in Sources */,
 				5A7C1E3D9B2F4A60C8D1E701 /* SharedNight.swift in Sources */,
+				5A7C1E3D9B2F4A60C8D1E7C1 /* FriendsStore.swift in Sources */,
 				5A7C1E3D9B2F4A60C8D1E7B1 /* SharedNightSync.swift in Sources */,
 				5A7C1E3D9B2F4A60C8D1E703 /* FeedOrdering.swift in Sources */,
 				B101B4EE2F9CD648009F7DDD /* CalendarView.swift in Sources */,
