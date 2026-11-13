@@ -503,7 +503,7 @@ final class AppState: ObservableObject {
     }
 
     /// nil means the caller didn't choose (Watch, intents): use the profile default.
-    static func resolveIncognito(_ explicit: Bool?, profileDefault: Bool) -> Bool {
+    nonisolated static func resolveIncognito(_ explicit: Bool?, profileDefault: Bool) -> Bool {
         explicit ?? profileDefault
     }
 
