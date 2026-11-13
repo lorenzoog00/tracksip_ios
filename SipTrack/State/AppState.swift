@@ -228,20 +228,63 @@ final class AppState: ObservableObject {
         isRestoringCloudProfile = false
     }
 
+    /// The uid of the cloud pull in flight, if any. The launch refresh, the sign-in
+    /// refresh and the foreground re-pull share it, so one pull runs at a time and a cold
+    /// launch (init + sign-in sink + didBecomeActive) pulls once.
+    private var cloudPullUid: String?
+    /// Whether the pull in flight should also do the post-sign-in work.
+    private var cloudPullIsFull = false
+    /// A refresh for a different account arrived while a pull was in flight.
+    private var cloudPullQueued = false
+
     func refreshFromFirebase() {
-        guard currentUserId != nil else {
+        guard let uid = currentUserId else {
             endCloudRestore()
             return
         }
+        if let inFlight = cloudPullUid {
+            // Same account: the pull in flight answers this too. Another account
+            // (switched while it ran): pull again once it lands.
+            if inFlight == uid { cloudPullIsFull = true } else { cloudPullQueued = true }
+            return
+        }
+        startCloudPull(uid: uid, full: true)
+    }
+
+    /// Called on every foreground. A suspended device may have missed incognito being
+    /// turned on elsewhere, so shared-night writes are held again until a fresh pull
+    /// succeeds (deletes still go out).
+    func refreshOnForeground() {
+        guard let uid = currentUserId else { return }
+        hasAppliedCloudData = false
+        guard cloudPullUid == nil else { return }
+        startCloudPull(uid: uid, full: false)
+    }
+
+    private func startCloudPull(uid: String, full: Bool) {
+        cloudPullUid = uid
+        cloudPullIsFull = full
         Task {
             let data = await FirebaseManager.shared.pullUserData()
-            applyCloudData(data)
-            // Whatever came back — a profile, no profile, or a pull that
-            // failed — "is this someone new?" is now answerable.
-            endCloudRestore()
-            checkAndGenerateAutoReports()
-            checkAndGenerateRecoveries()
-            syncPendingRecoveries()
+            let wasFull = cloudPullIsFull
+            cloudPullUid = nil
+            cloudPullIsFull = false
+            // Another account's data must never be merged into this one.
+            if currentUserId == uid {
+                applyCloudData(data)
+                if wasFull {
+                    // Whatever came back — a profile, no profile, or a pull that
+                    // failed — "is this someone new?" is now answerable.
+                    endCloudRestore()
+                    checkAndGenerateAutoReports()
+                    checkAndGenerateRecoveries()
+                    syncPendingRecoveries()
+                }
+            }
+            if cloudPullQueued {
+                cloudPullQueued = false
+                refreshFromFirebase()
+            }
         }
     }
 
@@ -503,27 +546,14 @@ final class AppState: ObservableObject {
     /// recreating an incognito night, or a late ack overwriting `lastSentSharedNight`).
     private var sharedNightGeneration = 0
 
-    /// False until this session's first successful cloud pull has been merged. Before that a
-    /// local night can still say "not incognito" when another device already turned
-    /// incognito on, so shared-night writes wait (deletes may go ahead).
+    /// False until a successful server pull has been merged since launch, sign-in or the
+    /// last foreground. Until then a local night can still say "not incognito" when
+    /// another device already turned incognito on, so shared-night writes wait (deletes
+    /// may go ahead).
     private var hasAppliedCloudData = false
 
     /// Incognito is sticky across devices: a night incognito in the cloud stays
     /// incognito locally, whatever this device last knew.
-    private var cloudPullRetryInFlight = false
-
-    /// A failed or cache-only pull leaves shared-night writes held. Called when the app
-    /// comes to the foreground so sharing resumes once the network is back.
-    func retryCloudPullIfNeeded() {
-        guard !hasAppliedCloudData, !cloudPullRetryInFlight, currentUserId != nil else { return }
-        cloudPullRetryInFlight = true
-        Task {
-            let data = await FirebaseManager.shared.pullUserData()
-            cloudPullRetryInFlight = false
-            applyCloudData(data)
-        }
-    }
-
     nonisolated static func mergedIncognito(local: Bool?, cloud: Bool?) -> Bool? {
         cloud == true ? true : local
     }
@@ -2004,7 +2034,7 @@ final class AppState: ObservableObject {
         refreshWaterReminder()
         // Releases any shared-night write held back until now, and deletes the shared
         // night if the merge just made it incognito. A failed or cache-only pull keeps writes
-        // held (deletes still go out); retryCloudPullIfNeeded/retrySync try again.
+        // held (deletes still go out); refreshOnForeground/retrySync try again.
         if data.succeeded { hasAppliedCloudData = true }
         syncSharedNight()
     }

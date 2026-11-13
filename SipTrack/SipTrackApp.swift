@@ -73,7 +73,7 @@ struct SipTrackApp: App {
                     Haptics.shared.prepare()
                     appState.refreshWaterReminder()
                     appState.refreshLiveState()
-                    appState.retryCloudPullIfNeeded()
+                    appState.refreshOnForeground()
                     Task {
                         await store.refreshStatus()
                         appState.syncSubscriptionFromStore()

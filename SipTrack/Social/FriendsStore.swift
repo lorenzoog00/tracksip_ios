@@ -86,8 +86,10 @@ final class FriendsStore: ObservableObject {
         // Signed in: refresh the push token (never prompts).
         Task { await PushRegistration.registerIfAuthorized() }
 
+        // includeMetadataChanges: a cache-only "missing" snapshot is skipped below, and the
+        // server confirming it changes only metadata, which is not delivered otherwise.
         listeners.append(db.collection("public_profiles").document(uid)
-            .addSnapshotListener { [weak self] snap, error in
+            .addSnapshotListener(includeMetadataChanges: true) { [weak self] snap, error in
                 // An error or missing snapshot says nothing about the profile; ignore it.
                 guard error == nil, let snap else { return }
                 // At an offline cold start the cache can report "missing" for a profile
