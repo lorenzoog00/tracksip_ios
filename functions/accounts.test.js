@@ -138,8 +138,8 @@ test("a fresh delete writes the tombstone before erasing the user", async () => 
   assert.deepEqual(calls.ownerDeletes, ["o1", "o2"]);
   // The lock-screen push curve sits outside users/ and holds a device token.
   assert.deepEqual(calls.docDeletes, [
-    "live_activities/u1", "public_profiles/u1", "shared_nights/u1",
-    "push_tokens/u1",
+    "live_activities/u1", "shared_nights/u1", "push_tokens/u1",
+    "public_profiles/u1",
   ]);
   assert.deepEqual(calls.avatarDeletes, [
     {name: "avatars/u1.jpg", options: {ignoreNotFound: true}},

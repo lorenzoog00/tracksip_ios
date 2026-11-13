@@ -41,14 +41,13 @@ async function deleteAccount({
 // (both directions), shared night, push token and avatar file.
 // eslint-disable-next-line require-jsdoc
 async function deleteSocialData({db, bucket, uid}) {
-  const profile = await db.doc(`public_profiles/${uid}`).get();
-  const username = profile.exists ? profile.data().username : null;
-  if (typeof username === "string" && username) {
-    const handle = db.doc(`usernames/${username}`);
-    // Only release a handle this account still owns.
-    if ((await handle.get()).data()?.uid === uid) await handle.delete();
-  }
-  await profile.ref.delete();
+  // Found by owner, not via the profile: a retry after a partial failure has
+  // no profile left to name the handle. Only handles owned by uid match.
+  const handles = await db
+      .collection("usernames")
+      .where("uid", "==", uid)
+      .get();
+  for (const handle of handles.docs) await handle.ref.delete();
 
   const friends = await db.collection(`friendships/${uid}/friends`).get();
   for (const friend of friends.docs) {
@@ -74,6 +73,8 @@ async function deleteSocialData({db, bucket, uid}) {
   await db.doc(`shared_nights/${uid}`).delete();
   await db.doc(`push_tokens/${uid}`).delete();
   await bucket.file(`avatars/${uid}.jpg`).delete({ignoreNotFound: true});
+  // Last, so a failed earlier step leaves the profile for the retry.
+  await db.doc(`public_profiles/${uid}`).delete();
 }
 
-module.exports ={deleteAccount};
+module.exports = {deleteAccount};

@@ -357,6 +357,21 @@ test("deleting an account removes every social trace of it", async () => {
   ]);
 });
 
+test("a retried deletion still releases a handle whose profile is gone", async () => {
+  await seed();
+  await db.doc("usernames/x").set({uid: "A"});
+  await db.doc("usernames/y").set({uid: "B"});
+  await deleteAccount({
+    db,
+    auth: {deleteUser: async () => {}},
+    bucket: {file: () => ({delete: async () => {}})},
+    uid: "A",
+    authTime: Date.now() / 1000,
+  });
+  assert.equal(await exists("usernames/x"), false);
+  assert.equal(await exists("usernames/y"), true);
+});
+
 test("deletion requires recent authentication before deleting data", async () => {
   await seed();
   await assert.rejects(
