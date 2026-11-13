@@ -35,6 +35,10 @@ final class FriendsStore: ObservableObject {
     private var listeners: [ListenerRegistration] = []
     private var nightListeners: [String: ListenerRegistration] = [:]
     private var nights: [String: SharedNight] = [:]
+    /// Per-friend back-off for night listeners the server denied (expired, not yet TTL-deleted).
+    private var nightRetries: [String: Task<Void, Never>] = [:]
+    private var nightFailures: [String: Int] = [:]
+    private static let retryDelays: [UInt64] = [120, 300, 900]
 
     private var friendUids: [String] = []
     private var incomingUids: [String] = []
@@ -45,6 +49,7 @@ final class FriendsStore: ObservableObject {
     private var resolving: Set<String> = []
 
     private var authCancellable: AnyCancellable?
+    private var foregroundCancellable: AnyCancellable?
 
     private var db: Firestore { Firestore.firestore() }
 
@@ -61,6 +66,9 @@ final class FriendsStore: ObservableObject {
                     self.stop()
                 }
             }
+        foregroundCancellable = NotificationCenter.default
+            .publisher(for: UIApplication.willEnterForegroundNotification)
+            .sink { [weak self] _ in self?.reattachDeadNightListeners() }
     }
 
     // MARK: - Lifecycle
@@ -72,8 +80,10 @@ final class FriendsStore: ObservableObject {
         let s = session
 
         listeners.append(db.collection("public_profiles").document(uid)
-            .addSnapshotListener { [weak self] snap, _ in
-                let data = snap?.data()
+            .addSnapshotListener { [weak self] snap, error in
+                // An error or missing snapshot says nothing about the profile; ignore it.
+                guard error == nil, let snap else { return }
+                let data = snap.data()
                 Task { @MainActor [weak self] in
                     guard let self, self.session == s else { return }
                     let profile = data.flatMap { Self.profile(uid: uid, data: $0) }
@@ -138,6 +148,9 @@ final class FriendsStore: ObservableObject {
         listeners = []
         nightListeners.values.forEach { $0.remove() }
         nightListeners = [:]
+        nightRetries.values.forEach { $0.cancel() }
+        nightRetries = [:]
+        nightFailures = [:]
         nights = [:]
         friendUids = []
         incomingUids = []
@@ -213,10 +226,17 @@ final class FriendsStore: ObservableObject {
             listener.remove()
             nightListeners[fid] = nil
         }
+        for fid in Array(nightRetries.keys) where !wanted.contains(fid) {
+            nightRetries[fid]?.cancel()
+            nightRetries[fid] = nil
+        }
+        for fid in Array(nightFailures.keys) where !wanted.contains(fid) {
+            nightFailures[fid] = nil
+        }
         for fid in nights.keys where !wanted.contains(fid) {
             nights[fid] = nil
         }
-        for fid in wanted where nightListeners[fid] == nil {
+        for fid in wanted where nightListeners[fid] == nil && nightRetries[fid] == nil {
             attachNight(fid, session: s)
         }
     }
@@ -231,6 +251,9 @@ final class FriendsStore: ObservableObject {
                     guard let self, self.session == s, self.friendUids.contains(fid) else { return }
                     // Missing, unreadable (permission denied once expired or hidden) and
                     // expired all mean the same thing: nothing to show. No banner.
+                    if !failed {
+                        self.nightFailures[fid] = nil
+                    }
                     if let data, let night = SharedNight(firestore: data), night.expiresAt > Date() {
                         self.nights[fid] = night
                     } else {
@@ -247,12 +270,30 @@ final class FriendsStore: ObservableObject {
             }
     }
 
+    /// One retry per friend, with growing delays. A friend with no night has a live listener
+    /// (the rules allow a missing doc); a denial only means expired-but-not-yet-deleted.
     private func retryNight(_ fid: String, session s: Int) {
-        Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 120 * 1_000_000_000)
-            guard let self, self.session == s, self.friendUids.contains(fid),
-                  self.nightListeners[fid] == nil else { return }
+        guard nightRetries[fid] == nil else { return }
+        let failures = (nightFailures[fid] ?? 0) + 1
+        nightFailures[fid] = failures
+        let delay = Self.retryDelays[min(failures - 1, Self.retryDelays.count - 1)]
+        nightRetries[fid] = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: delay * 1_000_000_000)
+            guard !Task.isCancelled, let self, self.session == s else { return }
+            self.nightRetries[fid] = nil
+            guard self.friendUids.contains(fid), self.nightListeners[fid] == nil else { return }
             self.attachNight(fid, session: s)
+        }
+    }
+
+    /// Back to the foreground: try every dead listener now instead of waiting out its back-off.
+    private func reattachDeadNightListeners() {
+        guard uid != nil else { return }
+        let s = session
+        nightRetries.values.forEach { $0.cancel() }
+        nightRetries = [:]
+        for fid in friendUids where nightListeners[fid] == nil {
+            attachNight(fid, session: s)
         }
     }
 

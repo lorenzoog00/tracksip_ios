@@ -198,7 +198,7 @@ service cloud.firestore {
         || (request.auth != null
           && !exists(/databases/$(database)/documents/account_deletions/$(uid))
           && exists(/databases/$(database)/documents/friendships/$(uid)/friends/$(request.auth.uid))
-          && resource.data.expires_at > request.time);
+          && (resource == null || resource.data.expires_at > request.time));
       allow create, update: if owner(uid) && request.resource.data.keys().hasOnly([
         'started_at', 'ended_at', 'last_drink_at', 'expires_at', 'samples', 'drinks'
       ]) && validNight(request.resource.data);

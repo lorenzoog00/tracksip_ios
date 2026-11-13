@@ -840,6 +840,16 @@ test("a friend cannot read a shared night once expires_at has passed", async () 
   await assertSucceeds(getDoc(doc(alice, "shared_nights/alice")));
 });
 
+test("a friend can get a missing shared night; a stranger still cannot", async () => {
+  await seedFriendship("alice", "bob");
+  const bob = env.authenticatedContext("bob").firestore();
+  await assertSucceeds(getDoc(doc(bob, "shared_nights/alice")));
+  const carol = env.authenticatedContext("carol").firestore();
+  await assertFails(getDoc(doc(carol, "shared_nights/alice")));
+  const anon = env.unauthenticatedContext().firestore();
+  await assertFails(getDoc(doc(anon, "shared_nights/alice")));
+});
+
 test("friendship is directional for the night read", async () => {
   // bob lists alice as a friend, but alice's doc has no bob entry.
   await seedFriendship("bob", "alice");
