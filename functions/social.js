@@ -1,5 +1,6 @@
 const {HttpsError} = require("firebase-functions/v2/https");
 const {normalizeUsername, validateUsername} = require("./username-policy");
+const {validatePushToken, tokenIsDead} = require("./live-activity");
 
 // ---------------------------------------------------------------------------
 // Usernames and public profiles
@@ -323,7 +324,89 @@ async function unblockUser({db, uid, data}) {
   return {status: "unblocked"};
 }
 
+// ---------------------------------------------------------------------------
+// Reports, push tokens and friend-request pushes
+// ---------------------------------------------------------------------------
+
+const REPORT_KINDS = ["username", "photo"];
+const PUSH_COPY = {
+  request: (username) => `@${username} sent you a friend request`,
+  accepted: (username) => `@${username} accepted your friend request`,
+};
+
+/**
+ * Records a report against another user's username or photo. The logged
+ * line feeds a log-based alert that emails the developer.
+ * @param {object} params
+ * @param {object} params.db Firestore
+ * @param {string} params.uid the reporter
+ * @param {{targetUid: string, kind: string}} params.data the payload
+ * @return {Promise<{status: string}>} always "reported"
+ */
+async function reportUser({db, uid, data}) {
+  const targetUid = otherUid(data && data.targetUid, uid);
+  const kind = data && data.kind;
+  if (!REPORT_KINDS.includes(kind)) {
+    throw new HttpsError("invalid-argument", "Unknown report kind.");
+  }
+  const report = {
+    reporter: uid,
+    target_uid: targetUid,
+    kind,
+    created_at: Date.now(),
+  };
+  await db.collection("reports").add(report);
+  console.error("SOCIAL_REPORT", report);
+  return {status: "reported"};
+}
+
+/**
+ * Stores the caller's APNs token so friend requests can reach them.
+ * @param {object} params
+ * @param {object} params.db Firestore
+ * @param {string} params.uid the caller
+ * @param {{token: string, environment: string}} params.data the payload
+ * @return {Promise<{status: string}>} always "registered"
+ */
+async function registerPushToken({db, uid, data}) {
+  const {token, environment} = data || {};
+  validatePushToken(token, environment);
+  await db.doc(`push_tokens/${uid}`).set({
+    token,
+    environment,
+    updated_at: Date.now(),
+  });
+  return {status: "registered"};
+}
+
+/**
+ * Builds the notifier sendFriendRequest and respondToFriendRequest call.
+ * Users with no stored token are skipped; dead tokens are deleted.
+ * @param {object} params
+ * @param {object} params.db Firestore
+ * @param {Function} params.send (environment, token, payload) =>
+ *     {status, reason}
+ * @return {Function} (toUid, kind, fromUsername) => Promise
+ */
+function notifyFromPushTokens({db, send}) {
+  return async (toUid, kind, fromUsername) => {
+    const copy = PUSH_COPY[kind];
+    if (!copy) throw new Error(`unknown notification kind ${kind}`);
+    const ref = db.doc(`push_tokens/${toUid}`);
+    const snap = await ref.get();
+    if (!snap.exists) return;
+    const {token, environment} = snap.data();
+    const result = await send(environment, token, {
+      aps: {alert: {body: copy(fromUsername)}, sound: "default"},
+    });
+    if (tokenIsDead(result)) await ref.delete();
+  };
+}
+
 module.exports = {
+  reportUser,
+  registerPushToken,
+  notifyFromPushTokens,
   claimUsername,
   searchUsers,
   sendFriendRequest,

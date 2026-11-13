@@ -907,3 +907,134 @@ test("friends cannot list shared_nights or read after owner tombstone", async ()
   });
   await assertFails(getDoc(doc(bob, "shared_nights/alice")));
 });
+
+// --- Friends v1: reports, push tokens, request pushes -----------------------
+const {
+  reportUser,
+  registerPushToken,
+  notifyFromPushTokens,
+} = require("../social");
+const PUSH_TOKEN = "cd".repeat(32);
+
+test("social: reportUser writes a report document", async () => {
+  const logged = [];
+  const original = console.error;
+  console.error = (...args) => logged.push(args);
+  try {
+    await reportUser({db, uid: "A", data: {targetUid: "B", kind: "photo"}});
+  } finally {
+    console.error = original;
+  }
+  const snap = await db.collection("reports").get();
+  assert.equal(snap.size, 1);
+  const report = snap.docs[0].data();
+  assert.equal(report.reporter, "A");
+  assert.equal(report.target_uid, "B");
+  assert.equal(report.kind, "photo");
+  assert.equal(typeof report.created_at, "number");
+  assert.ok(logged.some((args) => args[0] === "SOCIAL_REPORT"));
+});
+
+test("social: reportUser rejects bad kinds, self and missing targets", async () => {
+  for (const data of [
+    {targetUid: "B", kind: "spam"},
+    {targetUid: "A", kind: "photo"},
+    {kind: "photo"},
+    {targetUid: "a/b", kind: "photo"},
+  ]) {
+    await assert.rejects(
+        reportUser({db, uid: "A", data}),
+        (e) => e.code === "invalid-argument",
+    );
+  }
+  assert.equal(await countDocs("reports"), 0);
+});
+
+test("social: registerPushToken stores the token and validates it", async () => {
+  await registerPushToken({
+    db, uid: "A", data: {token: PUSH_TOKEN, environment: "sandbox"},
+  });
+  const stored = (await db.doc("push_tokens/A").get()).data();
+  assert.equal(stored.token, PUSH_TOKEN);
+  assert.equal(stored.environment, "sandbox");
+  assert.equal(typeof stored.updated_at, "number");
+  for (const data of [
+    {token: "nothex", environment: "sandbox"},
+    {token: PUSH_TOKEN, environment: "staging"},
+  ]) {
+    await assert.rejects(
+        registerPushToken({db, uid: "B", data}),
+        (e) => e.code === "invalid-argument",
+    );
+  }
+  assert.equal(await exists("push_tokens/B"), false);
+});
+
+test("social: notifyFromPushTokens sends the exact copy", async () => {
+  await registerPushToken({
+    db, uid: "B", data: {token: PUSH_TOKEN, environment: "production"},
+  });
+  const sent = [];
+  const notify = notifyFromPushTokens({
+    db,
+    send: async (environment, token, payload) => {
+      sent.push({environment, token, payload});
+      return {status: 200, reason: ""};
+    },
+  });
+  await notify("B", "request", "alice");
+  await notify("B", "accepted", "alice");
+  assert.deepEqual(sent, [
+    {
+      environment: "production",
+      token: PUSH_TOKEN,
+      payload: {aps: {
+        alert: {body: "@alice sent you a friend request"}, sound: "default",
+      }},
+    },
+    {
+      environment: "production",
+      token: PUSH_TOKEN,
+      payload: {aps: {
+        alert: {body: "@alice accepted your friend request"}, sound: "default",
+      }},
+    },
+  ]);
+  assert.equal(await exists("push_tokens/B"), true);
+});
+
+test("social: notifyFromPushTokens does nothing without a token", async () => {
+  let calls = 0;
+  const notify = notifyFromPushTokens({
+    db, send: async () => {
+      calls++;
+      return {status: 200};
+    },
+  });
+  await notify("nobody", "request", "alice");
+  assert.equal(calls, 0);
+});
+
+test("social: a 410 or BadDeviceToken removes the stored token", async () => {
+  for (const result of [
+    {status: 410, reason: "Unregistered"},
+    {status: 400, reason: "BadDeviceToken"},
+  ]) {
+    await registerPushToken({
+      db, uid: "B", data: {token: PUSH_TOKEN, environment: "sandbox"},
+    });
+    await notifyFromPushTokens({db, send: async () => result})(
+        "B", "request", "alice");
+    assert.equal(await exists("push_tokens/B"), false);
+  }
+});
+
+test("social: other APNs failures keep the token", async () => {
+  await registerPushToken({
+    db, uid: "B", data: {token: PUSH_TOKEN, environment: "sandbox"},
+  });
+  await notifyFromPushTokens({
+    db, send: async () => ({status: 429, reason: "TooManyRequests"}),
+  })("B", "request", "alice");
+  assert.equal(await exists("push_tokens/B"), true);
+});
