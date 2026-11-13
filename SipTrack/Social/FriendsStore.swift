@@ -90,6 +90,9 @@ final class FriendsStore: ObservableObject {
             .addSnapshotListener { [weak self] snap, error in
                 // An error or missing snapshot says nothing about the profile; ignore it.
                 guard error == nil, let snap else { return }
+                // At an offline cold start the cache can report "missing" for a profile
+                // that exists; wait for the server before deciding there is no username.
+                if !snap.exists && snap.metadata.isFromCache { return }
                 let data = snap.data()
                 Task { @MainActor [weak self] in
                     guard let self, self.session == s else { return }

@@ -168,6 +168,7 @@ final class AppState: ObservableObject {
                 self?.hasSocialProfile = false
                 self?.lastSentSharedNight = nil
                 self?.sharedNightGeneration &+= 1
+                self?.hasAppliedCloudData = false
                 self?.resetProfile()
             }
         refreshFromFirebase()
@@ -502,6 +503,17 @@ final class AppState: ObservableObject {
     /// recreating an incognito night, or a late ack overwriting `lastSentSharedNight`).
     private var sharedNightGeneration = 0
 
+    /// False until this session's first cloud pull has been merged. Before that a
+    /// local night can still say "not incognito" when another device already turned
+    /// incognito on, so shared-night writes wait (deletes may go ahead).
+    private var hasAppliedCloudData = false
+
+    /// Incognito is sticky across devices: a night incognito in the cloud stays
+    /// incognito locally, whatever this device last knew.
+    nonisolated static func mergedIncognito(local: Bool?, cloud: Bool?) -> Bool? {
+        cloud == true ? true : local
+    }
+
     /// The night friends see: the active one, else the most recently ended one.
     private func sharedNightEvent() -> NightEvent? {
         if let active = activeEvent { return active }
@@ -539,6 +551,8 @@ final class AppState: ObservableObject {
 
         switch SharedNightSync.action(isIncognito: event?.isIncognito, night: night, lastSent: lastSentSharedNight, hasUsername: hasSocialProfile) {
         case .write(let toSend):
+            // applyCloudData calls this again once the first pull is merged.
+            guard hasAppliedCloudData else { return }
             sharedNightGeneration &+= 1
             let gen = sharedNightGeneration
             push {
@@ -1900,8 +1914,23 @@ final class AppState: ObservableObject {
     func applyCloudData(_ data: FirebaseManager.PulledData) {
         let localEventIds = Set(events.map { $0.id })
         let newEvents = data.events.filter { !localEventIds.contains($0.id) }
-        if !newEvents.isEmpty {
-            events.append(contentsOf: newEvents)
+        // Events already here keep the local copy, except incognito: if another
+        // device turned it on, this one must stop sharing that night too.
+        let cloudIncognito = Dictionary(
+            data.events.map { ($0.id, $0.incognito) }, uniquingKeysWith: { first, _ in first }
+        )
+        var mergedEvents = events
+        var incognitoChanged = false
+        for i in mergedEvents.indices {
+            guard let cloud = cloudIncognito[mergedEvents[i].id] else { continue }
+            let merged = Self.mergedIncognito(local: mergedEvents[i].incognito, cloud: cloud)
+            if merged != mergedEvents[i].incognito {
+                mergedEvents[i].incognito = merged
+                incognitoChanged = true
+            }
+        }
+        if incognitoChanged || !newEvents.isEmpty {
+            events = mergedEvents + newEvents
             DataStore.shared.saveEvents(events)
         }
 
@@ -1957,6 +1986,10 @@ final class AppState: ObservableObject {
             }
         }
         refreshWaterReminder()
+        // Releases any shared-night write held back until now, and deletes the shared
+        // night if the merge just made it incognito.
+        hasAppliedCloudData = true
+        syncSharedNight()
     }
 
     // MARK: - BAC helpers (for active event view)

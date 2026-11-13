@@ -1,20 +1,5 @@
 import SwiftUI
 
-/// Stand-in for screens Tasks 12 and 13 build. Delete once they land.
-struct SocialPlaceholderView: View {
-    let title: String
-
-    var body: some View {
-        ZStack {
-            AppColors.background.ignoresSafeArea()
-            Text(title)
-                .foregroundStyle(AppColors.textSecondary)
-        }
-        .navigationTitle(title)
-        .navigationBarTitleDisplayMode(.inline)
-    }
-}
-
 /// The Social tab: pick a username first, then the friends feed.
 struct SocialRootView: View {
     @EnvironmentObject var friends: FriendsStore

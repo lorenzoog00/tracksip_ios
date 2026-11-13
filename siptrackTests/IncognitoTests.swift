@@ -49,4 +49,19 @@ struct IncognitoTests {
         #expect(AppState.resolveIncognito(false, profileDefault: true) == false)
         #expect(AppState.resolveIncognito(true, profileDefault: false) == true)
     }
+
+    @Test func cloudIncognitoWinsOverAStaleLocalCopy() {
+        // Another device turned incognito on: this one must stop sharing too.
+        #expect(AppState.mergedIncognito(local: nil, cloud: true) == true)
+        #expect(AppState.mergedIncognito(local: false, cloud: true) == true)
+        #expect(AppState.mergedIncognito(local: true, cloud: true) == true)
+    }
+
+    @Test func otherwiseTheLocalIncognitoIsKept() {
+        #expect(AppState.mergedIncognito(local: true, cloud: false) == true)
+        #expect(AppState.mergedIncognito(local: true, cloud: nil) == true)
+        #expect(AppState.mergedIncognito(local: false, cloud: nil) == false)
+        #expect(AppState.mergedIncognito(local: nil, cloud: false) == nil)
+        #expect(AppState.mergedIncognito(local: nil, cloud: nil) == nil)
+    }
 }
