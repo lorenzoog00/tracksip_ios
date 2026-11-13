@@ -163,6 +163,8 @@ final class AppState: ObservableObject {
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 self?.currentUserId = nil
+                self?.hasSocialProfile = false
+                self?.lastSentSharedNight = nil
                 self?.resetProfile()
             }
         refreshFromFirebase()
@@ -492,17 +494,33 @@ final class AppState: ObservableObject {
     /// night is re-sent when incognito turns off.
     private var lastSentSharedNight: SharedNight?
 
+    /// Bumped by every shared-night write/delete. `FirebaseManager.attempt` retries for
+    /// seconds, so an older operation must not land after a newer one (a retried write
+    /// recreating an incognito night, or a late ack overwriting `lastSentSharedNight`).
+    private var sharedNightGeneration = 0
+
+    /// The night friends see: the active one, else the most recently ended one.
+    private func sharedNightEvent() -> NightEvent? {
+        if let active = activeEvent { return active }
+        return events
+            .filter { $0.userId == currentUserId && $0.endTime != nil }
+            .max { ($0.endTime ?? .distantPast) < ($1.endTime ?? .distantPast) }
+    }
+
+    private func deleteSharedNightRemotely() {
+        sharedNightGeneration &+= 1
+        let gen = sharedNightGeneration
+        lastSentSharedNight = nil
+        push {
+            guard self.sharedNightGeneration == gen else { return }
+            try await FirebaseManager.shared.deleteSharedNight()
+        }
+    }
+
     /// Syncs the active night (or, with none active, the most recently ended one so its
     /// story is written once more with `ended_at`). Incognito deletes and never writes.
     func syncSharedNight() {
-        let event: NightEvent?
-        if let active = activeEvent {
-            event = active
-        } else {
-            event = events
-                .filter { $0.userId == currentUserId && $0.endTime != nil }
-                .max { ($0.endTime ?? .distantPast) < ($1.endTime ?? .distantPast) }
-        }
+        let event = sharedNightEvent()
 
         var night: SharedNight?
         if let event, !event.isIncognito {
@@ -516,15 +534,19 @@ final class AppState: ObservableObject {
             night = built.expiresAt > Date() ? built : nil
         }
 
-        switch SharedNightSync.action(event: event, night: night, lastSent: lastSentSharedNight, hasUsername: hasSocialProfile) {
+        switch SharedNightSync.action(isIncognito: event?.isIncognito, night: night, lastSent: lastSentSharedNight, hasUsername: hasSocialProfile) {
         case .write(let toSend):
+            sharedNightGeneration &+= 1
+            let gen = sharedNightGeneration
             push {
+                // Checked inside the retried closure, so a superseded write stops retrying.
+                guard self.sharedNightGeneration == gen else { return }
                 try await FirebaseManager.shared.writeSharedNight(toSend)
+                guard self.sharedNightGeneration == gen else { return }
                 self.lastSentSharedNight = toSend
             }
         case .delete:
-            lastSentSharedNight = nil
-            push { try await FirebaseManager.shared.deleteSharedNight() }
+            deleteSharedNightRemotely()
         case .none:
             break
         }
@@ -1458,6 +1480,7 @@ final class AppState: ObservableObject {
     }
 
     func deleteEvent(_ id: String) {
+        let wasShared = sharedNightEvent()?.id == id
         DataStore.shared.deleteEvent(id)
         events.removeAll { $0.id == id }
         entries.removeAll { $0.eventId == id }
@@ -1465,6 +1488,10 @@ final class AppState: ObservableObject {
         foodEntries.removeAll { $0.eventId == id }
         refreshWaterReminder()
         push { try await FirebaseManager.shared.deleteEvent(id) }
+        if wasShared {
+            deleteSharedNightRemotely()
+            syncSharedNight()
+        }
     }
 
     private func updateEvent(id: String, mutate: (inout NightEvent) -> Void) {
@@ -1612,11 +1639,13 @@ final class AppState: ObservableObject {
         let entry = FoodEntry(id: generateId(), eventId: eventId, type: type, timestamp: Date())
         DataStore.shared.addFoodEntry(entry)
         foodEntries.append(entry)
+        syncSharedNight()
     }
 
     func deleteFoodEntry(_ id: String) {
         DataStore.shared.deleteFoodEntry(id)
         foodEntries.removeAll { $0.id == id }
+        syncSharedNight()
     }
 
     func foodList(for eventId: String) -> [FoodEntry] {
@@ -1845,6 +1874,8 @@ final class AppState: ObservableObject {
 
     func retrySync() {
         syncFailed = false
+        lastSentSharedNight = nil
+        syncSharedNight()
         Task {
             let data = await FirebaseManager.shared.pullUserData()
             applyCloudData(data)

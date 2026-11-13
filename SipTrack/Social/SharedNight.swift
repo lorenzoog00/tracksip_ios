@@ -2,7 +2,7 @@ import Foundation
 import FirebaseFirestore
 
 /// One drink as a friend sees it: name, icon and time only. Never volume, ABV or comment.
-struct SharedDrink: Equatable {
+nonisolated struct SharedDrink: Equatable {
     var name: String
     var icon: String
     var at: Date
@@ -10,7 +10,7 @@ struct SharedDrink: Equatable {
 
 /// The slice of a night that is shared with friends. Built from the owner's data,
 /// written to Firestore, and read back by friends.
-struct SharedNight: Equatable {
+nonisolated struct SharedNight: Equatable {
     static let sampleInterval: TimeInterval = 300
     static let maxSamples = 300
     static let maxDrinks = 100
@@ -36,6 +36,7 @@ struct SharedNight: Equatable {
 
     // MARK: - Build
 
+    @MainActor
     static func build(
         event: NightEvent,
         entries: [DrinkEntry],

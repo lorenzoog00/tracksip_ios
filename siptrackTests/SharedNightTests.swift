@@ -7,6 +7,8 @@ import Testing
 import Foundation
 @testable import siptrack
 
+// @MainActor: see CeilingCrossingTests.
+@MainActor
 struct SharedNightTests {
     private let start = Date(timeIntervalSince1970: 1_700_000_000)
 

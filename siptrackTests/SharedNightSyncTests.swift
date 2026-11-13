@@ -7,6 +7,9 @@ import Testing
 import Foundation
 @testable import siptrack
 
+// @MainActor: the app module defaults to MainActor isolation and this test target does not
+// (see CeilingCrossingTests).
+@MainActor
 struct SharedNightSyncTests {
     private let start = Date(timeIntervalSince1970: 1_700_000_000)
 
@@ -27,50 +30,54 @@ struct SharedNightSyncTests {
         )
     }
 
+    private func run(event: NightEvent?, night: SharedNight?, lastSent: SharedNight?, hasUsername: Bool) -> SharedNightAction {
+        SharedNightSync.action(isIncognito: event?.isIncognito, night: night, lastSent: lastSent, hasUsername: hasUsername)
+    }
+
     @Test func incognitoEventDeletes() {
-        let action = SharedNightSync.action(event: event(incognito: true), night: night(), lastSent: night(), hasUsername: true)
+        let action = run(event: event(incognito: true), night: night(), lastSent: night(), hasUsername: true)
         #expect(action == .delete)
     }
 
     @Test func incognitoEventNeverWritesEvenWithNewDrink() {
-        let action = SharedNightSync.action(event: event(incognito: true), night: night(drinks: 2), lastSent: night(drinks: 1), hasUsername: true)
+        let action = run(event: event(incognito: true), night: night(drinks: 2), lastSent: night(drinks: 1), hasUsername: true)
         #expect(action != .write(night(drinks: 2)))
         #expect(action == .delete)
-        let none = SharedNightSync.action(event: event(incognito: true), night: night(drinks: 2), lastSent: nil, hasUsername: true)
+        let none = run(event: event(incognito: true), night: night(drinks: 2), lastSent: nil, hasUsername: true)
         if case .write = none { Issue.record("incognito produced a write") }
     }
 
     @Test func noUsernameDoesNothing() {
-        #expect(SharedNightSync.action(event: event(), night: night(), lastSent: nil, hasUsername: false) == .none)
-        #expect(SharedNightSync.action(event: event(incognito: true), night: night(), lastSent: nil, hasUsername: false) == .none)
+        #expect(run(event: event(), night: night(), lastSent: nil, hasUsername: false) == .none)
+        #expect(run(event: event(incognito: true), night: night(), lastSent: nil, hasUsername: false) == .delete)
     }
 
     @Test func noEventDoesNothing() {
-        #expect(SharedNightSync.action(event: nil, night: nil, lastSent: nil, hasUsername: true) == .none)
+        #expect(run(event: nil, night: nil, lastSent: nil, hasUsername: true) == .none)
     }
 
     @Test func unchangedNightDoesNothing() {
-        #expect(SharedNightSync.action(event: event(), night: night(), lastSent: night(), hasUsername: true) == .none)
+        #expect(run(event: event(), night: night(), lastSent: night(), hasUsername: true) == .none)
     }
 
     @Test func changedDrinksWrite() {
-        let action = SharedNightSync.action(event: event(), night: night(drinks: 2), lastSent: night(drinks: 1), hasUsername: true)
+        let action = run(event: event(), night: night(drinks: 2), lastSent: night(drinks: 1), hasUsername: true)
         #expect(action == .write(night(drinks: 2)))
     }
 
     @Test func firstSendWrites() {
-        #expect(SharedNightSync.action(event: event(), night: night(), lastSent: nil, hasUsername: true) == .write(night()))
+        #expect(run(event: event(), night: night(), lastSent: nil, hasUsername: true) == .write(night()))
     }
 
     @Test func endingTheNightWritesAgain() {
         let ended = night(endedAt: start.addingTimeInterval(3600))
-        let action = SharedNightSync.action(event: event(), night: ended, lastSent: night(), hasUsername: true)
+        let action = run(event: event(), night: ended, lastSent: night(), hasUsername: true)
         #expect(action == .write(ended))
     }
 
     @Test func turningIncognitoOffResendsWholeNight() {
         // After incognito on, AppState clears lastSent; off again must write.
-        let action = SharedNightSync.action(event: event(incognito: false), night: night(), lastSent: nil, hasUsername: true)
+        let action = run(event: event(incognito: false), night: night(), lastSent: nil, hasUsername: true)
         #expect(action == .write(night()))
     }
 }
