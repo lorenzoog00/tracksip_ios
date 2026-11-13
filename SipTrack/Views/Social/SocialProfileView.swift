@@ -44,9 +44,14 @@ struct SocialProfileView: View {
                         NavigationLink {
                             ChooseUsernameView(mode: .rename)
                         } label: {
-                            Text("@\(me.username)")
-                                .font(.system(size: 22, weight: .bold))
-                                .foregroundStyle(AppColors.text)
+                            HStack(spacing: 6) {
+                                Text("@\(me.username)")
+                                    .font(.system(size: 22, weight: .bold))
+                                    .foregroundStyle(AppColors.text)
+                                Image(systemName: "pencil")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(AppColors.textSecondary)
+                            }
                         }
                     }
 
@@ -110,6 +115,8 @@ struct SocialProfileView: View {
                 if let data = try? await item.loadTransferable(type: Data.self),
                    let image = UIImage(data: data) {
                     updateAvatar(image)
+                } else {
+                    showSocialNotice(title: "Photo unavailable", message: "That photo couldn't be loaded. Try another one.")
                 }
             }
         }

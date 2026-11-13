@@ -54,6 +54,9 @@ struct RootView: View {
                                 }
                             }
                             .navigationDestination(for: Route.self) { route in
+                                // Group so the tab bar hides for every pushed screen,
+                                // not covering bottom controls.
+                                Group {
                                 switch route {
                                 case .event(let id):
                                     ActiveEventView(eventId: id)
@@ -89,6 +92,8 @@ struct RootView: View {
                                 case .coach:
                                     CoachView()
                                 }
+                                }
+                                .toolbar(.hidden, for: .tabBar)
                             }
                     }
                     .onChange(of: appState.pendingSummaryEventId) { _, newValue in
@@ -112,15 +117,10 @@ struct RootView: View {
                             Label {
                                 Text("Social")
                             } icon: {
-                                Image(systemName: "person.2.fill")
-                                    .overlay(alignment: .topTrailing) {
-                                        if friends.pendingCount == 0 && friends.liveCount > 0 {
-                                            Circle()
-                                                .fill(AppColors.success)
-                                                .frame(width: 8, height: 8)
-                                                .offset(x: 4, y: -2)
-                                        }
-                                    }
+                                SocialTabIcon.image(
+                                    showDot: friends.pendingCount == 0 && friends.liveCount > 0,
+                                    selected: selectedTab == .social
+                                )
                             }
                         }
                         .badge(friends.pendingCount)
@@ -146,6 +146,7 @@ struct RootView: View {
             // re-arms the one-shot detector; the next HomeView.task fires it.
             if signedIn { countryDetector.resetSession() }
             path = NavigationPath()
+            if !signedIn { selectedTab = .home }
         }
         // `path` is state on RootView, so it outlives the NavigationStack that
         // reads it. The Group above tears that stack down whenever the gate

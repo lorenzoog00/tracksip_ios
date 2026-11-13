@@ -121,7 +121,10 @@ struct ChooseUsernameView: View {
                 if let data = try? await item.loadTransferable(type: Data.self),
                    let image = UIImage(data: data) {
                     pickedImage = image
+                } else {
+                    showSocialNotice(title: "Photo unavailable", message: "That photo couldn't be loaded. Try another one.")
                 }
+                pickerItem = nil
             }
         }
     }
@@ -163,7 +166,14 @@ struct ChooseUsernameView: View {
                 try await friends.claimUsername(name)
                 if mode == .create, let image {
                     // The username is already claimed; a failed photo must not undo that.
-                    try? await friends.setAvatar(image)
+                    do {
+                        try await friends.setAvatar(image)
+                    } catch {
+                        showSocialNotice(
+                            title: "Photo not uploaded",
+                            message: "Username saved, but the photo couldn't be uploaded. Add it from your profile."
+                        )
+                    }
                 }
                 isSubmitting = false
                 if mode == .rename { dismiss() }

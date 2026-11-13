@@ -140,6 +140,7 @@
 		5E1B0002000000000000B002 /* ChooseUsernameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E1A0002000000000000A002 /* ChooseUsernameView.swift */; };
 		5E1B0003000000000000B003 /* AvatarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E1A0003000000000000A003 /* AvatarView.swift */; };
 		5E1B0004000000000000B004 /* SocialProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E1A0004000000000000A004 /* SocialProfileView.swift */; };
+		5E1B0005000000000000B005 /* SocialTabIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E1A0005000000000000A005 /* SocialTabIcon.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -339,6 +340,7 @@
 		5E1A0002000000000000A002 /* ChooseUsernameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChooseUsernameView.swift; sourceTree = "<group>"; };
 		5E1A0003000000000000A003 /* AvatarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AvatarView.swift; sourceTree = "<group>"; };
 		5E1A0004000000000000A004 /* SocialProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialProfileView.swift; sourceTree = "<group>"; };
+		5E1A0005000000000000A005 /* SocialTabIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialTabIcon.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -713,6 +715,7 @@
 				5E1A0003000000000000A003 /* AvatarView.swift */,
 				5E1A0002000000000000A002 /* ChooseUsernameView.swift */,
 				5E1A0004000000000000A004 /* SocialProfileView.swift */,
+				5E1A0005000000000000A005 /* SocialTabIcon.swift */,
 				5E1A0001000000000000A001 /* SocialRootView.swift */,
 			);
 			path = Social;
@@ -1198,6 +1201,7 @@
 				5E1B0002000000000000B002 /* ChooseUsernameView.swift in Sources */,
 				5E1B0003000000000000B003 /* AvatarView.swift in Sources */,
 				5E1B0004000000000000B004 /* SocialProfileView.swift in Sources */,
+				5E1B0005000000000000B005 /* SocialTabIcon.swift in Sources */,
 				B101B4D92F9CD5E0009F7DDD /* SipTrackApp.swift in Sources */,
 				B1CC00042FA00000000BBBBB /* LiveActivityManager.swift in Sources */,
 				B1CC00112FA00000000BBBBB /* LiveActivityIntents.swift in Sources */,

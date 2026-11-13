@@ -19,6 +19,9 @@ final class FriendsStore: ObservableObject {
     @Published private(set) var outgoing: [FriendProfile] = []
     @Published private(set) var blocked: [FriendProfile] = []
     @Published private(set) var feed: [FeedItem] = []
+    /// True once the first `public_profiles` snapshot has arrived (even for a missing doc),
+    /// so `myProfile == nil` can be told apart from "not loaded yet".
+    @Published private(set) var profileLoaded = false
 
     var liveCount: Int {
         let now = Date()
@@ -88,6 +91,7 @@ final class FriendsStore: ObservableObject {
                     guard let self, self.session == s else { return }
                     let profile = data.flatMap { Self.profile(uid: uid, data: $0) }
                     self.applyMyProfile(profile, syncNight: true)
+                    self.profileLoaded = true
                 }
             })
 
@@ -161,6 +165,7 @@ final class FriendsStore: ObservableObject {
         uid = nil
         // No night sync here: signed out, there is nothing to write or delete.
         applyMyProfile(nil, syncNight: false)
+        profileLoaded = false
         friends = []
         incoming = []
         outgoing = []

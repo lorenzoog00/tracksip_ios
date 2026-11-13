@@ -21,7 +21,13 @@ struct SocialRootView: View {
 
     var body: some View {
         NavigationStack {
-            if friends.myProfile == nil {
+            if !friends.profileLoaded {
+                // Before the first snapshot a missing profile is not "no username" yet.
+                ZStack {
+                    AppColors.background.ignoresSafeArea()
+                    ProgressView().tint(AppColors.accent)
+                }
+            } else if friends.myProfile == nil {
                 ChooseUsernameView(mode: .create)
             } else {
                 feed
