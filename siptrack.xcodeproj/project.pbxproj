@@ -136,6 +136,10 @@
 		B1CC00082FA00001000CCCCC /* SipTrackActivityKit in Frameworks */ = {isa = PBXBuildFile; productRef = B1CC00062FA00001000CCCCC /* SipTrackActivityKit */; };
 		CC1A2B3D4E5F6A7B8C9D0E1F /* LearnView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC1A2B3D4E5F6A7B8C9D0E10 /* LearnView.swift */; };
 		EB905CE970424234994954D0 /* CoachReportCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F19FB458C03404B93011571 /* CoachReportCard.swift */; };
+		5E1B0001000000000000B001 /* SocialRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E1A0001000000000000A001 /* SocialRootView.swift */; };
+		5E1B0002000000000000B002 /* ChooseUsernameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E1A0002000000000000A002 /* ChooseUsernameView.swift */; };
+		5E1B0003000000000000B003 /* AvatarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E1A0003000000000000A003 /* AvatarView.swift */; };
+		5E1B0004000000000000B004 /* SocialProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E1A0004000000000000A004 /* SocialProfileView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -331,6 +335,10 @@
 		B2AA00012F9FF000000AAAAA /* SipTrack.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SipTrack.entitlements; sourceTree = "<group>"; };
 		CC1A2B3D4E5F6A7B8C9D0E10 /* LearnView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LearnView.swift; sourceTree = "<group>"; };
 		D0303E6B5D734A7E92B6E68C /* CompareView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompareView.swift; sourceTree = "<group>"; };
+		5E1A0001000000000000A001 /* SocialRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialRootView.swift; sourceTree = "<group>"; };
+		5E1A0002000000000000A002 /* ChooseUsernameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChooseUsernameView.swift; sourceTree = "<group>"; };
+		5E1A0003000000000000A003 /* AvatarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AvatarView.swift; sourceTree = "<group>"; };
+		5E1A0004000000000000A004 /* SocialProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialProfileView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -699,6 +707,17 @@
 			path = Summary;
 			sourceTree = "<group>";
 		};
+		5E1C0001000000000000C001 /* Social */ = {
+			isa = PBXGroup;
+			children = (
+				5E1A0003000000000000A003 /* AvatarView.swift */,
+				5E1A0002000000000000A002 /* ChooseUsernameView.swift */,
+				5E1A0004000000000000A004 /* SocialProfileView.swift */,
+				5E1A0001000000000000A001 /* SocialRootView.swift */,
+			);
+			path = Social;
+			sourceTree = "<group>";
+		};
 		B101B4C72F9C2F32009F7DDD /* Views */ = {
 			isa = PBXGroup;
 			children = (
@@ -712,6 +731,7 @@
 				B101B4BB2F9C2F32009F7DDD /* Home */,
 				B101B4BE2F9C2F32009F7DDD /* Onboarding */,
 				B101B4C02F9C2F32009F7DDD /* Profile */,
+				5E1C0001000000000000C001 /* Social */,
 				B101B4C32F9C2F32009F7DDD /* Subscription */,
 				B101B4C52F9C2F32009F7DDD /* Summary */,
 				B101B4C62F9C2F32009F7DDD /* RootView.swift */,
@@ -1174,6 +1194,10 @@
 				D77C112605A0000000000010 /* StoriesView.swift in Sources */,
 				D77C112605A0000000000012 /* StoryCards.swift in Sources */,
 				B101B4FD2F9CD648009F7DDD /* RootView.swift in Sources */,
+				5E1B0001000000000000B001 /* SocialRootView.swift in Sources */,
+				5E1B0002000000000000B002 /* ChooseUsernameView.swift in Sources */,
+				5E1B0003000000000000B003 /* AvatarView.swift in Sources */,
+				5E1B0004000000000000B004 /* SocialProfileView.swift in Sources */,
 				B101B4D92F9CD5E0009F7DDD /* SipTrackApp.swift in Sources */,
 				B1CC00042FA00000000BBBBB /* LiveActivityManager.swift in Sources */,
 				B1CC00112FA00000000BBBBB /* LiveActivityIntents.swift in Sources */,

@@ -19,10 +19,14 @@ struct RestoringProfileView: View {
     }
 }
 
+enum AppTab: Hashable { case home, social }
+
 struct RootView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var firebase: FirebaseManager
     @EnvironmentObject var countryDetector: LocationCountryDetector
+    @EnvironmentObject var friends: FriendsStore
+    @State private var selectedTab: AppTab = .home
     @State private var path = NavigationPath()
 
     var body: some View {
@@ -41,61 +45,86 @@ struct RootView: View {
                     OnboardingView()
                 }
             } else {
-                NavigationStack(path: $path) {
-                    HomeView()
-                        .task {
-                            if appState.shouldAttemptCountryDetection {
-                                countryDetector.requestOnce()
-                            }
-                        }
-                        .navigationDestination(for: Route.self) { route in
-                            switch route {
-                            case .event(let id):
-                                ActiveEventView(eventId: id)
-                            case .guidedEvent(let id, let target):
-                                ActiveEventView(eventId: id, guideTarget: target)
-                            case .summary(let id):
-                                SummaryView(eventId: id)
-                            case .stories(let id):
-                                StoriesView(eventId: id)
-                            case .calendar:
-                                CalendarView()
-                            case .dashboard:
-                                DashboardView()
-                            case .challenges:
-                                ChallengesView()
-                            case .drinks:
-                                DrinksView()
-                            case .guidedDrinkCalories:
-                                DrinksView(highlightsCalories: true)
-                            case .profile:
-                                ProfileView()
-                            case .guidedProfile(let target):
-                                ProfileView(guideTarget: target)
-                            case .gettingStarted:
-                                if let userID = appState.currentUserId {
-                                    GettingStartedView(userID: userID)
-                                        .id(userID)
+                TabView(selection: $selectedTab) {
+                    NavigationStack(path: $path) {
+                        HomeView()
+                            .task {
+                                if appState.shouldAttemptCountryDetection {
+                                    countryDetector.requestOnce()
                                 }
-                            case .subscription:
-                                ProView(presentation: .pushed)
-                            case .auth(let signUp):
-                                AuthView(startOnSignUp: signUp)
-                            case .coach:
-                                CoachView()
+                            }
+                            .navigationDestination(for: Route.self) { route in
+                                switch route {
+                                case .event(let id):
+                                    ActiveEventView(eventId: id)
+                                case .guidedEvent(let id, let target):
+                                    ActiveEventView(eventId: id, guideTarget: target)
+                                case .summary(let id):
+                                    SummaryView(eventId: id)
+                                case .stories(let id):
+                                    StoriesView(eventId: id)
+                                case .calendar:
+                                    CalendarView()
+                                case .dashboard:
+                                    DashboardView()
+                                case .challenges:
+                                    ChallengesView()
+                                case .drinks:
+                                    DrinksView()
+                                case .guidedDrinkCalories:
+                                    DrinksView(highlightsCalories: true)
+                                case .profile:
+                                    ProfileView()
+                                case .guidedProfile(let target):
+                                    ProfileView(guideTarget: target)
+                                case .gettingStarted:
+                                    if let userID = appState.currentUserId {
+                                        GettingStartedView(userID: userID)
+                                            .id(userID)
+                                    }
+                                case .subscription:
+                                    ProView(presentation: .pushed)
+                                case .auth(let signUp):
+                                    AuthView(startOnSignUp: signUp)
+                                case .coach:
+                                    CoachView()
+                                }
+                            }
+                    }
+                    .onChange(of: appState.pendingSummaryEventId) { _, newValue in
+                        guard let eventId = newValue else { return }
+                        selectedTab = .home
+                        if !path.isEmpty { path.removeLast() }
+                        path.append(Route.summary(eventId))
+                        appState.pendingSummaryEventId = nil
+                    }
+                    .onChange(of: appState.pendingEventRoute) { _, route in
+                        guard let route else { return }
+                        selectedTab = .home
+                        path.append(route)
+                        appState.pendingEventRoute = nil
+                    }
+                    .tabItem { Label("Home", systemImage: "house.fill") }
+                    .tag(AppTab.home)
+
+                    SocialRootView()
+                        .tabItem {
+                            Label {
+                                Text("Social")
+                            } icon: {
+                                Image(systemName: "person.2.fill")
+                                    .overlay(alignment: .topTrailing) {
+                                        if friends.pendingCount == 0 && friends.liveCount > 0 {
+                                            Circle()
+                                                .fill(AppColors.success)
+                                                .frame(width: 8, height: 8)
+                                                .offset(x: 4, y: -2)
+                                        }
+                                    }
                             }
                         }
-                }
-                .onChange(of: appState.pendingSummaryEventId) { _, newValue in
-                    guard let eventId = newValue else { return }
-                    if !path.isEmpty { path.removeLast() }
-                    path.append(Route.summary(eventId))
-                    appState.pendingSummaryEventId = nil
-                }
-                .onChange(of: appState.pendingEventRoute) { _, route in
-                    guard let route else { return }
-                    path.append(route)
-                    appState.pendingEventRoute = nil
+                        .badge(friends.pendingCount)
+                        .tag(AppTab.social)
                 }
             }
         }
