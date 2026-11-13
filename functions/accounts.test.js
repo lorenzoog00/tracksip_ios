@@ -9,26 +9,36 @@ const FRESH = NOW / 1000 - 30;
 // eslint-disable-next-line require-jsdoc
 function fakeDb({owners = []} = {}) {
   const calls = {
-    tombstone: null, recursiveDeleted: [], ownerDeletes: [], docDeletes: [],
+    tombstone: null,
+    recursiveDeleted: [],
+    ownerDeletes: [],
+    docDeletes: [],
+    avatarDeletes: [],
   };
+  const emptyQuery = {get: () => Promise.resolve({docs: []})};
   const db = {
-    doc: (path) => ({
-      path,
-      set: (data) => {
-        calls.tombstone = {path, data};
-        return Promise.resolve();
-      },
-      delete: () => {
-        calls.docDeletes.push(path);
-        return Promise.resolve();
-      },
-    }),
+    doc: (path) => {
+      const ref = {
+        path,
+        get: () => Promise.resolve({exists: false, data: () => undefined, ref}),
+        set: (data) => {
+          calls.tombstone = {path, data};
+          return Promise.resolve();
+        },
+        delete: () => {
+          calls.docDeletes.push(path);
+          return Promise.resolve();
+        },
+      };
+      return ref;
+    },
     recursiveDelete: (ref) => {
       calls.recursiveDeleted.push(ref.path);
       return Promise.resolve();
     },
-    collection: () => ({
-      where: () => ({
+    collection: (path) => ({
+      get: () => Promise.resolve({docs: []}),
+      where: () => (path === "purchase_owners" ? {
         get: () => Promise.resolve({
           docs: owners.map((id) => ({
             ref: {
@@ -39,7 +49,16 @@ function fakeDb({owners = []} = {}) {
             },
           })),
         }),
-      }),
+      } : emptyQuery),
+    }),
+    collectionGroup: () => ({where: () => emptyQuery}),
+  };
+  db.bucket = {
+    file: (name) => ({
+      delete: (options) => {
+        calls.avatarDeletes.push({name, options});
+        return Promise.resolve();
+      },
     }),
   };
   return {db, calls};
@@ -76,7 +95,7 @@ test("a stale, absent or future auth_time cannot delete an account", async () =>
     const {db, calls} = fakeDb();
     const {auth, deleted} = fakeAuth();
     await assert.rejects(
-        () => deleteAccount({db, auth, uid: "u1", authTime, now: NOW}),
+        () => deleteAccount({db, auth, bucket: db.bucket, uid: "u1", authTime, now: NOW}),
         (error) => error.code === "unauthenticated" ||
           error.httpErrorCode?.status === 401,
     );
@@ -92,7 +111,7 @@ test("a window edge auth_time is accepted", async () => {
     const {db} = fakeDb();
     const {auth} = fakeAuth();
     const result = await deleteAccount({
-      db, auth, uid: "u1", authTime, now: NOW,
+      db, auth, bucket: db.bucket, uid: "u1", authTime, now: NOW,
     });
     assert.deepEqual(result, {deleted: true});
   }
@@ -103,7 +122,7 @@ test("a fresh delete writes the tombstone before erasing the user", async () => 
   const {auth, deleted} = fakeAuth();
 
   const result = await deleteAccount({
-    db, auth, uid: "u1", authTime: FRESH, now: NOW,
+    db, auth, bucket: db.bucket, uid: "u1", authTime: FRESH, now: NOW,
   });
 
   assert.deepEqual(result, {deleted: true});
@@ -113,10 +132,18 @@ test("a fresh delete writes the tombstone before erasing the user", async () => 
     path: "account_deletions/u1",
     data: {startedAt: NOW},
   });
-  assert.deepEqual(calls.recursiveDeleted, ["users/u1"]);
+  assert.deepEqual(calls.recursiveDeleted, [
+    "users/u1", "friendships/u1", "blocks/u1",
+  ]);
   assert.deepEqual(calls.ownerDeletes, ["o1", "o2"]);
   // The lock-screen push curve sits outside users/ and holds a device token.
-  assert.deepEqual(calls.docDeletes, ["live_activities/u1"]);
+  assert.deepEqual(calls.docDeletes, [
+    "live_activities/u1", "public_profiles/u1", "shared_nights/u1",
+    "push_tokens/u1",
+  ]);
+  assert.deepEqual(calls.avatarDeletes, [
+    {name: "avatars/u1.jpg", options: {ignoreNotFound: true}},
+  ]);
   assert.deepEqual(deleted, ["u1"]);
 });
 
@@ -127,7 +154,7 @@ test("an already deleted auth user still counts as deleted", async () => {
   const {auth} = fakeAuth(error);
 
   const result = await deleteAccount({
-    db, auth, uid: "u1", authTime: FRESH, now: NOW,
+    db, auth, bucket: db.bucket, uid: "u1", authTime: FRESH, now: NOW,
   });
 
   assert.deepEqual(result, {deleted: true});
@@ -140,7 +167,7 @@ test("any other auth failure is not reported as a successful delete", async () =
   const {auth} = fakeAuth(error);
 
   await assert.rejects(
-      () => deleteAccount({db, auth, uid: "u1", authTime: FRESH, now: NOW}),
+      () => deleteAccount({db, auth, bucket: db.bucket, uid: "u1", authTime: FRESH, now: NOW}),
       /backend down/,
   );
 });

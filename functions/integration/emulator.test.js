@@ -280,6 +280,7 @@ test("deletion during generation never recreates user report or job", async () =
               authDeleted = true;
             },
           },
+          bucket: {file: () => ({delete: async () => {}})},
           uid: "alice",
           authTime: Date.now() / 1000,
         });
@@ -299,6 +300,61 @@ test("deletion during generation never recreates user report or job", async () =
         true,
     );
   }
+});
+
+test("deleting an account removes every social trace of it", async () => {
+  await seed();
+  const deletedFiles = [];
+  const bucket = {
+    file: (name) => ({
+      delete: async (options) => deletedFiles.push({name, options}),
+    }),
+  };
+  const writes = {
+    "public_profiles/A": {username: "a"},
+    "public_profiles/B": {username: "b"},
+    "usernames/a": {uid: "A"},
+    "usernames/b": {uid: "B"},
+    "friendships/A/friends/B": {uid: "B"},
+    "friendships/B/friends/A": {uid: "A"},
+    "friendships/B/friends/D": {uid: "D"},
+    "friend_requests/C_A": {from: "C", to: "A"},
+    "friend_requests/A_E": {from: "A", to: "E"},
+    "friend_requests/C_E": {from: "C", to: "E"},
+    "blocks/A/blocked/F": {uid: "F"},
+    "blocks/B/blocked/A": {uid: "A"},
+    "blocks/B/blocked/G": {uid: "G"},
+    "shared_nights/A": {x: 1},
+    "push_tokens/A": {token: "t"},
+    "push_tokens/B": {token: "t"},
+  };
+  for (const [path, data] of Object.entries(writes)) {
+    await db.doc(path).set(data);
+  }
+  await deleteAccount({
+    db,
+    auth: {deleteUser: async () => {}},
+    bucket,
+    uid: "A",
+    authTime: Date.now() / 1000,
+  });
+  for (const gone of [
+    "public_profiles/A", "usernames/a", "friendships/A/friends/B",
+    "friendships/B/friends/A", "friend_requests/C_A", "friend_requests/A_E",
+    "blocks/A/blocked/F", "blocks/B/blocked/A", "shared_nights/A",
+    "push_tokens/A",
+  ]) {
+    assert.equal(await exists(gone), false, gone);
+  }
+  for (const kept of [
+    "public_profiles/B", "usernames/b", "friendships/B/friends/D",
+    "friend_requests/C_E", "blocks/B/blocked/G", "push_tokens/B",
+  ]) {
+    assert.equal(await exists(kept), true, kept);
+  }
+  assert.deepEqual(deletedFiles, [
+    {name: "avatars/A.jpg", options: {ignoreNotFound: true}},
+  ]);
 });
 
 test("deletion requires recent authentication before deleting data", async () => {
