@@ -77,8 +77,7 @@ struct SocialProfileView: View {
                         Divider().overlay(AppColors.border)
 
                         NavigationLink {
-                            // TODO(Task 13): replace with MyFriendsView.
-                            SocialPlaceholderView(title: "My friends")
+                            MyFriendsView()
                         } label: {
                             HStack {
                                 Text("My friends")

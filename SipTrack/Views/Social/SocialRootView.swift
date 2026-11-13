@@ -68,7 +68,6 @@ struct SocialRootView: View {
 
     // One destination for the toolbar magnifier and the empty-state button.
     @ViewBuilder private var searchDestination: some View {
-        // TODO(Task 13): replace with UserSearchView.
-        SocialPlaceholderView(title: "Find friends")
+        UserSearchView()
     }
 }

@@ -139,6 +139,8 @@
 		5E1B0001000000000000B001 /* SocialRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E1A0001000000000000A001 /* SocialRootView.swift */; };
 		5E1B0007000000000000B007 /* FriendNightView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E1A0007000000000000A007 /* FriendNightView.swift */; };
 		5E1B0006000000000000B006 /* FeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E1A0006000000000000A006 /* FeedView.swift */; };
+		5E1B0008000000000000B008 /* MyFriendsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E1A0008000000000000A008 /* MyFriendsView.swift */; };
+		5E1B0009000000000000B009 /* UserSearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E1A0009000000000000A009 /* UserSearchView.swift */; };
 		5E1B0002000000000000B002 /* ChooseUsernameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E1A0002000000000000A002 /* ChooseUsernameView.swift */; };
 		5E1B0003000000000000B003 /* AvatarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E1A0003000000000000A003 /* AvatarView.swift */; };
 		5E1B0004000000000000B004 /* SocialProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E1A0004000000000000A004 /* SocialProfileView.swift */; };
@@ -341,6 +343,8 @@
 		5E1A0001000000000000A001 /* SocialRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialRootView.swift; sourceTree = "<group>"; };
 		5E1A0007000000000000A007 /* FriendNightView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FriendNightView.swift; sourceTree = "<group>"; };
 		5E1A0006000000000000A006 /* FeedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedView.swift; sourceTree = "<group>"; };
+		5E1A0008000000000000A008 /* MyFriendsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyFriendsView.swift; sourceTree = "<group>"; };
+		5E1A0009000000000000A009 /* UserSearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserSearchView.swift; sourceTree = "<group>"; };
 		5E1A0002000000000000A002 /* ChooseUsernameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChooseUsernameView.swift; sourceTree = "<group>"; };
 		5E1A0003000000000000A003 /* AvatarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AvatarView.swift; sourceTree = "<group>"; };
 		5E1A0004000000000000A004 /* SocialProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialProfileView.swift; sourceTree = "<group>"; };
@@ -723,6 +727,8 @@
 				5E1A0001000000000000A001 /* SocialRootView.swift */,
 				5E1A0007000000000000A007 /* FriendNightView.swift */,
 				5E1A0006000000000000A006 /* FeedView.swift */,
+				5E1A0008000000000000A008 /* MyFriendsView.swift */,
+				5E1A0009000000000000A009 /* UserSearchView.swift */,
 			);
 			path = Social;
 			sourceTree = "<group>";
@@ -1206,6 +1212,8 @@
 				5E1B0001000000000000B001 /* SocialRootView.swift in Sources */,
 				5E1B0007000000000000B007 /* FriendNightView.swift in Sources */,
 				5E1B0006000000000000B006 /* FeedView.swift in Sources */,
+				5E1B0008000000000000B008 /* MyFriendsView.swift in Sources */,
+				5E1B0009000000000000B009 /* UserSearchView.swift in Sources */,
 				5E1B0002000000000000B002 /* ChooseUsernameView.swift in Sources */,
 				5E1B0003000000000000B003 /* AvatarView.swift in Sources */,
 				5E1B0004000000000000B004 /* SocialProfileView.swift in Sources */,
