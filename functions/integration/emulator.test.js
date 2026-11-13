@@ -14,6 +14,10 @@ const {
   deleteDoc,
   updateDoc,
   Timestamp,
+  collection,
+  query,
+  where,
+  getDocs,
 } = require("firebase/firestore");
 const {initializeApp, deleteApp} = require("firebase-admin/app");
 const {getFirestore} = require("firebase-admin/firestore");
@@ -863,4 +867,43 @@ test("incognito is accepted on night events and incognito_by_default on profiles
   await assertFails(
       setDoc(doc(alice, "users/alice/profiles/alice"), {...PROFILE, incognito_by_default: 1}),
   );
+});
+
+test("request inbox queries succeed with a party filter, unfiltered list fails", async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), "friend_requests/alice_bob"), {
+      from: "alice", to: "bob", created_at: 1,
+    });
+  });
+  const bob = env.authenticatedContext("bob").firestore();
+  const alice = env.authenticatedContext("alice").firestore();
+  const col = (c) => collection(c, "friend_requests");
+  await assertSucceeds(getDocs(query(col(bob), where("to", "==", "bob"))));
+  await assertSucceeds(
+      getDocs(query(col(alice), where("from", "==", "alice"))),
+  );
+  await assertFails(getDocs(col(bob)));
+  await assertFails(getDocs(query(col(bob), where("to", "==", "alice"))));
+});
+
+test("shared night expires_at is capped near 24 h", async () => {
+  const alice = env.authenticatedContext("alice").firestore();
+  const at = (ms) => ({
+    ...NIGHT, expires_at: Timestamp.fromMillis(Date.now() + ms),
+  });
+  const ref = doc(alice, "shared_nights/alice");
+  await assertSucceeds(setDoc(ref, at(24 * 3600 * 1000)));
+  await assertFails(setDoc(ref, at(30 * 24 * 3600 * 1000)));
+});
+
+test("friends cannot list shared_nights or read after owner tombstone", async () => {
+  await seedFriendship("alice", "bob");
+  await seedNight("alice", futureTs());
+  const bob = env.authenticatedContext("bob").firestore();
+  await assertFails(getDocs(collection(bob, "shared_nights")));
+  await assertSucceeds(getDoc(doc(bob, "shared_nights/alice")));
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), "account_deletions/alice"), {a: 1});
+  });
+  await assertFails(getDoc(doc(bob, "shared_nights/alice")));
 });

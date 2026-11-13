@@ -163,7 +163,8 @@ service cloud.firestore {
 
     match /friend_requests/{id} {
       allow read: if request.auth != null
-        && request.auth.uid in [resource.data.from, resource.data.to];
+        && (resource.data.to == request.auth.uid
+          || resource.data.from == request.auth.uid);
     }
 
     match /friendships/{uid}/friends/{fid} {
@@ -176,21 +177,26 @@ service cloud.firestore {
 
     // --- Shared night -----------------------------------------------------
     // The one document a friend may read, and only for 24 h: expires_at is
-    // checked against request.time on every read. The key allowlist is the
-    // privacy boundary: notes, driving_mode and bac_limit can never be put
-    // here by a client. Create and update validate the whole resulting doc.
-    // A friend read costs one exists() plus owner()'s own exists().
+    // checked against request.time on every get, and expires_at may not be
+    // set more than 25 h ahead. The key allowlist keeps notes, driving_mode
+    // and bac_limit out of this doc, but rules cannot inspect list element
+    // contents: the client must build drinks with only name/icon/at. Get only,
+    // so a friend cannot list the collection. Create and update validate the
+    // whole resulting doc. A friend get costs three exists() calls, with the
+    // tombstone lookup shared with owner().
     match /shared_nights/{uid} {
       function validNight(d) {
         return d.started_at is number
           && d.last_drink_at is number
           && d.get('ended_at', 0) is number
           && d.expires_at is timestamp
+          && d.expires_at <= request.time + duration.value(25, 'h')
           && d.samples is list && d.samples.size() <= 300
           && d.drinks is list && d.drinks.size() <= 100;
       }
-      allow read: if owner(uid)
+      allow get: if owner(uid)
         || (request.auth != null
+          && !exists(/databases/$(database)/documents/account_deletions/$(uid))
           && exists(/databases/$(database)/documents/friendships/$(uid)/friends/$(request.auth.uid))
           && resource.data.expires_at > request.time);
       allow create, update: if owner(uid) && request.resource.data.keys().hasOnly([
