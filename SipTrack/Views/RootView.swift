@@ -19,11 +19,49 @@ struct RestoringProfileView: View {
     }
 }
 
+/// Covers the whole app when this version is below `RequiredUpdate`'s
+/// minimum. No close button: the only way out is the App Store.
+struct UpdateRequiredView: View {
+    var body: some View {
+        ZStack {
+            AppColors.background.ignoresSafeArea()
+            VStack(spacing: 20) {
+                Image(systemName: "arrow.down.app.fill")
+                    .font(.system(size: 56))
+                    .foregroundStyle(AppColors.accent)
+                    .accessibilityHidden(true)
+                VStack(spacing: 8) {
+                    Text("Update required")
+                        .font(.system(size: 24, weight: .bold))
+                        .foregroundStyle(AppColors.text)
+                    Text("This version of Tracksip is no longer supported. Update to keep tracking your nights.")
+                        .font(.system(size: 17))
+                        .foregroundStyle(AppColors.textSecondary)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.horizontal, 32)
+                Link(destination: AppStoreUpdate.productURL) {
+                    Text("Update on the App Store")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(.black)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(AppColors.accent)
+                        .cornerRadius(14)
+                }
+                .padding(.horizontal, 24)
+            }
+        }
+    }
+}
+
 struct RootView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var firebase: FirebaseManager
     @EnvironmentObject var countryDetector: LocationCountryDetector
+    @Environment(\.scenePhase) private var scenePhase
     @State private var path = NavigationPath()
+    @State private var updateRequired = false
 
     var body: some View {
         Group {
@@ -103,6 +141,18 @@ struct RootView: View {
         // Hosted here, outside the navigation stack, so a notice covers the
         // navigation bar rather than leaving it stranded above the backdrop.
         .noticeHost()
+        // Above the notice host so nothing can sit on top of it. Re-checked
+        // on every return to the foreground, so raising the minimum in
+        // Firestore reaches people who leave the app open in the background.
+        .overlay {
+            if updateRequired { UpdateRequiredView() }
+        }
+        .task(id: scenePhase) {
+            guard scenePhase == .active else { return }
+            let required = await RequiredUpdate.check()
+            guard !Task.isCancelled else { return }
+            updateRequired = required
+        }
         .onChange(of: appState.reportErrorMessage) { _, message in
             guard let message else { return }
             NoticeCenter.shared.show(Notice(
@@ -138,7 +188,8 @@ struct RootView: View {
                 // Detection runs every login, but the sheet only shows when
                 // the detected country differs from the stored one and is not
                 // the one the user explicitly dismissed last time.
-                guard let r = countryDetector.result else { return nil }
+                // A sheet would present above the update overlay.
+                guard !updateRequired, let r = countryDetector.result else { return nil }
                 let code: String = {
                     switch r {
                     case .matched(let c):           return c.countryCode

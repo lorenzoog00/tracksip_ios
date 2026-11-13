@@ -1,5 +1,32 @@
 import Foundation
+import FirebaseFirestore
 import StoreKit
+
+/// The oldest version allowed to keep running, set by hand in Firestore at
+/// `app_config/ios`, field `minimum_version` (e.g. "1.0.33"). Anything older
+/// gets a screen it cannot dismiss until it updates.
+///
+/// Fails open on purpose: no document, no field, a malformed value, offline
+/// with nothing cached, or any error all mean "let them in". A typo in the
+/// console must never lock everyone out.
+enum RequiredUpdate {
+    static func isRequired(installed: String, minimum: String?) -> Bool {
+        guard let minimum, let order = AppStoreUpdate.compare(installed, minimum) else { return false }
+        return order == .orderedAscending
+    }
+
+    static func check() async -> Bool {
+        guard let installed = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+        else { return false }
+        do {
+            let snapshot = try await Firestore.firestore()
+                .collection("app_config").document("ios").getDocument()
+            return isRequired(installed: installed, minimum: snapshot.get("minimum_version") as? String)
+        } catch {
+            return false
+        }
+    }
+}
 
 struct AppStoreUpdate: Equatable {
     let version: String
@@ -59,7 +86,7 @@ struct AppStoreUpdate: Equatable {
         return Self(version: app.version)
     }
 
-    private static func compare(_ lhs: String, _ rhs: String) -> ComparisonResult? {
+    static func compare(_ lhs: String, _ rhs: String) -> ComparisonResult? {
         func components(of version: String) -> [Int]? {
             let pieces = version.split(separator: ".", omittingEmptySubsequences: false)
             let numbers = pieces.compactMap { Int($0) }

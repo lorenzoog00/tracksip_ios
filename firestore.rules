@@ -20,6 +20,12 @@ service cloud.firestore {
       return value is string && value.size() <= max;
     }
 
+    // App-wide settings such as ios.minimum_version. Read before sign-in, so
+    // public; written only from the console or the Admin SDK.
+    match /app_config/{id} {
+      allow read: if true;
+    }
+
     match /users/{uid} {
       allow read: if owner(uid);
 
