@@ -39,4 +39,14 @@ struct IncognitoTests {
         let decoded = try JSONDecoder().decode(UserProfile.self, from: JSONEncoder().encode(profile))
         #expect(decoded.incognitoByDefault == true)
     }
+
+    @Test func unspecifiedIncognitoUsesProfileDefault() {
+        #expect(AppState.resolveIncognito(nil, profileDefault: true) == true)
+        #expect(AppState.resolveIncognito(nil, profileDefault: false) == false)
+    }
+
+    @Test func explicitIncognitoBeatsProfileDefault() {
+        #expect(AppState.resolveIncognito(false, profileDefault: true) == false)
+        #expect(AppState.resolveIncognito(true, profileDefault: false) == true)
+    }
 }

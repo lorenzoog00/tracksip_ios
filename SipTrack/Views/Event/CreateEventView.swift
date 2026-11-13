@@ -12,6 +12,7 @@ struct CreateEventView: View {
     @State private var targetBAC: Double? = nil
     @State private var stomachState: StomachState = .empty
     @State private var incognito     = false
+    @State private var seededIncognito = false
     @FocusState private var nameFocused: Bool
 
     private var country: LegalBACLimit? { appState.userProfile.legalBACLimit }
@@ -216,7 +217,10 @@ struct CreateEventView: View {
             }
             .onAppear {
                 seedLimitFromProfile()
-                incognito = appState.userProfile.incognitoByDefault
+                if !seededIncognito {
+                    seededIncognito = true
+                    incognito = appState.userProfile.incognitoByDefault
+                }
             }
             .navigationTitle("New Night")
             .navigationBarTitleDisplayMode(.inline)

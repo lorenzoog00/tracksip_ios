@@ -249,10 +249,10 @@ final class AppState: ObservableObject {
         targetBAC: Double? = nil,
         startTime: Date = Date(),
         stomachState: StomachState = .empty,
-        incognito: Bool = false
+        incognito: Bool? = nil
     ) -> NightEvent {
         var event = DataStore.shared.createEvent(name: name, drivingMode: drivingMode, bacLimit: bacLimit, userId: currentUserId, startTime: startTime)
-        event.incognito = incognito
+        event.incognito = Self.resolveIncognito(incognito, profileDefault: userProfile.incognitoByDefault)
         event.stomachState = stomachState
         event.stomachStateTimestamp = startTime
         event.targetBAC = targetBAC
@@ -500,6 +500,11 @@ final class AppState: ObservableObject {
         WatchBridge.shared.pushState()
         generateAiReport(for: id)
         generateRecoveryBrief(for: id)
+    }
+
+    /// nil means the caller didn't choose (Watch, intents): use the profile default.
+    static func resolveIncognito(_ explicit: Bool?, profileDefault: Bool) -> Bool {
+        explicit ?? profileDefault
     }
 
     /// Turns incognito on or off for a night. updateEvent(id:) persists locally and
