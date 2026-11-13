@@ -88,6 +88,7 @@ struct UserProfile: Codable {
     var aiReportsUsedThisMonth: Int            = 0
     var aiReportMonthKey: String               = "" // format: "2026-05"
     var aiReportsEnabled: Bool?                = nil
+    var incognitoByDefault: Bool               = false
 
     var isPro: Bool { subscriptionTier == .pro }
 
@@ -111,6 +112,7 @@ struct UserProfile: Codable {
         case subscriptionTier, subscriptionPeriod, subscriptionStartedAt
         case liveActivityDrinkIds, favoriteDrinkIds
         case aiReportsUsedThisMonth, aiReportMonthKey, aiReportsEnabled
+        case incognitoByDefault
     }
 }
 
@@ -156,5 +158,6 @@ extension UserProfile {
         aiReportsUsedThisMonth              = try c.decodeIfPresent(Int.self, forKey: .aiReportsUsedThisMonth) ?? aiReportsUsedThisMonth
         aiReportMonthKey                    = try c.decodeIfPresent(String.self, forKey: .aiReportMonthKey) ?? aiReportMonthKey
         aiReportsEnabled                    = try c.decodeIfPresent(Bool.self, forKey: .aiReportsEnabled)
+        incognitoByDefault                  = try c.decodeIfPresent(Bool.self, forKey: .incognitoByDefault) ?? incognitoByDefault
     }
 }

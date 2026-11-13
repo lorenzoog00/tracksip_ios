@@ -172,6 +172,7 @@ final class FirebaseManager: ObservableObject {
         if let e = event.endTime       { data["ended_at"]   = e.timeIntervalSince1970 * 1000 }
         if let b = event.bacLimit      { data["bac_limit"]  = b }
         if let n = event.notes         { data["notes"]      = n }
+        data["incognito"] = event.isIncognito
         try await col.document(event.id).setData(data, merge: true)
     }
 
@@ -232,6 +233,7 @@ final class FirebaseManager: ObservableObject {
         data["country_detection_disabled"] = profile.countryDetectionDisabled
         data["favorite_drink_ids"] = profile.favoriteDrinkIds
         data["ai_reports_enabled"] = profile.aiReportsEnabled == true
+        data["incognito_by_default"] = profile.incognitoByDefault
         try await db.collection("users").document(uid).collection("profiles").document(uid)
             .setData(data, merge: true)
     }
@@ -293,7 +295,8 @@ final class FirebaseManager: ObservableObject {
                 notes: d["notes"] as? String,
                 aiReport: d["ai_report"] as? String,
                 createdAt: (d["created_at"] as? Double).map { Date(timeIntervalSince1970: $0 / 1000) }
-                    ?? Date(timeIntervalSince1970: startMs / 1000)
+                    ?? Date(timeIntervalSince1970: startMs / 1000),
+                incognito: d["incognito"] as? Bool
             )
         } ?? []
 
@@ -363,6 +366,7 @@ final class FirebaseManager: ObservableObject {
             up.countryDetectionDisabled = d["country_detection_disabled"] as? Bool ?? false
             up.favoriteDrinkIds = d["favorite_drink_ids"] as? [String] ?? []
             up.aiReportsEnabled = d["ai_reports_enabled"] as? Bool
+            up.incognitoByDefault = d["incognito_by_default"] as? Bool ?? false
             profile = up
         }
 

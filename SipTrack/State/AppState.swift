@@ -248,9 +248,11 @@ final class AppState: ObservableObject {
         bacLimit: Double?,
         targetBAC: Double? = nil,
         startTime: Date = Date(),
-        stomachState: StomachState = .empty
+        stomachState: StomachState = .empty,
+        incognito: Bool = false
     ) -> NightEvent {
         var event = DataStore.shared.createEvent(name: name, drivingMode: drivingMode, bacLimit: bacLimit, userId: currentUserId, startTime: startTime)
+        event.incognito = incognito
         event.stomachState = stomachState
         event.stomachStateTimestamp = startTime
         event.targetBAC = targetBAC
@@ -498,6 +500,14 @@ final class AppState: ObservableObject {
         WatchBridge.shared.pushState()
         generateAiReport(for: id)
         generateRecoveryBrief(for: id)
+    }
+
+    /// Turns incognito on or off for a night. updateEvent(id:) persists locally and
+    /// pushes the event (with `incognito`) to Firestore.
+    func setIncognito(_ on: Bool, for eventId: String) {
+        updateEvent(id: eventId) { $0.incognito = on }
+        // Task 9 hooks sharing here: going incognito stops/removes the shared night,
+        // coming back (on == false) starts it again.
     }
 
     // MARK: - AI Report

@@ -15,6 +15,11 @@ struct NightEvent: Codable, Identifiable, Hashable {
     var stomachState: StomachState?
     var stomachStateTimestamp: Date?
 
+    // Optional so JSON saved before this field existed decodes (nil = not incognito).
+    var incognito: Bool? = nil
+
+    var isIncognito: Bool { incognito == true }
+
     var isActive: Bool { endTime == nil }
 
     var duration: TimeInterval {

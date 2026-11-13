@@ -67,6 +67,7 @@ struct HapticsPreferenceTests {
         p.aiReportsUsedThisMonth = 3
         p.aiReportMonthKey = "2026-10"
         p.aiReportsEnabled = true
+        p.incognitoByDefault = true
         return p
     }
 
@@ -100,13 +101,14 @@ struct HapticsPreferenceTests {
         #expect(d.aiReportsUsedThisMonth == 3)
         #expect(d.aiReportMonthKey == "2026-10")
         #expect(d.aiReportsEnabled == true)
+        #expect(d.incognitoByDefault == true)
     }
 
     @Test func fullProfile_roundtripsEveryProperty() throws {
         // Fails the day a property is added to UserProfile without this test being extended,
         // which is also the day CodingKeys / init(from:) need checking.
         let storedPropertyCount = Mirror(reflecting: UserProfile()).children.count
-        #expect(storedPropertyCount == 24, "UserProfile gained or lost a stored property: update fullyPopulatedProfile(), expectEveryOtherPropertyIntact(_:), CodingKeys and init(from:)")
+        #expect(storedPropertyCount == 25, "UserProfile gained or lost a stored property: update fullyPopulatedProfile(), expectEveryOtherPropertyIntact(_:), CodingKeys and init(from:)")
 
         let data = try JSONEncoder().encode(fullyPopulatedProfile())
         let decoded = try JSONDecoder().decode(UserProfile.self, from: data)
