@@ -47,7 +47,7 @@ struct SharedNightSyncTests {
         if case .write = none { Issue.record("incognito produced a write") }
     }
 
-    @Test func noUsernameDoesNothing() {
+    @Test func noUsernameWritesNothingButIncognitoStillDeletes() {
         #expect(run(event: event(), night: night(), lastSent: nil, hasUsername: false) == .none)
         #expect(run(event: event(incognito: true), night: night(), lastSent: nil, hasUsername: false) == .delete)
     }

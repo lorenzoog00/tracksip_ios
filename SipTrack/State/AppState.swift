@@ -165,6 +165,7 @@ final class AppState: ObservableObject {
                 self?.currentUserId = nil
                 self?.hasSocialProfile = false
                 self?.lastSentSharedNight = nil
+                self?.sharedNightGeneration &+= 1
                 self?.resetProfile()
             }
         refreshFromFirebase()
