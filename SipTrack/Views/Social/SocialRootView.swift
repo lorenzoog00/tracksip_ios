@@ -18,7 +18,9 @@ struct SocialPlaceholderView: View {
 /// The Social tab: pick a username first, then the friends feed.
 struct SocialRootView: View {
     @EnvironmentObject var friends: FriendsStore
+    @EnvironmentObject var appState: AppState
     @State private var showSearch = false
+    @State private var showFriends = false
 
     var body: some View {
         NavigationStack {
@@ -64,6 +66,9 @@ struct SocialRootView: View {
             }
         }
         .navigationDestination(isPresented: $showSearch) { searchDestination }
+        .navigationDestination(isPresented: $showFriends) { MyFriendsView() }
+        .onAppear(perform: openFriendsIfRequested)
+        .onChange(of: appState.pendingOpenFriends) { _, _ in openFriendsIfRequested() }
         .navigationTitle("Social")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -86,6 +91,12 @@ struct SocialRootView: View {
                 }
             }
         }
+    }
+
+    private func openFriendsIfRequested() {
+        guard appState.pendingOpenFriends else { return }
+        appState.pendingOpenFriends = false
+        showFriends = true
     }
 
     // One destination for the toolbar magnifier and the empty-state button.

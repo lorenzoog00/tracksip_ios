@@ -47,6 +47,8 @@ final class AppState: ObservableObject {
 
     /// Set by CreateEventView so RootView pushes the new event immediately.
     @Published var pendingEventRoute: Route? = nil
+    /// A friend-request push was tapped: RootView switches to Social, which opens My friends.
+    @Published var pendingOpenFriends = false
 
     let store: StoreManager
 

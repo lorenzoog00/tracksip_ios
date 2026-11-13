@@ -861,6 +861,23 @@ extension FirebaseManager {
         _ = try await callFunction("respondToFriendRequest", data: ["fromUid": fromUid, "accept": accept])
     }
 
+    /// Best effort: a failed registration only means no request pushes until the next launch.
+    func registerPushToken(_ token: String) async {
+        guard auth.currentUser != nil else { return }
+        #if DEBUG
+        let environment = "sandbox"
+        #else
+        let environment = "production"
+        #endif
+        do {
+            _ = try await callFunction("registerPushToken", data: ["token": token, "environment": environment])
+        } catch {
+            #if DEBUG
+            print("[Push] token registration failed: \(error.localizedDescription)")
+            #endif
+        }
+    }
+
     func cancelFriendRequest(toUid: String) async throws {
         _ = try await callFunction("cancelFriendRequest", data: ["toUid": toUid])
     }

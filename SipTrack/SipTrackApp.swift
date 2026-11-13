@@ -7,6 +7,7 @@ import BackgroundTasks
 @main
 struct SipTrackApp: App {
 
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var store: StoreManager
     @StateObject private var appState: AppState
     @StateObject private var friends: FriendsStore
@@ -27,6 +28,7 @@ struct SipTrackApp: App {
         _appState = StateObject(wrappedValue: state)
         _friends  = StateObject(wrappedValue: FriendsStore(appState: state))
         WatchBridge.shared.appState = state
+        PushRegistration.onOpenFriends = { [weak state] in state?.pendingOpenFriends = true }
         // Lock-screen buttons. iOS runs these in a background launch and ends it
         // when the intent returns, so each one waits for the lock screen and the
         // push server to hear about the change first.

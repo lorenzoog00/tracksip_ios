@@ -51,6 +51,8 @@ final class FriendsStore: ObservableObject {
     private var profiles: [String: FriendProfile] = [:]
     private var resolving: Set<String> = []
 
+    /// Ask for push permission once per signed-in session, when the first request shows up.
+    private var askedPushForIncoming = false
     private var authCancellable: AnyCancellable?
     private var foregroundCancellable: AnyCancellable?
 
@@ -81,6 +83,8 @@ final class FriendsStore: ObservableObject {
         stop()
         self.uid = uid
         let s = session
+        // Signed in: refresh the push token (never prompts).
+        Task { await PushRegistration.registerIfAuthorized() }
 
         listeners.append(db.collection("public_profiles").document(uid)
             .addSnapshotListener { [weak self] snap, error in
@@ -163,6 +167,7 @@ final class FriendsStore: ObservableObject {
         profiles = [:]
         resolving = []
         uid = nil
+        askedPushForIncoming = false
         // No night sync here: signed out, there is nothing to write or delete.
         applyMyProfile(nil, syncNight: false)
         profileLoaded = false
@@ -216,6 +221,11 @@ final class FriendsStore: ObservableObject {
         incoming = list(incomingUids)
         outgoing = list(outgoingUids)
         blocked = list(blockedUids)
+        if !incoming.isEmpty && !askedPushForIncoming {
+            askedPushForIncoming = true
+            let count = incoming.count
+            Task { await PushRegistration.requestIfNeeded(incomingCount: count) }
+        }
         feed = friends.compactMap { profile in
             nights[profile.uid].map { FeedItem(id: profile.uid, profile: profile, night: $0) }
         }
@@ -314,6 +324,8 @@ final class FriendsStore: ObservableObject {
 
     func sendRequest(to uid: String) async throws {
         try await FirebaseManager.shared.sendFriendRequest(toUid: uid)
+        // Only reached on success: the first request sent is the moment to ask.
+        Task { await PushRegistration.requestIfNeeded(sentCount: 1) }
     }
 
     func respond(to uid: String, accept: Bool) async throws {

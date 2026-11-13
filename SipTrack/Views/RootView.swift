@@ -182,6 +182,9 @@ struct RootView: View {
             guard !Task.isCancelled else { return }
             updateRequired = required
         }
+        .onChange(of: appState.pendingOpenFriends) { _, open in
+            if open { selectedTab = .social }
+        }
         .onChange(of: appState.reportErrorMessage) { _, message in
             guard let message else { return }
             NoticeCenter.shared.show(Notice(
