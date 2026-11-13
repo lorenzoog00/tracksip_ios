@@ -127,7 +127,7 @@ struct HapticsPreferenceTests {
 
         let removed = object.removeValue(forKey: "hapticsEnabled")
         #expect(removed != nil, "hapticsEnabled is no longer the encoded key name")
-        #expect(object.count == 23)
+        #expect(object.count == 24)
 
         let legacy = try JSONSerialization.data(withJSONObject: object)
         let decoded = try JSONDecoder().decode(UserProfile.self, from: legacy)
