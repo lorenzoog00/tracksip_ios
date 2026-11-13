@@ -489,3 +489,206 @@ test("social: search matches by prefix and hides blocks in both directions", asy
   assert.deepEqual((await search("c", "lo")).results.map((r) => r.uid), ["b"]);
   assert.deepEqual((await search("d", "lo")).results.map((r) => r.uid), ["b", "a"]);
 });
+
+// social: requests, friendships, blocks
+const social = require("../social");
+
+const makeNotify = () => {
+  const calls = [];
+  const notify = async (...args) => {
+    calls.push(args);
+  };
+  return {calls, notify};
+};
+const call = (fn, uid, data, notify) => social[fn]({db, uid, data, notify});
+const exists = async (path) => (await db.doc(path).get()).exists;
+const countDocs = async (path) => (await db.collection(path).get()).size;
+
+const twoUsers = async () => {
+  await claim("A", "alice");
+  await claim("B", "bobby");
+};
+
+test("social: request then accept creates both friendships and notifies", async () => {
+  await twoUsers();
+  const {calls, notify} = makeNotify();
+  assert.deepEqual(
+      await call("sendFriendRequest", "A", {toUid: "B"}, notify),
+      {status: "requested"},
+  );
+  const request = (await db.doc("friend_requests/A_B").get()).data();
+  assert.equal(request.from, "A");
+  assert.equal(request.to, "B");
+  assert.equal(typeof request.created_at, "number");
+
+  assert.deepEqual(
+      await call("respondToFriendRequest", "B", {fromUid: "A", accept: true}, notify),
+      {status: "friends"},
+  );
+  assert.equal(await exists("friend_requests/A_B"), false);
+  assert.equal(typeof (await db.doc("friendships/A/friends/B").get()).data().since, "number");
+  assert.equal(typeof (await db.doc("friendships/B/friends/A").get()).data().since, "number");
+  assert.deepEqual(calls, [["B", "request", "alice"], ["A", "accepted", "bobby"]]);
+});
+
+test("social: mutual pending requests become friends with no requests left", async () => {
+  await twoUsers();
+  const {calls, notify} = makeNotify();
+  await call("sendFriendRequest", "A", {toUid: "B"}, notify);
+  assert.deepEqual(
+      await call("sendFriendRequest", "B", {toUid: "A"}, notify),
+      {status: "friends"},
+  );
+  assert.equal(await countDocs("friend_requests"), 0);
+  assert.equal(await exists("friendships/A/friends/B"), true);
+  assert.equal(await exists("friendships/B/friends/A"), true);
+  assert.deepEqual(calls, [["B", "request", "alice"], ["A", "accepted", "bobby"]]);
+});
+
+test("social: declining deletes the request without a friendship", async () => {
+  await twoUsers();
+  const {calls, notify} = makeNotify();
+  await call("sendFriendRequest", "A", {toUid: "B"}, notify);
+  assert.deepEqual(
+      await call("respondToFriendRequest", "B", {fromUid: "A", accept: false}, notify),
+      {status: "declined"},
+  );
+  assert.equal(await countDocs("friend_requests"), 0);
+  assert.equal(await exists("friendships/A/friends/B"), false);
+  assert.equal(await exists("friendships/B/friends/A"), false);
+  assert.deepEqual(calls, [["B", "request", "alice"]]);
+});
+
+test("social: responding to a missing request is not-found", async () => {
+  await twoUsers();
+  await assert.rejects(
+      call("respondToFriendRequest", "B", {fromUid: "A", accept: true}, makeNotify().notify),
+      (e) => e.code === "not-found",
+  );
+  assert.equal(await exists("friendships/A/friends/B"), false);
+});
+
+test("social: cancelling removes only the callers own pending request", async () => {
+  await twoUsers();
+  const {notify} = makeNotify();
+  await call("sendFriendRequest", "A", {toUid: "B"}, notify);
+  await call("cancelFriendRequest", "B", {toUid: "A"}, notify);
+  assert.equal(await exists("friend_requests/A_B"), true);
+  await call("cancelFriendRequest", "A", {toUid: "B"}, notify);
+  assert.equal(await exists("friend_requests/A_B"), false);
+});
+
+test("social: removing a friend deletes both sides without notifying", async () => {
+  await twoUsers();
+  const {calls, notify} = makeNotify();
+  await call("sendFriendRequest", "A", {toUid: "B"}, notify);
+  await call("respondToFriendRequest", "B", {fromUid: "A", accept: true}, notify);
+  calls.length = 0;
+  await call("removeFriend", "A", {friendUid: "B"}, notify);
+  assert.equal(await exists("friendships/A/friends/B"), false);
+  assert.equal(await exists("friendships/B/friends/A"), false);
+  assert.deepEqual(calls, []);
+});
+
+test("social: requests need usernames on both sides", async () => {
+  await claim("B", "bobby");
+  const {calls, notify} = makeNotify();
+  await assert.rejects(
+      call("sendFriendRequest", "A", {toUid: "B"}, notify),
+      (e) => e.code === "failed-precondition",
+  );
+  await claim("A", "alice");
+  await assert.rejects(
+      call("sendFriendRequest", "A", {toUid: "Z"}, notify),
+      (e) => e.code === "not-found",
+  );
+  assert.equal(await countDocs("friend_requests"), 0);
+  assert.deepEqual(calls, []);
+});
+
+test("social: requesting yourself is rejected and an existing friend is a no-op", async () => {
+  await twoUsers();
+  const {calls, notify} = makeNotify();
+  await assert.rejects(
+      call("sendFriendRequest", "A", {toUid: "A"}, notify),
+      (e) => e.code === "invalid-argument",
+  );
+  await call("sendFriendRequest", "A", {toUid: "B"}, notify);
+  await call("respondToFriendRequest", "B", {fromUid: "A", accept: true}, notify);
+  calls.length = 0;
+  assert.deepEqual(
+      await call("sendFriendRequest", "A", {toUid: "B"}, notify),
+      {status: "friends"},
+  );
+  assert.equal(await countDocs("friend_requests"), 0);
+  assert.deepEqual(calls, []);
+});
+
+test("social: a failing notify does not fail the callable", async () => {
+  await twoUsers();
+  const notify = async () => {
+    throw new Error("push down");
+  };
+  assert.deepEqual(
+      await call("sendFriendRequest", "A", {toUid: "B"}, notify),
+      {status: "requested"},
+  );
+  assert.equal(await exists("friend_requests/A_B"), true);
+});
+
+test("social: blocking removes friendship and requests both ways and bars requests", async () => {
+  await twoUsers();
+  await claim("C", "carol");
+  const {notify} = makeNotify();
+  await call("sendFriendRequest", "A", {toUid: "B"}, notify);
+  await call("respondToFriendRequest", "B", {fromUid: "A", accept: true}, notify);
+  await call("sendFriendRequest", "A", {toUid: "C"}, notify);
+  await call("sendFriendRequest", "C", {toUid: "A"}, notify);
+  await db.doc("friend_requests/B_A").set({from: "B", to: "A", created_at: 1});
+
+  await call("blockUser", "A", {targetUid: "B"}, notify);
+  const block = (await db.doc("blocks/A/blocked/B").get()).data();
+  assert.equal(block.uid, "B");
+  assert.equal(typeof block.created_at, "number");
+  assert.equal(await exists("friendships/A/friends/B"), false);
+  assert.equal(await exists("friendships/B/friends/A"), false);
+  assert.equal(await exists("friend_requests/B_A"), false);
+  assert.equal(await exists("friendships/A/friends/C"), true);
+
+  await assert.rejects(
+      call("sendFriendRequest", "B", {toUid: "A"}, notify),
+      (e) => e.code === "permission-denied",
+  );
+  await assert.rejects(
+      call("sendFriendRequest", "A", {toUid: "B"}, notify),
+      (e) => e.code === "permission-denied",
+  );
+  assert.equal(await exists("friend_requests/B_A"), false);
+
+  await call("unblockUser", "A", {targetUid: "B"}, notify);
+  assert.equal(await exists("blocks/A/blocked/B"), false);
+  assert.deepEqual(
+      await call("sendFriendRequest", "B", {toUid: "A"}, notify),
+      {status: "requested"},
+  );
+});
+
+test("social: blocking clears a pending request in the other direction", async () => {
+  await twoUsers();
+  const {notify} = makeNotify();
+  await call("sendFriendRequest", "A", {toUid: "B"}, notify);
+  await call("blockUser", "A", {targetUid: "B"}, notify);
+  assert.equal(await countDocs("friend_requests"), 0);
+});
+
+test("social: a block bars accepting an already-pending request", async () => {
+  await twoUsers();
+  const {notify} = makeNotify();
+  await call("sendFriendRequest", "A", {toUid: "B"}, notify);
+  await db.doc("blocks/B/blocked/A").set({uid: "A", created_at: 1});
+  await assert.rejects(
+      call("respondToFriendRequest", "B", {fromUid: "A", accept: true}, notify),
+      (e) => e.code === "permission-denied",
+  );
+  assert.equal(await exists("friendships/A/friends/B"), false);
+});
