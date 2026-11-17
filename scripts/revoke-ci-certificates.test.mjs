@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
-import {certificatesToRevoke, buildToken} from "./revoke-ci-certificates.mjs";
+import {certificatesToRevoke, buildToken, describeCertificates} from "./revoke-ci-certificates.mjs";
 
 const certificate = (name, certificateType) => ({
   id: `${name}-${certificateType}`,
@@ -52,6 +52,35 @@ test("picks only the throwaways out of a mixed account", () => {
 
 test("ignores a certificate with no attributes rather than throwing", () => {
   assert.deepEqual(certificatesToRevoke([{id: "x"}, {id: "y", attributes: {}}]), []);
+});
+
+// 2026-11-17: the exact-name match found 0 of 14 while the cap was hit, so the
+// marker can sit inside a longer name or only in displayName.
+test("finds the marker inside a longer name or only in displayName", () => {
+  const stale = certificatesToRevoke([
+    certificate("Apple Development: Created via API (ABC123)", "DEVELOPMENT"),
+    {id: "d", attributes: {name: "Lorenzo Orozco", displayName: "Created via API",
+      certificateType: "DEVELOPMENT"}},
+    certificate("created VIA api", "IOS_DEVELOPMENT"),
+  ]);
+  assert.equal(stale.length, 3);
+});
+
+test("still leaves CI-made distribution and the long-lived CI development cert alone", () => {
+  const stale = certificatesToRevoke([
+    certificate("Apple Distribution: Created via API (ABC123)", "DISTRIBUTION"),
+    certificate("TrackSip CI Development", "DEVELOPMENT"),
+  ]);
+  assert.deepEqual(stale, []);
+});
+
+test("describes every certificate so an empty run explains itself", () => {
+  const lines = describeCertificates([
+    certificate("Lorenzo Orozco", "DEVELOPMENT"),
+    {id: "z"},
+  ]);
+  assert.equal(lines.length, 2);
+  assert.match(lines[0], /DEVELOPMENT \| name="Lorenzo Orozco"/);
 });
 
 test("signs a token Apple will accept", () => {
