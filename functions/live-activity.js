@@ -24,6 +24,20 @@ function invalid(message) {
 }
 
 /**
+ * Checks an APNs device token and environment, shared by every push feature.
+ * @param {*} token the hex token
+ * @param {*} environment "production" or "sandbox"
+ */
+function validatePushToken(token, environment) {
+  if (typeof token !== "string" || !/^[0-9a-f]{32,400}$/.test(token)) {
+    throw invalid("Invalid push token.");
+  }
+  if (environment !== "production" && environment !== "sandbox") {
+    throw invalid("Invalid environment.");
+  }
+}
+
+/**
  * Checks a syncLiveActivity request. Returns null when the client is telling
  * the server to stop (no token or no curve), else the document to store.
  * @param {object} data the callable payload
@@ -35,12 +49,7 @@ function parseSync(data) {
   if (token == null || !Array.isArray(samples) || samples.length === 0) {
     return null;
   }
-  if (typeof token !== "string" || !/^[0-9a-f]{32,400}$/.test(token)) {
-    throw invalid("Invalid push token.");
-  }
-  if (environment !== "production" && environment !== "sandbox") {
-    throw invalid("Invalid environment.");
-  }
+  validatePushToken(token, environment);
   if (!template || typeof template !== "object" || Array.isArray(template)) {
     throw invalid("Invalid template.");
   }
@@ -143,11 +152,28 @@ function apnsJwt({key, keyId, teamId, nowSeconds}) {
 }
 
 /**
+ * The HTTP/2 request headers for one APNs push.
+ * @param {{jwt: string, topic: string, token: string, pushType: ?string}} o
+ * @return {object}
+ */
+function apnsHeaders({jwt, topic, token, pushType = "liveactivity"}) {
+  return {
+    ":method": "POST",
+    ":path": `/3/device/${token}`,
+    "authorization": `bearer ${jwt}`,
+    "apns-push-type": pushType,
+    "apns-topic": topic,
+    "apns-priority": "10",
+    "content-type": "application/json",
+  };
+}
+
+/**
  * Sends pushes over one HTTP/2 connection per APNs environment.
- * @param {{jwt: string, topic: string}} o
+ * @param {{jwt: string, topic: string, pushType: ?string}} o
  * @return {{send: Function, close: Function}}
  */
-function apnsClient({jwt, topic}) {
+function apnsClient({jwt, topic, pushType = "liveactivity"}) {
   const sessions = {};
   const session = (environment) => {
     if (!sessions[environment]) {
@@ -160,15 +186,9 @@ function apnsClient({jwt, topic}) {
     return sessions[environment];
   };
   const send = (environment, token, payload) => new Promise((resolve) => {
-    const req = session(environment).request({
-      ":method": "POST",
-      ":path": `/3/device/${token}`,
-      "authorization": `bearer ${jwt}`,
-      "apns-push-type": "liveactivity",
-      "apns-topic": topic,
-      "apns-priority": "10",
-      "content-type": "application/json",
-    });
+    const req = session(environment).request(
+        apnsHeaders({jwt, topic, token, pushType}),
+    );
     let status = 0;
     let body = "";
     req.setTimeout(10000, () => req.close());
@@ -257,6 +277,8 @@ module.exports = {
   COLLECTION,
   APPLE_EPOCH_OFFSET,
   parseSync,
+  validatePushToken,
+  apnsHeaders,
   stateAt,
   apnsPayload,
   apnsJwt,

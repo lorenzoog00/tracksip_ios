@@ -11,6 +11,8 @@ struct CreateEventView: View {
     @State private var useCountryLimit = true
     @State private var targetBAC: Double? = nil
     @State private var stomachState: StomachState = .empty
+    @State private var incognito     = false
+    @State private var seededIncognito = false
     @FocusState private var nameFocused: Bool
 
     private var country: LegalBACLimit? { appState.userProfile.legalBACLimit }
@@ -96,6 +98,25 @@ struct CreateEventView: View {
 
                             Divider().background(AppColors.border)
 
+                            // Incognito
+                            Toggle(isOn: $incognito) {
+                                HStack(spacing: 10) {
+                                    Image(systemName: "eyeglasses")
+                                        .foregroundStyle(incognito ? AppColors.accent : AppColors.textSecondary)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("Incognito")
+                                            .font(.system(size: 17, weight: .medium))
+                                            .foregroundStyle(AppColors.text)
+                                        Text("Friends won't see this night")
+                                            .font(.system(size: 15))
+                                            .foregroundStyle(AppColors.textSecondary)
+                                    }
+                                }
+                            }
+                            .tint(AppColors.accent)
+
+                            Divider().background(AppColors.border)
+
                             if !drivingMode {
                                 // Tonight's Ceiling — classy meter, no emojis
                                 GoalCeilingMeter(targetBAC: $targetBAC)
@@ -172,7 +193,8 @@ struct CreateEventView: View {
                             bacLimit: drivingMode ? effectiveBACLimit : nil,
                             targetBAC: targetBAC,
                             startTime: Date(),
-                            stomachState: stomachState
+                            stomachState: stomachState,
+                            incognito: incognito
                         )
                         appState.pendingEventRoute = guideTarget.map { .guidedEvent(event.id, $0) } ?? .event(event.id)
                         dismiss()
@@ -193,7 +215,13 @@ struct CreateEventView: View {
                     .overlay(Rectangle().frame(height: 0.5).foregroundStyle(AppColors.border), alignment: .top)
                 }
             }
-            .onAppear { seedLimitFromProfile() }
+            .onAppear {
+                seedLimitFromProfile()
+                if !seededIncognito {
+                    seededIncognito = true
+                    incognito = appState.userProfile.incognitoByDefault
+                }
+            }
             .navigationTitle("New Night")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

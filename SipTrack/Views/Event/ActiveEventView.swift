@@ -42,6 +42,32 @@ struct ActiveEventView: View {
         }
     }
 
+    private func incognitoRow(event: NightEvent) -> some View {
+        Toggle(isOn: Binding(
+            get: { event.isIncognito },
+            set: { appState.setIncognito($0, for: eventId) }
+        )) {
+            HStack(spacing: 10) {
+                Image(systemName: "eyeglasses")
+                    .foregroundStyle(event.isIncognito ? AppColors.accent : AppColors.textSecondary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Incognito")
+                        .font(.system(size: 17, weight: .medium))
+                        .foregroundStyle(AppColors.text)
+                    Text("Friends won't see this night")
+                        .font(.system(size: 15))
+                        .foregroundStyle(AppColors.textSecondary)
+                }
+            }
+        }
+        .tint(AppColors.accent)
+        .padding(14)
+        .background(AppColors.surface)
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(AppColors.border, lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .padding(.horizontal)
+    }
+
     private func content(event: NightEvent, scroll: ScrollViewProxy) -> some View {
         let bacLimit = BACCalculator.drivingThreshold(limit: event.bacLimit ?? appState.userProfile.resolvedBACLimit)
         let overLimit = event.drivingMode && currentBAC >= bacLimit
@@ -96,6 +122,8 @@ struct ActiveEventView: View {
                     .id(Self.drinkPickerAnchor)
 
                     timelineLink
+
+                    incognitoRow(event: event)
 
                     BannerAdView()
                         .padding(.horizontal)

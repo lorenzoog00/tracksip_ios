@@ -161,7 +161,10 @@ final class FirebaseManager: ObservableObject {
 
     // MARK: - Push
 
-    func pushEvent(_ event: NightEvent) async throws {
+    /// `incognito` is only sent when true, or when the user just turned it off
+    /// (`explicitIncognito`). An ordinary push from a device whose copy is stale must
+    /// never downgrade a night another device made incognito; merge keeps the cloud value.
+    func pushEvent(_ event: NightEvent, explicitIncognito: Bool = false) async throws {
         guard let col = col("night_events") else { return }
         var data: [String: Any] = [
             "started_at": event.startTime.timeIntervalSince1970 * 1000,
@@ -172,7 +175,19 @@ final class FirebaseManager: ObservableObject {
         if let e = event.endTime       { data["ended_at"]   = e.timeIntervalSince1970 * 1000 }
         if let b = event.bacLimit      { data["bac_limit"]  = b }
         if let n = event.notes         { data["notes"]      = n }
+        if event.isIncognito || explicitIncognito { data["incognito"] = event.isIncognito }
         try await col.document(event.id).setData(data, merge: true)
+    }
+
+    /// Full replace (no merge) so removed keys such as a stale `ended_at` cannot linger.
+    func writeSharedNight(_ night: SharedNight) async throws {
+        guard let uid = currentUserId() else { return }
+        try await db.collection("shared_nights").document(uid).setData(night.firestoreData())
+    }
+
+    func deleteSharedNight() async throws {
+        guard let uid = currentUserId() else { return }
+        try await db.collection("shared_nights").document(uid).delete()
     }
 
     func deleteEvent(_ id: String) async throws {
@@ -232,6 +247,7 @@ final class FirebaseManager: ObservableObject {
         data["country_detection_disabled"] = profile.countryDetectionDisabled
         data["favorite_drink_ids"] = profile.favoriteDrinkIds
         data["ai_reports_enabled"] = profile.aiReportsEnabled == true
+        data["incognito_by_default"] = profile.incognitoByDefault
         try await db.collection("users").document(uid).collection("profiles").document(uid)
             .setData(data, merge: true)
     }
@@ -262,6 +278,10 @@ final class FirebaseManager: ObservableObject {
         var challenges: [Challenge]
         var profile: UserProfile?
         var coachReports: [CoachReport]
+        /// True only when the night_events read came from the server (signed in, no error,
+        /// not served from the offline cache). A failed or cached read says nothing
+        /// reliable about what another device did to incognito.
+        var succeeded: Bool = false
     }
 
     func pullUserData() async -> PulledData {
@@ -293,7 +313,8 @@ final class FirebaseManager: ObservableObject {
                 notes: d["notes"] as? String,
                 aiReport: d["ai_report"] as? String,
                 createdAt: (d["created_at"] as? Double).map { Date(timeIntervalSince1970: $0 / 1000) }
-                    ?? Date(timeIntervalSince1970: startMs / 1000)
+                    ?? Date(timeIntervalSince1970: startMs / 1000),
+                incognito: d["incognito"] as? Bool
             )
         } ?? []
 
@@ -363,6 +384,7 @@ final class FirebaseManager: ObservableObject {
             up.countryDetectionDisabled = d["country_detection_disabled"] as? Bool ?? false
             up.favoriteDrinkIds = d["favorite_drink_ids"] as? [String] ?? []
             up.aiReportsEnabled = d["ai_reports_enabled"] as? Bool
+            up.incognitoByDefault = d["incognito_by_default"] as? Bool ?? false
             profile = up
         }
 
@@ -386,7 +408,8 @@ final class FirebaseManager: ObservableObject {
         } ?? []
 
         return PulledData(events: events, entries: entries, drinkTypes: drinkTypes,
-                          challenges: challenges, profile: profile, coachReports: coachReports)
+                          challenges: challenges, profile: profile, coachReports: coachReports,
+                          succeeded: eDocs.map { !$0.metadata.isFromCache } ?? false)
     }
 
     // MARK: - AI Coach Report (Firestore trigger)
@@ -810,4 +833,81 @@ func friendlyAuthError(_ error: Error) -> String {
 private func recordUnclassifiedAuthError(_ error: NSError) {
     guard FirebaseApp.app() != nil else { return }
     Crashlytics.crashlytics().record(error: error)
+}
+
+// MARK: - Social callables
+
+extension FirebaseManager {
+    @discardableResult
+    func claimUsername(_ username: String) async throws -> String {
+        let r = try await callFunction("claimUsername", data: ["username": username])
+        return r["username"] as? String ?? username
+    }
+
+    func searchUsers(query: String) async throws -> [FriendProfile] {
+        let r = try await callFunction("searchUsers", data: ["query": query])
+        let rows = r["results"] as? [[String: Any]] ?? []
+        return rows.compactMap { row in
+            guard let uid = row["uid"] as? String, let username = row["username"] as? String else { return nil }
+            return FriendProfile(
+                uid: uid,
+                username: username,
+                photoURL: (row["photo_url"] as? String).flatMap { URL(string: $0) },
+                avatarColor: row["avatar_color"] as? String ?? ""
+            )
+        }
+    }
+
+    /// Returns "requested" or "friends" (when they had already asked me).
+    @discardableResult
+    func sendFriendRequest(toUid: String) async throws -> String {
+        let r = try await callFunction("sendFriendRequest", data: ["toUid": toUid])
+        return r["status"] as? String ?? "requested"
+    }
+
+    func respondToFriendRequest(fromUid: String, accept: Bool) async throws {
+        _ = try await callFunction("respondToFriendRequest", data: ["fromUid": fromUid, "accept": accept])
+    }
+
+    /// Best effort: a failed registration only means no request pushes until the next launch.
+    func registerPushToken(_ token: String) async {
+        guard auth.currentUser != nil else { return }
+        #if DEBUG
+        let environment = "sandbox"
+        #else
+        let environment = "production"
+        #endif
+        do {
+            _ = try await callFunction("registerPushToken", data: ["token": token, "environment": environment])
+        } catch {
+            #if DEBUG
+            print("[Push] token registration failed: \(error.localizedDescription)")
+            #endif
+        }
+    }
+
+    func cancelFriendRequest(toUid: String) async throws {
+        _ = try await callFunction("cancelFriendRequest", data: ["toUid": toUid])
+    }
+
+    func removeFriend(friendUid: String) async throws {
+        _ = try await callFunction("removeFriend", data: ["friendUid": friendUid])
+    }
+
+    func blockUser(targetUid: String) async throws {
+        _ = try await callFunction("blockUser", data: ["targetUid": targetUid])
+    }
+
+    func unblockUser(targetUid: String) async throws {
+        _ = try await callFunction("unblockUser", data: ["targetUid": targetUid])
+    }
+
+    func reportUser(targetUid: String, kind: String) async throws {
+        _ = try await callFunction("reportUser", data: ["targetUid": targetUid, "kind": kind])
+    }
+
+    /// `jpegBase64` is a base64 String, or NSNull to remove the photo.
+    func setAvatar(jpegBase64: Any) async throws {
+        _ = try await callFunction("setAvatar", data: ["jpegBase64": jpegBase64])
+    }
 }

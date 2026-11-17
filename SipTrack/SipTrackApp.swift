@@ -7,8 +7,10 @@ import BackgroundTasks
 @main
 struct SipTrackApp: App {
 
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var store: StoreManager
     @StateObject private var appState: AppState
+    @StateObject private var friends: FriendsStore
     @StateObject private var adManager = AdManager.shared
     @StateObject private var firebase  = FirebaseManager.shared
     @StateObject private var countryDetector = LocationCountryDetector()
@@ -24,7 +26,9 @@ struct SipTrackApp: App {
         let state = AppState(store: s)
         _store    = StateObject(wrappedValue: s)
         _appState = StateObject(wrappedValue: state)
+        _friends  = StateObject(wrappedValue: FriendsStore(appState: state))
         WatchBridge.shared.appState = state
+        PushRegistration.onOpenFriends = { [weak state] in state?.pendingOpenFriends = true }
         // Lock-screen buttons. iOS runs these in a background launch and ends it
         // when the intent returns, so each one waits for the lock screen and the
         // push server to hear about the change first.
@@ -49,6 +53,7 @@ struct SipTrackApp: App {
         WindowGroup {
             RootView()
                 .environmentObject(appState)
+                .environmentObject(friends)
                 .environmentObject(store)
                 .environmentObject(adManager)
                 .environmentObject(firebase)
@@ -68,6 +73,7 @@ struct SipTrackApp: App {
                     Haptics.shared.prepare()
                     appState.refreshWaterReminder()
                     appState.refreshLiveState()
+                    appState.refreshOnForeground()
                     Task {
                         await store.refreshStatus()
                         appState.syncSubscriptionFromStore()

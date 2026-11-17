@@ -18,6 +18,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.95.1",
     "@apple/app-store-server-library": "^3.1.0",
+    "@google-cloud/vision": "^6.2.0",
     "firebase-admin": "^14.4.0",
     "firebase-functions": "^7.3.2"
   },

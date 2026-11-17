@@ -124,6 +124,21 @@ final class WaterReminderManager: NSObject, UNUserNotificationCenterDelegate {
         identifier == "siptrack.water-reminder" ? [.banner, .list, .sound] : []
     }
 
+    /// A tap on a remote push (friend request) opens My friends. Remote pushes are told apart
+    /// by their trigger type, not their text: the server payload is only `aps`, and a body
+    /// match would break on any copy change. Local notifications never have a push trigger.
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        let isRemote = response.notification.request.trigger is UNPushNotificationTrigger
+        let isTap = response.actionIdentifier == UNNotificationDefaultActionIdentifier
+        if isRemote && isTap {
+            Task { @MainActor in PushRegistration.onOpenFriends?() }
+        }
+        completionHandler()
+    }
+
     nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter, willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
