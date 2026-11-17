@@ -63,8 +63,7 @@ struct SocialProfileView: View {
 
                     if let me = friends.myProfile {
                         ShareLink(
-                            item: FriendLink.shareURL(for: me.username),
-                            message: Text("Add me on TrackSip: @\(me.username)")
+                            item: "Add me on TrackSip: @\(me.username) \(FriendLink.shareURL(for: me.username).absoluteString)"
                         ) {
                             Label("Share profile", systemImage: "square.and.arrow.up")
                                 .font(.system(size: 16, weight: .semibold))

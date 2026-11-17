@@ -3,7 +3,7 @@ import Foundation
 /// The public "add me" link: `https://looqs.online/siptrack/u/<username>`, or the
 /// `siptrack://u/<username>` form the web fallback page opens the app with.
 enum FriendLink {
-    private static let host = "looqs.online"
+    private nonisolated static let host = "looqs.online"
 
     nonisolated static func isValid(_ name: String) -> Bool {
         let scalars = Array(name.unicodeScalars)

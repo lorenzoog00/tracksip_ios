@@ -18,6 +18,7 @@ struct FriendLinkSheet: View {
     /// Set after a request goes out from here, so the state flips before the Firestore listener catches up.
     @State private var sent = false
     @State private var isWorking = false
+    @State private var errorText: String?
     @StateObject private var coordinator = FriendActionCoordinator()
 
     private enum Relation { case me, friend, outgoing, incoming, stranger }
@@ -34,8 +35,16 @@ struct FriendLinkSheet: View {
         NavigationStack {
             ZStack {
                 AppColors.background.ignoresSafeArea()
-                content
-                    .padding(24)
+                VStack(spacing: 16) {
+                    content
+                    if let errorText {
+                        Text(errorText)
+                            .font(.system(size: 14))
+                            .foregroundStyle(AppColors.danger)
+                            .multilineTextAlignment(.center)
+                    }
+                }
+                .padding(24)
             }
             .navigationTitle("Add friend")
             .navigationBarTitleDisplayMode(.inline)
@@ -52,6 +61,9 @@ struct FriendLinkSheet: View {
         }
         .preferredColorScheme(.dark)
         .friendActionDialogs(coordinator)
+        .onAppear {
+            coordinator.errorHandler = { title, message in errorText = "\(title): \(message)" }
+        }
         .task(id: username) { await resolve() }
         .onChange(of: friends.blocked.map(\.uid)) { _, ids in
             if case .found(let profile) = lookup, ids.contains(profile.uid) { dismiss() }
@@ -116,11 +128,12 @@ struct FriendLinkSheet: View {
         Button {
             guard !isWorking else { return }
             isWorking = true
+            errorText = nil
             Task {
                 do {
                     try await work()
                 } catch {
-                    showSocialNotice(title: failure, message: error.localizedDescription)
+                    errorText = "\(failure): \(error.localizedDescription)"
                 }
                 isWorking = false
             }
@@ -140,6 +153,7 @@ struct FriendLinkSheet: View {
     private func resolve() async {
         lookup = .loading
         sent = false
+        errorText = nil
         // Search may not return the caller, so answer for myself locally.
         if let me = friends.myProfile, me.username.lowercased() == username {
             lookup = .found(me)
@@ -156,7 +170,7 @@ struct FriendLinkSheet: View {
         } catch {
             if Task.isCancelled { return }
             lookup = .failed
-            showSocialNotice(title: "Couldn't look that up", message: error.localizedDescription)
+            errorText = error.localizedDescription
         }
     }
 }

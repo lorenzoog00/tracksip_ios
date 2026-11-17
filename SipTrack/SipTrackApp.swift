@@ -94,6 +94,8 @@ struct SipTrackApp: App {
                 .onOpenURL { url in
                     if GIDSignIn.sharedInstance.handle(url) { return }
                     if let username = FriendLink.username(from: url) {
+                        // The app-open ad would present on the same root as the sheet.
+                        AdManager.shared.suppressAppOpenAd(for: 30)
                         appState.pendingFriendLink = username
                         return
                     }
