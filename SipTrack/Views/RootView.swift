@@ -95,7 +95,7 @@ struct RootView: View {
         }
         selectedTab = .home
         path = NavigationPath()
-        path.append(Route.eventCamera(request.eventId))
+        path.append(Route.eventCamera(request.eventId, request.id))
     }
 
     var body: some View {
@@ -127,7 +127,7 @@ struct RootView: View {
                                 switch route {
                                 case .event(let id):
                                     ActiveEventView(eventId: id)
-                                case .eventCamera(let id):
+                                case .eventCamera(let id, _):
                                     ActiveEventView(eventId: id, opensCamera: true)
                                 case .guidedEvent(let id, let target):
                                     ActiveEventView(eventId: id, guideTarget: target)
