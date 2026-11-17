@@ -102,8 +102,12 @@ async function setAvatar({db, bucket, uid, data, safeSearch}) {
 
   const token = crypto.randomUUID();
   await bucket.file(path).save(buffer, {
-    contentType: "image/jpeg",
-    metadata: {firebaseStorageDownloadTokens: token},
+    // Cloud Storage keeps custom metadata only under metadata.metadata; at the
+    // top level the token is dropped and the tokenized URL answers 403.
+    metadata: {
+      contentType: "image/jpeg",
+      metadata: {firebaseStorageDownloadTokens: token},
+    },
   });
   const photoUrl = avatarUrl({
     bucket: bucket.name, path, token, nowMs: Date.now(),
