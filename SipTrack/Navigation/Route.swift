@@ -14,6 +14,8 @@ enum EventGuideTarget: Hashable, Identifiable {
 
 enum Route: Hashable {
     case event(String)
+    /// The night screen opening straight into its camera (the lock-screen button).
+    case eventCamera(String)
     case guidedEvent(String, EventGuideTarget)
     case summary(String)
     case stories(String)

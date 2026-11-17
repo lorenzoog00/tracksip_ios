@@ -28,7 +28,7 @@ final class AppState: ObservableObject {
     @Published var isRestoringCloudProfile: Bool = false
     @Published var syncFailed: Bool          = false
     @Published var generatingReportForEventId: String? = nil
-    /// Set by the lock-screen camera button; RootView shows the camera while set.
+    /// Set by the lock-screen camera button; RootView consumes it at once.
     @Published var cameraRequest: CameraRequest? = nil
     @Published var failedReportEventIds: Set<String> = []
     @Published var coachReports: [CoachReport] = []

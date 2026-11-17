@@ -67,6 +67,37 @@ struct RootView: View {
     @State private var path = NavigationPath()
     @State private var updateRequired = false
 
+    /// True when the tabs are on screen, not sign-in, onboarding or the
+    /// update-required wall.
+    private var showsTabs: Bool {
+        !appState.shouldShowAuth
+            && !(firebase.isSignedIn && !appState.userProfile.onboardingComplete)
+            && !updateRequired
+    }
+
+    /// The lock-screen camera button. Consumed at once, opened or not, so a request
+    /// that could not be served never opens the camera later on its own. Opens the
+    /// night screen fresh (dismissing whatever it had up) with its own camera.
+    private func handleCameraRequest() {
+        guard let request = appState.cameraRequest else { return }
+        appState.cameraRequest = nil
+        guard showsTabs else { return }
+        guard appState.activeEvent?.id == request.eventId else {
+            selectedTab = .home
+            path = NavigationPath()
+            NoticeCenter.shared.show(Notice(
+                icon: "moon.zzz.fill",
+                title: "This night has ended",
+                message: "Photos can only be added while the night is running.",
+                actions: [NoticeAction("OK")]
+            ))
+            return
+        }
+        selectedTab = .home
+        path = NavigationPath()
+        path.append(Route.eventCamera(request.eventId))
+    }
+
     var body: some View {
         Group {
             if appState.shouldShowAuth {
@@ -98,6 +129,8 @@ struct RootView: View {
                                 switch route {
                                 case .event(let id):
                                     ActiveEventView(eventId: id)
+                                case .eventCamera(let id):
+                                    ActiveEventView(eventId: id, opensCamera: true)
                                 case .guidedEvent(let id, let target):
                                     ActiveEventView(eventId: id, guideTarget: target)
                                 case .summary(let id):
@@ -164,16 +197,6 @@ struct RootView: View {
                         .badge(friends.pendingCount)
                         .tag(AppTab.social)
                 }
-                // Here rather than in ActiveEventView so the lock-screen camera
-                // button works from any screen, without navigating first.
-                .fullScreenCover(item: $appState.cameraRequest) { request in
-                    NightCameraPicker { image in
-                        if NightPhotoStore.save(image, eventId: request.eventId) != nil {
-                            Haptics.shared.play(.success)
-                        }
-                    }
-                    .ignoresSafeArea()
-                }
             }
         }
         .preferredColorScheme(.dark)
@@ -192,6 +215,8 @@ struct RootView: View {
             guard !Task.isCancelled else { return }
             updateRequired = required
         }
+        .onChange(of: appState.cameraRequest) { _, _ in handleCameraRequest() }
+        .onAppear { handleCameraRequest() }
         .onChange(of: appState.pendingOpenFriends) { _, open in
             if open { selectedTab = .social }
         }

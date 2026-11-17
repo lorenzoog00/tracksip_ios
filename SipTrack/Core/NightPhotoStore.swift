@@ -129,10 +129,11 @@ nonisolated enum NightPhotoStore {
 
 // MARK: - Camera
 
-/// A request to open the camera for a night, from the lock-screen button.
+/// A request to open the camera for a night, from the lock-screen button. Each tap
+/// is a new value (`id`), so a second tap for the same night still registers.
 struct CameraRequest: Identifiable, Equatable {
+    let id = UUID()
     let eventId: String
-    var id: String { eventId }
 }
 
 /// The system camera, photo-only. Hands back the captured image; nothing is

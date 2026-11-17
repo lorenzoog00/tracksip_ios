@@ -272,8 +272,10 @@ private struct LockScreenContent: View {
             .padding(.top, 4)
             .padding(.bottom, 10)
 
-            // Row 4 — one-tap buttons
-            HStack(spacing: 8) {
+            // Row 4 — one-tap buttons. Five across (3 drinks, water, camera) leaves
+            // about 70 pt per drink on the smallest phones, so the drink buttons
+            // stack icon over name to keep names like "Gin & Tonic" whole.
+            HStack(spacing: 6) {
                 ForEach(context.state.quickDrinks.prefix(3)) { drink in
                     lockDrinkButton(drink)
                 }
@@ -287,18 +289,19 @@ private struct LockScreenContent: View {
 
     private func lockDrinkButton(_ drink: SipTrackActivityAttributes.QuickDrink) -> some View {
         Button(intent: AddDrinkFromLiveActivityIntent(drinkTypeId: drink.id, eventId: context.state.eventId)) {
-            HStack(spacing: 6) {
+            VStack(spacing: 2) {
                 Image(systemName: drink.symbol)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(stageColor)
                 Text(drink.name)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(.white)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+                    .minimumScaleFactor(0.75)
             }
+            .padding(.horizontal, 4)
             .frame(maxWidth: .infinity)
-            .frame(height: 42)
+            .frame(height: 46)
             .background(.white.opacity(0.09))
             .clipShape(RoundedRectangle(cornerRadius: 10))
             .overlay(
@@ -314,7 +317,7 @@ private struct LockScreenContent: View {
             Image(systemName: "drop.fill")
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(Color(hex: "#40AAFF"))
-                .frame(width: 50, height: 42)
+                .frame(width: 44, height: 46)
                 .background(Color(hex: "#40AAFF").opacity(0.14))
                 .clipShape(RoundedRectangle(cornerRadius: 10))
                 .overlay(
@@ -331,7 +334,7 @@ private struct LockScreenContent: View {
             Image(systemName: "camera.fill")
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(.white)
-                .frame(width: 50, height: 42)
+                .frame(width: 44, height: 46)
                 .background(.white.opacity(0.09))
                 .clipShape(RoundedRectangle(cornerRadius: 10))
                 .overlay(
