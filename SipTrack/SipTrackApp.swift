@@ -93,6 +93,10 @@ struct SipTrackApp: App {
                 }
                 .onOpenURL { url in
                     if GIDSignIn.sharedInstance.handle(url) { return }
+                    if let username = FriendLink.username(from: url) {
+                        appState.pendingFriendLink = username
+                        return
+                    }
                     guard url.scheme == "siptrack",
                           let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
                           let eventId = components.queryItems?.first(where: { $0.name == "event" })?.value

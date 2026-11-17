@@ -61,6 +61,21 @@ struct SocialProfileView: View {
                             .foregroundStyle(AppColors.danger)
                     }
 
+                    if let me = friends.myProfile {
+                        ShareLink(
+                            item: FriendLink.shareURL(for: me.username),
+                            message: Text("Add me on TrackSip: @\(me.username)")
+                        ) {
+                            Label("Share profile", systemImage: "square.and.arrow.up")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(.black)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                                .background(AppColors.accent)
+                                .clipShape(RoundedRectangle(cornerRadius: 14))
+                        }
+                    }
+
                     VStack(spacing: 0) {
                         Toggle(isOn: incognitoBinding) {
                             VStack(alignment: .leading, spacing: 2) {

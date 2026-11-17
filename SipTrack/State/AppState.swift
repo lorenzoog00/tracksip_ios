@@ -51,6 +51,9 @@ final class AppState: ObservableObject {
     @Published var pendingEventRoute: Route? = nil
     /// A friend-request push was tapped: RootView switches to Social, which opens My friends.
     @Published var pendingOpenFriends = false
+    /// A friend link (universal or siptrack://u/) was opened: RootView switches to Social,
+    /// which presents the add-friend sheet and clears this when it is dismissed.
+    @Published var pendingFriendLink: String? = nil
 
     let store: StoreManager
 
