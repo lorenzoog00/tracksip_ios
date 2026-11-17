@@ -1003,7 +1003,7 @@ struct LockScreenPickerView: View {
             AppColors.background.ignoresSafeArea()
             ScrollView {
                 VStack(spacing: 6) {
-                    Text("Choose up to 3 drinks shown as quick-add buttons on your Lock Screen and Dynamic Island while a night is active.")
+                    Text("Your Lock Screen and Dynamic Island show the same Quick Picks as the drink list: the night's latest drinks first, then your favorites, then the drinks you choose here.")
                         .font(.system(size: 16))
                         .foregroundStyle(AppColors.textSecondary)
                         .multilineTextAlignment(.center)

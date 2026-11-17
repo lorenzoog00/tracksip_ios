@@ -423,19 +423,22 @@ final class AppState: ObservableObject {
         print("🟡 startLiveActivity called for event: \(event.id)")
         #endif
         if #available(iOS 16.2, *) {
-            let ids = userProfile.liveActivityDrinkIds.isEmpty
-                ? ["beer", "red-wine", "tequila", "gin-tonic"]
-                : userProfile.liveActivityDrinkIds
-            let quickDrinks = allDrinkTypes
-                .filter { ids.contains($0.id) }
-                .prefix(3)
-                .map { SipTrackActivityAttributes.QuickDrink(id: $0.id, name: $0.name, symbol: $0.sfSymbol) }
             lockScreenCurveKey = nil
             LiveActivityManager.shared.start(
                 eventName: event.displayName,
                 eventId: event.id,
-                quickDrinks: Array(quickDrinks)
+                quickDrinks: lockScreenQuickDrinks(for: event.id)
             )
+        }
+    }
+
+    /// The lock-screen buttons: the same drinks, in the same order, as the
+    /// picker's QUICK PICKS row. Re-sent on every update, so a logged drink, a new
+    /// favourite or a Lock Screen Drinks change reaches the buttons.
+    @available(iOS 16.2, *)
+    private func lockScreenQuickDrinks(for eventId: String) -> [SipTrackActivityAttributes.QuickDrink] {
+        quickPicks(for: eventId, among: allDrinkTypes).map {
+            SipTrackActivityAttributes.QuickDrink(id: $0.id, name: $0.name, symbol: $0.sfSymbol)
         }
     }
 
@@ -478,6 +481,7 @@ final class AppState: ObservableObject {
                 hydrationBalance: waterEntries.filter { $0.eventId == eventId }.count
                     - totalDrinks(for: eventId),
                 currentDrink: latestDrinkForLockScreen(eventId: eventId),
+                quickDrinks: lockScreenQuickDrinks(for: eventId),
                 pushSamples: lockScreenPushSamples(for: event, currentBAC: resolvedBAC)
             )
         }
@@ -1747,6 +1751,19 @@ final class AppState: ObservableObject {
         Haptics.shared.setEnabled(profile.hapticsEnabled)
         push { try await FirebaseManager.shared.pushProfile(profile) }
         refreshWaterReminder()
+    }
+
+    /// The night's quick picks: the picker's QUICK PICKS row and the lock-screen
+    /// buttons both come from here. See `QuickPicks.ids`.
+    func quickPicks(for eventId: String, among drinkTypes: [DrinkType]) -> [DrinkType] {
+        let ids = QuickPicks.ids(
+            logged: entries.filter { $0.eventId == eventId }.map { (drinkTypeId: $0.drinkTypeId, timestamp: $0.timestamp) },
+            favoriteIds: userProfile.favoriteDrinkIds,
+            lockScreenIds: userProfile.liveActivityDrinkIds,
+            catalogIds: drinkTypes.map(\.id)
+        )
+        let byId = Dictionary(drinkTypes.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        return ids.compactMap { byId[$0] }
     }
 
     func isFavorite(_ drinkId: String) -> Bool {
