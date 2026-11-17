@@ -27,11 +27,31 @@ const API = "https://api.appstoreconnect.apple.com/v1";
 /// alone whatever it is called.
 export function certificatesToRevoke(certificates) {
   return certificates.filter((certificate) => {
-    const {name, certificateType} = certificate.attributes ?? {};
-    if (name !== "Created via API") return false;
+    const {certificateType} = certificate.attributes ?? {};
+    if (!createdViaApi(certificate)) return false;
     if (typeof certificateType !== "string") return false;
     if (!certificateType.includes("DEVELOPMENT")) return false;
     return true;
+  });
+}
+
+/// Apple has shown the marker as the whole `name` and inside a longer one
+/// ("Apple Development: Created via API (…)"), and also carries `displayName`.
+/// An exact match on `name` once found nothing while 14 throwaways sat on the
+/// account, so match the marker anywhere in either field.
+function createdViaApi(certificate) {
+  const {name, displayName} = certificate.attributes ?? {};
+  return [name, displayName].some(
+      (value) => typeof value === "string" && /created via api/i.test(value),
+  );
+}
+
+/// One line per certificate, so a run that revokes nothing shows why.
+export function describeCertificates(certificates) {
+  return certificates.map((certificate) => {
+    const {name, displayName, certificateType, expirationDate} =
+      certificate.attributes ?? {};
+    return `  ${certificateType ?? "?"} | name="${name ?? ""}" | displayName="${displayName ?? ""}" | expires ${expirationDate ?? "?"}`;
   });
 }
 
@@ -83,6 +103,7 @@ async function main() {
   const {data = []} = await response.json();
   const stale = certificatesToRevoke(data);
   console.log(`${data.length} certificate(s) on the account, ${stale.length} created by CI`);
+  for (const line of describeCertificates(data)) console.log(line);
   if (stale.length === 0) return;
 
   for (const certificate of stale) {
