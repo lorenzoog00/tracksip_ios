@@ -65,6 +65,8 @@
 		B1CC10052FA1000000001005 /* CountryDetectedSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1CC10062FA1000000001006 /* CountryDetectedSheet.swift */; };
 		B101B4E12F9CD648009F7DDD /* BACCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4982F9C2F32009F7DDD /* BACCalculator.swift */; };
 		8E3F7C2B5D4A6810C3F6A9B6 /* HapticSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E3F7C2B5D4A6810C3F6A9B7 /* HapticSpec.swift */; };
+		7D4E2A9C1B3F5D6E8A0C2E41 /* QuickPicks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D4E2A9C1B3F5D6E8A0C2E42 /* QuickPicks.swift */; };
+		7D4E2A9C1B3F5D6E8A0C2E43 /* QuickPicksTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D4E2A9C1B3F5D6E8A0C2E44 /* QuickPicksTests.swift */; };
 		B1F0A7D32FC10A010011AAAA /* Haptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1F0A7D42FC10A010011AAAB /* Haptics.swift */; };
 		B1CC10022FA1000000001002 /* LocationCountryDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1CC10012FA1000000001001 /* LocationCountryDetector.swift */; };
 		B1CC20012FA20001000020A1 /* PresentationAnchor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1CC20022FA20002000020A2 /* PresentationAnchor.swift */; };
@@ -279,6 +281,8 @@
 		B101B4972F9C2F32009F7DDD /* Analytics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Analytics.swift; sourceTree = "<group>"; };
 		B101B4982F9C2F32009F7DDD /* BACCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BACCalculator.swift; sourceTree = "<group>"; };
 		8E3F7C2B5D4A6810C3F6A9B7 /* HapticSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticSpec.swift; sourceTree = "<group>"; };
+		7D4E2A9C1B3F5D6E8A0C2E42 /* QuickPicks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickPicks.swift; sourceTree = "<group>"; };
+		7D4E2A9C1B3F5D6E8A0C2E44 /* QuickPicksTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickPicksTests.swift; sourceTree = "<group>"; };
 		B1F0A7D42FC10A010011AAAB /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
 		B1CC10012FA1000000001001 /* LocationCountryDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationCountryDetector.swift; sourceTree = "<group>"; };
 		B1CC20022FA20002000020A2 /* PresentationAnchor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PresentationAnchor.swift; sourceTree = "<group>"; };
@@ -567,6 +571,7 @@
 				B1CC20022FA20002000020A2 /* PresentationAnchor.swift */,
 				B1CC10032FA1000000001003 /* LegalBACLimit.swift */,
 				8E3F7C2B5D4A6810C3F6A9B7 /* HapticSpec.swift */,
+				7D4E2A9C1B3F5D6E8A0C2E42 /* QuickPicks.swift */,
 				B1F0A7D42FC10A010011AAAB /* Haptics.swift */,
 			);
 			path = Core;
@@ -849,6 +854,7 @@
 				4D2A9E6B1C7F4053B8E1A6C3 /* CeilingCrossingTests.swift */,
 				D0F447A822F34B68A69C0402 /* WaterReminderTests.swift */,
 				5A7C1E3D9B2F4A60C8D1E706 /* SharedNightTests.swift */,
+				7D4E2A9C1B3F5D6E8A0C2E44 /* QuickPicksTests.swift */,
 				5A7C1E3D9B2F4A60C8D1E7B4 /* SharedNightSyncTests.swift */,
 				6B8D2F4E0C3A5B71D9E2F8C4 /* PushRegistrationTests.swift */,
 				5A7C1E3D9B2F4A60C8D1E7A2 /* IncognitoTests.swift */,
@@ -1167,6 +1173,7 @@
 				E34D6123C210440E9E1B4411 /* DrinkLookup.swift in Sources */,
 				E34D6123C210440E9E1B4415 /* AppDates.swift in Sources */,
 				8E3F7C2B5D4A6810C3F6A9B6 /* HapticSpec.swift in Sources */,
+				7D4E2A9C1B3F5D6E8A0C2E41 /* QuickPicks.swift in Sources */,
 				B1F0A7D32FC10A010011AAAA /* Haptics.swift in Sources */,
 				B101B4E22F9CD648009F7DDD /* ChallengeUtils.swift in Sources */,
 				B101B4E32F9CD648009F7DDD /* IntoxicationStage.swift in Sources */,
@@ -1267,6 +1274,7 @@
 				E8ED4CBC394E4A3881D17C20 /* AppStoreUpdateTests.swift in Sources */,
 				B8C9D0E1F2A3B4C5D6E7F8AA /* AccountDeletionTests.swift in Sources */,
 				5A7C1E3D9B2F4A60C8D1E705 /* SharedNightTests.swift in Sources */,
+				7D4E2A9C1B3F5D6E8A0C2E43 /* QuickPicksTests.swift in Sources */,
 				5A7C1E3D9B2F4A60C8D1E7B3 /* SharedNightSyncTests.swift in Sources */,
 				6B8D2F4E0C3A5B71D9E2F8C3 /* PushRegistrationTests.swift in Sources */,
 				5A7C1E3D9B2F4A60C8D1E7A1 /* IncognitoTests.swift in Sources */,

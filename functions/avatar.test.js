@@ -69,9 +69,14 @@ test("a clean photo is saved and the profile gets a tokenized URL", async () => 
   const save = bucket.calls[0];
   assert.equal(save.name, "avatars/u1.jpg");
   assert.deepEqual(save.buf, JPEG);
-  const token = save.options.metadata.firebaseStorageDownloadTokens;
+  // Custom metadata must be nested one level down. At the top level of the
+  // save options Cloud Storage drops it, the object ends up with no download
+  // token, and the tokenized URL answers 403 — the photo uploads but never
+  // shows (2026-11-17).
+  assert.equal(save.options.metadata.firebaseStorageDownloadTokens, undefined);
+  const token = save.options.metadata.metadata.firebaseStorageDownloadTokens;
   assert.match(token, /^[0-9a-f-]{36}$/);
-  assert.equal(save.options.contentType, "image/jpeg");
+  assert.equal(save.options.metadata.contentType, "image/jpeg");
   assert.match(result.photo_url, /^https:\/\/firebasestorage\.googleapis\.com/);
   assert.ok(result.photo_url.includes(`token=${token}`));
   assert.match(result.photo_url, /[?&]v=\d+$/);

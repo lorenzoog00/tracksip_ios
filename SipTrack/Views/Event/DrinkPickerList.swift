@@ -57,14 +57,9 @@ struct DrinkPickerList: View {
         return result
     }
 
+    /// The same drinks, in the same order, as the lock-screen buttons.
     private var quickPicks: [DrinkType] {
-        let recentIDs = latestTimestampByDrinkId.sorted { $0.value > $1.value }.map(\.key)
-        let preferredIDs = appState.userProfile.favoriteDrinkIds + appState.userProfile.liveActivityDrinkIds
-        let candidates = (recentIDs + preferredIDs).compactMap { id in
-            drinkTypes.first { $0.id == id }
-        } + drinkTypes
-        var seen = Set<String>()
-        return Array(candidates.filter { seen.insert($0.id).inserted }.prefix(3))
+        appState.quickPicks(for: event.id, among: drinkTypes)
     }
 
     private var filteredDrinks: [DrinkType] {
