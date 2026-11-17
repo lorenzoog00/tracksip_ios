@@ -66,6 +66,10 @@ struct RootView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var path = NavigationPath()
     @State private var updateRequired = false
+    /// A lock-screen camera tap waiting for the app to finish coming to the front.
+    @State private var pendingCamera: CameraRequest?
+    /// The night whose camera is on screen.
+    @State private var cameraNight: CameraRequest?
 
     /// True when the tabs are on screen, not sign-in, onboarding or the
     /// update-required wall.
@@ -76,8 +80,11 @@ struct RootView: View {
     }
 
     /// The lock-screen camera button. Consumed at once, opened or not, so a request
-    /// that could not be served never opens the camera later on its own. Opens the
-    /// night screen fresh (dismissing whatever it had up) with its own camera.
+    /// that could not be served never opens the camera later on its own.
+    ///
+    /// The camera is presented from here, not by the night screen. It used to push a
+    /// fresh night screen that opened its own camera, and when that night screen was
+    /// already on top SwiftUI kept the existing one, so the camera never opened.
     private func handleCameraRequest() {
         guard let request = appState.cameraRequest else { return }
         appState.cameraRequest = nil
@@ -94,8 +101,28 @@ struct RootView: View {
             return
         }
         selectedTab = .home
-        path = NavigationPath()
-        path.append(Route.eventCamera(request.eventId, request.id))
+        // Leave the stack alone when this night is already the only screen on it.
+        var nightOnly = NavigationPath()
+        nightOnly.append(Route.event(request.eventId))
+        if path != nightOnly { path = nightOnly }
+        pendingCamera = request
+    }
+
+    /// Presents the camera once the app is really on screen. Coming from the lock
+    /// screen, the URL arrives before unlock finishes and while the night screen may
+    /// still be pushing; a cover presented then is silently dropped.
+    private func presentPendingCamera() async {
+        guard let request = pendingCamera else { return }
+        try? await Task.sleep(for: .milliseconds(500))
+        var waited = 0
+        while scenePhase != .active && waited < 30 {
+            try? await Task.sleep(for: .milliseconds(200))
+            waited += 1
+        }
+        guard !Task.isCancelled, pendingCamera?.id == request.id else { return }
+        pendingCamera = nil
+        guard scenePhase == .active, appState.activeEvent?.id == request.eventId else { return }
+        cameraNight = request
     }
 
     /// A friend link. Dropped when the tabs are not showing (signed out, onboarding), like
@@ -137,17 +164,21 @@ struct RootView: View {
                                 Group {
                                 switch route {
                                 case .event(let id):
+                                    // The night screen has its own bottom bar (Water,
+                                    // Food, End Night); the floating tab bar sat on top
+                                    // of it and covered Food.
                                     ActiveEventView(eventId: id)
-                                case .eventCamera(let id, _):
-                                    ActiveEventView(eventId: id, opensCamera: true)
+                                        .toolbar(.hidden, for: .tabBar)
                                 case .guidedEvent(let id, let target):
                                     ActiveEventView(eventId: id, guideTarget: target)
+                                        .toolbar(.hidden, for: .tabBar)
                                 case .summary(let id):
                                     SummaryView(eventId: id)
                                 case .stories(let id):
                                     // Full-screen viewer: the tab bar would sit over its
-                                    // controls. Every other screen keeps the tab bar, since
-                                    // hiding it made it vanish and pop back on every push/pop.
+                                    // controls. Apart from this and the night screen, every
+                                    // screen keeps the tab bar, since hiding it made it vanish
+                                    // and pop back on every push/pop.
                                     StoriesView(eventId: id)
                                         .toolbar(.hidden, for: .tabBar)
                                 case .calendar:
@@ -228,6 +259,16 @@ struct RootView: View {
             updateRequired = required
         }
         .onChange(of: appState.cameraRequest) { _, _ in handleCameraRequest() }
+        .task(id: pendingCamera?.id) { await presentPendingCamera() }
+        .fullScreenCover(item: $cameraNight) { request in
+            NightCameraPicker { image in
+                if NightPhotoStore.save(image, eventId: request.eventId) != nil {
+                    appState.nightPhotoRevision += 1
+                    Haptics.shared.play(.success)
+                }
+            }
+            .ignoresSafeArea()
+        }
         .onAppear {
             handleCameraRequest()
             handleFriendLink()

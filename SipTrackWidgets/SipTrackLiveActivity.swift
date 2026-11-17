@@ -120,11 +120,11 @@ struct SipTrackLiveActivity: Widget {
         Link(destination: CameraLink.url(eventId: eventId)) {
             Image(systemName: "camera.fill")
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Color(hex: "#FFD166"))
                 .frame(width: 44, height: 38)
-                .background(.white.opacity(0.1))
+                .background(Color(hex: "#FFD166").opacity(0.15))
                 .clipShape(RoundedRectangle(cornerRadius: 8))
-                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(.white.opacity(0.12), lineWidth: 0.5))
+                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color(hex: "#FFD166").opacity(0.3), lineWidth: 0.5))
         }
         .accessibilityLabel("Take a photo")
     }
@@ -202,10 +202,11 @@ private struct LockScreenContent: View {
                         .lineLimit(1)
                     Spacer(minLength: 4)
                 }
+                lockCameraButton
             }
             .foregroundStyle(stageColor)
             .padding(.horizontal, 16)
-            .padding(.top, 12)
+            .padding(.top, 10)
 
             // Row 2 — BAC (hero) with stage, drinks and hydration beside it.
             HStack(alignment: .center, spacing: 0) {
@@ -272,15 +273,13 @@ private struct LockScreenContent: View {
             .padding(.top, 4)
             .padding(.bottom, 10)
 
-            // Row 4 — one-tap buttons. Five across (3 drinks, water, camera) leaves
-            // about 70 pt per drink on the smallest phones, so the drink buttons
-            // stack icon over name to keep names like "Gin & Tonic" whole.
+            // Row 4 — one-tap buttons: three drinks and water. The camera lives in
+            // row 1, so the drinks keep enough width for names like "Gin & Tonic".
             HStack(spacing: 6) {
                 ForEach(context.state.quickDrinks.prefix(3)) { drink in
                     lockDrinkButton(drink)
                 }
                 lockWaterButton
-                lockCameraButton
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 12)
@@ -329,18 +328,21 @@ private struct LockScreenContent: View {
         .accessibilityLabel("Add water")
     }
 
+    /// Top-right, in the app's camera gold, apart from the drink buttons so it
+    /// reads as its own action rather than a sixth cramped tile. A Link: taking a
+    /// photo needs the app on screen, so this opens it straight into the camera.
     private var lockCameraButton: some View {
         Link(destination: CameraLink.url(eventId: context.state.eventId)) {
-            Image(systemName: "camera.fill")
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(.white)
-                .frame(width: 44, height: 46)
-                .background(.white.opacity(0.09))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .strokeBorder(.white.opacity(0.1), lineWidth: 0.5)
-                )
+            HStack(spacing: 5) {
+                Image(systemName: "camera.fill")
+                    .font(.system(size: 13, weight: .bold))
+                Text("Photo")
+                    .font(.system(size: 13, weight: .bold))
+            }
+            .foregroundStyle(.black)
+            .padding(.horizontal, 11)
+            .frame(height: 28)
+            .background(Color(hex: "#FFD166"), in: Capsule())
         }
         .accessibilityLabel("Take a photo")
     }

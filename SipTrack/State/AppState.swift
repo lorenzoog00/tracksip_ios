@@ -30,6 +30,9 @@ final class AppState: ObservableObject {
     @Published var generatingReportForEventId: String? = nil
     /// Set by the lock-screen camera button; RootView consumes it at once.
     @Published var cameraRequest: CameraRequest? = nil
+    /// Bumped when a photo is saved from outside the night screen (the lock-screen
+    /// camera), so an open night screen recounts its photos.
+    @Published var nightPhotoRevision = 0
     @Published var failedReportEventIds: Set<String> = []
     @Published var coachReports: [CoachReport] = []
     @Published var generatingCoachReportId: String? = nil
