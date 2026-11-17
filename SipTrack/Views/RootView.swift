@@ -92,8 +92,6 @@ struct RootView: View {
                                 }
                             }
                             .navigationDestination(for: Route.self) { route in
-                                // Group so the tab bar hides for every pushed screen,
-                                // not covering bottom controls.
                                 Group {
                                 switch route {
                                 case .event(let id):
@@ -103,7 +101,11 @@ struct RootView: View {
                                 case .summary(let id):
                                     SummaryView(eventId: id)
                                 case .stories(let id):
+                                    // Full-screen viewer: the tab bar would sit over its
+                                    // controls. Every other screen keeps the tab bar, since
+                                    // hiding it made it vanish and pop back on every push/pop.
                                     StoriesView(eventId: id)
+                                        .toolbar(.hidden, for: .tabBar)
                                 case .calendar:
                                     CalendarView()
                                 case .dashboard:
@@ -131,7 +133,6 @@ struct RootView: View {
                                     CoachView()
                                 }
                                 }
-                                .toolbar(.hidden, for: .tabBar)
                             }
                     }
                     .onChange(of: appState.pendingSummaryEventId) { _, newValue in
