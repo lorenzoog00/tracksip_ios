@@ -105,6 +105,11 @@ struct SipTrackApp: App {
                         }
                     case "water":
                         appState.addWater(eventId: eventId)
+                    case "camera":
+                        // RootView checks the night is still running. The app-open
+                        // ad would present on the same root and knock the camera out.
+                        AdManager.shared.suppressAppOpenAd(for: 30)
+                        appState.cameraRequest = CameraRequest(eventId: eventId)
                     default:
                         break
                     }

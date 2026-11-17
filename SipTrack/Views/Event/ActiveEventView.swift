@@ -3,6 +3,8 @@ import SwiftUI
 struct ActiveEventView: View {
     let eventId: String
     var guideTarget: EventGuideTarget? = nil
+    /// Opens the camera once on arrival (the lock-screen camera button).
+    var opensCamera = false
     @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -14,6 +16,7 @@ struct ActiveEventView: View {
     @State private var statsDestination: StatsDestination?
     @State private var showCamera = false
     @State private var photoCount = 0
+    @State private var openedCamera = false
     private static let drinkPickerAnchor = "drink-picker"
 
     private enum StatsDestination: Hashable, Identifiable {
@@ -175,6 +178,14 @@ struct ActiveEventView: View {
             ToolbarItem(placement: .navigationBarTrailing) { statsButton }
         }
         .onAppear { photoCount = NightPhotoStore.assets(eventId: eventId).count }
+        .task {
+            guard opensCamera, !openedCamera else { return }
+            openedCamera = true
+            // Let the push finish first: a cover presented mid-transition is dropped.
+            try? await Task.sleep(for: .milliseconds(450))
+            guard !Task.isCancelled else { return }
+            showCamera = true
+        }
         .fullScreenCover(isPresented: $showCamera) {
             NightCameraPicker { image in
                 if NightPhotoStore.save(image, eventId: eventId) != nil {

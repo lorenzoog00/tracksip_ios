@@ -14,6 +14,10 @@ enum EventGuideTarget: Hashable, Identifiable {
 
 enum Route: Hashable {
     case event(String)
+    /// The night screen opening straight into its camera (the lock-screen button).
+    /// The UUID is the tap's `CameraRequest.id`: a new tap is a new route, so a
+    /// fresh night screen opens its camera even when one is already on top.
+    case eventCamera(String, UUID)
     case guidedEvent(String, EventGuideTarget)
     case summary(String)
     case stories(String)

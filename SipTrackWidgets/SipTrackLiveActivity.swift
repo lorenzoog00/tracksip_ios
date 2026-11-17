@@ -46,6 +46,7 @@ struct SipTrackLiveActivity: Widget {
                             islandDrinkButton(drink: drink, eventId: context.state.eventId)
                         }
                         islandWaterButton(eventId: context.state.eventId)
+                        islandCameraButton(eventId: context.state.eventId)
                     }
                     .padding(.horizontal, 4)
                     .padding(.bottom, 4)
@@ -111,6 +112,32 @@ struct SipTrackLiveActivity: Widget {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Add water")
+    }
+
+    // A Link, not an intent: taking a photo needs the app on screen, so this
+    // opens it (after unlock) straight into the night's camera.
+    private func islandCameraButton(eventId: String) -> some View {
+        Link(destination: CameraLink.url(eventId: eventId)) {
+            Image(systemName: "camera.fill")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 44, height: 38)
+                .background(.white.opacity(0.1))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(.white.opacity(0.12), lineWidth: 0.5))
+        }
+        .accessibilityLabel("Take a photo")
+    }
+}
+
+/// `siptrack://camera?event=<id>`, handled by the app's `onOpenURL`.
+enum CameraLink {
+    static func url(eventId: String) -> URL {
+        var components = URLComponents()
+        components.scheme = "siptrack"
+        components.host = "camera"
+        components.queryItems = [URLQueryItem(name: "event", value: eventId)]
+        return components.url ?? URL(string: "siptrack://camera")!
     }
 }
 
@@ -245,12 +272,15 @@ private struct LockScreenContent: View {
             .padding(.top, 4)
             .padding(.bottom, 10)
 
-            // Row 4 — one-tap buttons
-            HStack(spacing: 8) {
+            // Row 4 — one-tap buttons. Five across (3 drinks, water, camera) leaves
+            // about 70 pt per drink on the smallest phones, so the drink buttons
+            // stack icon over name to keep names like "Gin & Tonic" whole.
+            HStack(spacing: 6) {
                 ForEach(context.state.quickDrinks.prefix(3)) { drink in
                     lockDrinkButton(drink)
                 }
                 lockWaterButton
+                lockCameraButton
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 12)
@@ -259,18 +289,19 @@ private struct LockScreenContent: View {
 
     private func lockDrinkButton(_ drink: SipTrackActivityAttributes.QuickDrink) -> some View {
         Button(intent: AddDrinkFromLiveActivityIntent(drinkTypeId: drink.id, eventId: context.state.eventId)) {
-            HStack(spacing: 6) {
+            VStack(spacing: 2) {
                 Image(systemName: drink.symbol)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(stageColor)
                 Text(drink.name)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(.white)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+                    .minimumScaleFactor(0.75)
             }
+            .padding(.horizontal, 4)
             .frame(maxWidth: .infinity)
-            .frame(height: 42)
+            .frame(height: 46)
             .background(.white.opacity(0.09))
             .clipShape(RoundedRectangle(cornerRadius: 10))
             .overlay(
@@ -286,7 +317,7 @@ private struct LockScreenContent: View {
             Image(systemName: "drop.fill")
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(Color(hex: "#40AAFF"))
-                .frame(width: 50, height: 42)
+                .frame(width: 44, height: 46)
                 .background(Color(hex: "#40AAFF").opacity(0.14))
                 .clipShape(RoundedRectangle(cornerRadius: 10))
                 .overlay(
@@ -296,6 +327,22 @@ private struct LockScreenContent: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Add water")
+    }
+
+    private var lockCameraButton: some View {
+        Link(destination: CameraLink.url(eventId: context.state.eventId)) {
+            Image(systemName: "camera.fill")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 44, height: 46)
+                .background(.white.opacity(0.09))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .strokeBorder(.white.opacity(0.1), lineWidth: 0.5)
+                )
+        }
+        .accessibilityLabel("Take a photo")
     }
 }
 

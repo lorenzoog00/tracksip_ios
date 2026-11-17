@@ -40,8 +40,17 @@ final class AdManager: NSObject, ObservableObject, FullScreenContentDelegate {
         }
     }
 
+    /// No app-open ad until then: set when the app is opened for something that
+    /// presents on the same root (the lock-screen camera).
+    private var appOpenSuppressedUntil: Date?
+
+    func suppressAppOpenAd(for seconds: TimeInterval) {
+        appOpenSuppressedUntil = Date().addingTimeInterval(seconds)
+    }
+
     func showAppOpenAdIfReady(isPro: Bool) {
         guard ConsentManager.shared.canRequestAds else { return }
+        if let until = appOpenSuppressedUntil, Date() < until { return }
         guard !isPro, !shownThisSession, appOpenAdReady else { return }
         guard let root = rootViewController() else { return }
         appOpenAd?.present(from: root)

@@ -55,9 +55,7 @@ struct StoriesView: View {
                 .padding(.bottom, 8)
             } else if review == nil, let image = openingPhoto?.image {
                 GeometryReader { geometry in
-                    Image(uiImage: image).resizable().scaledToFill()
-                        .frame(width: geometry.size.width, height: geometry.size.height)
-                        .clipped()
+                    NightPhotoFrame(image: image, size: geometry.size)
                 }
                 .ignoresSafeArea()
                 .accessibilityHidden(true)
