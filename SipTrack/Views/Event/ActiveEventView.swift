@@ -3,8 +3,6 @@ import SwiftUI
 struct ActiveEventView: View {
     let eventId: String
     var guideTarget: EventGuideTarget? = nil
-    /// Opens the camera once on arrival (the lock-screen camera button).
-    var opensCamera = false
     @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -16,7 +14,6 @@ struct ActiveEventView: View {
     @State private var statsDestination: StatsDestination?
     @State private var showCamera = false
     @State private var photoCount = 0
-    @State private var openedCamera = false
     private static let drinkPickerAnchor = "drink-picker"
 
     private enum StatsDestination: Hashable, Identifiable {
@@ -45,30 +42,39 @@ struct ActiveEventView: View {
         }
     }
 
+    /// At the top of the night, where it is seen: it used to sit under the ad at
+    /// the very bottom, so it read as something only the start-night form offered.
+    /// Says plainly whether friends can see the night right now.
     private func incognitoRow(event: NightEvent) -> some View {
         Toggle(isOn: Binding(
             get: { event.isIncognito },
             set: { appState.setIncognito($0, for: eventId) }
         )) {
             HStack(spacing: 10) {
-                Image(systemName: "eyeglasses")
+                Image(systemName: event.isIncognito ? "eyeglasses" : "eye.fill")
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(event.isIncognito ? AppColors.accent : AppColors.textSecondary)
-                VStack(alignment: .leading, spacing: 2) {
+                    .frame(width: 22)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 1) {
                     Text("Incognito")
-                        .font(.system(size: 17, weight: .medium))
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(AppColors.text)
-                    Text("Friends won't see this night")
-                        .font(.system(size: 15))
+                    Text(event.isIncognito ? "Friends can't see this night" : "Friends can see this night")
+                        .font(.system(size: 14))
                         .foregroundStyle(AppColors.textSecondary)
                 }
             }
         }
         .tint(AppColors.accent)
-        .padding(14)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
         .background(AppColors.surface)
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(AppColors.border, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(
+            event.isIncognito ? AppColors.accent.opacity(0.4) : AppColors.border, lineWidth: 1))
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .padding(.horizontal)
+        .animation(.easeOut(duration: 0.2), value: event.isIncognito)
     }
 
     private func content(event: NightEvent, scroll: ScrollViewProxy) -> some View {
@@ -84,6 +90,8 @@ struct ActiveEventView: View {
         ZStack {
             ScrollView {
                 VStack(spacing: 16) {
+
+                    incognitoRow(event: event)
 
                     // DO NOT DRIVE banner
                     if overLimit {
@@ -125,8 +133,6 @@ struct ActiveEventView: View {
                     .id(Self.drinkPickerAnchor)
 
                     timelineLink
-
-                    incognitoRow(event: event)
 
                     BannerAdView()
                         .padding(.horizontal)
@@ -178,13 +184,10 @@ struct ActiveEventView: View {
             ToolbarItem(placement: .navigationBarTrailing) { statsButton }
         }
         .onAppear { photoCount = NightPhotoStore.assets(eventId: eventId).count }
-        .task {
-            guard opensCamera, !openedCamera else { return }
-            openedCamera = true
-            // Let the push finish first: a cover presented mid-transition is dropped.
-            try? await Task.sleep(for: .milliseconds(450))
-            guard !Task.isCancelled else { return }
-            showCamera = true
+        // The lock-screen camera is presented by RootView, so this screen hears
+        // about its photos here rather than through its own cover.
+        .onChange(of: appState.nightPhotoRevision) { _, _ in
+            photoCount = NightPhotoStore.assets(eventId: eventId).count
         }
         .fullScreenCover(isPresented: $showCamera) {
             NightCameraPicker { image in
