@@ -71,8 +71,10 @@ jobs:
           import_p12() {
             local name=$1 encoded=$2 password=$3 file="$RUNNER_TEMP/$1.p12"
             # openssl rather than base64(1): the macOS and GNU builds disagree on decode
-            # flags and on line wrapping, and openssl tolerates both wrapped and single-line.
-            echo "$encoded" | openssl base64 -d > "$file"
+            # flags. Without -A, `openssl base64 -d` decodes a single long line to
+            # 0 bytes, so strip all whitespace and decode as one line: that accepts
+            # both wrapped and single-line secrets.
+            printf '%s' "$encoded" | tr -d ' \r\n\t' | openssl base64 -d -A > "$file"
             echo "$name: decoded $(stat -f%z "$file") bytes"
             if [ ! -s "$file" ]; then
               echo "::error::${name}_P12_BASE64 is empty. The 'base64 -i file | gh secret set' pipe stored nothing — usually the .p12 path was wrong, so base64 errored and piped an empty string. Check the file exists, then set the secret again."
