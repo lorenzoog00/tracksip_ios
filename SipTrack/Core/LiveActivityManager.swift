@@ -21,8 +21,8 @@ final class LiveActivityManager {
     private var syncedToken: String?
     /// The non-BAC parts of the last state the server holds. The server pushes
     /// that state back every 5 minutes, so when these change (a water, which
-    /// leaves the BAC curve alone) it must hear about it, or its next push
-    /// puts the old hydration back on the lock screen.
+    /// leaves the BAC curve alone, or new quick-add buttons) it must hear about
+    /// it, or its next push puts the old hydration or buttons back on the lock screen.
     private var syncedContentKey: String?
 
     private static func contentKey(_ state: SipTrackActivityAttributes.ContentState) -> String {
@@ -31,6 +31,7 @@ final class LiveActivityManager {
             "\(state.hydrationBalance ?? 0)",
             "\(state.currentDrinkStartedAt?.timeIntervalSince1970 ?? 0)",
             state.currentDrinkName ?? "",
+            state.quickDrinks.map(\.id).joined(separator: ","),
         ].joined(separator: "|")
     }
     private var pendingUpdate: Task<Void, Never>?
@@ -109,9 +110,10 @@ final class LiveActivityManager {
         return activity
     }
 
+    /// `quickDrinks` replaces the lock-screen buttons; nil keeps the current ones.
     /// `pushSamples` is the projected curve from now on, passed only when it has
     /// changed (a drink, food or a profile edit); nil keeps the one already sent.
-    func update(bac: Double, drinkCount: Int, stageName: String, stageColorHex: String, elapsedMinutes: Int, safeToDriveAt: Date?, soberAt: Date?, startedAt: Date?, hydrationBalance: Int? = nil, currentDrink: (name: String, symbol: String, startedAt: Date, minutes: Int)? = nil, pushSamples: [[String: Any]]? = nil) {
+    func update(bac: Double, drinkCount: Int, stageName: String, stageColorHex: String, elapsedMinutes: Int, safeToDriveAt: Date?, soberAt: Date?, startedAt: Date?, hydrationBalance: Int? = nil, currentDrink: (name: String, symbol: String, startedAt: Date, minutes: Int)? = nil, quickDrinks: [SipTrackActivityAttributes.QuickDrink]? = nil, pushSamples: [[String: Any]]? = nil) {
         guard let activity = currentActivity() else { return }
         let state = SipTrackActivityAttributes.ContentState(
             bac: bac,
@@ -120,7 +122,7 @@ final class LiveActivityManager {
             stageColorHex: stageColorHex,
             elapsedMinutes: elapsedMinutes,
             eventId: activity.content.state.eventId,
-            quickDrinks: activity.content.state.quickDrinks,
+            quickDrinks: quickDrinks ?? activity.content.state.quickDrinks,
             safeToDriveAt: safeToDriveAt,
             soberAt: soberAt,
             startedAt: startedAt,
