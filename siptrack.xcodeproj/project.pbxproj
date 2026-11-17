@@ -34,6 +34,7 @@
 		19A3D1F4240845CD897E3D12 /* BACCalculatorCoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94366D3F8A174A8A9ED74019 /* BACCalculatorCoreTests.swift */; };
 		A1B2C3D4E5F6A7B8C9D0E1F2 /* AIInsightsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E1F3 /* AIInsightsTests.swift */; };
 		B2C3D4E5F6A7B8C9D0E1F2A3 /* NightPickerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F6A7B8C9D0E1F2A4 /* NightPickerTests.swift */; };
+		7D4E2A9C1B3F5D6E8A0C2E51 /* PhotoFramingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D4E2A9C1B3F5D6E8A0C2E52 /* PhotoFramingTests.swift */; };
 		C4D5E6F7A8B9C0D1E2F3A4B5 /* BACCalculatorKineticsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4D5E6F7A8B9C0D1E2F3A4B6 /* BACCalculatorKineticsTests.swift */; };
 		D5E6F7A8B9C0D1E2F3A4B5C6 /* DrinkServingSizeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5E6F7A8B9C0D1E2F3A4B5C7 /* DrinkServingSizeTests.swift */; };
 		F60CE20FBF2947D4A1289200 /* NightBACChartTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F60CE20FBF2947D4A1289201 /* NightBACChartTests.swift */; };
@@ -248,6 +249,7 @@
 		94366D3F8A174A8A9ED74019 /* BACCalculatorCoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BACCalculatorCoreTests.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6A7B8C9D0E1F3 /* AIInsightsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIInsightsTests.swift; sourceTree = "<group>"; };
 		B2C3D4E5F6A7B8C9D0E1F2A4 /* NightPickerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NightPickerTests.swift; sourceTree = "<group>"; };
+		7D4E2A9C1B3F5D6E8A0C2E52 /* PhotoFramingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoFramingTests.swift; sourceTree = "<group>"; };
 		C4D5E6F7A8B9C0D1E2F3A4B6 /* BACCalculatorKineticsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BACCalculatorKineticsTests.swift; sourceTree = "<group>"; };
 		D5E6F7A8B9C0D1E2F3A4B5C7 /* DrinkServingSizeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrinkServingSizeTests.swift; sourceTree = "<group>"; };
 		F60CE20FBF2947D4A1289201 /* NightBACChartTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NightBACChartTests.swift; sourceTree = "<group>"; };
@@ -834,6 +836,7 @@
 				E34D6123C210440E9E1B4418 /* AppDatesTests.swift */,
 				A1B2C3D4E5F6A7B8C9D0E1F3 /* AIInsightsTests.swift */,
 				B2C3D4E5F6A7B8C9D0E1F2A4 /* NightPickerTests.swift */,
+				7D4E2A9C1B3F5D6E8A0C2E52 /* PhotoFramingTests.swift */,
 				C4D5E6F7A8B9C0D1E2F3A4B6 /* BACCalculatorKineticsTests.swift */,
 				D5E6F7A8B9C0D1E2F3A4B5C7 /* DrinkServingSizeTests.swift */,
 				F60CE20FBF2947D4A1289201 /* NightBACChartTests.swift */,
@@ -1255,6 +1258,7 @@
 				E34D6123C210440E9E1B4417 /* AppDatesTests.swift in Sources */,
 				A1B2C3D4E5F6A7B8C9D0E1F2 /* AIInsightsTests.swift in Sources */,
 				B2C3D4E5F6A7B8C9D0E1F2A3 /* NightPickerTests.swift in Sources */,
+				7D4E2A9C1B3F5D6E8A0C2E51 /* PhotoFramingTests.swift in Sources */,
 				C4D5E6F7A8B9C0D1E2F3A4B5 /* BACCalculatorKineticsTests.swift in Sources */,
 				D5E6F7A8B9C0D1E2F3A4B5C6 /* DrinkServingSizeTests.swift in Sources */,
 				F60CE20FBF2947D4A1289200 /* NightBACChartTests.swift in Sources */,

@@ -175,6 +175,10 @@ struct ActiveEventView: View {
             ToolbarItem(placement: .navigationBarTrailing) { statsButton }
         }
         .onAppear { photoCount = NightPhotoStore.assets(eventId: eventId).count }
+        // A photo taken from the lock-screen camera button, behind this screen.
+        .onChange(of: appState.cameraRequest) { _, request in
+            if request == nil { photoCount = NightPhotoStore.assets(eventId: eventId).count }
+        }
         .fullScreenCover(isPresented: $showCamera) {
             NightCameraPicker { image in
                 if NightPhotoStore.save(image, eventId: eventId) != nil {

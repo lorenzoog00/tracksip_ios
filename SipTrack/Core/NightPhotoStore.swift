@@ -108,7 +108,9 @@ nonisolated enum NightPhotoStore {
 
     private static func aspectFill(_ size: CGSize, into target: CGSize) -> CGSize {
         guard size.width > 0, size.height > 0 else { return target }
-        let scale = max(target.width / size.width, target.height / size.height)
+        // Never above the saved size: upscaling here only cost memory (a landscape
+        // photo filled to a phone screen came out over 3000 px wide) and no detail.
+        let scale = min(1, max(target.width / size.width, target.height / size.height))
         return CGSize(width: size.width * scale, height: size.height * scale)
     }
 
@@ -126,6 +128,12 @@ nonisolated enum NightPhotoStore {
 }
 
 // MARK: - Camera
+
+/// A request to open the camera for a night, from the lock-screen button.
+struct CameraRequest: Identifiable, Equatable {
+    let eventId: String
+    var id: String { eventId }
+}
 
 /// The system camera, photo-only. Hands back the captured image; nothing is
 /// saved to the photo library.

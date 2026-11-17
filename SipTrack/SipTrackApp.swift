@@ -105,6 +105,12 @@ struct SipTrackApp: App {
                         }
                     case "water":
                         appState.addWater(eventId: eventId)
+                    case "camera":
+                        // Only for a night still running: an old lock-screen card
+                        // must not add photos to a finished night.
+                        if appState.activeEvent?.id == eventId {
+                            appState.cameraRequest = CameraRequest(eventId: eventId)
+                        }
                     default:
                         break
                     }

@@ -46,6 +46,7 @@ struct SipTrackLiveActivity: Widget {
                             islandDrinkButton(drink: drink, eventId: context.state.eventId)
                         }
                         islandWaterButton(eventId: context.state.eventId)
+                        islandCameraButton(eventId: context.state.eventId)
                     }
                     .padding(.horizontal, 4)
                     .padding(.bottom, 4)
@@ -111,6 +112,32 @@ struct SipTrackLiveActivity: Widget {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Add water")
+    }
+
+    // A Link, not an intent: taking a photo needs the app on screen, so this
+    // opens it (after unlock) straight into the night's camera.
+    private func islandCameraButton(eventId: String) -> some View {
+        Link(destination: CameraLink.url(eventId: eventId)) {
+            Image(systemName: "camera.fill")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 44, height: 38)
+                .background(.white.opacity(0.1))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(.white.opacity(0.12), lineWidth: 0.5))
+        }
+        .accessibilityLabel("Take a photo")
+    }
+}
+
+/// `siptrack://camera?event=<id>`, handled by the app's `onOpenURL`.
+enum CameraLink {
+    static func url(eventId: String) -> URL {
+        var components = URLComponents()
+        components.scheme = "siptrack"
+        components.host = "camera"
+        components.queryItems = [URLQueryItem(name: "event", value: eventId)]
+        return components.url ?? URL(string: "siptrack://camera")!
     }
 }
 
@@ -251,6 +278,7 @@ private struct LockScreenContent: View {
                     lockDrinkButton(drink)
                 }
                 lockWaterButton
+                lockCameraButton
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 12)
@@ -296,6 +324,22 @@ private struct LockScreenContent: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Add water")
+    }
+
+    private var lockCameraButton: some View {
+        Link(destination: CameraLink.url(eventId: context.state.eventId)) {
+            Image(systemName: "camera.fill")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 50, height: 42)
+                .background(.white.opacity(0.09))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .strokeBorder(.white.opacity(0.1), lineWidth: 0.5)
+                )
+        }
+        .accessibilityLabel("Take a photo")
     }
 }
 

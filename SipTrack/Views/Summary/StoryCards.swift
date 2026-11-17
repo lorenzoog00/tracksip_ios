@@ -1,6 +1,56 @@
 import SwiftUI
 import UIKit
 
+/// A night photo filling a story-shaped frame without cutting it. A photo close
+/// to the frame's shape fills it; any other (a landscape shot, a 3:4 portrait on
+/// a tall screen) is shown whole, over a blurred, darkened fill of itself. Filling
+/// cropped landscape photos to a narrow strip and blew that strip up past the
+/// saved resolution, and cut the top and bottom off portrait photos.
+struct NightPhotoFrame: View {
+    let image: UIImage
+    let size: CGSize
+
+    var body: some View {
+        if PhotoFraming.fills(imageSize: image.size, frame: size) {
+            filled
+        } else {
+            ZStack {
+                filled
+                    .blur(radius: 28, opaque: true)
+                    .overlay(Color.black.opacity(0.35))
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: size.width, height: size.height)
+            }
+            .frame(width: size.width, height: size.height)
+            .clipped()
+        }
+    }
+
+    private var filled: some View {
+        Image(uiImage: image)
+            .resizable()
+            .scaledToFill()
+            .frame(width: size.width, height: size.height)
+            .clipped()
+    }
+}
+
+enum PhotoFraming {
+    /// Fill (crop) only when that loses at most `maxCropped` of the photo;
+    /// otherwise show it whole.
+    nonisolated static let maxCropped = 0.12
+
+    nonisolated static func fills(imageSize: CGSize, frame: CGSize) -> Bool {
+        guard imageSize.width > 0, imageSize.height > 0, frame.width > 0, frame.height > 0 else { return true }
+        let imageRatio = imageSize.width / imageSize.height
+        let frameRatio = frame.width / frame.height
+        let kept = min(imageRatio, frameRatio) / max(imageRatio, frameRatio)
+        return 1 - kept <= maxCropped
+    }
+}
+
 struct StoryCardView: View {
     let story: NightStory
     let moment: StoryMoment
@@ -76,11 +126,7 @@ struct StoryCardView: View {
             ZStack {
                 LinearGradient(colors: [color.opacity(0.28), AppColors.background], startPoint: .topTrailing, endPoint: .bottomLeading)
                 if let image {
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: geometry.size.width, height: geometry.size.height)
-                        .clipped()
+                    NightPhotoFrame(image: image, size: geometry.size)
                         .id(moment.id)
                         .transition(reduceMotion ? .identity : .opacity)
                         .zIndex(1)

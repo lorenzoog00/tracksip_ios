@@ -164,6 +164,16 @@ struct RootView: View {
                         .badge(friends.pendingCount)
                         .tag(AppTab.social)
                 }
+                // Here rather than in ActiveEventView so the lock-screen camera
+                // button works from any screen, without navigating first.
+                .fullScreenCover(item: $appState.cameraRequest) { request in
+                    NightCameraPicker { image in
+                        if NightPhotoStore.save(image, eventId: request.eventId) != nil {
+                            Haptics.shared.play(.success)
+                        }
+                    }
+                    .ignoresSafeArea()
+                }
             }
         }
         .preferredColorScheme(.dark)
