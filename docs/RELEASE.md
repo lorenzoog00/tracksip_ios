@@ -81,6 +81,20 @@ Older clients' direct report writes will be rejected by the new rules.
 
 ### Validate and deploy
 
+Normally you don't deploy by hand. A merge to `main` that touches `functions/`,
+`firestore.rules`, `firestore.indexes.json`, `storage.rules` or `firebase.json`
+starts the **Deploy backend** workflow: it re-runs the backend tests, waits for
+your approval on the `production` environment (Actions → the run → Review
+deployments → Approve), deploys rules, indexes, Storage and functions, then
+smoke-tests that every callable answers. It authenticates as
+`github-deployer@device-streaming-8326abff.iam.gserviceaccount.com` through
+Workload Identity Federation, so there is no key to rotate; the functions'
+non-secret params come from the `FUNCTIONS_ENV` environment secret (a copy of
+`functions/.env.device-streaming-8326abff` — update it when that file changes).
+To redeploy without a code change, run the workflow from the Actions tab.
+
+The manual path below still works for emergencies:
+
 ```powershell
 cd functions
 npm ci

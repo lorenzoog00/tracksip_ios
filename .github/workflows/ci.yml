@@ -34,6 +34,7 @@ jobs:
       # Revoking a certificate cannot be undone, so the rule deciding which
       # ones the release workflow may remove is pinned here.
       - run: node --test scripts/revoke-ci-certificates.test.mjs
+      - run: node --test scripts/smoke-test-functions.test.cjs
 
   build-and-test:
     name: Build & test (iOS Simulator)

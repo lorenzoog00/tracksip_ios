@@ -1,0 +1,97 @@
+name: Deploy backend
+
+# Deploys Firestore rules and indexes, Storage rules and Cloud Functions to
+# production after a merge to main that touches the backend. The deploy job
+# runs in the `production` environment, which waits for the owner's approval,
+# and only that environment can impersonate the deploy service account
+# (Workload Identity Federation, no stored keys).
+on:
+  push:
+    branches: [main]
+    paths:
+      - "functions/**"
+      - "firestore.rules"
+      - "firestore.indexes.json"
+      - "storage.rules"
+      - "firebase.json"
+      - "scripts/smoke-test-functions.cjs"
+      - ".github/workflows/deploy-backend.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  PROJECT_ID: device-streaming-8326abff
+
+jobs:
+  test:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+        working-directory: functions
+      - run: npm run lint && npm test && npm run test:emulator
+        working-directory: functions
+
+  deploy:
+    name: Deploy to production
+    needs: test
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+      - run: npm ci
+        working-directory: functions
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SA }}
+
+      # Non-secret params (key IDs, app ID, tester uids). The real secrets live
+      # in Secret Manager and are only referenced by name.
+      - name: Write functions params
+        env:
+          FUNCTIONS_ENV: ${{ secrets.FUNCTIONS_ENV }}
+        run: |
+          if [ -z "$FUNCTIONS_ENV" ]; then
+            echo "::error::FUNCTIONS_ENV is not set on the production environment."
+            exit 1
+          fi
+          printf '%s\n' "$FUNCTIONS_ENV" > "functions/.env.$PROJECT_ID"
+
+      # Discovery loads index.js to learn what to deploy; the default 10 s is
+      # too short for this codebase and fails with "User code failed to load".
+      - name: Deploy
+        env:
+          FUNCTIONS_DISCOVERY_TIMEOUT: 120
+        run: |
+          npx --prefix functions firebase deploy \
+            --only firestore:rules,firestore:indexes,storage,functions \
+            --project "$PROJECT_ID" --non-interactive
+
+      - name: Smoke test every callable
+        run: node scripts/smoke-test-functions.cjs "$PROJECT_ID"
