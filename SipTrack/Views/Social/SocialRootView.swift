@@ -19,8 +19,21 @@ struct SocialRootView: View {
                 ChooseUsernameView(mode: .create)
             } else {
                 feed
+                    .sheet(isPresented: friendLinkBinding) {
+                        if let name = appState.pendingFriendLink {
+                            FriendLinkSheet(username: name)
+                        }
+                    }
             }
         }
+    }
+
+    /// Attached to the feed only, so a user still choosing a username sees the sheet after.
+    private var friendLinkBinding: Binding<Bool> {
+        Binding(
+            get: { appState.pendingFriendLink != nil },
+            set: { if !$0 { appState.pendingFriendLink = nil } }
+        )
     }
 
     private var feed: some View {

@@ -10,6 +10,10 @@
 	<array>
 		<string>group.lorenzoog.siptrack</string>
 	</array>
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:looqs.online</string>
+	</array>
 	<key>com.apple.developer.applesignin</key>
 	<array>
 		<string>Default</string>

@@ -98,6 +98,17 @@ struct RootView: View {
         path.append(Route.eventCamera(request.eventId, request.id))
     }
 
+    /// A friend link. Dropped when the tabs are not showing (signed out, onboarding), like
+    /// the camera request; otherwise left set for SocialRootView to present and clear.
+    private func handleFriendLink() {
+        guard appState.pendingFriendLink != nil else { return }
+        guard showsTabs, firebase.isSignedIn else {
+            appState.pendingFriendLink = nil
+            return
+        }
+        selectedTab = .social
+    }
+
     var body: some View {
         Group {
             if appState.shouldShowAuth {
@@ -217,7 +228,14 @@ struct RootView: View {
             updateRequired = required
         }
         .onChange(of: appState.cameraRequest) { _, _ in handleCameraRequest() }
-        .onAppear { handleCameraRequest() }
+        .onAppear {
+            handleCameraRequest()
+            handleFriendLink()
+        }
+        .onChange(of: appState.pendingFriendLink) { _, _ in handleFriendLink() }
+        .onChange(of: showsTabs) { _, showing in
+            if !showing { appState.pendingFriendLink = nil }
+        }
         .onChange(of: appState.pendingOpenFriends) { _, open in
             if open { selectedTab = .social }
         }
@@ -235,7 +253,10 @@ struct RootView: View {
             // re-arms the one-shot detector; the next HomeView.task fires it.
             if signedIn { countryDetector.resetSession() }
             path = NavigationPath()
-            if !signedIn { selectedTab = .home }
+            if !signedIn {
+                selectedTab = .home
+                appState.pendingFriendLink = nil
+            }
         }
         // `path` is state on RootView, so it outlives the NavigationStack that
         // reads it. The Group above tears that stack down whenever the gate

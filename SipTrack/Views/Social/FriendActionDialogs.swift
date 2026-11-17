@@ -9,6 +9,16 @@ final class FriendActionCoordinator: ObservableObject {
     @Published var reportTarget: FriendProfile?
     @Published var thanksTarget: FriendProfile?
     @Published private(set) var busy: Set<String> = []
+    /// Screens presented as sheets set this, since a notice would render beneath them.
+    var errorHandler: ((String, String) -> Void)?
+
+    private func fail(_ title: String, _ message: String) {
+        if let errorHandler {
+            errorHandler(title, message)
+        } else {
+            showSocialNotice(title: title, message: message)
+        }
+    }
 
     func isBusy(_ profile: FriendProfile) -> Bool { busy.contains(profile.uid) }
 
@@ -19,7 +29,7 @@ final class FriendActionCoordinator: ObservableObject {
             do {
                 try await action()
             } catch {
-                showSocialNotice(title: failure, message: error.localizedDescription)
+                fail(failure, error.localizedDescription)
             }
             busy.remove(profile.uid)
         }
@@ -33,7 +43,7 @@ final class FriendActionCoordinator: ObservableObject {
                 try await store.report(profile.uid, kind: kind)
                 thanksTarget = profile
             } catch {
-                showSocialNotice(title: "Couldn't send report", message: error.localizedDescription)
+                fail("Couldn't send report", error.localizedDescription)
             }
             busy.remove(profile.uid)
         }
