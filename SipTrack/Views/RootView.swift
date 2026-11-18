@@ -78,8 +78,9 @@ struct RootView: View {
             && !updateRequired
     }
 
-    /// The lock-screen camera button. Consumed at once, opened or not, so a request
-    /// that could not be served never opens the camera later on its own.
+    /// The lock-screen camera button. The request moves to `pendingCamera` and is
+    /// served by presentPendingCamera, which waits for the app to be ready instead of
+    /// dropping it.
     ///
     /// The camera is presented from here, not by the night screen. It used to push a
     /// fresh night screen that opened its own camera, and when that night screen was
@@ -87,10 +88,34 @@ struct RootView: View {
     private func handleCameraRequest() {
         guard let request = appState.cameraRequest else { return }
         appState.cameraRequest = nil
-        guard showsTabs else { return }
-        guard appState.activeEvent?.id == request.eventId else {
-            appState.selectedTab = .home
-            path = NavigationPath()
+        pendingCamera = request
+    }
+
+    /// Opens the camera for a lock-screen tap. Every early version of this lost the
+    /// tap somewhere, so each step now waits rather than gives up:
+    ///  - A cold launch (iOS often kills the app while the phone is locked) starts
+    ///    signed out for a moment, and that flip resets the navigation stack; wait
+    ///    until sign-in has settled and the tabs are on screen.
+    ///  - The tap arrives before unlock finishes; wait for the scene to be active.
+    ///  - A presentation refused mid-transition fails silently; check the camera is
+    ///    really in a window afterwards, and try again if not.
+    /// Any running night will do: the card's id can trail the app's after a sync.
+    private func presentPendingCamera() async {
+        guard let request = pendingCamera else { return }
+        // Cleared only at the end: changing pendingCamera restarts this task, which
+        // would cancel the sleeps below and spend every retry at once.
+        defer { if pendingCamera?.id == request.id { pendingCamera = nil } }
+
+        // Up to 10 s for the app to be ready.
+        for _ in 0..<50 {
+            if Task.isCancelled { return }
+            if scenePhase == .active, showsTabs, firebase.isSignedIn,
+               !appState.isRestoringCloudProfile { break }
+            try? await Task.sleep(for: .milliseconds(200))
+        }
+        guard !Task.isCancelled, scenePhase == .active, showsTabs else { return }
+
+        guard let night = appState.activeEvent else {
             NoticeCenter.shared.show(Notice(
                 icon: "moon.zzz.fill",
                 title: "This night has ended",
@@ -99,41 +124,22 @@ struct RootView: View {
             ))
             return
         }
-        appState.selectedTab = .home
-        // Leave the stack alone when this night is already the only screen on it.
-        var nightOnly = NavigationPath()
-        nightOnly.append(Route.event(request.eventId))
-        if path != nightOnly { path = nightOnly }
-        pendingCamera = request
-    }
 
-    /// Presents the camera once the app is really on screen. Coming from the lock
-    /// screen, the URL arrives before unlock finishes and while the night screen may
-    /// still be pushing; a cover presented then is silently dropped.
-    private func presentPendingCamera() async {
-        guard let request = pendingCamera else { return }
-        try? await Task.sleep(for: .milliseconds(500))
-        var waited = 0
-        while scenePhase != .active && waited < 30 {
-            try? await Task.sleep(for: .milliseconds(200))
-            waited += 1
-        }
-        // Cleared only at the end: changing pendingCamera restarts this task, which
-        // would cancel the sleeps below and spend every retry at once.
-        defer { if pendingCamera?.id == request.id { pendingCamera = nil } }
-        guard !Task.isCancelled, pendingCamera?.id == request.id,
-              scenePhase == .active, appState.activeEvent?.id == request.eventId
-        else { return }
-        // Retries for about 4 s: a sheet closing or the unlock animation finishing
-        // can each refuse a presentation for a moment.
-        for _ in 0..<20 {
-            guard !Task.isCancelled else { return }
-            let shown = LockScreenCamera.present(eventId: request.eventId) {
+        // The night screen underneath, so closing the camera lands there.
+        appState.selectedTab = .home
+        var nightOnly = NavigationPath()
+        nightOnly.append(Route.event(night.id))
+        if path != nightOnly { path = nightOnly }
+        try? await Task.sleep(for: .milliseconds(450))
+
+        // Up to about 6 s of attempts.
+        for _ in 0..<12 {
+            if Task.isCancelled || LockScreenCamera.isShowing { return }
+            let presented = LockScreenCamera.present(eventId: night.id) {
                 appState.nightPhotoRevision += 1
                 Haptics.shared.play(.success)
             }
-            if shown { return }
-            try? await Task.sleep(for: .milliseconds(200))
+            try? await Task.sleep(for: .milliseconds(presented ? 700 : 300))
         }
     }
 

@@ -176,15 +176,28 @@ struct NightCameraPicker: UIViewControllerRepresentable {
 /// tail of the unlock transition), which is how the button kept doing nothing.
 enum LockScreenCamera {
     private static var delegate: Delegate?
+    private static weak var picker: UIImagePickerController?
 
-    /// True once the camera is actually on screen; false means try again shortly.
-    static func present(eventId: String, onSaved: @escaping () -> Void) -> Bool {
+    /// The camera this presented is in a window, or another camera already is.
+    static var isShowing: Bool {
+        if picker?.viewIfLoaded?.window != nil { return true }
+        guard var top = keyWindow?.rootViewController else { return false }
+        while let next = top.presentedViewController { top = next }
+        return top is UIImagePickerController && top.viewIfLoaded?.window != nil
+    }
+
+    private static var keyWindow: UIWindow? {
         guard let scene = UIApplication.shared.connectedScenes
                 .compactMap({ $0 as? UIWindowScene })
-                .first(where: { $0.activationState == .foregroundActive }),
-              let window = scene.windows.first(where: \.isKeyWindow) ?? scene.windows.first,
-              var top = window.rootViewController
-        else { return false }
+                .first(where: { $0.activationState == .foregroundActive })
+        else { return nil }
+        return scene.windows.first(where: \.isKeyWindow) ?? scene.windows.first
+    }
+
+    /// True when a presentation was started. It can still be refused, so the caller
+    /// checks `isShowing` afterwards and retries.
+    static func present(eventId: String, onSaved: @escaping () -> Void) -> Bool {
+        guard var top = keyWindow?.rootViewController else { return false }
         while let next = top.presentedViewController, !next.isBeingDismissed { top = next }
         if top is UIImagePickerController { return true }
         // Mid-transition presentations are refused; the caller retries.
@@ -196,6 +209,7 @@ enum LockScreenCamera {
         let delegate = Delegate(eventId: eventId, onSaved: onSaved)
         Self.delegate = delegate
         picker.delegate = delegate
+        Self.picker = picker
         top.present(picker, animated: true)
         return true
     }

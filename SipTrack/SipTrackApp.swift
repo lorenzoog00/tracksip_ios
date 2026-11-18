@@ -32,6 +32,11 @@ struct SipTrackApp: App {
         // Lock-screen buttons. iOS runs these in a background launch and ends it
         // when the intent returns, so each one waits for the lock screen and the
         // push server to hear about the change first.
+        LiveActivityActions.openCamera = { [weak state] eventId in
+            // The app-open ad would present on the same root and knock the camera out.
+            AdManager.shared.suppressAppOpenAd(for: 30)
+            state?.cameraRequest = CameraRequest(eventId: eventId)
+        }
         LiveActivityActions.addDrink = { [weak state] eventId, drinkTypeId in
             guard let state else { return }
             let name = state.allDrinkTypes.first { $0.id == drinkTypeId }?.name ?? "Drink"
