@@ -12,6 +12,31 @@ import Foundation
 enum LiveActivityActions {
     static var addDrink: (@MainActor (_ eventId: String, _ drinkTypeId: String) async -> Void)?
     static var addWater: (@MainActor (_ eventId: String) async -> Void)?
+    static var openCamera: (@MainActor (_ eventId: String) -> Void)?
+}
+
+/// The lock-screen camera button. An intent that brings the app forward rather
+/// than a `Link`: on the Lock Screen iOS does not reliably hand a Live Activity's
+/// link URL to the app, so the tap opened the app but never asked for the camera.
+/// The intent runs in the app's process and tells it directly.
+nonisolated struct OpenNightCameraIntent: LiveActivityIntent {
+    static var title: LocalizedStringResource { "Take a photo" }
+    static var isDiscoverable: Bool { false }
+    static var openAppWhenRun: Bool { true }
+
+    @Parameter(title: "Night") var eventId: String
+
+    init() {}
+
+    init(eventId: String) {
+        self.eventId = eventId
+    }
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        LiveActivityActions.openCamera?(eventId)
+        return .result()
+    }
 }
 
 /// One tap on a lock-screen drink button logs that drink without opening the app.

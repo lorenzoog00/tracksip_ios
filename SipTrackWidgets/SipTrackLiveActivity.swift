@@ -114,10 +114,10 @@ struct SipTrackLiveActivity: Widget {
         .accessibilityLabel("Add water")
     }
 
-    // A Link, not an intent: taking a photo needs the app on screen, so this
-    // opens it (after unlock) straight into the night's camera.
+    // OpenNightCameraIntent brings the app forward (after unlock) and asks it
+    // for the camera; see the intent for why this is not a Link.
     private func islandCameraButton(eventId: String) -> some View {
-        Link(destination: CameraLink.url(eventId: eventId)) {
+        Button(intent: OpenNightCameraIntent(eventId: eventId)) {
             Image(systemName: "camera.fill")
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(.white)
@@ -126,11 +126,14 @@ struct SipTrackLiveActivity: Widget {
                 .clipShape(RoundedRectangle(cornerRadius: 8))
                 .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(.white.opacity(0.2), lineWidth: 0.5))
         }
+        .buttonStyle(.plain)
         .accessibilityLabel("Take a photo")
     }
 }
 
-/// `siptrack://camera?event=<id>`, handled by the app's `onOpenURL`.
+/// `siptrack://camera?event=<id>`, handled by the app's `onOpenURL`. No longer drawn by
+/// the Live Activity (it uses OpenNightCameraIntent); kept so links from older builds'
+/// cards still open the camera.
 enum CameraLink {
     static func url(eventId: String) -> URL {
         var components = URLComponents()
@@ -337,10 +340,10 @@ private struct LockScreenContent: View {
     }
 
     /// A plain glass circle, top right. Quiet so the BAC stays the loudest thing on
-    /// the card; 44 pt so it is an easy target. A Link: taking a photo needs the
-    /// app on screen, so this opens it straight into the camera.
+    /// the card; 44 pt so it is an easy target. OpenNightCameraIntent brings the
+    /// app forward and asks it for the camera; see the intent for why not a Link.
     private var lockCameraButton: some View {
-        Link(destination: CameraLink.url(eventId: context.state.eventId)) {
+        Button(intent: OpenNightCameraIntent(eventId: context.state.eventId)) {
             Image(systemName: "camera.fill")
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(.white)
@@ -349,6 +352,7 @@ private struct LockScreenContent: View {
                 .overlay(Circle().strokeBorder(.white.opacity(0.2), lineWidth: 0.75))
                 .contentShape(Circle())
         }
+        .buttonStyle(.plain)
         .accessibilityLabel("Take a photo")
     }
 }
