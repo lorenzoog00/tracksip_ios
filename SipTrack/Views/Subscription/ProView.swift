@@ -449,7 +449,7 @@ struct ProView: View {
 
             HStack(spacing: 16) {
                 Link("Privacy Policy",
-                     destination: URL(string: "https://looqs.online/siptrack/policy")!)
+                     destination: URL(string: "https://tracksip.online/policy")!)
                 Link("Terms of Use",
                      destination: URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!)
             }

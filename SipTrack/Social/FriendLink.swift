@@ -1,9 +1,11 @@
 import Foundation
 
-/// The public "add me" link: `https://looqs.online/siptrack/u/<username>`, or the
+/// The public "add me" link: `https://tracksip.online/u/<username>`, or the
 /// `siptrack://u/<username>` form the web fallback page opens the app with.
+/// Older builds shared `https://looqs.online/siptrack/u/<username>`; those still open.
 enum FriendLink {
-    private nonisolated static let host = "looqs.online"
+    private nonisolated static let host = "tracksip.online"
+    private nonisolated static let legacyHost = "looqs.online"
 
     nonisolated static func isValid(_ name: String) -> Bool {
         let scalars = Array(name.unicodeScalars)
@@ -19,10 +21,17 @@ enum FriendLink {
         let raw: String
         switch url.scheme?.lowercased() {
         case "https":
-            guard url.host?.lowercased() == host,
-                  parts.count == 3, parts[0].lowercased() == "siptrack", parts[1].lowercased() == "u"
-            else { return nil }
-            raw = parts[2]
+            switch url.host?.lowercased() {
+            case host, "www." + host:
+                guard parts.count == 2, parts[0].lowercased() == "u" else { return nil }
+                raw = parts[1]
+            case legacyHost:
+                guard parts.count == 3, parts[0].lowercased() == "siptrack", parts[1].lowercased() == "u"
+                else { return nil }
+                raw = parts[2]
+            default:
+                return nil
+            }
         case "siptrack":
             guard url.host?.lowercased() == "u", parts.count == 1 else { return nil }
             raw = parts[0]
@@ -34,6 +43,6 @@ enum FriendLink {
     }
 
     nonisolated static func shareURL(for username: String) -> URL {
-        URL(string: "https://\(host)/siptrack/u/\(username)") ?? URL(string: "https://\(host)/siptrack")!
+        URL(string: "https://\(host)/u/\(username)") ?? URL(string: "https://\(host)")!
     }
 }

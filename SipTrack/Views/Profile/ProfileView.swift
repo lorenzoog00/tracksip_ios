@@ -573,7 +573,7 @@ struct ProfileView: View {
                             }
                             ProfileDivider()
                         }
-                        Link(destination: URL(string: "https://looqs.online/siptrack/policy")!) {
+                        Link(destination: URL(string: "https://tracksip.online/policy")!) {
                             legalRow(label: "Privacy Policy")
                         }
                         ProfileDivider()
