@@ -68,8 +68,6 @@ struct RootView: View {
     @State private var updateRequired = false
     /// A lock-screen camera tap waiting for the app to finish coming to the front.
     @State private var pendingCamera: CameraRequest?
-    /// The night whose camera is on screen.
-    @State private var cameraNight: CameraRequest?
 
     /// True when the tabs are on screen, not sign-in, onboarding or the
     /// update-required wall.
@@ -119,10 +117,23 @@ struct RootView: View {
             try? await Task.sleep(for: .milliseconds(200))
             waited += 1
         }
-        guard !Task.isCancelled, pendingCamera?.id == request.id else { return }
-        pendingCamera = nil
-        guard scenePhase == .active, appState.activeEvent?.id == request.eventId else { return }
-        cameraNight = request
+        // Cleared only at the end: changing pendingCamera restarts this task, which
+        // would cancel the sleeps below and spend every retry at once.
+        defer { if pendingCamera?.id == request.id { pendingCamera = nil } }
+        guard !Task.isCancelled, pendingCamera?.id == request.id,
+              scenePhase == .active, appState.activeEvent?.id == request.eventId
+        else { return }
+        // Retries for about 4 s: a sheet closing or the unlock animation finishing
+        // can each refuse a presentation for a moment.
+        for _ in 0..<20 {
+            guard !Task.isCancelled else { return }
+            let shown = LockScreenCamera.present(eventId: request.eventId) {
+                appState.nightPhotoRevision += 1
+                Haptics.shared.play(.success)
+            }
+            if shown { return }
+            try? await Task.sleep(for: .milliseconds(200))
+        }
     }
 
     /// A friend link. Dropped when the tabs are not showing (signed out, onboarding), like
@@ -260,15 +271,6 @@ struct RootView: View {
         }
         .onChange(of: appState.cameraRequest) { _, _ in handleCameraRequest() }
         .task(id: pendingCamera?.id) { await presentPendingCamera() }
-        .fullScreenCover(item: $cameraNight) { request in
-            NightCameraPicker { image in
-                if NightPhotoStore.save(image, eventId: request.eventId) != nil {
-                    appState.nightPhotoRevision += 1
-                    Haptics.shared.play(.success)
-                }
-            }
-            .ignoresSafeArea()
-        }
         .onAppear {
             handleCameraRequest()
             handleFriendLink()

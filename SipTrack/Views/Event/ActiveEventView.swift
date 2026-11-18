@@ -42,41 +42,6 @@ struct ActiveEventView: View {
         }
     }
 
-    /// At the top of the night, where it is seen: it used to sit under the ad at
-    /// the very bottom, so it read as something only the start-night form offered.
-    /// Says plainly whether friends can see the night right now.
-    private func incognitoRow(event: NightEvent) -> some View {
-        Toggle(isOn: Binding(
-            get: { event.isIncognito },
-            set: { appState.setIncognito($0, for: eventId) }
-        )) {
-            HStack(spacing: 10) {
-                Image(systemName: event.isIncognito ? "eyeglasses" : "eye.fill")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(event.isIncognito ? AppColors.accent : AppColors.textSecondary)
-                    .frame(width: 22)
-                    .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("Incognito")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(AppColors.text)
-                    Text(event.isIncognito ? "Friends can't see this night" : "Friends can see this night")
-                        .font(.system(size: 14))
-                        .foregroundStyle(AppColors.textSecondary)
-                }
-            }
-        }
-        .tint(AppColors.accent)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .background(AppColors.surface)
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(
-            event.isIncognito ? AppColors.accent.opacity(0.4) : AppColors.border, lineWidth: 1))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .padding(.horizontal)
-        .animation(.easeOut(duration: 0.2), value: event.isIncognito)
-    }
-
     private func content(event: NightEvent, scroll: ScrollViewProxy) -> some View {
         let bacLimit = BACCalculator.drivingThreshold(limit: event.bacLimit ?? appState.userProfile.resolvedBACLimit)
         let overLimit = event.drivingMode && currentBAC >= bacLimit
@@ -90,8 +55,6 @@ struct ActiveEventView: View {
         ZStack {
             ScrollView {
                 VStack(spacing: 16) {
-
-                    incognitoRow(event: event)
 
                     // DO NOT DRIVE banner
                     if overLimit {
