@@ -54,7 +54,7 @@ struct HomeView: View {
                     }
                     Color.clear.frame(height: 90)
                 }
-                .padding(.top, 16)
+                .padding(.top, 4)
             }
 
             if firebase.isSignedIn {
@@ -65,7 +65,13 @@ struct HomeView: View {
                 syncErrorBanner
             }
         }
-        .navigationBarHidden(true)
+        // The bar is shown only to hold the Home | Social switch; it stays clear
+        // so the ambient glow and the date header read as before.
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .principal) { AppTabSwitcher() }
+        }
+        .toolbarBackground(.hidden, for: .navigationBar)
         .task(id: scenePhase) {
             guard scenePhase == .active, Date.now >= nextUpdateCheck else { return }
             do {

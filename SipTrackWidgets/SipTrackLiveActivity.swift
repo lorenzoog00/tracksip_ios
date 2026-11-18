@@ -120,11 +120,11 @@ struct SipTrackLiveActivity: Widget {
         Link(destination: CameraLink.url(eventId: eventId)) {
             Image(systemName: "camera.fill")
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(Color(hex: "#FFD166"))
+                .foregroundStyle(.white)
                 .frame(width: 44, height: 38)
-                .background(Color(hex: "#FFD166").opacity(0.15))
+                .background(.white.opacity(0.12))
                 .clipShape(RoundedRectangle(cornerRadius: 8))
-                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color(hex: "#FFD166").opacity(0.3), lineWidth: 0.5))
+                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(.white.opacity(0.2), lineWidth: 0.5))
         }
         .accessibilityLabel("Take a photo")
     }
@@ -168,96 +168,104 @@ private struct LockScreenContent: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
 
-            // Row 1 — what you're drinking and for how long. A lock-screen tap
-            // shows "Red Wine added" here for a few seconds instead.
-            HStack(spacing: 6) {
-                if let action = context.state.actionText {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 15, weight: .semibold))
-                    Text(action)
-                        .font(.system(size: 16, weight: .semibold))
-                        .lineLimit(1)
-                    Spacer(minLength: 4)
-                } else if let name = context.state.currentDrinkName,
-                          let started = context.state.currentDrinkStartedAt {
-                    Image(systemName: context.state.currentDrinkSymbol ?? "wineglass.fill")
-                        .font(.system(size: 15, weight: .semibold))
-                    Text(name)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-                    Spacer(minLength: 4)
-                    // Time with this drink, counting up on its own.
-                    Text(started, style: .timer)
-                        .font(.system(size: 16, weight: .semibold, design: .monospaced))
-                        .monospacedDigit()
-                        .multilineTextAlignment(.trailing)
-                        .frame(maxWidth: 72, alignment: .trailing)
-                } else {
-                    Image(systemName: "moon.stars.fill")
-                        .font(.system(size: 14))
-                    Text(context.attributes.eventName)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.85))
-                        .lineLimit(1)
-                    Spacer(minLength: 4)
-                }
-                lockCameraButton
-            }
-            .foregroundStyle(stageColor)
-            .padding(.horizontal, 16)
-            .padding(.top, 10)
-
-            // Row 2 — BAC (hero) with stage, drinks and hydration beside it.
-            HStack(alignment: .center, spacing: 0) {
-                HStack(alignment: .lastTextBaseline, spacing: 1) {
-                    Text(String(format: "%.3f", bac))
-                        .font(.system(size: 46, weight: .bold, design: .rounded))
-                        .monospacedDigit()
-                        .foregroundStyle(stageColor)
-                        .minimumScaleFactor(0.8)
-                        .lineLimit(1)
-                    Text("%")
-                        .font(.system(size: 20, weight: .semibold, design: .rounded))
-                        .foregroundStyle(stageColor.opacity(0.6))
-                }
-                Spacer(minLength: 8)
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text(context.state.stageName.uppercased())
-                        .font(.system(size: 14, weight: .heavy))
-                        .tracking(1.0)
-                        .foregroundStyle(stageColor)
-                        .lineLimit(1)
-                    HStack(spacing: 12) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "wineglass.fill").font(.system(size: 13))
-                            Text("\(context.state.drinkCount)")
-                                .font(.system(size: 16, weight: .bold, design: .rounded))
+            // Rows 1-2 beside the camera: the circle sits top right, clear of the
+            // drink buttons, big enough to hit first time with a thumb.
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 0) {
+                    // Row 1 — what you're drinking (its time is by the bar). A lock-screen tap
+                    // shows "Red Wine added" here for a few seconds instead.
+                    HStack(spacing: 6) {
+                        if let action = context.state.actionText {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 15, weight: .semibold))
+                            Text(action)
+                                .font(.system(size: 16, weight: .semibold))
+                                .lineLimit(1)
+                            Spacer(minLength: 4)
+                        } else if let name = context.state.currentDrinkName,
+                                  context.state.currentDrinkStartedAt != nil {
+                            Image(systemName: context.state.currentDrinkSymbol ?? "wineglass.fill")
+                                .font(.system(size: 15, weight: .semibold))
+                            Text(name)
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .lineLimit(1)
+                            Spacer(minLength: 4)
+                        } else {
+                            Image(systemName: "moon.stars.fill")
+                                .font(.system(size: 14))
+                            Text(context.attributes.eventName)
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(.white.opacity(0.85))
+                                .lineLimit(1)
+                            Spacer(minLength: 4)
                         }
-                        .foregroundStyle(.white.opacity(0.85))
-                        .accessibilityLabel("\(context.state.drinkCount) drinks")
-                        if let balance = context.state.hydrationBalance {
-                            HydrationBadge(balance: balance, size: 16)
+                    }
+                    .foregroundStyle(stageColor)
+
+                    // Row 2 — BAC (hero) with stage, drinks and hydration beside it.
+                    HStack(alignment: .center, spacing: 0) {
+                        HStack(alignment: .lastTextBaseline, spacing: 1) {
+                            Text(String(format: "%.3f", bac))
+                                .font(.system(size: 46, weight: .bold, design: .rounded))
+                                .monospacedDigit()
+                                .foregroundStyle(stageColor)
+                                .minimumScaleFactor(0.8)
+                                .lineLimit(1)
+                            Text("%")
+                                .font(.system(size: 20, weight: .semibold, design: .rounded))
+                                .foregroundStyle(stageColor.opacity(0.6))
+                        }
+                        Spacer(minLength: 8)
+                        VStack(alignment: .trailing, spacing: 4) {
+                            Text(context.state.stageName.uppercased())
+                                .font(.system(size: 14, weight: .heavy))
+                                .tracking(1.0)
+                                .foregroundStyle(stageColor)
+                                .lineLimit(1)
+                            HStack(spacing: 12) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "wineglass.fill").font(.system(size: 13))
+                                    Text("\(context.state.drinkCount)")
+                                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                                }
+                                .foregroundStyle(.white.opacity(0.85))
+                                .accessibilityLabel("\(context.state.drinkCount) drinks")
+                                if let balance = context.state.hydrationBalance {
+                                    HydrationBadge(balance: balance, size: 16)
+                                }
+                            }
                         }
                     }
                 }
+                lockCameraButton
             }
             .padding(.horizontal, 16)
+            .padding(.top, 10)
 
-            // Row 3 — the current drink's bar: fills over its drinking time on
-            // its own (ProgressView(timerInterval:) needs no updates). Falls back
+            // Row 3 — the current drink's bar and how long it has been going: both
+            // run on their own (ProgressView(timerInterval:) needs no updates). Falls back
             // to the BAC bar before the first drink.
             Group {
                 if let started = context.state.currentDrinkStartedAt {
                     let minutes = Double(context.state.currentDrinkMinutes ?? 20)
-                    ProgressView(
-                        timerInterval: started...started.addingTimeInterval(minutes * 60),
-                        countsDown: false,
-                        label: { EmptyView() },
-                        currentValueLabel: { EmptyView() }
-                    )
-                    .progressViewStyle(.linear)
-                    .tint(stageColor)
+                    HStack(spacing: 10) {
+                        ProgressView(
+                            timerInterval: started...started.addingTimeInterval(minutes * 60),
+                            countsDown: false,
+                            label: { EmptyView() },
+                            currentValueLabel: { EmptyView() }
+                        )
+                        .progressViewStyle(.linear)
+                        .tint(stageColor)
+                        // Time with this drink, counting up on its own.
+                        Text(started, style: .timer)
+                            .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                            .monospacedDigit()
+                            .foregroundStyle(.white.opacity(0.7))
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 52, alignment: .trailing)
+                    }
                 } else {
                     GeometryReader { geo in
                         ZStack(alignment: .leading) {
@@ -273,8 +281,8 @@ private struct LockScreenContent: View {
             .padding(.top, 4)
             .padding(.bottom, 10)
 
-            // Row 4 — one-tap buttons: three drinks and water. The camera lives in
-            // row 1, so the drinks keep enough width for names like "Gin & Tonic".
+            // Row 4 — one-tap buttons: three drinks and water. The camera sits top
+            // right, so the drinks keep enough width for names like "Gin & Tonic".
             HStack(spacing: 6) {
                 ForEach(context.state.quickDrinks.prefix(3)) { drink in
                     lockDrinkButton(drink)
@@ -328,21 +336,18 @@ private struct LockScreenContent: View {
         .accessibilityLabel("Add water")
     }
 
-    /// Top-right, in the app's camera gold, apart from the drink buttons so it
-    /// reads as its own action rather than a sixth cramped tile. A Link: taking a
-    /// photo needs the app on screen, so this opens it straight into the camera.
+    /// A plain glass circle, top right. Quiet so the BAC stays the loudest thing on
+    /// the card; 44 pt so it is an easy target. A Link: taking a photo needs the
+    /// app on screen, so this opens it straight into the camera.
     private var lockCameraButton: some View {
         Link(destination: CameraLink.url(eventId: context.state.eventId)) {
-            HStack(spacing: 5) {
-                Image(systemName: "camera.fill")
-                    .font(.system(size: 13, weight: .bold))
-                Text("Photo")
-                    .font(.system(size: 13, weight: .bold))
-            }
-            .foregroundStyle(.black)
-            .padding(.horizontal, 11)
-            .frame(height: 28)
-            .background(Color(hex: "#FFD166"), in: Capsule())
+            Image(systemName: "camera.fill")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 44, height: 44)
+                .background(.white.opacity(0.12), in: Circle())
+                .overlay(Circle().strokeBorder(.white.opacity(0.2), lineWidth: 0.75))
+                .contentShape(Circle())
         }
         .accessibilityLabel("Take a photo")
     }

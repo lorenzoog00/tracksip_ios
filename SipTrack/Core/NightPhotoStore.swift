@@ -167,3 +167,60 @@ struct NightCameraPicker: UIViewControllerRepresentable {
         func imagePickerControllerDidCancel(_ picker: UIImagePickerController) { parent.dismiss() }
     }
 }
+
+// MARK: - Lock-screen camera
+
+/// Presents the camera for the lock-screen button straight from UIKit, on top of
+/// whatever is showing. A SwiftUI cover from the root was dropped without a word
+/// whenever anything else was already presented (a sheet, the app-open ad, the
+/// tail of the unlock transition), which is how the button kept doing nothing.
+enum LockScreenCamera {
+    private static var delegate: Delegate?
+
+    /// True once the camera is actually on screen; false means try again shortly.
+    static func present(eventId: String, onSaved: @escaping () -> Void) -> Bool {
+        guard let scene = UIApplication.shared.connectedScenes
+                .compactMap({ $0 as? UIWindowScene })
+                .first(where: { $0.activationState == .foregroundActive }),
+              let window = scene.windows.first(where: \.isKeyWindow) ?? scene.windows.first,
+              var top = window.rootViewController
+        else { return false }
+        while let next = top.presentedViewController, !next.isBeingDismissed { top = next }
+        if top is UIImagePickerController { return true }
+        // Mid-transition presentations are refused; the caller retries.
+        if top.isBeingPresented || top.isBeingDismissed || top.presentedViewController != nil { return false }
+
+        let picker = UIImagePickerController()
+        picker.sourceType = UIImagePickerController.isSourceTypeAvailable(.camera) ? .camera : .photoLibrary
+        picker.mediaTypes = ["public.image"]
+        let delegate = Delegate(eventId: eventId, onSaved: onSaved)
+        Self.delegate = delegate
+        picker.delegate = delegate
+        top.present(picker, animated: true)
+        return true
+    }
+
+    final class Delegate: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+        let eventId: String
+        let onSaved: () -> Void
+        init(eventId: String, onSaved: @escaping () -> Void) {
+            self.eventId = eventId
+            self.onSaved = onSaved
+        }
+
+        func imagePickerController(_ picker: UIImagePickerController,
+                                   didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
+            if let image = info[.originalImage] as? UIImage,
+               NightPhotoStore.save(image, eventId: eventId) != nil {
+                onSaved()
+            }
+            picker.dismiss(animated: true)
+            LockScreenCamera.delegate = nil
+        }
+
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+            picker.dismiss(animated: true)
+            LockScreenCamera.delegate = nil
+        }
+    }
+}

@@ -33,6 +33,8 @@ final class AppState: ObservableObject {
     /// Bumped when a photo is saved from outside the night screen (the lock-screen
     /// camera), so an open night screen recounts its photos.
     @Published var nightPhotoRevision = 0
+    /// Home or Social, switched by AppTabSwitcher at the top of both root screens.
+    @Published var selectedTab: AppTab = .home
     @Published var failedReportEventIds: Set<String> = []
     @Published var coachReports: [CoachReport] = []
     @Published var generatingCoachReportId: String? = nil
