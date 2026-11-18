@@ -62,7 +62,8 @@ struct RootView: View {
     @EnvironmentObject var firebase: FirebaseManager
     @EnvironmentObject var countryDetector: LocationCountryDetector
     @EnvironmentObject var friends: FriendsStore
-    @State private var selectedTab: AppTab = .home
+    /// Social is built on first visit, so its listeners don't start for people who never open it.
+    @State private var socialVisited = false
     @Environment(\.scenePhase) private var scenePhase
     @State private var path = NavigationPath()
     @State private var updateRequired = false
@@ -88,7 +89,7 @@ struct RootView: View {
         appState.cameraRequest = nil
         guard showsTabs else { return }
         guard appState.activeEvent?.id == request.eventId else {
-            selectedTab = .home
+            appState.selectedTab = .home
             path = NavigationPath()
             NoticeCenter.shared.show(Notice(
                 icon: "moon.zzz.fill",
@@ -98,7 +99,7 @@ struct RootView: View {
             ))
             return
         }
-        selectedTab = .home
+        appState.selectedTab = .home
         // Leave the stack alone when this night is already the only screen on it.
         var nightOnly = NavigationPath()
         nightOnly.append(Route.event(request.eventId))
@@ -144,7 +145,7 @@ struct RootView: View {
             appState.pendingFriendLink = nil
             return
         }
-        selectedTab = .social
+        appState.selectedTab = .social
     }
 
     var body: some View {
@@ -163,7 +164,10 @@ struct RootView: View {
                     OnboardingView()
                 }
             } else {
-                TabView(selection: $selectedTab) {
+                // Home and Social stay alive side by side, so switching keeps each one's
+                // place. No tab bar: the switch sits at the top of both root screens
+                // (AppTabSwitcher), and pushed screens have the whole height.
+                ZStack {
                     NavigationStack(path: $path) {
                         HomeView()
                             .task {
@@ -175,23 +179,13 @@ struct RootView: View {
                                 Group {
                                 switch route {
                                 case .event(let id):
-                                    // The night screen has its own bottom bar (Water,
-                                    // Food, End Night); the floating tab bar sat on top
-                                    // of it and covered Food.
                                     ActiveEventView(eventId: id)
-                                        .toolbar(.hidden, for: .tabBar)
                                 case .guidedEvent(let id, let target):
                                     ActiveEventView(eventId: id, guideTarget: target)
-                                        .toolbar(.hidden, for: .tabBar)
                                 case .summary(let id):
                                     SummaryView(eventId: id)
                                 case .stories(let id):
-                                    // Full-screen viewer: the tab bar would sit over its
-                                    // controls. Apart from this and the night screen, every
-                                    // screen keeps the tab bar, since hiding it made it vanish
-                                    // and pop back on every push/pop.
                                     StoriesView(eventId: id)
-                                        .toolbar(.hidden, for: .tabBar)
                                 case .calendar:
                                     CalendarView()
                                 case .dashboard:
@@ -223,33 +217,28 @@ struct RootView: View {
                     }
                     .onChange(of: appState.pendingSummaryEventId) { _, newValue in
                         guard let eventId = newValue else { return }
-                        selectedTab = .home
+                        appState.selectedTab = .home
                         if !path.isEmpty { path.removeLast() }
                         path.append(Route.summary(eventId))
                         appState.pendingSummaryEventId = nil
                     }
                     .onChange(of: appState.pendingEventRoute) { _, route in
                         guard let route else { return }
-                        selectedTab = .home
+                        appState.selectedTab = .home
                         path.append(route)
                         appState.pendingEventRoute = nil
                     }
-                    .tabItem { Label("Home", systemImage: "house.fill") }
-                    .tag(AppTab.home)
+                    .opacity(appState.selectedTab == .home ? 1 : 0)
+                    .allowsHitTesting(appState.selectedTab == .home)
+                    .accessibilityHidden(appState.selectedTab != .home)
 
-                    SocialRootView()
-                        .tabItem {
-                            Label {
-                                Text("Social")
-                            } icon: {
-                                SocialTabIcon.image(
-                                    showDot: friends.pendingCount == 0 && friends.liveCount > 0,
-                                    selected: selectedTab == .social
-                                )
-                            }
-                        }
-                        .badge(friends.pendingCount)
-                        .tag(AppTab.social)
+                    if socialVisited || appState.selectedTab == .social {
+                        SocialRootView()
+                            .opacity(appState.selectedTab == .social ? 1 : 0)
+                            .allowsHitTesting(appState.selectedTab == .social)
+                            .accessibilityHidden(appState.selectedTab != .social)
+                            .onAppear { socialVisited = true }
+                    }
                 }
             }
         }
@@ -280,7 +269,7 @@ struct RootView: View {
             if !showing { appState.pendingFriendLink = nil }
         }
         .onChange(of: appState.pendingOpenFriends) { _, open in
-            if open { selectedTab = .social }
+            if open { appState.selectedTab = .social }
         }
         .onChange(of: appState.reportErrorMessage) { _, message in
             guard let message else { return }
@@ -297,7 +286,7 @@ struct RootView: View {
             if signedIn { countryDetector.resetSession() }
             path = NavigationPath()
             if !signedIn {
-                selectedTab = .home
+                appState.selectedTab = .home
                 appState.pendingFriendLink = nil
             }
         }

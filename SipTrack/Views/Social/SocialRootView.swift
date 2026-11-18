@@ -9,6 +9,7 @@ struct SocialRootView: View {
 
     var body: some View {
         NavigationStack {
+            Group {
             if !friends.profileLoaded {
                 // Before the first snapshot a missing profile is not "no username" yet.
                 ZStack {
@@ -24,6 +25,13 @@ struct SocialRootView: View {
                             FriendLinkSheet(username: name)
                         }
                     }
+            }
+            }
+            // On every Social root state, choosing a username included, so there is
+            // always a way back to Home.
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .principal) { AppTabSwitcher() }
             }
         }
     }
