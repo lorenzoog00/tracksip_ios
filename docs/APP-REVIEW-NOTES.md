@@ -101,7 +101,7 @@ User-generated content safeguards (Guideline 1.2):
 The demo account has one friend with a recent night, so the Social tab has
 content to review.
 
-Privacy Policy: https://looqs.online/siptrack/policy
+Privacy Policy: https://tracksip.online/policy
 Terms of Use (EULA): https://www.apple.com/legal/internet-services/itunes/dev/stdeula/
 
 ABOUT THE APP

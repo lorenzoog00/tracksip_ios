@@ -211,7 +211,7 @@ it is done by the developer with their own credentials.
    **Photos or Videos** (the profile photo). The username is a handle, covered by
    the existing **User ID**; drink and BAC data shared with friends stays under
    **Health** (also shared with other users). All linked to the user, not used for
-   tracking, purpose App Functionality. State in the privacy policy (https://looqs.online/siptrack/policy)
+   tracking, purpose App Functionality. State in the privacy policy (https://tracksip.online/policy)
    that drink and BAC data of a night is shared with the user's friends for 24
    hours (unless incognito), that profile photos are checked by Google Cloud
    Vision SafeSearch, and that account deletion removes friendships, requests,

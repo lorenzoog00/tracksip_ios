@@ -12,6 +12,7 @@
 	</array>
 	<key>com.apple.developer.associated-domains</key>
 	<array>
+		<string>applinks:tracksip.online</string>
 		<string>applinks:looqs.online</string>
 	</array>
 	<key>com.apple.developer.applesignin</key>
