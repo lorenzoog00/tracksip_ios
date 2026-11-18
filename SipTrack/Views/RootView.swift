@@ -106,14 +106,20 @@ struct RootView: View {
         // would cancel the sleeps below and spend every retry at once.
         defer { if pendingCamera?.id == request.id { pendingCamera = nil } }
 
-        // Up to 10 s for the app to be ready.
-        for _ in 0..<50 {
+        // Up to 30 s for the app to be ready: the tap lands on the Lock Screen, and
+        // Face ID or the passcode comes before the app is active.
+        //
+        // Not `scenePhase`: this task holds the copy of the view it started with, and
+        // an @Environment value in that copy never changes. A tap that arrived while
+        // the app was in the background saw "background" for the whole wait, gave up,
+        // and only a second tap (app already active) opened the camera.
+        for _ in 0..<150 {
             if Task.isCancelled { return }
-            if scenePhase == .active, showsTabs, firebase.isSignedIn,
+            if Self.appIsActive, showsTabs, firebase.isSignedIn,
                !appState.isRestoringCloudProfile { break }
             try? await Task.sleep(for: .milliseconds(200))
         }
-        guard !Task.isCancelled, scenePhase == .active, showsTabs else { return }
+        guard !Task.isCancelled, Self.appIsActive, showsTabs else { return }
 
         guard let night = appState.activeEvent else {
             NoticeCenter.shared.show(Notice(
@@ -141,6 +147,11 @@ struct RootView: View {
             }
             try? await Task.sleep(for: .milliseconds(presented ? 700 : 300))
         }
+    }
+
+    /// Read live from UIKit, unlike `scenePhase` inside a running task.
+    private static var appIsActive: Bool {
+        UIApplication.shared.applicationState == .active
     }
 
     /// A friend link. Dropped when the tabs are not showing (signed out, onboarding), like
