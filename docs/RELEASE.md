@@ -227,6 +227,51 @@ it is done by the developer with their own credentials.
    7. Delete account A: B's friends list no longer shows A.
    8. Report a user from the friends list, search results and incoming requests,
       once by username and once by photo; the `SOCIAL_REPORT` email arrives.
+8. **Night reactions and comments.** Before shipping a build with reactions,
+   comments and mentions, deploy in this order, each step finished before the
+   next (from `functions/`, with `$env:FUNCTIONS_DISCOVERY_TIMEOUT=120` as in
+   step 3):
+   1. **Indexes first, then wait until they are built.**
+
+      ```powershell
+      npx firebase deploy --only firestore:indexes --project device-streaming-8326abff
+      ```
+
+      This adds the collection-group `uid` indexes on `reactions` and
+      `comments` (account deletion queries them; until they are built,
+      `deleteAccount` fails) and the TTL policies on `expires_at` of
+      `night_threads`, `reactions`, `comments` and `limits`. TTL only collects
+      garbage, 48 h after the night expires; who can read a thread is decided
+      from the shared night. In Firebase Console → Firestore → Indexes →
+      Single field, wait until every new exemption shows **Enabled** (not
+      Building), and until `gcloud firestore fields ttls list --project
+      device-streaming-8326abff` shows each TTL policy **ACTIVE**. Building can
+      take minutes to hours.
+   2. **Then the rules.**
+
+      ```powershell
+      npx firebase deploy --only firestore:rules --project device-streaming-8326abff
+      ```
+
+      Check the `notification_prefs` rules are live: the Social profile's
+      Notifications switches save without a "Couldn't save" notice.
+   3. **Then the functions.**
+
+      ```powershell
+      npx firebase deploy --only functions --project device-streaming-8326abff
+      npx firebase functions:list --project device-streaming-8326abff
+      ```
+
+      Confirm `reactToNight`, `addComment`, `deleteComment`, `getNightThread`
+      and the `cleanupThreads` Firestore trigger are listed (CI never deploys
+      functions). The updated `reportUser` (comment reports) and
+      `registerPushToken` (the `threads` push feature) ship in the same deploy;
+      until it is live, the new build's comment reports fail.
+   4. **Then ship the build.** Thread pushes only go to an app that registered
+      the `threads` feature, so older builds get none; on a test device, open
+      the new build once (it re-registers its token) before expecting them.
+      In two-account QA also report a comment: the `SOCIAL_REPORT` email
+      carries the comment's text, author and night.
 
 ## Dependencies
 

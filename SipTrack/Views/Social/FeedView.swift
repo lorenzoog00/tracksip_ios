@@ -34,38 +34,72 @@ enum FriendNightFormat {
     }
 }
 
-/// Small green dot that pulses while a night is live. Static under Reduce Motion.
+/// Small green dot that breathes while a night is live: it swells and dims while a
+/// soft ring spreads out of it. Static under Reduce Motion.
 struct LiveDot: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var pulsing = false
 
     var body: some View {
-        Circle()
-            .fill(AppColors.success)
-            .frame(width: 8, height: 8)
-            .opacity(reduceMotion ? 1 : (pulsing ? 0.35 : 1))
-            .onAppear {
-                guard !reduceMotion else { return }
-                withAnimation(.easeInOut(duration: 1).repeatForever(autoreverses: true)) {
-                    pulsing = true
-                }
+        ZStack {
+            if !reduceMotion {
+                Circle()
+                    .stroke(AppColors.success.opacity(pulsing ? 0 : 0.6), lineWidth: 1)
+                    .frame(width: 8, height: 8)
+                    .scaleEffect(pulsing ? 2.4 : 1)
             }
-            .accessibilityHidden(true)
+            Circle()
+                .fill(AppColors.success)
+                .frame(width: 8, height: 8)
+                .scaleEffect(reduceMotion ? 1 : (pulsing ? 0.85 : 1))
+                .opacity(reduceMotion ? 1 : (pulsing ? 0.45 : 1))
+        }
+        .frame(width: 8, height: 8)
+        .onAppear {
+            guard !reduceMotion else { return }
+            withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) {
+                pulsing = true
+            }
+        }
+        .accessibilityHidden(true)
     }
 }
 
-/// Friends' live nights and the last 24 hours of finished ones.
+/// My own night on top ("You"), then friends' live nights and the last 24 hours of
+/// finished ones, each as a post card.
 struct FeedView: View {
     @EnvironmentObject var friends: FriendsStore
     /// Opens the same search destination as the toolbar magnifier.
     let onAddFriend: () -> Void
+    /// True while this feed has its own thread sheet up or a night pushed, so
+    /// SocialRootView knows a pushed thread can't present over it directly.
+    @Binding var isCovered: Bool
+
+    /// The night whose comment sheet is up.
+    @State private var thread: NightKey?
+    /// That night's owner, for the sheet's title and mention suggestions.
+    @State private var threadOwnerName = ""
+    /// The night pushed by tapping a card's body.
+    @State private var openedNight: FeedItem?
+    /// Any open reaction picker; closed by a scroll or a tap elsewhere in the feed.
+    @ObservedObject private var pickerFocus = ReactionPickerFocus.shared
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    init(isCovered: Binding<Bool>, onAddFriend: @escaping () -> Void) {
+        self._isCovered = isCovered
+        self.onAddFriend = onAddFriend
+    }
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 30)) { context in
             let now = context.date
             let sections = FeedOrdering.sections(friends.feed, now: now)
+            let mine = friends.myNight.flatMap { $0.night.expiresAt > now ? $0 : nil }
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 10) {
+                LazyVStack(alignment: .leading, spacing: 14) {
+                    if let mine {
+                        card(mine, now: now, isMine: true)
+                    }
                     if friends.friends.isEmpty {
                         emptyFriends
                     } else if sections.live.isEmpty && sections.recent.isEmpty {
@@ -79,31 +113,68 @@ struct FeedView: View {
                         if !sections.live.isEmpty {
                             header("Live now")
                             ForEach(sections.live) { item in
-                                NavigationLink {
-                                    FriendNightView(item: item)
-                                } label: {
-                                    FeedRow(item: item, now: now, live: true)
-                                }
-                                .buttonStyle(.plain)
+                                card(item, now: now, isMine: false)
                             }
                         }
                         if !sections.recent.isEmpty {
                             header("Last 24 hours")
                             ForEach(sections.recent) { item in
-                                NavigationLink {
-                                    FriendNightView(item: item)
-                                } label: {
-                                    FeedRow(item: item, now: now, live: false)
-                                }
-                                .buttonStyle(.plain)
+                                card(item, now: now, isMine: false)
                             }
                         }
                     }
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+                // Only while a picker is open, so normal taps are untouched. Buttons and the
+                // reaction gestures inside the cards take precedence over this one.
+                .gesture(
+                    TapGesture().onEnded { ReactionPickerFocus.dismiss(reduceMotion: reduceMotion) },
+                    including: pickerFocus.isOpen ? .all : .subviews
+                )
+            }
+            .onScrollPhaseChange { _, phase in
+                if phase.isScrolling { ReactionPickerFocus.dismiss(reduceMotion: reduceMotion) }
             }
         }
+        .navigationDestination(isPresented: openedNightBinding) {
+            if let openedNight {
+                FriendNightView(item: openedNight)
+            }
+        }
+        .sheet(item: $thread) { key in
+            NightThreadSheet(key: key, ownerName: threadOwnerName)
+        }
+        .onAppear(perform: reportCovered)
+        .onChange(of: thread) { _, _ in reportCovered() }
+        .onChange(of: openedNight?.id) { _, _ in reportCovered() }
+    }
+
+    private func reportCovered() {
+        let covered = thread != nil || openedNight != nil
+        if isCovered != covered { isCovered = covered }
+    }
+
+    private func card(_ item: FeedItem, now: Date, isMine: Bool) -> some View {
+        FeedPostCard(
+            item: item,
+            now: now,
+            isMine: isMine,
+            onOpenThread: {
+                threadOwnerName = item.profile.username
+                thread = NightKey(owner: item.profile.uid, night: item.night)
+            },
+            onOpenNight: { openedNight = item }
+        )
+    }
+
+    private var openedNightBinding: Binding<Bool> {
+        Binding(
+            get: { openedNight != nil },
+            set: { if !$0 { openedNight = nil } }
+        )
     }
 
     private func header(_ title: String) -> some View {
@@ -128,70 +199,5 @@ struct FeedView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 80)
-    }
-}
-
-private struct FeedRow: View {
-    let item: FeedItem
-    let now: Date
-    let live: Bool
-
-    var body: some View {
-        let night = item.night
-        HStack(spacing: 12) {
-            AvatarView(profile: item.profile, size: 44)
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
-                    if live { LiveDot() }
-                    Text("@\(item.profile.username)")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(AppColors.text)
-                        .lineLimit(1)
-                }
-                Text(subtitle(night))
-                    .font(.caption)
-                    .foregroundStyle(AppColors.textSecondary)
-            }
-            Spacer(minLength: 8)
-            VStack(alignment: .trailing, spacing: 2) {
-                let value = live ? night.bac(at: now) : night.peakBAC
-                Text(FriendNightFormat.bac(value))
-                    .font(.title3.weight(.bold).monospacedDigit())
-                    .foregroundStyle(IntoxicationStage.stage(for: value).color)
-                if !live {
-                    Text("peak")
-                        .font(.caption2)
-                        .foregroundStyle(AppColors.textSecondary)
-                }
-            }
-        }
-        .padding(12)
-        .background(AppColors.card, in: RoundedRectangle(cornerRadius: 14))
-        .overlay {
-            RoundedRectangle(cornerRadius: 14)
-                .stroke(live ? AppColors.success.opacity(0.4) : AppColors.border, lineWidth: 1)
-        }
-        .contentShape(RoundedRectangle(cornerRadius: 14))
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(accessibilityText(night))
-    }
-
-    private func accessibilityText(_ night: SharedNight) -> String {
-        let value = FriendNightFormat.bac(live ? night.bac(at: now) : night.peakBAC)
-        let drinks = FriendNightFormat.drinkLabel(night.drinkCount)
-        if live {
-            return "@\(item.profile.username), live, \(value), \(drinks), \(FriendNightFormat.duration(now.timeIntervalSince(night.startedAt)))"
-        }
-        let ended = night.endedAt ?? night.lastDrinkAt
-        return "@\(item.profile.username), peak \(value), \(drinks), ended \(FriendNightFormat.ago(now.timeIntervalSince(ended)))"
-    }
-
-    private func subtitle(_ night: SharedNight) -> String {
-        let drinks = FriendNightFormat.drinkLabel(night.drinkCount)
-        if live {
-            return "\(drinks) · \(FriendNightFormat.duration(now.timeIntervalSince(night.startedAt)))"
-        }
-        let ended = night.endedAt ?? night.lastDrinkAt
-        return "\(drinks) · ended \(FriendNightFormat.ago(now.timeIntervalSince(ended)))"
     }
 }

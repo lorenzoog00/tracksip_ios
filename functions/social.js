@@ -345,7 +345,11 @@ async function unblockUser({db, uid, data}) {
 // Reports, push tokens and friend-request pushes
 // ---------------------------------------------------------------------------
 
-const REPORT_KINDS = ["username", "photo"];
+const REPORT_KINDS = ["username", "photo", "comment"];
+// What a push token's app can handle. "threads": it opens night reaction
+// and comment pushes and can switch them off; older apps never send it.
+const PUSH_FEATURES = ["threads"];
+const MAX_PUSH_FEATURES = 5;
 const PUSH_COPY = {
   request: (username) => `@${username} sent you a friend request`,
   accepted: (username) => `@${username} accepted your friend request`,
@@ -363,8 +367,43 @@ const PUSH_ROUTE = {
 };
 
 /**
- * Records a report against another user's username or photo. The logged
- * line feeds a log-based alert that emails the developer.
+ * Finds the comment a report is about and copies what the reviewer needs.
+ * The reporter must still be able to see the night, and the comment must be
+ * on it and written by the reported person.
+ * @param {object} params
+ * @param {object} params.db Firestore
+ * @param {string} params.uid the reporter
+ * @param {string} params.targetUid the reported person
+ * @param {{owner: string, startedAt: number, commentId: string}} params.data
+ *     the payload
+ * @return {Promise<object>} {id, night, uid, username, text}
+ */
+async function reportedComment({db, uid, targetUid, data}) {
+  // Required here: interactions.js requires this module at load time.
+  const {loadNight, nightKey} = require("./interactions");
+  const {owner, startedAt, commentId} = data;
+  if (typeof owner !== "string" || owner === "" || owner.includes("/") ||
+      !Number.isFinite(startedAt) || typeof commentId !== "string" ||
+      commentId === "" || commentId.includes("/")) {
+    throw new HttpsError("invalid-argument", "That comment isn't valid.");
+  }
+  await loadNight({db, owner, startedAt, uid, now: Date.now()});
+  const night = nightKey(owner, startedAt);
+  const snap = await db
+      .doc(`night_threads/${night}/comments/${commentId}`)
+      .get();
+  if (!snap.exists || snap.data().uid !== targetUid) {
+    throw new HttpsError("not-found", "That comment is already gone.");
+  }
+  const {text, username} = snap.data();
+  return {id: commentId, night, uid: targetUid, username, text};
+}
+
+/**
+ * Records a report against another user's username, photo or a comment they
+ * wrote. A comment report carries the night (owner, startedAt) and
+ * commentId, and stores a copy of the comment. The logged line feeds a
+ * log-based alert that emails the developer.
  * @param {object} params
  * @param {object} params.db Firestore
  * @param {string} params.uid the reporter
@@ -386,24 +425,46 @@ async function reportUser({db, uid, data}) {
     kind,
     created_at: Date.now(),
   };
+  if (kind === "comment") {
+    report.comment = await reportedComment({db, uid, targetUid, data});
+  }
   await db.collection("reports").add(report);
   console.error("SOCIAL_REPORT", report);
   return {status: "reported"};
 }
 
 /**
- * Stores the caller's APNs token so friend requests can reach them. A device
- * token belongs to one account at a time: any other account still holding it
+ * Checks the features an app says it handles. Missing means none (an older
+ * app); names this backend doesn't know are dropped.
+ * @param {*} raw the submitted features
+ * @return {string[]} the known features, each once
+ */
+function pushFeatures(raw) {
+  if (raw == null) return [];
+  if (!Array.isArray(raw) || raw.length > MAX_PUSH_FEATURES ||
+      !raw.every((feature) => typeof feature === "string")) {
+    throw new HttpsError("invalid-argument", "Those features aren't valid.");
+  }
+  return [...new Set(raw.filter((feature) =>
+    PUSH_FEATURES.includes(feature)))];
+}
+
+/**
+ * Stores the caller's APNs token so friend requests can reach them, with the
+ * features the app handles (thread pushes need "threads"). A device token
+ * belongs to one account at a time: any other account still holding it
  * (signed out on this phone) loses it, so its pushes stop landing here.
  * @param {object} params
  * @param {object} params.db Firestore
  * @param {string} params.uid the caller
- * @param {{token: string, environment: string}} params.data the payload
+ * @param {{token: string, environment: string, features: Array}} params.data
+ *     the payload; features is optional
  * @return {Promise<{status: string}>} always "registered"
  */
 async function registerPushToken({db, uid, data}) {
-  const {token, environment} = data || {};
+  const {token, environment, features: rawFeatures} = data || {};
   validatePushToken(token, environment);
+  const features = pushFeatures(rawFeatures);
   assertNotDeleting(await db.doc(`account_deletions/${uid}`).get());
   const holders = await db
       .collection("push_tokens")
@@ -416,6 +477,7 @@ async function registerPushToken({db, uid, data}) {
   batch.set(db.doc(`push_tokens/${uid}`), {
     token,
     environment,
+    features,
     updated_at: Date.now(),
   });
   await batch.commit();

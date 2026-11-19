@@ -212,5 +212,57 @@ service cloud.firestore {
       ]) && validNight(request.resource.data);
       allow delete: if owner(uid);
     }
+
+    // --- Night reactions and comments --------------------------------------
+    // Written only by the Cloud Functions (Admin SDK), so no client write.
+    // The key is "{ownerUid}_{started_at}"; uids contain no underscore.
+    // Whether a thread is still visible is decided by the shared night, not
+    // by the thread docs: the night's expires_at moves later with every drink,
+    // while thread docs carry a later expires_at that only drives TTL garbage
+    // collection. So a thread is readable while shared_nights/{owner} exists,
+    // is the same night (started_at matches the key) and has not expired --
+    // the check loadNight makes for the callables. The owner and their
+    // friends may get the summary, including a missing one (nobody has
+    // reacted yet) so a feed listener doesn't die on it. A person may get
+    // only their own reaction; comments, other reactions and limits are never
+    // client-readable (getNightThread serves them, filtering blocks).
+    // A get looks up two documents, the friendship and the shared night;
+    // repeat lookups of the same document are cached.
+    match /night_threads/{key} {
+      function threadOwner() {
+        return key.split('_')[0];
+      }
+      function canSeeThread() {
+        return request.auth != null
+          && (request.auth.uid == threadOwner()
+            || exists(/databases/$(database)/documents/friendships/$(threadOwner())/friends/$(request.auth.uid)));
+      }
+      function nightPath() {
+        return /databases/$(database)/documents/shared_nights/$(threadOwner());
+      }
+      function nightVisible() {
+        return exists(nightPath())
+          && get(nightPath()).data.started_at == int(key.split('_')[1])
+          && get(nightPath()).data.expires_at > request.time;
+      }
+      allow get: if canSeeThread() && nightVisible();
+
+      match /reactions/{uid} {
+        allow get: if request.auth != null && request.auth.uid == uid
+          && canSeeThread() && nightVisible();
+      }
+    }
+
+    // Which thread pushes a person gets: reactions, comments, replies (which
+    // mentions follow). A missing doc or key means on.
+    match /notification_prefs/{uid} {
+      allow read: if owner(uid);
+      allow create, update: if owner(uid)
+        && request.resource.data.keys().hasOnly(['reactions', 'comments', 'replies'])
+        && request.resource.data.get('reactions', true) is bool
+        && request.resource.data.get('comments', true) is bool
+        && request.resource.data.get('replies', true) is bool;
+      allow delete: if owner(uid);
+    }
   }
 }

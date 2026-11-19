@@ -190,6 +190,26 @@ final class FirebaseManager: ObservableObject {
         try await db.collection("shared_nights").document(uid).delete()
     }
 
+    // MARK: - Notification switches
+
+    /// `notification_prefs/{uid}`: which social pushes the server sends me. A missing
+    /// doc or key means on.
+    func notificationPrefs() async throws -> (reactions: Bool, comments: Bool, replies: Bool) {
+        guard let uid = currentUserId() else { return (true, true, true) }
+        let data = try await db.collection("notification_prefs").document(uid).getDocument().data() ?? [:]
+        return (
+            reactions: data["reactions"] as? Bool ?? true,
+            comments: data["comments"] as? Bool ?? true,
+            replies: data["replies"] as? Bool ?? true
+        )
+    }
+
+    /// `key` is "reactions", "comments" or "replies"; the rules reject anything else.
+    func setNotificationPref(_ key: String, on: Bool) async throws {
+        guard let uid = currentUserId() else { return }
+        try await db.collection("notification_prefs").document(uid).setData([key: on], merge: true)
+    }
+
     func deleteEvent(_ id: String) async throws {
         try await col("night_events")?.document(id).delete()
     }
@@ -901,6 +921,11 @@ extension FirebaseManager {
         _ = try await callFunction("respondToFriendRequest", data: ["fromUid": fromUid, "accept": accept])
     }
 
+    /// What this app can do with a push beyond friend requests. "threads": it opens
+    /// night reaction/comment pushes and has the switches for them. The server sends
+    /// thread pushes only to tokens that registered it, so older builds get none.
+    static let pushFeatures = ["threads"]
+
     /// Best effort: a failed registration only means no request pushes until the next launch.
     func registerPushToken(_ token: String) async {
         guard auth.currentUser != nil else { return }
@@ -910,7 +935,9 @@ extension FirebaseManager {
         let environment = "production"
         #endif
         do {
-            _ = try await callFunction("registerPushToken", data: ["token": token, "environment": environment])
+            _ = try await callFunction("registerPushToken", data: [
+                "token": token, "environment": environment, "features": Self.pushFeatures
+            ])
         } catch {
             #if DEBUG
             print("[Push] token registration failed: \(error.localizedDescription)")
@@ -938,8 +965,68 @@ extension FirebaseManager {
         _ = try await callFunction("reportUser", data: ["targetUid": targetUid, "kind": kind])
     }
 
+    /// Reports one comment on a night; the server stores a copy of its text.
+    func reportComment(_ key: NightKey, commentId: String, authorUid: String) async throws {
+        _ = try await callFunction("reportUser", data: [
+            "targetUid": authorUid, "kind": "comment",
+            "owner": key.owner, "startedAt": key.startedAt, "commentId": commentId
+        ])
+    }
+
     /// `jpegBase64` is a base64 String, or NSNull to remove the photo.
     func setAvatar(jpegBase64: Any) async throws {
         _ = try await callFunction("setAvatar", data: ["jpegBase64": jpegBase64])
+    }
+}
+
+// MARK: - Night thread callables
+
+extension FirebaseManager {
+    /// nil removes my reaction. Returns my reaction as the server now has it.
+    @discardableResult
+    func reactToNight(_ key: NightKey, reaction: Reaction?) async throws -> Reaction? {
+        let emoji: Any
+        if let reaction { emoji = reaction.rawValue } else { emoji = NSNull() }
+        let r = try await callFunction("reactToNight", data: [
+            "owner": key.owner, "startedAt": key.startedAt, "emoji": emoji
+        ])
+        return (r["emoji"] as? String).flatMap { Reaction(rawValue: $0) }
+    }
+
+    /// The returned comment is mine; the server does not echo uid or username,
+    /// so uid is filled in here and username is left empty for the caller.
+    func addComment(_ key: NightKey, text: String) async throws -> ThreadComment {
+        let r = try await callFunction("addComment", data: [
+            "owner": key.owner, "startedAt": key.startedAt, "text": text
+        ])
+        guard let comment = ThreadComment.parse(r, uid: currentUserId() ?? "") else {
+            throw NSError(domain: "FirebaseManager", code: 500,
+                          userInfo: [NSLocalizedDescriptionKey: "Please try again."])
+        }
+        return comment
+    }
+
+    func deleteComment(_ key: NightKey, id: String) async throws {
+        _ = try await callFunction("deleteComment", data: [
+            "owner": key.owner, "startedAt": key.startedAt, "commentId": id
+        ])
+    }
+
+    /// Reactions and comments, oldest first, block-filtered by the server.
+    func nightThread(_ key: NightKey) async throws
+        -> (reactions: [(uid: String, username: String, reaction: Reaction)], comments: [ThreadComment]) {
+        let r = try await callFunction("getNightThread", data: [
+            "owner": key.owner, "startedAt": key.startedAt
+        ])
+        let reactions = (r["reactions"] as? [[String: Any]] ?? []).compactMap {
+            row -> (uid: String, username: String, reaction: Reaction)? in
+            guard let uid = row["uid"] as? String,
+                  let username = row["username"] as? String,
+                  let reaction = (row["emoji"] as? String).flatMap({ Reaction(rawValue: $0) })
+            else { return nil }
+            return (uid: uid, username: username, reaction: reaction)
+        }
+        let comments = (r["comments"] as? [[String: Any]] ?? []).compactMap { ThreadComment.parse($0) }
+        return (reactions: reactions, comments: comments)
     }
 }

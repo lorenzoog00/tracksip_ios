@@ -10,6 +10,8 @@ nonisolated enum PushRoute: Equatable, Sendable {
     case add(username: String)
     /// Social, where someone without a profile picks a username.
     case social
+    /// The comment sheet of one night: a reaction, comment, reply or mention on it.
+    case thread(owner: String, startedAt: Int64)
 
     init(userInfo: [AnyHashable: Any]) {
         switch userInfo["route"] as? String {
@@ -21,9 +23,32 @@ nonisolated enum PushRoute: Equatable, Sendable {
             }
         case "social":
             self = .social
+        case "thread":
+            // The owner is a path segment of the thread doc id, so no slash.
+            if let owner = userInfo["owner"] as? String, !owner.isEmpty, !owner.contains("/"),
+               let startedAt = Self.millis(userInfo["started_at"]) {
+                self = .thread(owner: owner, startedAt: startedAt)
+            } else {
+                self = .social
+            }
         default:
             self = .friends
         }
+    }
+
+    /// Epoch milliseconds as APNs hands them over: an NSNumber from the JSON, or a
+    /// Swift Int, Int64 or Double. Nil for anything else, fractions, or not positive.
+    private static func millis(_ value: Any?) -> Int64? {
+        let ms: Int64?
+        switch value {
+        case let v as Int64: ms = v
+        case let v as Int: ms = Int64(v)
+        case let v as Double: ms = v.isFinite ? Int64(exactly: v) : nil
+        case let v as NSNumber: ms = Int64(exactly: v.doubleValue)
+        default: ms = nil
+        }
+        guard let ms, ms > 0 else { return nil }
+        return ms
     }
 }
 
