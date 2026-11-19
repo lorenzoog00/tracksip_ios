@@ -1366,6 +1366,9 @@ const interactions = require("../interactions");
 const {Timestamp: AdminTimestamp} = require("firebase-admin/firestore");
 const T = 1700000000000;
 const inMs = (ms) => AdminTimestamp.fromMillis(Date.now() + ms);
+// Thread docs are collected by TTL a grace period after the night expires.
+const graceAfter = (night) => night.expires_at.toMillis() +
+  interactions.THREAD_GRACE_MS;
 const seedSharedNight = (owner = "A", overrides = {}) =>
   db.doc(`shared_nights/${owner}`).set({
     started_at: T,
@@ -1395,8 +1398,9 @@ test("interactions: reacting sets one reaction and counts", async () => {
   const thread = await threadDoc();
   assert.equal(thread.reactions.beer, 1);
   assert.deepEqual(thread.reactors, ["B"]);
-  assert.ok(thread.expires_at.isEqual(night.expires_at));
+  assert.equal(thread.expires_at.toMillis(), graceAfter(night));
   const mine = (await db.doc(`night_threads/A_${T}/reactions/B`).get()).data();
+  assert.equal(mine.expires_at.toMillis(), graceAfter(night));
   assert.equal(mine.emoji, "beer");
   assert.equal(mine.username, "bobby");
   assert.equal(mine.uid, "B");
@@ -1556,12 +1560,14 @@ test("interactions: adding a comment trims the text and updates the summary", as
   assert.equal(summary.comment_count, 1);
   assert.equal(summary.latest_comments[0].text, "hola");
   assert.equal(summary.latest_comments[0].id, result.id);
-  assert.ok(summary.expires_at.isEqual(night.expires_at));
+  assert.equal(summary.expires_at.toMillis(), graceAfter(night));
   const stored = (await db.doc(
       `night_threads/A_${T}/comments/${result.id}`).get()).data();
   assert.equal(stored.uid, "B");
   assert.equal(stored.username, "bobby");
-  assert.ok(stored.expires_at.isEqual(night.expires_at));
+  assert.equal(stored.expires_at.toMillis(), graceAfter(night));
+  const limit = (await db.doc(`night_threads/A_${T}/limits/B`).get()).data();
+  assert.equal(limit.expires_at.toMillis(), graceAfter(night));
 });
 
 test("interactions: comments keep the reaction fields on the summary", async () => {
@@ -1775,6 +1781,32 @@ test("interactions: the thread is oldest first and hides blocks both ways", asyn
 
   await claim("X", "xavier");
   await assert.rejects(thread("X"), (e) => e.code === "permission-denied");
+});
+
+test("interactions: a thread outlives the expiry it was first written with", async () => {
+  await commentsSetup();
+  const hour = 3600 * 1000;
+  await react("B", "beer");
+  const first = await comment("B", "early", {now: Date.now()});
+  // The night goes on: every drink pushes its expiry later.
+  await seedSharedNight("A", {expires_at: inMs(30 * hour)});
+  const night = (await db.doc("shared_nights/A").get()).data();
+  // Past the expiry the first writes copied, the night is still live.
+  const later = Date.now() + 2 * hour;
+  await react("C", "fire", {now: later});
+  const second = await comment("C", "later", {now: later});
+  let summary = await threadDoc();
+  assert.deepEqual(summary.reactions, {beer: 1, fire: 1});
+  assert.equal(summary.comment_count, 2);
+  assert.equal(summary.expires_at.toMillis(), graceAfter(night));
+  // Re-tapping a reaction made before the move toggles it, never counts it
+  // twice.
+  assert.deepEqual(await react("B", "beer", {now: later}), {emoji: null});
+  summary = await threadDoc();
+  assert.deepEqual(summary.reactions, {beer: 0, fire: 1});
+  const read = await interactions.getNightThread({db, uid: "B",
+    data: {owner: "A", startedAt: T}, now: later});
+  assert.deepEqual(read.comments.map((c) => c.id), [first.id, second.id]);
 });
 
 // interactions: thread pushes and notification prefs

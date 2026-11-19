@@ -1,4 +1,5 @@
 const {HttpsError} = require("firebase-functions/v2/https");
+const {Timestamp} = require("firebase-admin/firestore");
 const {assertNotDeleting} = require("./social");
 const {tokenIsDead} = require("./live-activity");
 
@@ -22,6 +23,10 @@ const COMMENT_GAP_MS = 3000;
 const LATEST_COMMENTS = 3;
 const MAX_MENTION_LOOKUPS = 10;
 const LINK_PATTERN = /https?:\/\/|www\./i;
+// Thread docs outlive the night by this much. TTL only collects garbage:
+// who may read a thread is decided from the shared night itself (rules and
+// loadNight), whose expiry moves later with every drink.
+const THREAD_GRACE_MS = 48 * 60 * 60 * 1000;
 
 /**
  * The id of a night's thread: the owner and the night's start in ms.
@@ -76,6 +81,17 @@ async function loadNight({db, owner, startedAt, uid, now}) {
     ownerName: ownerProfile.exists ? ownerProfile.data().username : "",
     viewerName: viewerProfile.data().username,
   };
+}
+
+/**
+ * When a thread doc written now may be deleted by TTL: 48 h after the night
+ * currently expires. The night's expiry only moves later, so every doc of a
+ * thread outlives the night it belongs to.
+ * @param {object} night the shared night data
+ * @return {Timestamp} the doc's expires_at
+ */
+function threadExpiry(night) {
+  return Timestamp.fromMillis(night.expires_at.toMillis() + THREAD_GRACE_MS);
 }
 
 /**
@@ -170,7 +186,7 @@ async function reactToNight({db, uid, data, notify, now = Date.now()}) {
     tx.set(threadRef, {
       owner,
       started_at: startedAt,
-      expires_at: night.expires_at,
+      expires_at: threadExpiry(night),
       reactions: counts,
       reactors,
       unpushed_reactors: waiting,
@@ -184,7 +200,7 @@ async function reactToNight({db, uid, data, notify, now = Date.now()}) {
         username: viewerName,
         emoji: next,
         at: now,
-        expires_at: night.expires_at,
+        expires_at: threadExpiry(night),
       });
     } else {
       tx.delete(reactionRef);
@@ -352,7 +368,7 @@ async function addComment({db, uid, data, notify, now = Date.now()}) {
     tx.set(threadRef, {
       owner,
       started_at: startedAt,
-      expires_at: night.expires_at,
+      expires_at: threadExpiry(night),
       ...fresh,
       comment_count: (summary.comment_count || 0) + 1,
       latest_comments: latest,
@@ -360,7 +376,7 @@ async function addComment({db, uid, data, notify, now = Date.now()}) {
     tx.set(limitRef, {
       count: used.count + 1,
       last_at: now,
-      expires_at: night.expires_at,
+      expires_at: threadExpiry(night),
     });
     tx.set(commentRef, {
       uid,
@@ -368,7 +384,7 @@ async function addComment({db, uid, data, notify, now = Date.now()}) {
       text,
       mentions,
       at: now,
-      expires_at: night.expires_at,
+      expires_at: threadExpiry(night),
     });
     return [...new Set(before.docs.map((doc) => doc.data().uid))];
   });
@@ -666,7 +682,7 @@ async function deleteThreadsFor({db, uid}) {
 }
 
 module.exports = {
-  REACTIONS, nightKey, loadNight, reactToNight,
+  REACTIONS, THREAD_GRACE_MS, nightKey, loadNight, reactToNight,
   addComment, deleteComment, getNightThread,
   notifyThread, deleteThreadsFor, removeFromThread,
 };

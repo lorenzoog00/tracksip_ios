@@ -316,7 +316,8 @@ exports.getNightThread = socialCallable("getNightThread", interactions);
 
 // Going incognito, deleting the shared night or the account deletes
 // shared_nights/{uid}; that owner's threads go with it. A TTL delete fires
-// this too, which is harmless: the threads expire at the same moment.
+// this too, which is harmless: the rules hide a thread once its night has
+// expired, and its own docs would be collected by TTL two days later.
 exports.cleanupThreads = onDocumentDeleted(
     {document: "shared_nights/{uid}", timeoutSeconds: 120},
     (event) => interactions.deleteThreadsFor({
