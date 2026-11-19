@@ -50,6 +50,9 @@ final class NightThreadStore: ObservableObject {
     /// Reaction calls in flight; the latest one decides `myReaction` when it returns.
     private var reactSeq = 0
     private var reactInFlight = 0
+    /// The newest call whose answer is in `serverReaction`; an older answer that
+    /// returns late must not overwrite a newer one.
+    private var lastAppliedSeq = 0
 
     private var summaryListener: ListenerRegistration?
     private var reactionListener: ListenerRegistration?
@@ -149,7 +152,10 @@ final class NightThreadStore: ObservableObject {
             reactInFlight -= 1
             // The callable's answer is the server's state; don't wait for the listener,
             // which may be dead (see attachReactionListener).
-            serverReaction = confirmed
+            if seq > lastAppliedSeq {
+                lastAppliedSeq = seq
+                serverReaction = confirmed
+            }
             if seq == reactSeq { myReaction = confirmed }
         } catch {
             reactInFlight -= 1
