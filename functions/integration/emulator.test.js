@@ -1704,6 +1704,25 @@ test("interactions: mentions are deduped and limited to viewers", async () => {
   assert.deepEqual(stored.mentions, [{uid: "B", username: "bobby"}]);
 });
 
+test("interactions: a mention followed by punctuation still resolves", async () => {
+  await commentsSetup();
+  const {calls, notify} = makeNotify();
+  const result = await comment("C", "thanks @bobby. and @alice_ too",
+      {notify, now: 0});
+  assert.deepEqual(result.mentions, [
+    {uid: "B", username: "bobby"},
+    {uid: "A", username: "alice"},
+  ]);
+  assert.deepEqual(
+      [...calls].sort((a, b) => a[0].localeCompare(b[0]))
+          .map((c) => [c[0], c[1]]),
+      [["A", "comment"], ["B", "mention"]]);
+  // A name that only exists with the trailing dot stripped below three
+  // characters, or not at all, is still nobody.
+  const none = await comment("C", "hi @bo. and @nobody_", {now: 5000});
+  assert.deepEqual(none.mentions, []);
+});
+
 test("interactions: mentioning the owner still sends the owner a comment push", async () => {
   await commentsSetup();
   const {calls, notify} = makeNotify();

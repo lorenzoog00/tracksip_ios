@@ -284,6 +284,23 @@ async function isOwnerOrFriend(db, owner, uid) {
 }
 
 /**
+ * Finds the account behind a written @name. "thanks @bobby." captures
+ * "bobby.", so a name that doesn't exist is tried again without trailing
+ * dots and underscores, as the app does when it highlights mentions.
+ * @param {object} db Firestore
+ * @param {string} name the lowercased name after the @
+ * @return {Promise<?{uid: string, username: string}>} the account, or null
+ */
+async function lookupHandle(db, name) {
+  const exact = await db.doc(`usernames/${name}`).get();
+  if (exact.exists) return {uid: exact.data().uid, username: name};
+  const trimmed = name.replace(/[._]+$/, "");
+  if (trimmed === name || trimmed.length < 3) return null;
+  const again = await db.doc(`usernames/${trimmed}`).get();
+  return again.exists ? {uid: again.data().uid, username: trimmed} : null;
+}
+
+/**
  * Resolves @usernames in a comment to people who can see the night. The
  * author, strangers, non-friends of the owner and blocked people are dropped.
  * @param {object} params
@@ -297,10 +314,10 @@ async function resolveMentions({db, text, owner, author}) {
   const names = [...new Set(
       [...text.toLowerCase().matchAll(/@([a-z0-9._]{3,20})/g)]
           .map((match) => match[1]))].slice(0, MAX_MENTION_LOOKUPS);
-  const resolved = await Promise.all(names.map(async (username) => {
-    const handle = await db.doc(`usernames/${username}`).get();
-    if (!handle.exists) return null;
-    const uid = handle.data().uid;
+  const resolved = await Promise.all(names.map(async (name) => {
+    const handle = await lookupHandle(db, name);
+    if (!handle) return null;
+    const {uid, username} = handle;
     if (uid === author) return null;
     const [visible, blocked] = await Promise.all([
       isOwnerOrFriend(db, owner, uid),
