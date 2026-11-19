@@ -1451,3 +1451,29 @@ test("interactions: a failing push does not undo the reaction", async () => {
   }
   assert.equal((await threadDoc()).reactions.beer, 1);
 });
+
+test("interactions: others never counts the pusher or removed reactions", async () => {
+  await reactionsSetup();
+  await claim("C", "carla");
+  await claim("D", "dina");
+  await befriend("A", "C");
+  await befriend("A", "D");
+  const minute = 60 * 1000;
+  const first = makeNotify();
+  await react("B", "beer", {notify: first.notify, now: 0});
+  await react("C", "fire", {notify: first.notify, now: minute});
+  await react("C", "laugh", {notify: first.notify, now: 20 * minute});
+  assert.equal(first.calls.length, 2);
+  assert.equal(first.calls[1][2].from, "carla");
+  assert.equal(first.calls[1][2].others, 0);
+
+  await db.recursiveDelete(db.collection("night_threads"));
+  const second = makeNotify();
+  await react("B", "beer", {notify: second.notify, now: 0});
+  await react("C", "fire", {notify: second.notify, now: minute});
+  await react("C", "fire", {notify: second.notify, now: 2 * minute});
+  await react("D", "heart", {notify: second.notify, now: 20 * minute});
+  assert.equal(second.calls.length, 2);
+  assert.equal(second.calls[1][2].from, "dina");
+  assert.equal(second.calls[1][2].others, 0);
+});

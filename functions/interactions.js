@@ -147,16 +147,16 @@ async function reactToNight({db, uid, data, notify, now = Date.now()}) {
     const lastPush = summary.last_reaction_push_at;
     const mayPush = next !== null && !pushed.includes(uid) &&
         (typeof lastPush !== "number" || now - lastPush >= REACTION_PUSH_GAP_MS);
-    let sinceLast = summary.reactions_since_push || 0;
+    let waiting = (summary.unpushed_reactors || []).filter((id) => id !== uid);
     const update = {};
     let others = null;
     if (mayPush) {
-      others = sinceLast;
-      sinceLast = 0;
+      others = waiting.length;
+      waiting = [];
       update.last_reaction_push_at = now;
       update.pushed_reactors = capped([...pushed, uid]);
-    } else if (next !== null && !previous && !pushed.includes(uid)) {
-      sinceLast += 1;
+    } else if (next !== null && !pushed.includes(uid)) {
+      waiting = capped([...waiting, uid]);
     }
 
     tx.set(threadRef, {
@@ -165,7 +165,7 @@ async function reactToNight({db, uid, data, notify, now = Date.now()}) {
       expires_at: night.expires_at,
       reactions: counts,
       reactors,
-      reactions_since_push: sinceLast,
+      unpushed_reactors: waiting,
       comment_count: summary.comment_count || 0,
       latest_comments: summary.latest_comments || [],
       ...update,
