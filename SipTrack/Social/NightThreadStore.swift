@@ -51,7 +51,8 @@ final class NightThreadStore: ObservableObject {
     private var reactSeq = 0
     private var reactInFlight = 0
 
-    private var listeners: [ListenerRegistration] = []
+    private var summaryListener: ListenerRegistration?
+    private var reactionListener: ListenerRegistration?
     /// Bumped by every start/stop so a late snapshot from a removed listener is dropped.
     private var generation = 0
 
@@ -65,42 +66,62 @@ final class NightThreadStore: ObservableObject {
     // MARK: - Lifecycle
 
     func start() {
-        guard listeners.isEmpty else { return }
+        guard summaryListener == nil else { return }
         generation &+= 1
         let g = generation
-        let thread = db.collection("night_threads").document(key.id)
 
-        listeners.append(thread.addSnapshotListener { [weak self] snap, error in
+        summaryListener = thread.addSnapshotListener { [weak self] snap, error in
             // An error (expired, unfriended) says nothing new; keep what is shown.
             guard error == nil, let snap else { return }
+            let exists = snap.exists
             let data = snap.data()
             Task { @MainActor [weak self] in
                 guard let self, self.generation == g else { return }
                 // A missing doc is a thread nobody has touched yet.
                 self.serverSummary = data.flatMap { ThreadSummary.parse($0) } ?? ThreadSummary()
+                // The rules read the summary doc to allow my reaction doc, so that listener
+                // is denied (and ended) while the summary is missing. Attach it, or attach
+                // it again, once the summary exists.
+                if exists { self.attachReactionListener(generation: g) }
                 self.publishSummary()
             }
-        })
-
-        if !isOwnNight {
-            listeners.append(thread.collection("reactions").document(myUid)
-                .addSnapshotListener { [weak self] snap, error in
-                    guard error == nil, let snap else { return }
-                    let raw = snap.data()?["emoji"] as? String
-                    Task { @MainActor [weak self] in
-                        guard let self, self.generation == g else { return }
-                        self.serverReaction = raw.flatMap { Reaction(rawValue: $0) }
-                        if self.reactInFlight == 0 { self.myReaction = self.serverReaction }
-                        self.publishSummary()
-                    }
-                })
         }
+        attachReactionListener(generation: g)
     }
 
     func stop() {
         generation &+= 1
-        listeners.forEach { $0.remove() }
-        listeners = []
+        summaryListener?.remove()
+        summaryListener = nil
+        reactionListener?.remove()
+        reactionListener = nil
+    }
+
+    private var thread: DocumentReference {
+        db.collection("night_threads").document(key.id)
+    }
+
+    /// My own reaction doc. At most one listener: a live one is kept, a denied one is
+    /// dropped by its error callback so the next summary snapshot can try again.
+    private func attachReactionListener(generation g: Int) {
+        guard !isOwnNight, reactionListener == nil, generation == g else { return }
+        reactionListener = thread.collection("reactions").document(myUid)
+            .addSnapshotListener { [weak self] snap, error in
+                let failed = error != nil
+                let raw = failed ? nil : (snap?.data()?["emoji"] as? String)
+                Task { @MainActor [weak self] in
+                    guard let self, self.generation == g else { return }
+                    if failed {
+                        // Firestore has ended this listener; forget it.
+                        self.reactionListener?.remove()
+                        self.reactionListener = nil
+                        return
+                    }
+                    self.serverReaction = raw.flatMap { Reaction(rawValue: $0) }
+                    if self.reactInFlight == 0 { self.myReaction = self.serverReaction }
+                    self.publishSummary()
+                }
+            }
     }
 
     /// Server counts, adjusted for a reaction of mine the server has not reported yet.
@@ -126,6 +147,9 @@ final class NightThreadStore: ObservableObject {
         do {
             let confirmed = try await FirebaseManager.shared.reactToNight(key, reaction: target)
             reactInFlight -= 1
+            // The callable's answer is the server's state; don't wait for the listener,
+            // which may be dead (see attachReactionListener).
+            serverReaction = confirmed
             if seq == reactSeq { myReaction = confirmed }
         } catch {
             reactInFlight -= 1
