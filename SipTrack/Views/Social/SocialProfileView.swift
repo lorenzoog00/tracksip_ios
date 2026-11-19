@@ -11,6 +11,12 @@ struct SocialProfileView: View {
     @State private var showPicker = false
     @State private var errorMessage: String?
     @State private var isUpdatingAvatar = false
+    /// `notification_prefs/{uid}`; on until loaded, and the switches stay disabled
+    /// until then so a stale "on" is never written over a saved "off".
+    @State private var notifyReactions = true
+    @State private var notifyComments = true
+    @State private var notifyReplies = true
+    @State private var notificationPrefsLoaded = false
 
     private var incognitoBinding: Binding<Bool> {
         Binding(
@@ -107,10 +113,13 @@ struct SocialProfileView: View {
                     .font(.system(size: 16))
                     .background(AppColors.surface)
                     .clipShape(RoundedRectangle(cornerRadius: 14))
+
+                    notificationsSection
                 }
                 .padding(20)
             }
         }
+        .task { await loadNotificationPrefs() }
         .navigationTitle("Profile")
         .navigationBarTitleDisplayMode(.inline)
         .confirmationDialog("Profile photo", isPresented: $showAvatarOptions) {
@@ -133,6 +142,67 @@ struct SocialProfileView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Notifications
+
+    private var notificationsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Notifications")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(AppColors.textSecondary)
+                .textCase(.uppercase)
+                .padding(.leading, 4)
+                .accessibilityAddTraits(.isHeader)
+
+            VStack(spacing: 0) {
+                notificationToggle("Reactions on your night", isOn: prefBinding("reactions", $notifyReactions))
+                Divider().overlay(AppColors.border)
+                notificationToggle("Comments on your night", isOn: prefBinding("comments", $notifyComments))
+                Divider().overlay(AppColors.border)
+                notificationToggle("Replies and mentions", isOn: prefBinding("replies", $notifyReplies))
+            }
+            .font(.system(size: 16))
+            .background(AppColors.surface)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .disabled(!notificationPrefsLoaded)
+        }
+    }
+
+    private func notificationToggle(_ title: String, isOn: Binding<Bool>) -> some View {
+        Toggle(isOn: isOn) {
+            Text(title)
+                .foregroundStyle(AppColors.text)
+        }
+        .tint(AppColors.accent)
+        .padding(16)
+    }
+
+    /// Optimistic: flips at once, saves one key with merge, and flips back with a
+    /// notice if the save fails (unless the user has flipped it again since).
+    private func prefBinding(_ key: String, _ value: Binding<Bool>) -> Binding<Bool> {
+        Binding(
+            get: { value.wrappedValue },
+            set: { newValue in
+                value.wrappedValue = newValue
+                Task {
+                    do {
+                        try await FirebaseManager.shared.setNotificationPref(key, on: newValue)
+                    } catch {
+                        if value.wrappedValue == newValue { value.wrappedValue = !newValue }
+                        showSocialNotice(title: "Couldn't save", message: error.localizedDescription)
+                    }
+                }
+            }
+        )
+    }
+
+    private func loadNotificationPrefs() async {
+        guard let prefs = try? await FirebaseManager.shared.notificationPrefs() else { return }
+        notifyReactions = prefs.reactions
+        notifyComments = prefs.comments
+        notifyReplies = prefs.replies
+        notificationPrefsLoaded = true
     }
 
     private func updateAvatar(_ image: UIImage?) {

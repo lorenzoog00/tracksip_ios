@@ -39,6 +39,11 @@ struct SipTrackApp: App {
                 state.pendingFriendLink = username
             case .social:
                 state.selectedTab = .social
+            case .thread(let owner, let startedAt):
+                // RootView switches to Social (after a cold-launch sign-in restore) and
+                // the feed opens the comment sheet.
+                AdManager.shared.suppressAppOpenAd(for: 30)
+                state.pendingThread = NightKey(owner: owner, startedAt: startedAt)
             }
         }
         // Lock-screen buttons. iOS runs these in a background launch and ends it

@@ -199,7 +199,8 @@ struct NightThreadSheet: View {
     private var header: some View {
         VStack(spacing: 10) {
             VStack(spacing: 2) {
-                Text(store.isOwnNight ? "Your night" : "@\(ownerName)'s night")
+                // ownerName is "" when a push opened a night whose owner isn't loaded.
+                Text(store.isOwnNight ? "Your night" : (ownerName.isEmpty ? "Comments" : "@\(ownerName)'s night"))
                     .font(.headline)
                     .foregroundStyle(AppColors.text)
                     .lineLimit(1)
@@ -357,7 +358,8 @@ struct NightThreadSheet: View {
             Text("No comments yet")
                 .font(.headline)
                 .foregroundStyle(AppColors.text)
-            Text(store.isOwnNight ? "Your friends' comments show up here." : "Say something to @\(ownerName).")
+            Text(store.isOwnNight ? "Your friends' comments show up here."
+                 : (ownerName.isEmpty ? "Say something." : "Say something to @\(ownerName)."))
                 .font(.subheadline)
                 .foregroundStyle(AppColors.textSecondary)
                 .multilineTextAlignment(.center)

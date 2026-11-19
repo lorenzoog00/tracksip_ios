@@ -79,6 +79,19 @@ struct FriendLinkTests {
         #expect(PushRoute(userInfo: ["route": "add", "username": "no spaces"]) == .social)
         #expect(PushRoute(userInfo: ["route": "add"]) == .social)
         #expect(PushRoute(userInfo: ["route": "social"]) == .social)
+        // Reactions, comments, replies and mentions open that night's comment sheet.
+        #expect(PushRoute(userInfo: ["route": "thread", "owner": "A", "started_at": 1700000000000])
+                == .thread(owner: "A", startedAt: 1700000000000))
+        #expect(PushRoute(userInfo: ["route": "thread", "owner": "A", "started_at": 1700000000000.0])
+                == .thread(owner: "A", startedAt: 1700000000000))
+        #expect(PushRoute(userInfo: ["route": "thread", "owner": "A", "started_at": Int64(1700000000000)])
+                == .thread(owner: "A", startedAt: 1700000000000))
+        #expect(PushRoute(userInfo: ["route": "thread", "owner": "A", "started_at": NSNumber(value: 1700000000000)])
+                == .thread(owner: "A", startedAt: 1700000000000))
+        #expect(PushRoute(userInfo: ["route": "thread", "started_at": 1700000000000]) == .social)
+        #expect(PushRoute(userInfo: ["route": "thread", "owner": "", "started_at": 1700000000000]) == .social)
+        #expect(PushRoute(userInfo: ["route": "thread", "owner": "A"]) == .social)
+        #expect(PushRoute(userInfo: ["route": "thread", "owner": "A", "started_at": "1700000000000"]) == .social)
     }
 
     // MARK: - Suggestions

@@ -169,6 +169,19 @@ struct RootView: View {
         appState.selectedTab = .social
     }
 
+    /// A tapped reaction/comment push. Same rules as a friend link: wait for a
+    /// cold-launch session restore, drop it when the tabs are not showing, otherwise
+    /// switch to Social, whose feed opens the sheet and clears this.
+    private func handlePendingThread() {
+        guard appState.pendingThread != nil else { return }
+        if !firebase.isSignedIn && appState.currentUserId != nil { return }
+        guard showsTabs, firebase.isSignedIn else {
+            appState.pendingThread = nil
+            return
+        }
+        appState.selectedTab = .social
+    }
+
     var body: some View {
         Group {
             if appState.shouldShowAuth {
@@ -284,10 +297,15 @@ struct RootView: View {
         .onAppear {
             handleCameraRequest()
             handleFriendLink()
+            handlePendingThread()
         }
         .onChange(of: appState.pendingFriendLink) { _, _ in handleFriendLink() }
+        .onChange(of: appState.pendingThread) { _, _ in handlePendingThread() }
         .onChange(of: showsTabs) { _, showing in
-            if !showing { appState.pendingFriendLink = nil }
+            if !showing {
+                appState.pendingFriendLink = nil
+                appState.pendingThread = nil
+            }
         }
         .onChange(of: appState.pendingOpenFriends) { _, open in
             if open { appState.selectedTab = .social }
@@ -306,10 +324,14 @@ struct RootView: View {
             // re-arms the one-shot detector; the next HomeView.task fires it.
             if signedIn { countryDetector.resetSession() }
             path = NavigationPath()
-            if signedIn { handleFriendLink() }
+            if signedIn {
+                handleFriendLink()
+                handlePendingThread()
+            }
             if !signedIn {
                 appState.selectedTab = .home
                 appState.pendingFriendLink = nil
+                appState.pendingThread = nil
             }
         }
         // `path` is state on RootView, so it outlives the NavigationStack that

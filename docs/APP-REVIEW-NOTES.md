@@ -84,7 +84,9 @@ other's current night and nights closed in the last 24 hours (drinks and BAC
 estimate). Nothing is public: only accepted friends see anything, data expires
 24 hours after a night closes, and a user can switch on Incognito to share
 nothing. There are no leaderboards and no rankings, and BAC is never compared or
-ranked between users. There is no chat and no free-text messaging.
+ranked between users. Friends can react to a night with one of six fixed emojis
+and leave short text comments on it; there is no private chat or direct
+messaging.
 
 User-generated content safeguards (Guideline 1.2):
 - Report: every user (username or profile photo) can be reported from the
@@ -103,6 +105,16 @@ User-generated content safeguards (Guideline 1.2):
   stored or logged, and the check runs at most a few times a day. People found
   this way may get one notification that the user is on TrackSip. Nothing is
   read until the user taps the button and grants access.
+- Reactions and comments on a night: reactions are a fixed set of six emojis.
+  Comments are text only, at most 200 characters, with no links or photos, and
+  are rate-limited. Any comment can be reported with a long-press (same
+  reports pipeline and 24-hour response as above), and its author can be
+  blocked; blocking hides reactions and comments in both directions and the
+  server refuses new ones across a block. Authors delete their own comments
+  and the night's owner can delete any comment on their night. Everything
+  expires with the night, 24 hours after it closes. @mentions only reach people
+  who can already see that night, and each kind of notification (reactions,
+  comments, replies and mentions) can be switched off in the Social profile.
 - "You might know" also lists friends of the user's friends.
 
 The demo account has one friend with a recent night, so the Social tab has

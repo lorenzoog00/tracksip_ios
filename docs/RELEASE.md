@@ -227,6 +227,14 @@ it is done by the developer with their own credentials.
    7. Delete account A: B's friends list no longer shows A.
    8. Report a user from the friends list, search results and incoming requests,
       once by username and once by photo; the `SOCIAL_REPORT` email arrives.
+8. **Night reactions and comments.** Before shipping a build with reactions,
+   comments and mentions, deploy functions + Firestore rules + indexes (the TTL
+   policies on `night_threads`, `reactions` and `comments` `expires_at` are what
+   delete expired threads) with the command in step 3. Then confirm
+   `reactToNight`, `addComment`, `deleteComment` and `getNightThread` appear in
+   `functions:list`, and that the `notification_prefs` rules are live (the
+   Social profile's Notifications switches save without a "Couldn't save"
+   notice).
 
 ## Dependencies
 

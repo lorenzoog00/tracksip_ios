@@ -190,6 +190,26 @@ final class FirebaseManager: ObservableObject {
         try await db.collection("shared_nights").document(uid).delete()
     }
 
+    // MARK: - Notification switches
+
+    /// `notification_prefs/{uid}`: which social pushes the server sends me. A missing
+    /// doc or key means on.
+    func notificationPrefs() async throws -> (reactions: Bool, comments: Bool, replies: Bool) {
+        guard let uid = currentUserId() else { return (true, true, true) }
+        let data = try await db.collection("notification_prefs").document(uid).getDocument().data() ?? [:]
+        return (
+            reactions: data["reactions"] as? Bool ?? true,
+            comments: data["comments"] as? Bool ?? true,
+            replies: data["replies"] as? Bool ?? true
+        )
+    }
+
+    /// `key` is "reactions", "comments" or "replies"; the rules reject anything else.
+    func setNotificationPref(_ key: String, on: Bool) async throws {
+        guard let uid = currentUserId() else { return }
+        try await db.collection("notification_prefs").document(uid).setData([key: on], merge: true)
+    }
+
     func deleteEvent(_ id: String) async throws {
         try await col("night_events")?.document(id).delete()
     }

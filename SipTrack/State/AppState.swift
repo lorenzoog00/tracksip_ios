@@ -59,6 +59,9 @@ final class AppState: ObservableObject {
     /// A friend link (universal or siptrack://u/) was opened: RootView switches to Social,
     /// which presents the add-friend sheet and clears this when it is dismissed.
     @Published var pendingFriendLink: String? = nil
+    /// A reaction/comment/mention push was tapped: RootView switches to Social, whose
+    /// feed opens that night's comment sheet and clears this.
+    @Published var pendingThread: NightKey? = nil
 
     let store: StoreManager
 
