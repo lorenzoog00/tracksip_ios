@@ -127,4 +127,20 @@ struct NightThreadTests {
         #expect(plain.map { $0.0 } == ["hey @beto"])
         #expect(plain.map { $0.1 } == [false])
     }
+
+    // MARK: - Drink chips
+
+    @Test func drinkChips() {
+        let start = Date(timeIntervalSince1970: 1_000_000)
+        func drink(_ name: String, _ minutes: Double) -> SharedDrink {
+            SharedDrink(name: name, icon: name.lowercased(), at: start.addingTimeInterval(minutes * 60))
+        }
+        let drinks = [drink("Beer", 0), drink("Beer", 10), drink("Tequila", 20),
+                      drink("Beer", 30), drink("Wine", 40)]
+        let chips = DrinkSummary.chips(drinks)
+        #expect(chips.map { $0.name } == ["Beer", "Tequila", "Wine"])
+        #expect(chips.map { $0.count } == [3, 1, 1])
+        #expect(chips.map { $0.icon } == ["beer", "tequila", "wine"])
+        #expect(DrinkSummary.chips([]).isEmpty)
+    }
 }

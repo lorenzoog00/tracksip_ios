@@ -9,7 +9,8 @@ struct FriendNightView: View {
 
     /// The store's copy only: a removed friend, deleted night or incognito switch drops it.
     private var current: FeedItem? {
-        friends.feed.first { $0.id == item.id }
+        if let mine = friends.myNight, mine.id == item.id { return mine }
+        return friends.feed.first { $0.id == item.id }
     }
 
     var body: some View {

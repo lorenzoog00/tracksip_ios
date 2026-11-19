@@ -21,7 +21,8 @@ nonisolated enum Reaction: String, CaseIterable, Identifiable {
 }
 
 /// One shared night: `{owner}_{startedAtMs}`, the id of its `night_threads` doc.
-nonisolated struct NightKey: Hashable {
+/// Identifiable so the comment sheet can be presented with `.sheet(item:)`.
+nonisolated struct NightKey: Hashable, Identifiable {
     let owner: String
     /// The shared night's start in ms.
     let startedAt: Int64

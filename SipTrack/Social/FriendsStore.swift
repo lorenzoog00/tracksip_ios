@@ -19,6 +19,9 @@ final class FriendsStore: ObservableObject {
     @Published private(set) var outgoing: [FriendProfile] = []
     @Published private(set) var blocked: [FriendProfile] = []
     @Published private(set) var feed: [FeedItem] = []
+    /// My own shared night, shown on top of the feed as "You". Nil while it is
+    /// missing, expired or unreadable (incognito nights are never written).
+    @Published private(set) var myNight: FeedItem?
     /// True once the first `public_profiles` snapshot has arrived (even for a missing doc),
     /// so `myProfile == nil` can be told apart from "not loaded yet".
     @Published private(set) var profileLoaded = false
@@ -38,6 +41,8 @@ final class FriendsStore: ObservableObject {
     private var listeners: [ListenerRegistration] = []
     private var nightListeners: [String: ListenerRegistration] = [:]
     private var nights: [String: SharedNight] = [:]
+    private var myNightListener: ListenerRegistration?
+    private var mySharedNight: SharedNight?
     /// Per-friend back-off for night listeners the server denied (expired, not yet TTL-deleted).
     private var nightRetries: [String: Task<Void, Never>] = [:]
     private var nightFailures: [String: Int] = [:]
@@ -152,6 +157,8 @@ final class FriendsStore: ObservableObject {
                     self.rebuild()
                 }
             })
+
+        attachMyNight(uid, session: s)
     }
 
     /// Sign-out: remove every listener and clear all state.
@@ -165,6 +172,11 @@ final class FriendsStore: ObservableObject {
         nightRetries = [:]
         nightFailures = [:]
         nights = [:]
+        myNightListener?.remove()
+        myNightListener = nil
+        mySharedNight = nil
+        // Thread listeners belong to this account; the next one starts clean.
+        NightThreadStore.clearCache()
         friendUids = []
         incomingUids = []
         outgoingUids = []
@@ -185,6 +197,7 @@ final class FriendsStore: ObservableObject {
 
     private func applyMyProfile(_ profile: FriendProfile?, syncNight: Bool) {
         if myProfile != profile { myProfile = profile }
+        rebuildMyNight()
         appState?.hasSocialProfile = (profile != nil)
         if syncNight { appState?.syncSharedNight() }
     }
@@ -306,10 +319,45 @@ final class FriendsStore: ObservableObject {
         }
     }
 
+    // MARK: - My own night
+
+    /// The owner may always get their own `shared_nights` doc.
+    private func attachMyNight(_ uid: String, session s: Int) {
+        myNightListener?.remove()
+        myNightListener = db.collection("shared_nights").document(uid)
+            .addSnapshotListener { [weak self] snap, error in
+                let failed = error != nil
+                let data = failed ? nil : snap?.data()
+                Task { @MainActor [weak self] in
+                    guard let self, self.session == s else { return }
+                    if let data, let night = SharedNight(firestore: data), night.expiresAt > Date() {
+                        self.mySharedNight = night
+                    } else {
+                        self.mySharedNight = nil
+                    }
+                    if failed {
+                        // Dead listener; the next foreground attaches it again.
+                        self.myNightListener?.remove()
+                        self.myNightListener = nil
+                    }
+                    self.rebuildMyNight()
+                }
+            }
+    }
+
+    private func rebuildMyNight() {
+        guard let profile = myProfile, let night = mySharedNight else {
+            if myNight != nil { myNight = nil }
+            return
+        }
+        myNight = FeedItem(id: profile.uid, profile: profile, night: night)
+    }
+
     /// Back to the foreground: try every dead listener now instead of waiting out its back-off.
     private func reattachDeadNightListeners() {
-        guard uid != nil else { return }
+        guard let uid else { return }
         let s = session
+        if myNightListener == nil { attachMyNight(uid, session: s) }
         nightRetries.values.forEach { $0.cancel() }
         nightRetries = [:]
         for fid in friendUids where nightListeners[fid] == nil {
