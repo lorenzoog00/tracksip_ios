@@ -69,9 +69,11 @@ struct LiveDot: View {
 /// finished ones, each as a post card.
 struct FeedView: View {
     @EnvironmentObject var friends: FriendsStore
-    @EnvironmentObject var appState: AppState
     /// Opens the same search destination as the toolbar magnifier.
     let onAddFriend: () -> Void
+    /// True while this feed has its own thread sheet up or a night pushed, so
+    /// SocialRootView knows a pushed thread can't present over it directly.
+    @Binding var isCovered: Bool
 
     /// The night whose comment sheet is up.
     @State private var thread: NightKey?
@@ -83,7 +85,8 @@ struct FeedView: View {
     @ObservedObject private var pickerFocus = ReactionPickerFocus.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    init(onAddFriend: @escaping () -> Void) {
+    init(isCovered: Binding<Bool>, onAddFriend: @escaping () -> Void) {
+        self._isCovered = isCovered
         self.onAddFriend = onAddFriend
     }
 
@@ -144,38 +147,14 @@ struct FeedView: View {
         .sheet(item: $thread) { key in
             NightThreadSheet(key: key, ownerName: threadOwnerName)
         }
-        // A tapped reaction/comment push. The feed only exists once a username is
-        // chosen, so someone still picking one gets the sheet right after.
-        .onAppear(perform: openPendingThread)
-        .onChange(of: appState.pendingThread) { _, _ in openPendingThread() }
+        .onAppear(perform: reportCovered)
+        .onChange(of: thread) { _, _ in reportCovered() }
+        .onChange(of: openedNight?.id) { _, _ in reportCovered() }
     }
 
-    /// Opens a pushed night in this feed's own sheet. Setting `thread` while another
-    /// night's sheet is up swaps it. Any other sheet in Social (a friend link, or the
-    /// thread sheet of a pushed friend night) would block this one, so those close first.
-    private func openPendingThread() {
-        guard let key = appState.pendingThread else { return }
-        appState.pendingThread = nil
-        // Also here: if this runs before RootView's handler, that one sees nil.
-        appState.selectedTab = .social
-        threadOwnerName = ownerName(for: key.owner)
-        guard appState.pendingFriendLink != nil || openedNight != nil else {
-            thread = key
-            return
-        }
-        appState.pendingFriendLink = nil
-        openedNight = nil
-        Task {
-            // Let the dismissal / pop animation finish, or the new sheet is dropped.
-            try? await Task.sleep(for: .milliseconds(650))
-            thread = key
-        }
-    }
-
-    /// "" when the owner is neither me nor a loaded friend; the sheet copes.
-    private func ownerName(for uid: String) -> String {
-        if let me = friends.myProfile, me.uid == uid { return me.username }
-        return friends.friends.first { $0.uid == uid }?.username ?? ""
+    private func reportCovered() {
+        let covered = thread != nil || openedNight != nil
+        if isCovered != covered { isCovered = covered }
     }
 
     private func card(_ item: FeedItem, now: Date, isMine: Bool) -> some View {
