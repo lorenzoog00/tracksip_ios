@@ -1667,7 +1667,10 @@ test("interactions: mentions are deduped and limited to viewers", async () => {
   const result = await comment("C", "@bobby @bobby @zed @carla hey",
       {notify, now: 5000});
   assert.deepEqual(result.mentions, [{uid: "B", username: "bobby"}]);
-  assert.deepEqual(calls.map((c) => [c[0], c[1]]),
+  // Recipients are pushed in parallel, so sort before comparing.
+  assert.deepEqual(
+      [...calls].sort((a, b) => a[0].localeCompare(b[0]))
+          .map((c) => [c[0], c[1]]),
       [["A", "comment"], ["B", "mention"]]);
   const stored = (await db.doc(
       `night_threads/A_${T}/comments/${result.id}`).get()).data();
