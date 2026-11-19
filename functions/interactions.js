@@ -20,8 +20,7 @@ const MAX_COMMENTS_PER_PERSON = 50;
 const COMMENT_GAP_MS = 3000;
 const LATEST_COMMENTS = 3;
 const MAX_MENTION_LOOKUPS = 10;
-const LINK_PATTERN = new RegExp("https?:|www\\.|\\b[a-z0-9-]+\\." +
-    "(com|net|org|io|app|me|co|ly|gg|xyz|dev|info|link|tv|us|uk)\\b", "i");
+const LINK_PATTERN = /https?:\/\/|www\./i;
 
 /**
  * The id of a night's thread: the owner and the night's start in ms.
@@ -403,7 +402,9 @@ async function pushComment({db, notify, owner, ownerName, startedAt, uid,
   const kinds = new Map();
   if (uid !== owner) kinds.set(owner, "comment");
   for (const id of earlier) if (!kinds.has(id)) kinds.set(id, "reply");
-  for (const {uid: id} of mentions) kinds.set(id, "mention");
+  for (const {uid: id} of mentions) {
+    if (id !== owner) kinds.set(id, "mention");
+  }
   kinds.delete(uid);
 
   const payload = {from: viewerName, owner, ownerName, startedAt, text};

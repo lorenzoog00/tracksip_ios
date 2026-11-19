@@ -1537,9 +1537,19 @@ test("interactions: empty, long and link comments are rejected", async () => {
   await assert.rejects(comment("B", "x".repeat(201)),
       invalid("Comments are 200 characters at most."));
   await comment("B", "x".repeat(200));
-  for (const text of ["see https://x.io", "go to www.foo", "foo.com now"]) {
+  for (const text of ["see https://x.io", "go to www.foo"]) {
     await assert.rejects(comment("C", text, {now: 5000000}),
         invalid("Links aren't allowed in comments."));
+  }
+});
+
+test("interactions: ordinary chat with dots is not mistaken for a link", async () => {
+  await commentsSetup();
+  let now = 0;
+  for (const text of ["jaja.Me voy", "genial.Co", "ya.us", "ya pide agua.jaja",
+    "foo.com now"]) {
+    now += 5000;
+    assert.equal((await comment("B", text, {now})).text, text);
   }
 });
 
@@ -1612,11 +1622,11 @@ test("interactions: mentions are deduped and limited to viewers", async () => {
   assert.deepEqual(stored.mentions, [{uid: "B", username: "bobby"}]);
 });
 
-test("interactions: mentioning the owner sends one mention push", async () => {
+test("interactions: mentioning the owner still sends the owner a comment push", async () => {
   await commentsSetup();
   const {calls, notify} = makeNotify();
   await comment("B", "hey @alice", {notify, now: 0});
-  assert.deepEqual(calls.map((c) => [c[0], c[1]]), [["A", "mention"]]);
+  assert.deepEqual(calls.map((c) => [c[0], c[1]]), [["A", "comment"]]);
 });
 
 test("interactions: pushes skip ex-friends and blocked people", async () => {
