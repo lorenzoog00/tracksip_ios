@@ -1948,75 +1948,130 @@ test("interactions: deleteThreadsFor with no threads is a no-op", async () => {
 });
 
 // --- Night threads and notification prefs rules ----------------------------
-const seedThread = (owner, expires) =>
+// Thread docs carry a TTL-only expires_at; visibility follows the shared
+// night (NIGHT.started_at is 1, so alice's thread key is alice_1).
+const seedThread = (owner, expires = futureTs()) =>
   env.withSecurityRulesDisabled(async (ctx) => {
     const fs = ctx.firestore();
     const key = `night_threads/${owner}_1`;
     await setDoc(doc(fs, key), {
-      owner, started_at: 1, expires_at: expires, reactions: {beer: 1},
+      owner, started_at: 1, expires_at: expires, reactions: {beer: 2},
       comment_count: 1,
     });
     await setDoc(doc(fs, `${key}/comments/c1`),
         {uid: "bob", text: "hi", expires_at: expires});
-    await setDoc(doc(fs, `${key}/reactions/bob`),
-        {uid: "bob", emoji: "beer", expires_at: expires});
+    for (const uid of ["bob", "erin"]) {
+      await setDoc(doc(fs, `${key}/reactions/${uid}`),
+          {uid, emoji: "beer", expires_at: expires});
+    }
     await setDoc(doc(fs, `${key}/limits/bob`), {count: 1, last_at: 1});
   });
 
-test("thread rules: owner and friends read a live thread; others cannot", async () => {
+test("thread rules: owner and friends get the summary and their own reaction", async () => {
   await seedFriendship("alice", "bob");
+  await seedFriendship("alice", "erin");
   await seedFriendship("alice", "dave");
   await env.withSecurityRulesDisabled(async (ctx) => {
     await deleteDoc(doc(ctx.firestore(), "friendships/alice/friends/dave"));
   });
   await seedFriendship("carol", "alice");
-  await seedThread("alice", futureTs());
+  await seedNight("alice", futureTs());
+  await seedThread("alice");
   const key = "night_threads/alice_1";
 
-  for (const uid of ["alice", "bob"]) {
+  for (const uid of ["alice", "bob", "erin"]) {
     const fs = env.authenticatedContext(uid).firestore();
     await assertSucceeds(getDoc(doc(fs, key)));
-    await assertSucceeds(getDocs(collection(fs, `${key}/comments`)));
-    await assertSucceeds(getDocs(collection(fs, `${key}/reactions`)));
-    await assertSucceeds(getDoc(doc(fs, `${key}/comments/c1`)));
-    await assertSucceeds(getDoc(doc(fs, `${key}/reactions/bob`)));
+    // Comments only come through getNightThread, which filters blocks.
+    await assertFails(getDocs(collection(fs, `${key}/comments`)));
+    await assertFails(getDoc(doc(fs, `${key}/comments/c1`)));
+    await assertFails(getDocs(collection(fs, `${key}/reactions`)));
     await assertFails(getDoc(doc(fs, `${key}/limits/bob`)));
     await assertFails(getDocs(collection(fs, `${key}/limits`)));
   }
+  // Each person reads only their own reaction doc, even the owner.
+  const bob = env.authenticatedContext("bob").firestore();
+  await assertSucceeds(getDoc(doc(bob, `${key}/reactions/bob`)));
+  await assertFails(getDoc(doc(bob, `${key}/reactions/erin`)));
+  const erin = env.authenticatedContext("erin").firestore();
+  await assertSucceeds(getDoc(doc(erin, `${key}/reactions/erin`)));
+  await assertFails(getDoc(doc(erin, `${key}/reactions/bob`)));
+  const alice = env.authenticatedContext("alice").firestore();
+  await assertFails(getDoc(doc(alice, `${key}/reactions/bob`)));
+  // A missing reaction doc is readable, so the listener survives "none".
+  await assertSucceeds(getDoc(doc(alice, `${key}/reactions/alice`)));
+
   // carol is a stranger to alice (friendship is directional), dave an
   // ex-friend.
-  for (const fs of [
-    env.authenticatedContext("carol").firestore(),
-    env.authenticatedContext("dave").firestore(),
-    env.unauthenticatedContext().firestore(),
+  for (const [uid, fs] of [
+    ["carol", env.authenticatedContext("carol").firestore()],
+    ["dave", env.authenticatedContext("dave").firestore()],
+    ["anon", env.unauthenticatedContext().firestore()],
   ]) {
     await assertFails(getDoc(doc(fs, key)));
+    await assertFails(getDoc(doc(fs, `${key}/reactions/${uid}`)));
     await assertFails(getDocs(collection(fs, `${key}/comments`)));
-    await assertFails(getDocs(collection(fs, `${key}/reactions`)));
     await assertFails(getDoc(doc(fs, `${key}/comments/c1`)));
   }
   // No listing threads, even for the owner.
-  const alice = env.authenticatedContext("alice").firestore();
   await assertFails(getDocs(collection(alice, "night_threads")));
 });
 
-test("thread rules: an expired summary is unreadable; a missing one is", async () => {
+test("thread rules: visibility follows the shared night, not the thread copy", async () => {
   await seedFriendship("alice", "bob");
+  await seedNight("alice", futureTs());
+  // The thread's own expires_at is long past (an old copy TTL hasn't
+  // collected yet): it means nothing while the night is live.
   await seedThread("alice", pastTs());
+  const key = "night_threads/alice_1";
   for (const uid of ["alice", "bob"]) {
     const fs = env.authenticatedContext(uid).firestore();
-    await assertFails(getDoc(doc(fs, "night_threads/alice_1")));
-    // Its reactions and comments expire with it, before TTL removes them.
-    for (const sub of ["comments", "reactions"]) {
-      await assertFails(getDocs(collection(fs, `night_threads/alice_1/${sub}`)));
-    }
-    await assertFails(getDoc(doc(fs, "night_threads/alice_1/comments/c1")));
-    // A night nobody has reacted to yet has no summary; the feed card's
-    // listener must not die on it.
-    await assertSucceeds(getDoc(doc(fs, "night_threads/alice_2")));
+    await assertSucceeds(getDoc(doc(fs, key)));
+    await assertSucceeds(getDoc(doc(fs, `${key}/reactions/${uid}`)));
+  }
+  // A night nobody has reacted to yet has no summary; the feed card's
+  // listener must not die on it.
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await deleteDoc(doc(ctx.firestore(), key));
+  });
+  for (const uid of ["alice", "bob"]) {
+    const fs = env.authenticatedContext(uid).firestore();
+    await assertSucceeds(getDoc(doc(fs, key)));
   }
   const carol = env.authenticatedContext("carol").firestore();
-  await assertFails(getDoc(doc(carol, "night_threads/alice_2")));
+  await assertFails(getDoc(doc(carol, key)));
+});
+
+test("thread rules: an expired, replaced or deleted night hides its thread", async () => {
+  await seedFriendship("alice", "bob");
+  await seedThread("alice");
+  const key = "night_threads/alice_1";
+  const hidden = async () => {
+    for (const uid of ["alice", "bob"]) {
+      const fs = env.authenticatedContext(uid).firestore();
+      await assertFails(getDoc(doc(fs, key)));
+      await assertFails(getDoc(doc(fs, `${key}/reactions/${uid}`)));
+    }
+  };
+  // Expired, though the thread docs themselves are still live.
+  await seedNight("alice", pastTs());
+  await hidden();
+  // A new night replaced it: its started_at no longer matches the key.
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), "shared_nights/alice"),
+        {...NIGHT, started_at: 2, expires_at: futureTs()});
+  });
+  await hidden();
+  // The night was deleted (incognito, deleted night or account).
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await deleteDoc(doc(ctx.firestore(), "shared_nights/alice"));
+  });
+  await hidden();
+  // A malformed key never matches a night.
+  await seedNight("alice", futureTs());
+  const bob = env.authenticatedContext("bob").firestore();
+  await assertFails(getDoc(doc(bob, "night_threads/alice")));
+  await assertFails(getDoc(doc(bob, "night_threads/alice_x")));
 });
 
 test("thread rules: nobody writes a thread from a client", async () => {
