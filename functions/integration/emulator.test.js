@@ -1310,3 +1310,144 @@ test("social: contacts hide anyone blocked in either direction", async () => {
   assert.deepEqual(results, []);
   assert.deepEqual(calls, []);
 });
+
+// interactions: reactions
+const interactions = require("../interactions");
+
+const {Timestamp: AdminTimestamp} = require("firebase-admin/firestore");
+const T = 1700000000000;
+const inMs = (ms) => AdminTimestamp.fromMillis(Date.now() + ms);
+const seedSharedNight = (owner = "A", overrides = {}) =>
+  db.doc(`shared_nights/${owner}`).set({
+    started_at: T,
+    last_drink_at: T,
+    samples: [],
+    drinks: [],
+    expires_at: inMs(3600 * 1000),
+    ...overrides,
+  });
+const react = (uid, emoji, {notify = makeNotify().notify, now, owner = "A",
+  startedAt = T} = {}) =>
+  interactions.reactToNight({db, uid,
+    data: {owner, startedAt, emoji}, notify, now});
+const threadDoc = async () =>
+  (await db.doc(`night_threads/A_${T}`).get()).data();
+const reactionsSetup = async () => {
+  await claim("A", "alice");
+  await claim("B", "bobby");
+  await befriend("A", "B");
+  await seedSharedNight();
+};
+
+test("interactions: reacting sets one reaction and counts", async () => {
+  await reactionsSetup();
+  const night = (await db.doc("shared_nights/A").get()).data();
+  assert.deepEqual(await react("B", "beer"), {emoji: "beer"});
+  const thread = await threadDoc();
+  assert.equal(thread.reactions.beer, 1);
+  assert.deepEqual(thread.reactors, ["B"]);
+  assert.ok(thread.expires_at.isEqual(night.expires_at));
+  const mine = (await db.doc(`night_threads/A_${T}/reactions/B`).get()).data();
+  assert.equal(mine.emoji, "beer");
+  assert.equal(mine.username, "bobby");
+  assert.equal(mine.uid, "B");
+});
+
+test("interactions: changing a reaction moves the count, same emoji removes", async () => {
+  await reactionsSetup();
+  await react("B", "beer");
+  await react("B", "fire");
+  let thread = await threadDoc();
+  assert.equal(thread.reactions.beer || 0, 0);
+  assert.equal(thread.reactions.fire, 1);
+  assert.deepEqual(await react("B", "fire"), {emoji: null});
+  thread = await threadDoc();
+  assert.equal(thread.reactions.fire || 0, 0);
+  assert.deepEqual(thread.reactors, []);
+  assert.equal(await exists(`night_threads/A_${T}/reactions/B`), false);
+});
+
+test("interactions: reaction counts never go negative", async () => {
+  await reactionsSetup();
+  await react("B", null);
+  await react("B", null);
+  await react("B", "beer");
+  await react("B", null);
+  await react("B", null);
+  const thread = await threadDoc();
+  for (const count of Object.values(thread.reactions)) {
+    assert.ok(count >= 0);
+  }
+});
+
+test("interactions: owner, ex-friends and blocked people cannot react", async () => {
+  await reactionsSetup();
+  await claim("C", "carla");
+  await claim("D", "dina");
+  await befriend("A", "D");
+  await db.doc("blocks/A/blocked/D").set({uid: "D", created_at: 1});
+  await claim("E", "elena");
+  await befriend("A", "E");
+  await db.doc("blocks/E/blocked/A").set({uid: "A", created_at: 1});
+  const denied = (e) => e.code === "permission-denied";
+  await assert.rejects(react("A", "beer"), denied);
+  await assert.rejects(react("C", "beer"), denied);
+  await assert.rejects(react("D", "beer"), denied);
+  await assert.rejects(react("E", "beer"), denied);
+  await assert.rejects(react("B", "pizza"),
+      (e) => e.code === "invalid-argument");
+});
+
+test("interactions: stale or expired nights are not found", async () => {
+  await reactionsSetup();
+  const notFound = (e) => e.code === "not-found";
+  await assert.rejects(react("B", "beer", {startedAt: T + 1}), notFound);
+  await seedSharedNight("A", {expires_at: inMs(-60 * 1000)});
+  await assert.rejects(react("B", "beer"), notFound);
+  await assert.rejects(react("B", "beer", {owner: "Z"}), notFound);
+});
+
+test("interactions: reacting needs a username", async () => {
+  await reactionsSetup();
+  await db.doc("friendships/A/friends/X").set({since: 1});
+  await assert.rejects(react("X", "beer"),
+      (e) => e.code === "failed-precondition");
+});
+
+test("interactions: reaction pushes are grouped", async () => {
+  await reactionsSetup();
+  await claim("C", "carla");
+  await claim("D", "dina");
+  await befriend("A", "C");
+  await befriend("A", "D");
+  const {calls, notify} = makeNotify();
+  const minute = 60 * 1000;
+  await react("B", "beer", {notify, now: 0});
+  assert.deepEqual(calls, [["A", "reaction", {
+    from: "bobby", owner: "A", ownerName: "alice", startedAt: T,
+    emoji: "🍻", others: 0,
+  }]]);
+  await react("C", "fire", {notify, now: minute});
+  assert.equal(calls.length, 1);
+  await react("D", "laugh", {notify, now: 16 * minute});
+  assert.equal(calls.length, 2);
+  assert.equal(calls[1][2].from, "dina");
+  assert.equal(calls[1][2].others, 1);
+  await react("B", "heart", {notify, now: 40 * minute});
+  assert.equal(calls.length, 2);
+});
+
+test("interactions: a failing push does not undo the reaction", async () => {
+  await reactionsSetup();
+  const original = console.error;
+  console.error = () => {};
+  try {
+    const notify = async () => {
+      throw new Error("push down");
+    };
+    assert.deepEqual(await react("B", "beer", {notify}), {emoji: "beer"});
+  } finally {
+    console.error = original;
+  }
+  assert.equal((await threadDoc()).reactions.beer, 1);
+});
