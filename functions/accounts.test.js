@@ -7,15 +7,31 @@ const FRESH = NOW / 1000 - 30;
 
 /** Records every write the function makes so tests can assert the order. */
 // eslint-disable-next-line require-jsdoc
-function fakeDb({owners = []} = {}) {
+function fakeDb({owners = [], threads = [], groups = {}} = {}) {
   const calls = {
     tombstone: null,
     recursiveDeleted: [],
     ownerDeletes: [],
     docDeletes: [],
     avatarDeletes: [],
+    groupQueries: [],
+    threadQueries: [],
   };
   const emptyQuery = {get: () => Promise.resolve({docs: []})};
+  // Docs whose ref deletes itself into docDeletes, as a query result.
+  const docsAt = (paths) => ({
+    get: () => Promise.resolve({
+      docs: paths.map((path) => ({
+        ref: {
+          path,
+          delete: () => {
+            calls.docDeletes.push(path);
+            return Promise.resolve();
+          },
+        },
+      })),
+    }),
+  });
   const db = {
     doc: (path) => {
       const ref = {
@@ -38,20 +54,31 @@ function fakeDb({owners = []} = {}) {
     },
     collection: (path) => ({
       get: () => Promise.resolve({docs: []}),
-      where: () => (path === "purchase_owners" ? {
-        get: () => Promise.resolve({
-          docs: owners.map((id) => ({
-            ref: {
-              delete: () => {
-                calls.ownerDeletes.push(id);
-                return Promise.resolve();
+      where: (field, op, value) => {
+        if (path === "night_threads") {
+          calls.threadQueries.push([field, op, value]);
+          return docsAt(threads);
+        }
+        return path === "purchase_owners" ? {
+          get: () => Promise.resolve({
+            docs: owners.map((id) => ({
+              ref: {
+                delete: () => {
+                  calls.ownerDeletes.push(id);
+                  return Promise.resolve();
+                },
               },
-            },
-          })),
-        }),
-      } : emptyQuery),
+            })),
+          }),
+        } : emptyQuery;
+      },
     }),
-    collectionGroup: () => ({where: () => emptyQuery}),
+    collectionGroup: (name) => ({
+      where: (field, op, value) => {
+        calls.groupQueries.push([name, field, op, value]);
+        return groups[name] ? docsAt(groups[name]) : emptyQuery;
+      },
+    }),
   };
   db.bucket = {
     file: (name) => ({
@@ -139,6 +166,7 @@ test("a fresh delete writes the tombstone before erasing the user", async () => 
   // The lock-screen push curve sits outside users/ and holds a device token.
   assert.deepEqual(calls.docDeletes, [
     "live_activities/u1", "shared_nights/u1", "push_tokens/u1",
+    "notification_prefs/u1",
     "contact_nudges/u1",
     "contact_match_limits/u1",
     "public_profiles/u1",
@@ -147,6 +175,45 @@ test("a fresh delete writes the tombstone before erasing the user", async () => 
     {name: "avatars/u1.jpg", options: {ignoreNotFound: true}},
   ]);
   assert.deepEqual(deleted, ["u1"]);
+});
+
+test("a delete removes the user's threads, reactions, comments and prefs", async () => {
+  const {db, calls} = fakeDb({
+    threads: ["night_threads/u1_5", "night_threads/u1_9"],
+    groups: {
+      reactions: ["night_threads/f1_7/reactions/u1"],
+      comments: [
+        "night_threads/f1_7/comments/c1", "night_threads/f2_8/comments/c2",
+      ],
+    },
+  });
+  const {auth} = fakeAuth();
+
+  await deleteAccount({
+    db, auth, bucket: db.bucket, uid: "u1", authTime: FRESH, now: NOW,
+  });
+
+  // Their own nights' threads go whole, subcollections included, without
+  // waiting on the shared_nights delete trigger.
+  assert.deepEqual(calls.threadQueries, [["owner", "==", "u1"]]);
+  assert.deepEqual(calls.recursiveDeleted, [
+    "users/u1", "friendships/u1", "blocks/u1",
+    "night_threads/u1_5", "night_threads/u1_9",
+  ]);
+  // What they left on friends' nights is found by collection-group uid.
+  assert.deepEqual(
+      calls.groupQueries.filter(([name]) => name !== "blocked"),
+      [["reactions", "uid", "==", "u1"], ["comments", "uid", "==", "u1"]],
+  );
+  assert.deepEqual(calls.docDeletes, [
+    "live_activities/u1", "shared_nights/u1",
+    "night_threads/f1_7/reactions/u1",
+    "night_threads/f1_7/comments/c1", "night_threads/f2_8/comments/c2",
+    "push_tokens/u1", "notification_prefs/u1",
+    "contact_nudges/u1",
+    "contact_match_limits/u1",
+    "public_profiles/u1",
+  ]);
 });
 
 test("an already deleted auth user still counts as deleted", async () => {

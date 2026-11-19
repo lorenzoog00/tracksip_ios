@@ -1,6 +1,7 @@
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const {setGlobalOptions} = require("firebase-functions/v2");
 const {onSchedule} = require("firebase-functions/v2/scheduler");
+const {onDocumentDeleted} = require("firebase-functions/v2/firestore");
 const {
   defineSecret,
   defineString,
@@ -28,6 +29,7 @@ const {lookupDrink} = require("./drink-lookup");
 const {buildPrompt} = require("./prompts");
 const liveActivity = require("./live-activity");
 const social = require("./social");
+const interactions = require("./interactions");
 const {setAvatar} = require("./avatar");
 
 initializeApp();
@@ -230,14 +232,15 @@ exports.pushLiveActivities = onSchedule(
     },
 );
 
-// Friends v1. Each callable is a thin shell: auth check, then social.js.
-const socialCallable = (fn) => onCall(
+// Friends v1. Each callable is a thin shell: auth check, then social.js (or
+// interactions.js for night reactions and comments).
+const socialCallable = (fn, handlers = social) => onCall(
     {timeoutSeconds: 30, enforceAppCheck: true},
     async (request) => {
       if (!request.auth) {
         throw new HttpsError("unauthenticated", "Please sign in.");
       }
-      return social[fn]({
+      return handlers[fn]({
         db: getFirestore(),
         uid: request.auth.uid,
         data: request.data,
@@ -265,7 +268,9 @@ const alertPushClient = () => {
   }
 };
 
-const pushingCallable = (fn) => onCall(
+const pushingCallable = (
+    fn, handlers = social, notifier = social.notifyFromPushTokens,
+) => onCall(
     {secrets: [apnsKey], timeoutSeconds: 30, enforceAppCheck: true},
     async (request) => {
       if (!request.auth) {
@@ -274,12 +279,12 @@ const pushingCallable = (fn) => onCall(
       const client = alertPushClient();
       try {
         const db = getFirestore();
-        return await social[fn]({
+        return await handlers[fn]({
           db,
           uid: request.auth.uid,
           data: request.data,
           notify: client ?
-            social.notifyFromPushTokens({db, send: client.send}) :
+            notifier({db, send: client.send}) :
             async () => {},
         });
       } finally {
@@ -299,6 +304,26 @@ exports.reportUser = socialCallable("reportUser");
 exports.registerPushToken = socialCallable("registerPushToken");
 exports.sendFriendRequest = pushingCallable("sendFriendRequest");
 exports.respondToFriendRequest = pushingCallable("respondToFriendRequest");
+
+// Night reactions and comments. Reacting and commenting push the owner,
+// earlier commenters and mentioned friends, so those two carry the APNs key.
+exports.reactToNight = pushingCallable(
+    "reactToNight", interactions, interactions.notifyThread);
+exports.addComment = pushingCallable(
+    "addComment", interactions, interactions.notifyThread);
+exports.deleteComment = socialCallable("deleteComment", interactions);
+exports.getNightThread = socialCallable("getNightThread", interactions);
+
+// Going incognito, deleting the shared night or the account deletes
+// shared_nights/{uid}; that owner's threads go with it. A TTL delete fires
+// this too, which is harmless: the threads expire at the same moment.
+exports.cleanupThreads = onDocumentDeleted(
+    {document: "shared_nights/{uid}", timeoutSeconds: 120},
+    (event) => interactions.deleteThreadsFor({
+      db: getFirestore(),
+      uid: event.params.uid,
+    }),
+);
 
 /**
  * Uids of accounts whose verified sign-in email is one of these. Unverified

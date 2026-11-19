@@ -1,5 +1,6 @@
 const {HttpsError} = require("firebase-functions/v2/https");
 const {assertNotDeleting} = require("./social");
+const {tokenIsDead} = require("./live-activity");
 
 // ---------------------------------------------------------------------------
 // Night reactions and comments
@@ -521,7 +522,95 @@ async function getNightThread({db, uid, data, now = Date.now()}) {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Thread pushes and cleanup
+// ---------------------------------------------------------------------------
+
+const MAX_PUSH_TEXT_CHARS = 80;
+
+/**
+ * Cuts comment text for a push body: 80 characters at most, the last one
+ * an ellipsis when anything was cut.
+ * @param {string} text the comment text
+ * @return {string} the text as shown in the push
+ */
+function pushText(text) {
+  const chars = Array.from(text);
+  if (chars.length <= MAX_PUSH_TEXT_CHARS) return text;
+  return `${chars.slice(0, MAX_PUSH_TEXT_CHARS - 1).join("").trimEnd()}…`;
+}
+
+// The notification_prefs switch each kind obeys. Mentions ride on replies.
+const THREAD_PREF = {
+  reaction: "reactions",
+  comment: "comments",
+  reply: "replies",
+  mention: "replies",
+};
+const THREAD_COPY = {
+  reaction: ({from, emoji, others}) => {
+    if (!(others > 0)) return `@${from} reacted ${emoji} to your night`;
+    const people = others === 1 ? "1 other" : `${others} others`;
+    return `@${from} and ${people} reacted to your night`;
+  },
+  comment: ({from, text}) => `@${from} commented: ${pushText(text)}`,
+  reply: ({from, ownerName, text}) => from === ownerName ?
+    `@${from} replied on their night: ${pushText(text)}` :
+    `@${from} on @${ownerName}'s night: ${pushText(text)}`,
+  mention: ({from, ownerName, text}) =>
+    `@${from} mentioned you on @${ownerName}'s night: ${pushText(text)}`,
+};
+
+/**
+ * Builds the notifier reactToNight and addComment call. A switch set to
+ * false in notification_prefs/{uid} skips the push; a missing doc or key
+ * means on. Users with no stored token are skipped; dead tokens are deleted.
+ * @param {object} params
+ * @param {object} params.db Firestore
+ * @param {Function} params.send (environment, token, payload) =>
+ *     {status, reason}
+ * @return {Function} (toUid, kind, payload) => Promise
+ */
+function notifyThread({db, send}) {
+  return async (toUid, kind, payload) => {
+    const copy = THREAD_COPY[kind];
+    if (!copy) throw new Error(`unknown notification kind ${kind}`);
+    const ref = db.doc(`push_tokens/${toUid}`);
+    const [prefs, snap] = await Promise.all([
+      db.doc(`notification_prefs/${toUid}`).get(),
+      ref.get(),
+    ]);
+    if (prefs.exists && prefs.data()[THREAD_PREF[kind]] === false) return;
+    if (!snap.exists) return;
+    const {token, environment} = snap.data();
+    const result = await send(environment, token, {
+      aps: {alert: {body: copy(payload)}, sound: "default"},
+      route: "thread",
+      owner: payload.owner,
+      started_at: payload.startedAt,
+    });
+    if (tokenIsDead(result)) await ref.delete();
+  };
+}
+
+/**
+ * Deletes every thread on a person's nights, reactions, comments and rate
+ * limits included. Runs when their shared night is deleted (going
+ * incognito, deleting the night, deleting the account).
+ * @param {object} params
+ * @param {object} params.db Firestore
+ * @param {string} params.uid the night owner
+ */
+async function deleteThreadsFor({db, uid}) {
+  const threads = await db
+      .collection("night_threads")
+      .where("owner", "==", uid)
+      .get();
+  for (const thread of threads.docs) await db.recursiveDelete(thread.ref);
+}
+
 module.exports = {
   REACTIONS, nightKey, loadNight, reactToNight,
   addComment, deleteComment, getNightThread,
+  notifyThread, deleteThreadsFor,
 };

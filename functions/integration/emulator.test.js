@@ -327,6 +327,16 @@ test("deleting an account removes every social trace of it", async () => {
     "shared_nights/A": {x: 1},
     "push_tokens/A": {token: "t"},
     "push_tokens/B": {token: "t"},
+    "notification_prefs/A": {reactions: false},
+    "notification_prefs/B": {reactions: false},
+    "night_threads/A_1": {owner: "A", started_at: 1},
+    "night_threads/A_1/comments/c1": {uid: "B", text: "hi"},
+    "night_threads/A_1/reactions/B": {uid: "B", emoji: "beer"},
+    "night_threads/B_1": {owner: "B", started_at: 1},
+    "night_threads/B_1/comments/c2": {uid: "A", text: "mine"},
+    "night_threads/B_1/comments/c3": {uid: "D", text: "theirs"},
+    "night_threads/B_1/reactions/A": {uid: "A", emoji: "fire"},
+    "night_threads/B_1/reactions/D": {uid: "D", emoji: "heart"},
   };
   for (const [path, data] of Object.entries(writes)) {
     await db.doc(path).set(data);
@@ -342,13 +352,17 @@ test("deleting an account removes every social trace of it", async () => {
     "public_profiles/A", "usernames/a", "friendships/A/friends/B",
     "friendships/B/friends/A", "friend_requests/C_A", "friend_requests/A_E",
     "blocks/A/blocked/F", "blocks/B/blocked/A", "shared_nights/A",
-    "push_tokens/A",
+    "push_tokens/A", "notification_prefs/A", "night_threads/A_1",
+    "night_threads/A_1/comments/c1", "night_threads/A_1/reactions/B",
+    "night_threads/B_1/comments/c2", "night_threads/B_1/reactions/A",
   ]) {
     assert.equal(await exists(gone), false, gone);
   }
   for (const kept of [
     "public_profiles/B", "usernames/b", "friendships/B/friends/D",
     "friend_requests/C_E", "blocks/B/blocked/G", "push_tokens/B",
+    "notification_prefs/B", "night_threads/B_1",
+    "night_threads/B_1/comments/c3", "night_threads/B_1/reactions/D",
   ]) {
     assert.equal(await exists(kept), true, kept);
   }
@@ -1589,20 +1603,23 @@ test("interactions: comment pushes go to the owner and earlier commenters", asyn
   await comment("B", "first", {notify, now: 0});
   assert.deepEqual(calls, [["A", "comment", payload("bobby", "first")]]);
   calls.length = 0;
+  // Recipients are pushed in parallel, so calls arrive in any order.
+  const byRecipient = (list) =>
+    [...list].sort((a, b) => a[0].localeCompare(b[0]));
   await comment("C", "second", {notify, now: 5000});
-  assert.deepEqual(calls, [
+  assert.deepEqual(byRecipient(calls), [
     ["A", "comment", payload("carla", "second")],
     ["B", "reply", payload("carla", "second")],
   ]);
   calls.length = 0;
   await comment("A", "third", {notify, now: 10000});
-  assert.deepEqual(calls, [
+  assert.deepEqual(byRecipient(calls), [
     ["B", "reply", payload("alice", "third")],
     ["C", "reply", payload("alice", "third")],
   ]);
   calls.length = 0;
   await comment("B", "fourth", {notify, now: 15000});
-  assert.deepEqual(calls.map((c) => [c[0], c[1]]),
+  assert.deepEqual(byRecipient(calls).map((c) => [c[0], c[1]]),
       [["A", "comment"], ["C", "reply"]]);
 });
 
@@ -1720,4 +1737,268 @@ test("interactions: the thread is oldest first and hides blocks both ways", asyn
 
   await claim("X", "xavier");
   await assert.rejects(thread("X"), (e) => e.code === "permission-denied");
+});
+
+// interactions: thread pushes and notification prefs
+const threadPushes = (result = {status: 200, reason: ""}) => {
+  const sent = [];
+  const notify = interactions.notifyThread({
+    db,
+    send: async (environment, token, payload) => {
+      sent.push({environment, token, payload});
+      return result;
+    },
+  });
+  return {sent, notify};
+};
+const tokenForA = () => registerPushToken({
+  db, uid: "A", data: {token: PUSH_TOKEN, environment: "production"},
+});
+const ON_OLIVES = {from: "bobby", owner: "O", ownerName: "olive", startedAt: T};
+
+test("interactions: notifyThread copy and route", async () => {
+  await tokenForA();
+  const {sent, notify} = threadPushes();
+  await notify("A", "reaction", {...ON_OLIVES, emoji: "🍻", others: 0});
+  await notify("A", "reaction", {...ON_OLIVES, emoji: "🍻", others: 1});
+  await notify("A", "reaction", {...ON_OLIVES, emoji: "🔥", others: 4});
+  await notify("A", "comment", {...ON_OLIVES, text: "nice one"});
+  await notify("A", "reply", {...ON_OLIVES, text: "same"});
+  await notify("A", "reply", {...ON_OLIVES, from: "olive", text: "thanks"});
+  await notify("A", "mention", {...ON_OLIVES, text: "@alice look"});
+  await notify("A", "comment", {...ON_OLIVES, text: "y".repeat(80)});
+  await notify("A", "comment", {...ON_OLIVES, text: "x".repeat(81)});
+  await notify("A", "comment", {...ON_OLIVES, text: "🍻".repeat(81)});
+  const push = (body) => ({
+    environment: "production",
+    token: PUSH_TOKEN,
+    payload: {
+      aps: {alert: {body}, sound: "default"},
+      route: "thread",
+      owner: "O",
+      started_at: T,
+    },
+  });
+  assert.deepEqual(sent, [
+    push("@bobby reacted 🍻 to your night"),
+    push("@bobby and 1 other reacted to your night"),
+    push("@bobby and 4 others reacted to your night"),
+    push("@bobby commented: nice one"),
+    push("@bobby on @olive's night: same"),
+    push("@olive replied on their night: thanks"),
+    push("@bobby mentioned you on @olive's night: @alice look"),
+    push(`@bobby commented: ${"y".repeat(80)}`),
+    push(`@bobby commented: ${"x".repeat(79)}…`),
+    push(`@bobby commented: ${"🍻".repeat(79)}…`),
+  ]);
+  await assert.rejects(notify("A", "poke", ON_OLIVES), /unknown/);
+});
+
+test("interactions: notifyThread does nothing without a token", async () => {
+  const {sent, notify} = threadPushes();
+  await notify("A", "comment", {...ON_OLIVES, text: "hi"});
+  assert.deepEqual(sent, []);
+});
+
+test("interactions: a dead token is removed by a thread push", async () => {
+  await tokenForA();
+  const {notify} = threadPushes({status: 410, reason: "Unregistered"});
+  await notify("A", "comment", {...ON_OLIVES, text: "hi"});
+  assert.equal(await exists("push_tokens/A"), false);
+});
+
+test("interactions: prefs off skips the push", async () => {
+  await tokenForA();
+  const every = [
+    ["reaction", {...ON_OLIVES, emoji: "🍻", others: 0}],
+    ["comment", {...ON_OLIVES, text: "hi"}],
+    ["reply", {...ON_OLIVES, text: "hi"}],
+    ["mention", {...ON_OLIVES, text: "hi"}],
+  ];
+  const kindsSent = async () => {
+    const {sent, notify} = threadPushes();
+    const kinds = [];
+    for (const [kind, payload] of every) {
+      const before = sent.length;
+      await notify("A", kind, payload);
+      if (sent.length > before) kinds.push(kind);
+    }
+    return kinds;
+  };
+
+  // Missing doc, missing keys and explicit true all mean on.
+  assert.deepEqual(await kindsSent(), every.map(([kind]) => kind));
+  await db.doc("notification_prefs/A").set({});
+  assert.deepEqual(await kindsSent(), every.map(([kind]) => kind));
+  await db.doc("notification_prefs/A")
+      .set({reactions: true, comments: true, replies: true});
+  assert.deepEqual(await kindsSent(), every.map(([kind]) => kind));
+
+  await db.doc("notification_prefs/A").set({reactions: false});
+  assert.deepEqual(await kindsSent(), ["comment", "reply", "mention"]);
+  await db.doc("notification_prefs/A").set({comments: false});
+  assert.deepEqual(await kindsSent(), ["reaction", "reply", "mention"]);
+  // Mentions obey the replies switch.
+  await db.doc("notification_prefs/A").set({replies: false});
+  assert.deepEqual(await kindsSent(), ["reaction", "comment"]);
+  await db.doc("notification_prefs/A")
+      .set({reactions: false, comments: false, replies: false});
+  assert.deepEqual(await kindsSent(), []);
+});
+
+// interactions: cleanup when a shared night is deleted
+test("interactions: deleteThreadsFor removes the owner's threads whole", async () => {
+  await commentsSetup();
+  await react("B", "beer");
+  await comment("C", "hi");
+  await db.doc("night_threads/A_5").set({owner: "A", started_at: 5});
+  await db.doc("night_threads/A_5/comments/old").set({uid: "B"});
+  await db.doc(`night_threads/C_${T}`).set({owner: "C", started_at: T});
+  await db.doc(`night_threads/C_${T}/comments/x`).set({uid: "A"});
+  await db.doc(`night_threads/C_${T}/reactions/A`).set({uid: "A"});
+  assert.equal(await countDocs(`night_threads/A_${T}/limits`), 1);
+
+  await interactions.deleteThreadsFor({db, uid: "A"});
+
+  for (const gone of [`night_threads/A_${T}`, "night_threads/A_5"]) {
+    assert.equal(await exists(gone), false, gone);
+    for (const sub of ["reactions", "comments", "limits"]) {
+      assert.equal(await countDocs(`${gone}/${sub}`), 0, `${gone}/${sub}`);
+    }
+  }
+  // Someone else's night, even one A took part in, is untouched.
+  for (const kept of [`night_threads/C_${T}`,
+    `night_threads/C_${T}/comments/x`, `night_threads/C_${T}/reactions/A`]) {
+    assert.equal(await exists(kept), true, kept);
+  }
+});
+
+test("interactions: deleteThreadsFor with no threads is a no-op", async () => {
+  await interactions.deleteThreadsFor({db, uid: "nobody"});
+});
+
+// --- Night threads and notification prefs rules ----------------------------
+const seedThread = (owner, expires) =>
+  env.withSecurityRulesDisabled(async (ctx) => {
+    const fs = ctx.firestore();
+    const key = `night_threads/${owner}_1`;
+    await setDoc(doc(fs, key), {
+      owner, started_at: 1, expires_at: expires, reactions: {beer: 1},
+      comment_count: 1,
+    });
+    await setDoc(doc(fs, `${key}/comments/c1`),
+        {uid: "bob", text: "hi", expires_at: expires});
+    await setDoc(doc(fs, `${key}/reactions/bob`),
+        {uid: "bob", emoji: "beer", expires_at: expires});
+    await setDoc(doc(fs, `${key}/limits/bob`), {count: 1, last_at: 1});
+  });
+
+test("thread rules: owner and friends read a live thread; others cannot", async () => {
+  await seedFriendship("alice", "bob");
+  await seedFriendship("alice", "dave");
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await deleteDoc(doc(ctx.firestore(), "friendships/alice/friends/dave"));
+  });
+  await seedFriendship("carol", "alice");
+  await seedThread("alice", futureTs());
+  const key = "night_threads/alice_1";
+
+  for (const uid of ["alice", "bob"]) {
+    const fs = env.authenticatedContext(uid).firestore();
+    await assertSucceeds(getDoc(doc(fs, key)));
+    await assertSucceeds(getDocs(collection(fs, `${key}/comments`)));
+    await assertSucceeds(getDocs(collection(fs, `${key}/reactions`)));
+    await assertSucceeds(getDoc(doc(fs, `${key}/comments/c1`)));
+    await assertSucceeds(getDoc(doc(fs, `${key}/reactions/bob`)));
+    await assertFails(getDoc(doc(fs, `${key}/limits/bob`)));
+    await assertFails(getDocs(collection(fs, `${key}/limits`)));
+  }
+  // carol is a stranger to alice (friendship is directional), dave an
+  // ex-friend.
+  for (const fs of [
+    env.authenticatedContext("carol").firestore(),
+    env.authenticatedContext("dave").firestore(),
+    env.unauthenticatedContext().firestore(),
+  ]) {
+    await assertFails(getDoc(doc(fs, key)));
+    await assertFails(getDocs(collection(fs, `${key}/comments`)));
+    await assertFails(getDocs(collection(fs, `${key}/reactions`)));
+    await assertFails(getDoc(doc(fs, `${key}/comments/c1`)));
+  }
+  // No listing threads, even for the owner.
+  const alice = env.authenticatedContext("alice").firestore();
+  await assertFails(getDocs(collection(alice, "night_threads")));
+});
+
+test("thread rules: an expired summary is unreadable; a missing one is", async () => {
+  await seedFriendship("alice", "bob");
+  await seedThread("alice", pastTs());
+  for (const uid of ["alice", "bob"]) {
+    const fs = env.authenticatedContext(uid).firestore();
+    await assertFails(getDoc(doc(fs, "night_threads/alice_1")));
+    // A night nobody has reacted to yet has no summary; the feed card's
+    // listener must not die on it.
+    await assertSucceeds(getDoc(doc(fs, "night_threads/alice_2")));
+  }
+  const carol = env.authenticatedContext("carol").firestore();
+  await assertFails(getDoc(doc(carol, "night_threads/alice_2")));
+});
+
+test("thread rules: nobody writes a thread from a client", async () => {
+  await seedFriendship("alice", "bob");
+  await seedThread("alice", futureTs());
+  const key = "night_threads/alice_1";
+  for (const uid of ["alice", "bob"]) {
+    const fs = env.authenticatedContext(uid).firestore();
+    await assertFails(setDoc(doc(fs, key), {owner: "alice", started_at: 1}));
+    await assertFails(updateDoc(doc(fs, key), {comment_count: 9}));
+    await assertFails(deleteDoc(doc(fs, key)));
+    await assertFails(setDoc(doc(fs, `${key}/comments/c9`),
+        {uid, text: "forged"}));
+    await assertFails(deleteDoc(doc(fs, `${key}/comments/c1`)));
+    await assertFails(setDoc(doc(fs, `${key}/reactions/${uid}`),
+        {uid, emoji: "fire"}));
+    await assertFails(setDoc(doc(fs, `${key}/limits/${uid}`), {count: 0}));
+    await assertFails(setDoc(doc(fs, `night_threads/${uid}_3`),
+        {owner: uid, started_at: 3}));
+  }
+});
+
+test("prefs rules: the owner reads and writes only the three switches", async () => {
+  const alice = env.authenticatedContext("alice").firestore();
+  const ref = doc(alice, "notification_prefs/alice");
+  await assertSucceeds(getDoc(ref));
+  await assertSucceeds(setDoc(ref, {reactions: false}));
+  await assertSucceeds(setDoc(ref,
+      {reactions: true, comments: false, replies: true}));
+  await assertSucceeds(updateDoc(ref, {replies: false}));
+  await assertSucceeds(getDoc(ref));
+  await assertFails(setDoc(ref, {reactions: "off"}));
+  await assertFails(setDoc(ref, {replies: 0}));
+  await assertFails(setDoc(ref, {reactions: true, mentions: false}));
+  await assertFails(updateDoc(ref, {extra: true}));
+  await assertFails(setDoc(doc(alice, "notification_prefs/bob"),
+      {reactions: false}));
+  await assertSucceeds(deleteDoc(ref));
+
+  await assertSucceeds(setDoc(ref, {comments: false}));
+  for (const fs of [
+    env.authenticatedContext("bob").firestore(),
+    env.unauthenticatedContext().firestore(),
+  ]) {
+    await assertFails(getDoc(doc(fs, "notification_prefs/alice")));
+    await assertFails(setDoc(doc(fs, "notification_prefs/alice"),
+        {comments: true}));
+    await assertFails(getDocs(collection(fs, "notification_prefs")));
+  }
+});
+
+test("prefs rules: no prefs writes once account deletion has started", async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), "account_deletions/alice"),
+        {startedAt: 1});
+  });
+  const alice = env.authenticatedContext("alice").firestore();
+  await assertFails(setDoc(doc(alice, "notification_prefs/alice"),
+      {reactions: false}));
 });

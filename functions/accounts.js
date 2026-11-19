@@ -1,4 +1,5 @@
 const {HttpsError} = require("firebase-functions/v2/https");
+const {deleteThreadsFor} = require("./interactions");
 
 // eslint-disable-next-line require-jsdoc
 async function deleteAccount({
@@ -38,8 +39,9 @@ async function deleteAccount({
 }
 
 // Friends data: profile, handle, graph (both directions), requests, blocks
-// (both directions), shared night, push token, contact-push and contact-check
-// bookkeeping, and avatar file.
+// (both directions), shared night and its threads, reactions and comments on
+// friends' nights, push token, notification prefs, contact-push and
+// contact-check bookkeeping, and avatar file.
 // eslint-disable-next-line require-jsdoc
 async function deleteSocialData({db, bucket, uid}) {
   // Found by owner, not via the profile: a retry after a partial failure has
@@ -72,7 +74,16 @@ async function deleteSocialData({db, bucket, uid}) {
   for (const block of blockedBy.docs) await block.ref.delete();
 
   await db.doc(`shared_nights/${uid}`).delete();
+  // The shared_nights delete trigger does this too, but asynchronously and
+  // only if it runs; deleting here keeps account deletion self-contained.
+  await deleteThreadsFor({db, uid});
+  // What they left on other people's nights.
+  for (const group of ["reactions", "comments"]) {
+    const left = await db.collectionGroup(group).where("uid", "==", uid).get();
+    for (const item of left.docs) await item.ref.delete();
+  }
   await db.doc(`push_tokens/${uid}`).delete();
+  await db.doc(`notification_prefs/${uid}`).delete();
   await db.doc(`contact_nudges/${uid}`).delete();
   await db.doc(`contact_match_limits/${uid}`).delete();
   await bucket.file(`avatars/${uid}.jpg`).delete({ignoreNotFound: true});
