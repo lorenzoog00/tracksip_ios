@@ -943,3 +943,55 @@ extension FirebaseManager {
         _ = try await callFunction("setAvatar", data: ["jpegBase64": jpegBase64])
     }
 }
+
+// MARK: - Night thread callables
+
+extension FirebaseManager {
+    /// nil removes my reaction. Returns my reaction as the server now has it.
+    @discardableResult
+    func reactToNight(_ key: NightKey, reaction: Reaction?) async throws -> Reaction? {
+        let emoji: Any
+        if let reaction { emoji = reaction.rawValue } else { emoji = NSNull() }
+        let r = try await callFunction("reactToNight", data: [
+            "owner": key.owner, "startedAt": key.startedAt, "emoji": emoji
+        ])
+        return (r["emoji"] as? String).flatMap { Reaction(rawValue: $0) }
+    }
+
+    /// The returned comment is mine; the server does not echo uid or username,
+    /// so uid is filled in here and username is left empty for the caller.
+    func addComment(_ key: NightKey, text: String) async throws -> ThreadComment {
+        let r = try await callFunction("addComment", data: [
+            "owner": key.owner, "startedAt": key.startedAt, "text": text
+        ])
+        guard let comment = ThreadComment.parse(r, uid: currentUserId() ?? "") else {
+            throw NSError(domain: "FirebaseManager", code: 500,
+                          userInfo: [NSLocalizedDescriptionKey: "Please try again."])
+        }
+        return comment
+    }
+
+    func deleteComment(_ key: NightKey, id: String) async throws {
+        _ = try await callFunction("deleteComment", data: [
+            "owner": key.owner, "startedAt": key.startedAt, "commentId": id
+        ])
+    }
+
+    /// Reactions and comments, oldest first, block-filtered by the server.
+    func nightThread(_ key: NightKey) async throws
+        -> (reactions: [(uid: String, username: String, reaction: Reaction)], comments: [ThreadComment]) {
+        let r = try await callFunction("getNightThread", data: [
+            "owner": key.owner, "startedAt": key.startedAt
+        ])
+        let reactions = (r["reactions"] as? [[String: Any]] ?? []).compactMap {
+            row -> (uid: String, username: String, reaction: Reaction)? in
+            guard let uid = row["uid"] as? String,
+                  let username = row["username"] as? String,
+                  let reaction = (row["emoji"] as? String).flatMap({ Reaction(rawValue: $0) })
+            else { return nil }
+            return (uid: uid, username: username, reaction: reaction)
+        }
+        let comments = (r["comments"] as? [[String: Any]] ?? []).compactMap { ThreadComment.parse($0) }
+        return (reactions: reactions, comments: comments)
+    }
+}
