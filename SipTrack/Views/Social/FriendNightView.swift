@@ -22,9 +22,18 @@ struct FriendNightView: View {
     }
 
     /// The store's copy only: a removed friend, deleted night or incognito switch drops it.
+    /// It must still be the same night (owner and start), or the reactions and comments
+    /// shown here would belong to the one opened: a new night by the same friend is
+    /// "no longer available" too.
     private var current: FeedItem? {
-        if let mine = friends.myNight, mine.id == item.id { return mine }
-        return friends.feed.first { $0.id == item.id }
+        let found: FeedItem?
+        if let mine = friends.myNight, mine.id == item.id {
+            found = mine
+        } else {
+            found = friends.feed.first { $0.id == item.id }
+        }
+        guard let found, NightKey(owner: found.profile.uid, night: found.night) == store.key else { return nil }
+        return found
     }
 
     var body: some View {

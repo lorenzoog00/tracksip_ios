@@ -83,10 +83,15 @@ struct FeedPostCard: View {
                     .allowsHitTesting(false)
             }
         }
-        .onAppear {
-            if let me = friends.myProfile?.username, !me.isEmpty { store.myUsername = me }
-            store.start()
-        }
+        .onAppear(perform: startStore)
+        // The same card can be handed a new night (the friend started another while
+        // it is on screen): the new night's store has to start too.
+        .onChange(of: store.key) { _, _ in startStore() }
+    }
+
+    private func startStore() {
+        if let me = friends.myProfile?.username, !me.isEmpty { store.myUsername = me }
+        store.start()
     }
 
     // MARK: - Taps
