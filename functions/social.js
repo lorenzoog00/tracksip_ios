@@ -345,7 +345,7 @@ async function unblockUser({db, uid, data}) {
 // Reports, push tokens and friend-request pushes
 // ---------------------------------------------------------------------------
 
-const REPORT_KINDS = ["username", "photo"];
+const REPORT_KINDS = ["username", "photo", "comment"];
 const PUSH_COPY = {
   request: (username) => `@${username} sent you a friend request`,
   accepted: (username) => `@${username} accepted your friend request`,
@@ -363,8 +363,43 @@ const PUSH_ROUTE = {
 };
 
 /**
- * Records a report against another user's username or photo. The logged
- * line feeds a log-based alert that emails the developer.
+ * Finds the comment a report is about and copies what the reviewer needs.
+ * The reporter must still be able to see the night, and the comment must be
+ * on it and written by the reported person.
+ * @param {object} params
+ * @param {object} params.db Firestore
+ * @param {string} params.uid the reporter
+ * @param {string} params.targetUid the reported person
+ * @param {{owner: string, startedAt: number, commentId: string}} params.data
+ *     the payload
+ * @return {Promise<object>} {id, night, uid, username, text}
+ */
+async function reportedComment({db, uid, targetUid, data}) {
+  // Required here: interactions.js requires this module at load time.
+  const {loadNight, nightKey} = require("./interactions");
+  const {owner, startedAt, commentId} = data;
+  if (typeof owner !== "string" || owner === "" || owner.includes("/") ||
+      !Number.isFinite(startedAt) || typeof commentId !== "string" ||
+      commentId === "" || commentId.includes("/")) {
+    throw new HttpsError("invalid-argument", "That comment isn't valid.");
+  }
+  await loadNight({db, owner, startedAt, uid, now: Date.now()});
+  const night = nightKey(owner, startedAt);
+  const snap = await db
+      .doc(`night_threads/${night}/comments/${commentId}`)
+      .get();
+  if (!snap.exists || snap.data().uid !== targetUid) {
+    throw new HttpsError("not-found", "That comment is already gone.");
+  }
+  const {text, username} = snap.data();
+  return {id: commentId, night, uid: targetUid, username, text};
+}
+
+/**
+ * Records a report against another user's username, photo or a comment they
+ * wrote. A comment report carries the night (owner, startedAt) and
+ * commentId, and stores a copy of the comment. The logged line feeds a
+ * log-based alert that emails the developer.
  * @param {object} params
  * @param {object} params.db Firestore
  * @param {string} params.uid the reporter
@@ -386,6 +421,9 @@ async function reportUser({db, uid, data}) {
     kind,
     created_at: Date.now(),
   };
+  if (kind === "comment") {
+    report.comment = await reportedComment({db, uid, targetUid, data});
+  }
   await db.collection("reports").add(report);
   console.error("SOCIAL_REPORT", report);
   return {status: "reported"};

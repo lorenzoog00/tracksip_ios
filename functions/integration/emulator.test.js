@@ -1809,6 +1809,64 @@ test("interactions: a thread outlives the expiry it was first written with", asy
   assert.deepEqual(read.comments.map((c) => c.id), [first.id, second.id]);
 });
 
+// interactions: reporting a comment
+const reportComment = (uid, data) => reportUser({db, uid,
+  data: {kind: "comment", owner: "A", startedAt: T, ...data}});
+
+test("interactions: reporting a comment stores a copy of it", async () => {
+  await commentsSetup();
+  const said = await comment("C", "something rude", {now: 0});
+  const logged = [];
+  const original = console.error;
+  console.error = (...args) => logged.push(args);
+  try {
+    assert.deepEqual(
+        await reportComment("B", {targetUid: "C", commentId: said.id}),
+        {status: "reported"});
+  } finally {
+    console.error = original;
+  }
+  const reports = await db.collection("reports").get();
+  assert.equal(reports.size, 1);
+  const report = reports.docs[0].data();
+  assert.equal(report.reporter, "B");
+  assert.equal(report.target_uid, "C");
+  assert.equal(report.kind, "comment");
+  const copy = {
+    id: said.id, night: `A_${T}`, uid: "C", username: "carla",
+    text: "something rude",
+  };
+  assert.deepEqual(report.comment, copy);
+  const line = logged.find((args) => args[0] === "SOCIAL_REPORT");
+  assert.deepEqual(line[1].comment, copy);
+  // The owner may report a comment on their own night too.
+  await reportComment("A", {targetUid: "C", commentId: said.id});
+  assert.equal(await countDocs("reports"), 2);
+});
+
+test("interactions: a comment report must match a visible comment", async () => {
+  await commentsSetup();
+  const said = await comment("C", "hey", {now: 0});
+  const fails = (uid, data, code) =>
+    assert.rejects(reportComment(uid, data), (e) => e.code === code);
+  // Not that person's comment, or no such comment.
+  await fails("B", {targetUid: "A", commentId: said.id}, "not-found");
+  await fails("B", {targetUid: "C", commentId: "nope"}, "not-found");
+  // Bad references.
+  await fails("B", {targetUid: "C", commentId: "a/b"}, "invalid-argument");
+  await fails("B", {targetUid: "C"}, "invalid-argument");
+  await fails("B", {targetUid: "C", commentId: said.id, startedAt: "x"},
+      "invalid-argument");
+  // Someone who can't see the night, or a night that is gone.
+  await claim("X", "xavier");
+  await fails("X", {targetUid: "C", commentId: said.id}, "permission-denied");
+  await fails("B", {targetUid: "C", commentId: said.id, startedAt: T + 1},
+      "not-found");
+  await seedSharedNight("A", {expires_at: inMs(-60 * 1000)});
+  await fails("B", {targetUid: "C", commentId: said.id}, "not-found");
+  assert.equal(await countDocs("reports"), 0);
+});
+
 // interactions: thread pushes and notification prefs
 const threadPushes = (result = {status: 200, reason: ""}) => {
   const sent = [];
