@@ -74,10 +74,12 @@ struct SocialRootView: View {
         // Also here: if this runs before RootView's handler, that one sees nil.
         appState.selectedTab = .social
         let name = ownerName(for: key.owner)
+        // An earlier open still waiting means the reset it started may still be animating.
+        let wasWaiting = pushedThreadTask != nil
         pushedThreadTask?.cancel()
         pushedThreadTask = nil
 
-        let covered = showSearch || showFriends || showProfile || feedCovered
+        let covered = wasWaiting || showSearch || showFriends || showProfile || feedCovered
             || appState.pendingFriendLink != nil || pushedThread != nil
         guard covered else {
             pushedThreadOwnerName = name
