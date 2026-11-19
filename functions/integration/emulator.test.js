@@ -1074,21 +1074,23 @@ test("social: notifyFromPushTokens sends the exact copy", async () => {
   });
   await notify("B", "request", "alice");
   await notify("B", "accepted", "alice");
+  await notify("B", "contact", "alice");
+  await notify("B", "contactNoProfile", "alice");
+  const push = (body, route) => ({
+    environment: "production",
+    token: PUSH_TOKEN,
+    payload: {
+      aps: {alert: {body}, sound: "default"},
+      route,
+      username: "alice",
+    },
+  });
   assert.deepEqual(sent, [
-    {
-      environment: "production",
-      token: PUSH_TOKEN,
-      payload: {aps: {
-        alert: {body: "@alice sent you a friend request"}, sound: "default",
-      }},
-    },
-    {
-      environment: "production",
-      token: PUSH_TOKEN,
-      payload: {aps: {
-        alert: {body: "@alice accepted your friend request"}, sound: "default",
-      }},
-    },
+    push("@alice sent you a friend request", "friends"),
+    push("@alice accepted your friend request", "friends"),
+    push("@alice is on TrackSip. Add them as a friend", "add"),
+    push("@alice is on TrackSip Social. Create your profile to add them",
+        "social"),
   ]);
   assert.equal(await exists("push_tokens/B"), true);
 });
@@ -1191,4 +1193,120 @@ test("public_profiles can be fetched by id but not listed", async () => {
       getDocs(query(collection(carol, "public_profiles"),
           where("username", "==", "x"))),
   );
+});
+
+// social: people you might know
+
+const befriend = async (a, b) => {
+  await db.doc(`friendships/${a}/friends/${b}`).set({since: 1});
+  await db.doc(`friendships/${b}/friends/${a}`).set({since: 1});
+};
+
+test("social: suggestions are friends of friends, ranked by mutuals", async () => {
+  for (const [uid, name] of [["A", "alice"], ["B", "bobby"], ["C", "carla"],
+    ["D", "diego"], ["E", "elena"], ["F", "fabio"]]) {
+    await claim(uid, name);
+  }
+  // A's friends: B, C. B knows D and E; C knows D. F blocked A.
+  await befriend("A", "B");
+  await befriend("A", "C");
+  await befriend("B", "D");
+  await befriend("B", "E");
+  await befriend("C", "D");
+  await befriend("C", "F");
+  await db.doc("blocks/F/blocked/A").set({uid: "A", created_at: 1});
+
+  const {results} = await social.suggestFriends({db, uid: "A"});
+  assert.deepEqual(results.map((r) => [r.uid, r.mutual_count]),
+      [["D", 2], ["E", 1]]);
+  assert.equal(results[0].username, "diego");
+  assert.ok(["bobby", "carla"].includes(results[0].mutual_username));
+  assert.equal(results[1].mutual_username, "bobby");
+
+  // Blocking E hides them; becoming friends with D drops them.
+  await db.doc("blocks/A/blocked/E").set({uid: "E", created_at: 1});
+  await befriend("A", "D");
+  assert.deepEqual((await social.suggestFriends({db, uid: "A"})).results, []);
+});
+
+test("social: suggestions are empty with no friends", async () => {
+  await claim("A", "alice");
+  assert.deepEqual(await social.suggestFriends({db, uid: "A"}), {results: []});
+});
+
+const contactsCall = (uid, emails, {lookup, notify, now = 1000} = {}) =>
+  social.matchContacts({
+    db, uid, data: {emails}, now,
+    lookupEmails: lookup || (async () => []),
+    notify: notify || (async () => {}),
+  });
+
+test("social: contacts on Social come back; others are nudged, not shown", async () => {
+  await claim("A", "alice");
+  await claim("B", "bobby");
+  await claim("C", "carla");
+  await befriend("A", "C");
+  const directory = {
+    "bob@x.com": "B", "carla@x.com": "C", "dan@x.com": "D", "me@x.com": "A",
+  };
+  const seen = [];
+  const lookup = async (emails) => {
+    seen.push(...emails);
+    return emails.map((e) => directory[e]).filter(Boolean);
+  };
+  const {calls, notify} = makeNotify();
+
+  const {results} = await contactsCall("A",
+      [" Bob@X.com ", "bob@x.com", "carla@x.com", "dan@x.com", "me@x.com",
+        "not-an-email", 7],
+      {lookup, notify});
+  assert.deepEqual(seen, ["bob@x.com", "carla@x.com", "dan@x.com", "me@x.com"]);
+  // B is on Social and not a friend; C is already a friend; D has no profile
+  // and is never revealed; A is the caller.
+  assert.deepEqual(results.map((r) => [r.uid, r.in_contacts]), [["B", true]]);
+  assert.deepEqual(calls,
+      [["B", "contact", "alice"], ["D", "contactNoProfile", "alice"]]);
+  // Nothing from the contact list is stored.
+  const stored = JSON.stringify(
+      (await db.collection("contact_nudges").get()).docs.map((d) => d.data()));
+  assert.ok(!stored.includes("@"));
+});
+
+test("social: contact pushes are at most one a day and once per sender", async () => {
+  await claim("A", "alice");
+  await claim("E", "erika");
+  await claim("B", "bobby");
+  const lookup = async () => ["B"];
+  const {calls, notify} = makeNotify();
+  await contactsCall("A", ["b@x.com"], {lookup, notify, now: 1000});
+  await contactsCall("E", ["b@x.com"], {lookup, notify, now: 2000});
+  await contactsCall("A", ["b@x.com"], {lookup, notify, now: 1000 + 2 * 86400000});
+  await contactsCall("E", ["b@x.com"], {lookup, notify, now: 1000 + 2 * 86400000});
+  assert.deepEqual(calls,
+      [["B", "contact", "alice"], ["B", "contact", "erika"]]);
+});
+
+test("social: contact matching needs a profile and is rate limited", async () => {
+  await assert.rejects(contactsCall("A", ["b@x.com"]),
+      (e) => e.code === "failed-precondition");
+  await claim("A", "alice");
+  for (let i = 0; i < 5; i++) await contactsCall("A", ["b@x.com"]);
+  await assert.rejects(contactsCall("A", ["b@x.com"]),
+      (e) => e.code === "resource-exhausted");
+  await contactsCall("A", ["b@x.com"], {now: 1000 + 86400000});
+  await assert.rejects(contactsCall("A", "b@x.com"),
+      (e) => e.code === "invalid-argument");
+});
+
+test("social: contacts hide anyone blocked in either direction", async () => {
+  await claim("A", "alice");
+  await claim("B", "bobby");
+  await claim("C", "carla");
+  await db.doc("blocks/A/blocked/B").set({uid: "B", created_at: 1});
+  await db.doc("blocks/C/blocked/A").set({uid: "A", created_at: 1});
+  const {calls, notify} = makeNotify();
+  const {results} = await contactsCall("A", ["b@x.com", "c@x.com"],
+      {lookup: async () => ["B", "C"], notify});
+  assert.deepEqual(results, []);
+  assert.deepEqual(calls, []);
 });

@@ -289,6 +289,7 @@ const pushingCallable = (fn) => onCall(
 );
 
 exports.claimUsername = socialCallable("claimUsername");
+exports.suggestFriends = socialCallable("suggestFriends");
 exports.searchUsers = socialCallable("searchUsers");
 exports.cancelFriendRequest = socialCallable("cancelFriendRequest");
 exports.removeFriend = socialCallable("removeFriend");
@@ -298,6 +299,52 @@ exports.reportUser = socialCallable("reportUser");
 exports.registerPushToken = socialCallable("registerPushToken");
 exports.sendFriendRequest = pushingCallable("sendFriendRequest");
 exports.respondToFriendRequest = pushingCallable("respondToFriendRequest");
+
+/**
+ * Uids of accounts whose verified sign-in email is one of these. Unverified
+ * emails never match: anyone can type someone else's address at sign-up.
+ * @param {string[]} emails lowercased emails
+ * @return {Promise<string[]>}
+ */
+async function lookupVerifiedEmails(emails) {
+  const auth = getAuth();
+  const uids = [];
+  for (let i = 0; i < emails.length; i += 100) {
+    const batch = emails.slice(i, i + 100).map((email) => ({email}));
+    const {users} = await auth.getUsers(batch);
+    for (const user of users) {
+      if (user.emailVerified && !user.disabled) uids.push(user.uid);
+    }
+  }
+  return uids;
+}
+
+// Contacts are matched here and dropped: nothing from the list is stored or
+// logged. Matched people may get a "@x is on TrackSip" push, so this one
+// carries the APNs key like the friend-request callables.
+exports.matchContacts = onCall(
+    {secrets: [apnsKey], timeoutSeconds: 60, enforceAppCheck: true},
+    async (request) => {
+      if (!request.auth) {
+        throw new HttpsError("unauthenticated", "Please sign in.");
+      }
+      const client = alertPushClient();
+      try {
+        const db = getFirestore();
+        return await social.matchContacts({
+          db,
+          uid: request.auth.uid,
+          data: request.data,
+          lookupEmails: lookupVerifiedEmails,
+          notify: client ?
+            social.notifyFromPushTokens({db, send: client.send}) :
+            async () => {},
+        });
+      } finally {
+        if (client) client.close();
+      }
+    },
+);
 
 let visionClient;
 // Likelihood strings per category, as the avatar moderation expects.

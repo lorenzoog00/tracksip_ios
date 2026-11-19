@@ -349,6 +349,17 @@ const REPORT_KINDS = ["username", "photo"];
 const PUSH_COPY = {
   request: (username) => `@${username} sent you a friend request`,
   accepted: (username) => `@${username} accepted your friend request`,
+  contact: (username) => `@${username} is on TrackSip. Add them as a friend`,
+  contactNoProfile: (username) =>
+    `@${username} is on TrackSip Social. Create your profile to add them`,
+};
+// What the app opens on tap: the friends screen, an add sheet for the
+// sender, or Social (where someone without a profile picks a username).
+const PUSH_ROUTE = {
+  request: "friends",
+  accepted: "friends",
+  contact: "add",
+  contactNoProfile: "social",
 };
 
 /**
@@ -430,12 +441,244 @@ function notifyFromPushTokens({db, send}) {
     const {token, environment} = snap.data();
     const result = await send(environment, token, {
       aps: {alert: {body: copy(fromUsername)}, sound: "default"},
+      route: PUSH_ROUTE[kind],
+      username: fromUsername,
     });
     if (tokenIsDead(result)) await ref.delete();
   };
 }
 
+// ---------------------------------------------------------------------------
+// People you might know: friends of friends, and contacts on TrackSip
+// ---------------------------------------------------------------------------
+
+const SUGGEST_LIMIT = 20;
+// Friend lists read per call. Past this the ranking is from a sample, which is
+// fine for suggestions and keeps one call to a bounded number of reads.
+const SUGGEST_FRIENDS_SCANNED = 50;
+const CONTACT_EMAILS_MAX = 2000;
+const CONTACT_CALLS_PER_DAY = 5;
+const CONTACT_PUSHES_PER_CALL = 30;
+const DAY_MS = 86400000;
+const NUDGE_SENDERS_KEPT = 50;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/**
+ * The public card for a profile document.
+ * @param {object} doc a public_profiles snapshot
+ * @return {object} uid, username, photo_url and avatar_color
+ */
+function profileCard(doc) {
+  return {
+    uid: doc.id,
+    username: doc.data().username,
+    photo_url: doc.data().photo_url || null,
+    avatar_color: doc.data().avatar_color,
+  };
+}
+
+/**
+ * Ids in a subcollection, as a set.
+ * @param {object} db Firestore
+ * @param {string} path collection path
+ * @return {Promise<Set<string>>}
+ */
+async function idsIn(db, path) {
+  return new Set((await db.collection(path).get()).docs.map((d) => d.id));
+}
+
+/**
+ * Friends of the caller's friends, ranked by how many friends they share.
+ * Each result names one of those shared friends ("friends with @beto").
+ * Nobody the caller blocked, or who blocked the caller, is suggested.
+ * @param {object} params
+ * @param {object} params.db Firestore
+ * @param {string} params.uid the caller
+ * @return {Promise<{results: object[]}>}
+ */
+async function suggestFriends({db, uid}) {
+  const [friends, blocked] = await Promise.all([
+    idsIn(db, `friendships/${uid}/friends`),
+    idsIn(db, `blocks/${uid}/blocked`),
+  ]);
+  const scanned = [...friends].slice(0, SUGGEST_FRIENDS_SCANNED);
+  const theirFriends = await Promise.all(
+      scanned.map((f) => idsIn(db, `friendships/${f}/friends`)),
+  );
+
+  const mutual = new Map(); // candidate -> {count, via}
+  theirFriends.forEach((set, i) => {
+    for (const candidate of set) {
+      const excluded = candidate === uid || friends.has(candidate) ||
+        blocked.has(candidate);
+      if (excluded) continue;
+      const entry = mutual.get(candidate) || {count: 0, via: scanned[i]};
+      entry.count += 1;
+      mutual.set(candidate, entry);
+    }
+  });
+
+  const ranked = [...mutual.entries()]
+      .sort((a, b) => b[1].count - a[1].count || a[0].localeCompare(b[0]))
+      .slice(0, SUGGEST_LIMIT * 2)
+      .map(([candidate]) => candidate);
+  const [profiles, blocks] = await Promise.all([
+    Promise.all(ranked.map((c) => db.doc(`public_profiles/${c}`).get())),
+    Promise.all(ranked.map((c) => db.doc(`blocks/${c}/blocked/${uid}`).get())),
+  ]);
+  const visible = profiles
+      .filter((p, i) => p.exists && !blocks[i].exists)
+      .slice(0, SUGGEST_LIMIT);
+
+  const viaIds = [...new Set(visible.map((p) => mutual.get(p.id).via))];
+  const viaNames = new Map(
+      (await Promise.all(viaIds.map((v) => db.doc(`public_profiles/${v}`).get())))
+          .filter((d) => d.exists)
+          .map((d) => [d.id, d.data().username]),
+  );
+
+  return {
+    results: visible.map((p) => ({
+      ...profileCard(p),
+      mutual_count: mutual.get(p.id).count,
+      mutual_username: viaNames.get(mutual.get(p.id).via) || null,
+    })),
+  };
+}
+
+/**
+ * Lowercased, trimmed, de-duplicated emails that look like emails.
+ * @param {*} value the raw payload
+ * @return {string[]}
+ */
+function cleanEmails(value) {
+  if (!Array.isArray(value)) {
+    throw new HttpsError("invalid-argument", "Missing contacts.");
+  }
+  if (value.length > CONTACT_EMAILS_MAX) {
+    throw new HttpsError("invalid-argument", "Too many contacts.");
+  }
+  const emails = new Set();
+  for (const raw of value) {
+    if (typeof raw !== "string") continue;
+    const email = raw.trim().toLowerCase();
+    if (email.length <= 254 && EMAIL_PATTERN.test(email)) emails.add(email);
+  }
+  return [...emails];
+}
+
+/**
+ * Records that `fromUid` is about to nudge `toUid`, unless toUid was nudged in
+ * the last day or has already heard about fromUid.
+ * @param {object} db Firestore
+ * @param {string} toUid recipient
+ * @param {string} fromUid sender
+ * @param {number} now clock
+ * @return {Promise<boolean>} true when the push should go out
+ */
+async function claimNudge(db, toUid, fromUid, now) {
+  const ref = db.doc(`contact_nudges/${toUid}`);
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const senders = snap.exists ? snap.data().senders || [] : [];
+    const recent = snap.exists && now - snap.data().last_at < DAY_MS;
+    if (recent || senders.includes(fromUid)) return false;
+    tx.set(ref, {
+      last_at: now,
+      senders: [...senders, fromUid].slice(-NUDGE_SENDERS_KEPT),
+    });
+    return true;
+  });
+}
+
+/**
+ * Finds which of the caller's contacts have TrackSip, by email. Nothing from
+ * the contact list is stored or logged: the emails are matched and dropped.
+ *
+ * Contacts with a Social profile come back as results and are told the caller
+ * is on TrackSip; those with an account but no profile are nudged to create
+ * one and are never revealed to the caller. Each person gets at most one such
+ * push a day, and never twice about the same sender.
+ * @param {object} params
+ * @param {object} params.db Firestore
+ * @param {string} params.uid the caller
+ * @param {{emails: string[]}} params.data the payload
+ * @param {Function} params.lookupEmails (emails) => Promise<string[]> uids of
+ *     accounts whose verified email is one of these
+ * @param {Function} params.notify (toUid, kind, fromUsername) => Promise
+ * @param {number} [params.now] clock, for tests
+ * @return {Promise<{results: object[]}>}
+ */
+async function matchContacts({
+  db, uid, data, lookupEmails, notify, now = Date.now(),
+}) {
+  const emails = cleanEmails(data && data.emails);
+  const [me, deleting] = await Promise.all([
+    db.doc(`public_profiles/${uid}`).get(),
+    db.doc(`account_deletions/${uid}`).get(),
+  ]);
+  assertNotDeleting(deleting);
+  if (!me.exists) {
+    throw new HttpsError("failed-precondition", "Pick a username first.");
+  }
+
+  const limitRef = db.doc(`contact_match_limits/${uid}`);
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(limitRef);
+    const {window_start: start = 0, count = 0} = snap.exists ? snap.data() : {};
+    const fresh = !snap.exists || now - start >= DAY_MS;
+    if (!fresh && count >= CONTACT_CALLS_PER_DAY) {
+      throw new HttpsError("resource-exhausted",
+          "You've checked your contacts a lot today. Try again tomorrow.");
+    }
+    tx.set(limitRef, fresh ?
+      {window_start: now, count: 1} :
+      {window_start: start, count: count + 1});
+  });
+  if (emails.length === 0) return {results: []};
+
+  const [matched, friends, blocked] = await Promise.all([
+    lookupEmails(emails),
+    idsIn(db, `friendships/${uid}/friends`),
+    idsIn(db, `blocks/${uid}/blocked`),
+  ]);
+  const candidates = [...new Set(matched)]
+      .filter((c) => c !== uid && !blocked.has(c));
+
+  const [profiles, blocks] = await Promise.all([
+    Promise.all(candidates.map((c) => db.doc(`public_profiles/${c}`).get())),
+    Promise.all(candidates.map((c) => db.doc(`blocks/${c}/blocked/${uid}`).get())),
+  ]);
+  const onSocial = [];
+  const noProfile = [];
+  candidates.forEach((c, i) => {
+    if (blocks[i].exists) return;
+    if (profiles[i].exists) {
+      if (!friends.has(c)) onSocial.push(profiles[i]);
+    } else {
+      noProfile.push(c);
+    }
+  });
+
+  const fromUsername = me.data().username;
+  const targets = [
+    ...onSocial.map((p) => [p.id, "contact"]),
+    ...noProfile.map((c) => [c, "contactNoProfile"]),
+  ].slice(0, CONTACT_PUSHES_PER_CALL);
+  for (const [toUid, kind] of targets) {
+    if (await claimNudge(db, toUid, uid, now)) {
+      await notifySafely(notify, toUid, kind, fromUsername);
+    }
+  }
+
+  return {
+    results: onSocial.map((p) => ({...profileCard(p), in_contacts: true})),
+  };
+}
+
 module.exports = {
+  suggestFriends,
+  matchContacts,
   assertNotDeleting,
   reportUser,
   registerPushToken,
