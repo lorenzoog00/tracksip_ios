@@ -1477,3 +1477,237 @@ test("interactions: others never counts the pusher or removed reactions", async 
   assert.equal(second.calls[1][2].from, "dina");
   assert.equal(second.calls[1][2].others, 0);
 });
+
+// interactions: comments
+const comment = (uid, text, {notify = makeNotify().notify, now = 1000000,
+  owner = "A", startedAt = T} = {}) =>
+  interactions.addComment({db, uid,
+    data: {owner, startedAt, text}, notify, now});
+const uncomment = (uid, commentId, {owner = "A", startedAt = T} = {}) =>
+  interactions.deleteComment({db, uid,
+    data: {owner, startedAt, commentId}});
+const thread = (uid, {owner = "A", startedAt = T} = {}) =>
+  interactions.getNightThread({db, uid, data: {owner, startedAt}});
+const commentsSetup = async () => {
+  await reactionsSetup();
+  await claim("C", "carla");
+  await befriend("A", "C");
+};
+const invalid = (message) => (e) =>
+  e.code === "invalid-argument" && e.message === message;
+
+test("interactions: adding a comment trims the text and updates the summary", async () => {
+  await commentsSetup();
+  const night = (await db.doc("shared_nights/A").get()).data();
+  const result = await comment("B", "  hola  ");
+  assert.equal(result.text, "hola");
+  assert.deepEqual(result.mentions, []);
+  assert.equal(result.at, 1000000);
+  const summary = await threadDoc();
+  assert.equal(summary.comment_count, 1);
+  assert.equal(summary.latest_comments[0].text, "hola");
+  assert.equal(summary.latest_comments[0].id, result.id);
+  assert.ok(summary.expires_at.isEqual(night.expires_at));
+  const stored = (await db.doc(
+      `night_threads/A_${T}/comments/${result.id}`).get()).data();
+  assert.equal(stored.uid, "B");
+  assert.equal(stored.username, "bobby");
+  assert.ok(stored.expires_at.isEqual(night.expires_at));
+});
+
+test("interactions: comments keep the reaction fields on the summary", async () => {
+  await commentsSetup();
+  await react("B", "beer");
+  await comment("C", "nice");
+  const summary = await threadDoc();
+  assert.equal(summary.reactions.beer, 1);
+  assert.deepEqual(summary.reactors, ["B"]);
+  assert.equal(summary.comment_count, 1);
+  await react("C", "fire");
+  assert.equal((await threadDoc()).comment_count, 1);
+  assert.equal((await threadDoc()).latest_comments.length, 1);
+});
+
+test("interactions: empty, long and link comments are rejected", async () => {
+  await commentsSetup();
+  await assert.rejects(comment("B", "   "),
+      invalid("Write a comment first."));
+  await assert.rejects(comment("B", null),
+      invalid("Write a comment first."));
+  await assert.rejects(comment("B", "x".repeat(201)),
+      invalid("Comments are 200 characters at most."));
+  await comment("B", "x".repeat(200));
+  for (const text of ["see https://x.io", "go to www.foo", "foo.com now"]) {
+    await assert.rejects(comment("C", text, {now: 5000000}),
+        invalid("Links aren't allowed in comments."));
+  }
+});
+
+test("interactions: comments are rate limited per person per night", async () => {
+  await commentsSetup();
+  await comment("B", "one", {now: 0});
+  await assert.rejects(comment("B", "two", {now: 1000}),
+      (e) => e.code === "resource-exhausted" &&
+          e.message === "Slow down a little.");
+  await comment("B", "two", {now: 3000});
+  await comment("C", "other person", {now: 3500});
+  for (let i = 2; i < 50; i++) await comment("B", `c${i}`, {now: i * 3000});
+  await assert.rejects(comment("B", "again", {now: 50 * 3000}),
+      (e) => e.code === "resource-exhausted" &&
+          e.message === "That's the comment limit for this night.");
+});
+
+test("interactions: owner may comment, ex-friends and blocked people may not", async () => {
+  await commentsSetup();
+  await comment("A", "my night");
+  await claim("X", "xavier");
+  await assert.rejects(comment("X", "hi"),
+      (e) => e.code === "permission-denied");
+  await db.doc("blocks/A/blocked/C").set({uid: "C", created_at: 1});
+  await assert.rejects(comment("C", "hi"),
+      (e) => e.code === "permission-denied");
+  await assert.rejects(comment("B", "hi", {startedAt: T + 1}),
+      (e) => e.code === "not-found");
+});
+
+test("interactions: comment pushes go to the owner and earlier commenters", async () => {
+  await commentsSetup();
+  const {calls, notify} = makeNotify();
+  const payload = (from, text) => ({
+    from, owner: "A", ownerName: "alice", startedAt: T, text,
+  });
+  await comment("B", "first", {notify, now: 0});
+  assert.deepEqual(calls, [["A", "comment", payload("bobby", "first")]]);
+  calls.length = 0;
+  await comment("C", "second", {notify, now: 5000});
+  assert.deepEqual(calls, [
+    ["A", "comment", payload("carla", "second")],
+    ["B", "reply", payload("carla", "second")],
+  ]);
+  calls.length = 0;
+  await comment("A", "third", {notify, now: 10000});
+  assert.deepEqual(calls, [
+    ["B", "reply", payload("alice", "third")],
+    ["C", "reply", payload("alice", "third")],
+  ]);
+  calls.length = 0;
+  await comment("B", "fourth", {notify, now: 15000});
+  assert.deepEqual(calls.map((c) => [c[0], c[1]]),
+      [["A", "comment"], ["C", "reply"]]);
+});
+
+test("interactions: mentions are deduped and limited to viewers", async () => {
+  await commentsSetup();
+  await claim("Z", "zed");
+  const {calls, notify} = makeNotify();
+  await comment("B", "earlier", {notify, now: 0});
+  calls.length = 0;
+  const result = await comment("C", "@bobby @bobby @zed @carla hey",
+      {notify, now: 5000});
+  assert.deepEqual(result.mentions, [{uid: "B", username: "bobby"}]);
+  assert.deepEqual(calls.map((c) => [c[0], c[1]]),
+      [["A", "comment"], ["B", "mention"]]);
+  const stored = (await db.doc(
+      `night_threads/A_${T}/comments/${result.id}`).get()).data();
+  assert.deepEqual(stored.mentions, [{uid: "B", username: "bobby"}]);
+});
+
+test("interactions: mentioning the owner sends one mention push", async () => {
+  await commentsSetup();
+  const {calls, notify} = makeNotify();
+  await comment("B", "hey @alice", {notify, now: 0});
+  assert.deepEqual(calls.map((c) => [c[0], c[1]]), [["A", "mention"]]);
+});
+
+test("interactions: pushes skip ex-friends and blocked people", async () => {
+  await commentsSetup();
+  const {calls, notify} = makeNotify();
+  await comment("B", "earlier", {notify, now: 0});
+  await comment("C", "earlier too", {notify, now: 5000});
+  calls.length = 0;
+  await db.doc("friendships/A/friends/B").delete();
+  await db.doc("blocks/C/blocked/A").set({uid: "A", created_at: 1});
+  await comment("A", "later", {notify, now: 10000});
+  assert.deepEqual(calls, []);
+});
+
+test("interactions: a failing comment push does not undo the comment", async () => {
+  await commentsSetup();
+  const original = console.error;
+  console.error = () => {};
+  try {
+    const notify = async () => {
+      throw new Error("push down");
+    };
+    const result = await comment("B", "still here", {notify});
+    assert.equal(result.text, "still here");
+  } finally {
+    console.error = original;
+  }
+  assert.equal((await threadDoc()).comment_count, 1);
+});
+
+test("interactions: authors and the owner delete comments, others cannot", async () => {
+  await commentsSetup();
+  const first = await comment("B", "one", {now: 0});
+  const second = await comment("C", "two", {now: 5000});
+  const third = await comment("B", "three", {now: 10000});
+  const fourth = await comment("C", "four", {now: 15000});
+  await claim("D", "dina");
+  await befriend("A", "D");
+  await assert.rejects(uncomment("D", first.id),
+      (e) => e.code === "permission-denied");
+  await assert.rejects(uncomment("B", second.id),
+      (e) => e.code === "permission-denied");
+  assert.deepEqual(await uncomment("B", first.id), {status: "deleted"});
+  let summary = await threadDoc();
+  assert.equal(summary.comment_count, 3);
+  assert.deepEqual(summary.latest_comments.map((c) => c.id),
+      [second.id, third.id, fourth.id]);
+  assert.deepEqual(await uncomment("A", fourth.id), {status: "deleted"});
+  summary = await threadDoc();
+  assert.equal(summary.comment_count, 2);
+  assert.deepEqual(summary.latest_comments.map((c) => c.id),
+      [second.id, third.id]);
+  assert.equal(await exists(`night_threads/A_${T}/comments/${fourth.id}`),
+      false);
+  await assert.rejects(uncomment("A", fourth.id),
+      (e) => e.code === "not-found");
+  await uncomment("A", second.id);
+  await uncomment("A", third.id);
+  summary = await threadDoc();
+  assert.equal(summary.comment_count, 0);
+  assert.deepEqual(summary.latest_comments, []);
+});
+
+test("interactions: the thread is oldest first and hides blocks both ways", async () => {
+  await commentsSetup();
+  await claim("D", "dina");
+  await befriend("A", "D");
+  await db.doc("blocks/D/blocked/C").set({uid: "C", created_at: 1});
+  await comment("B", "b1", {now: 0});
+  await comment("C", "c1", {now: 5000});
+  await comment("D", "d1", {now: 10000});
+  await react("B", "beer", {now: 1});
+  await react("C", "fire", {now: 2});
+  await react("D", "heart", {now: 3});
+
+  const mine = await thread("B");
+  assert.deepEqual(mine.comments.map((c) => c.text), ["b1", "c1", "d1"]);
+  assert.deepEqual(mine.reactions.map((r) => r.emoji),
+      ["beer", "fire", "heart"]);
+  assert.deepEqual(Object.keys(mine.comments[0]).sort(),
+      ["at", "id", "mentions", "text", "uid", "username"]);
+  assert.deepEqual(Object.keys(mine.reactions[0]).sort(),
+      ["at", "emoji", "uid", "username"]);
+
+  const dinas = await thread("D");
+  assert.deepEqual(dinas.comments.map((c) => c.text), ["b1", "d1"]);
+  assert.deepEqual(dinas.reactions.map((r) => r.uid), ["B", "D"]);
+  const carlas = await thread("C");
+  assert.deepEqual(carlas.comments.map((c) => c.text), ["b1", "c1"]);
+  assert.deepEqual(carlas.reactions.map((r) => r.uid), ["B", "C"]);
+
+  await claim("X", "xavier");
+  await assert.rejects(thread("X"), (e) => e.code === "permission-denied");
+});
