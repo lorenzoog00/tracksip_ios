@@ -143,4 +143,25 @@ struct NightThreadTests {
         #expect(chips.map { $0.icon } == ["beer", "tequila", "wine"])
         #expect(DrinkSummary.chips([]).isEmpty)
     }
+
+    // MARK: - Reaction bar fit
+
+    @Test func reactionBarShowsTopThreeWithMineAndCountsTheRest() {
+        let counts: [Reaction: Int] = [.beer: 12, .fire: 30, .laugh: 2, .woozy: 1, .water: 10, .heart: 10]
+        // Top three by count, shown in allCases order; ties by allCases order.
+        let top = ReactionBarLayout.visible(counts: counts, mine: nil)
+        #expect(top.shown == [.beer, .fire, .water])
+        #expect(top.hidden == 13)
+
+        // Mine always shows, replacing the third.
+        let withMine = ReactionBarLayout.visible(counts: counts, mine: .woozy)
+        #expect(withMine.shown == [.beer, .fire, .woozy])
+        #expect(withMine.hidden == 22)
+
+        // Few enough: everything shows, nothing hidden.
+        let few = ReactionBarLayout.visible(counts: [.heart: 1, .beer: 2], mine: .heart)
+        #expect(few.shown == [.beer, .heart])
+        #expect(few.hidden == 0)
+        #expect(ReactionBarLayout.visible(counts: [:], mine: nil).shown.isEmpty)
+    }
 }

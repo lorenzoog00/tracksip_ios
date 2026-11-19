@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 extension Reaction {
     /// The colour of this reaction's particle burst.
@@ -26,12 +27,40 @@ extension Reaction {
     }
 }
 
+/// Which reaction pills fit on a card: the most used, mine always among them.
+nonisolated enum ReactionBarLayout {
+    static let maxPills = 3
+
+    /// Up to `limit` reactions in `Reaction.allCases` order, picked by count (ties by
+    /// `allCases` order) with `mine` swapped in if it would miss the cut; `hidden` is
+    /// how many reactions the rest add up to.
+    static func visible(counts: [Reaction: Int], mine: Reaction?,
+                        limit: Int = maxPills) -> (shown: [Reaction], hidden: Int) {
+        let used = Reaction.allCases.filter { (counts[$0] ?? 0) > 0 }
+        let ranked = used.enumerated()
+            .sorted { a, b in
+                let ca = counts[a.element] ?? 0
+                let cb = counts[b.element] ?? 0
+                return ca != cb ? ca > cb : a.offset < b.offset
+            }
+            .map { $0.element }
+        var picked = Array(ranked.prefix(max(0, limit)))
+        if let mine, used.contains(mine), !picked.contains(mine), !picked.isEmpty {
+            picked[picked.count - 1] = mine
+        }
+        let shown = used.filter { picked.contains($0) }
+        let hidden = used.filter { !picked.contains($0) }.reduce(0) { $0 + (counts[$1] ?? 0) }
+        return (shown, hidden)
+    }
+}
+
 /// Fixed geometry of the picker, so a finger can be matched to an emoji without
-/// measuring the views.
+/// measuring the views. Each slot is a 44 pt hit target around a 40 pt emoji.
 nonisolated enum ReactionPickerMetrics {
-    static let item: CGFloat = 40
-    static let spacing: CGFloat = 4
-    static let padding: CGFloat = 6
+    static let item: CGFloat = 44
+    static let visual: CGFloat = 40
+    static let spacing: CGFloat = 0
+    static let padding: CGFloat = 4
     static let width: CGFloat = padding * 2 + item * 6 + spacing * 5
     static let height: CGFloat = item + padding * 2
 
@@ -41,6 +70,37 @@ nonisolated enum ReactionPickerMetrics {
         let slot = item + spacing
         let i = Int(((x - padding + spacing / 2) / slot).rounded(.down))
         return min(max(i, 0), 5)
+    }
+}
+
+/// At most one picker open in the whole feed. Opening one closes any other; the feed
+/// closes it on scroll and on a tap anywhere else.
+@MainActor
+final class ReactionPickerFocus: ObservableObject {
+    static let shared = ReactionPickerFocus()
+
+    @Published private(set) var openKey: NightKey?
+
+    var isOpen: Bool { openKey != nil }
+
+    func open(_ key: NightKey) {
+        if openKey != key { openKey = key }
+    }
+
+    func close() {
+        if openKey != nil { openKey = nil }
+    }
+
+    func close(_ key: NightKey) {
+        if openKey == key { openKey = nil }
+    }
+
+    /// Closes with the standard fade/spring.
+    static func dismiss(reduceMotion: Bool) {
+        guard shared.isOpen else { return }
+        withAnimation(reduceMotion ? .easeOut(duration: 0.2) : .spring(response: 0.28, dampingFraction: 0.85)) {
+            shared.close()
+        }
     }
 }
 
@@ -93,7 +153,7 @@ struct ReactionPicker: View {
         let isSelected = selected == reaction
         return Text(reaction.emoji)
             .font(.system(size: 26))
-            .frame(width: ReactionPickerMetrics.item, height: ReactionPickerMetrics.item)
+            .frame(width: ReactionPickerMetrics.visual, height: ReactionPickerMetrics.visual)
             .background {
                 Circle().fill(isSelected ? AppColors.accentDim : Color.clear)
             }
@@ -113,7 +173,9 @@ struct ReactionPicker: View {
                 reduceMotion ? .easeOut(duration: 0.2) : .spring(response: 0.25, dampingFraction: 0.6),
                 value: hovered
             )
-            .contentShape(Circle())
+            // 44 pt hit target around the 40 pt emoji.
+            .frame(width: ReactionPickerMetrics.item, height: ReactionPickerMetrics.item)
+            .contentShape(Rectangle())
     }
 
     private func scale(isHovered: Bool) -> CGFloat {
@@ -131,24 +193,32 @@ struct ReactionPicker: View {
 
 // MARK: - Bar
 
-/// Counts for the reactions people used, mine highlighted, and a `+` that fans out
-/// the picker. Tap a pill to react with it (tap mine to take it back). Long-press
-/// the `+` or a pill and slide to an emoji, release to react; a plain tap on `+`
-/// opens the same row to tap.
+/// The three most used reactions (mine always among them), mine highlighted, and a
+/// `+` that fans out the picker; when more reactions are hidden the `+` reads "+N".
+/// Tap a pill to react with it (tap mine to take it back). Long-press the `+` or a
+/// pill and slide to an emoji, release to react; a plain tap on `+` opens the same
+/// row to tap.
 struct ReactionBar: View {
     @ObservedObject private var store: NightThreadStore
+    @ObservedObject private var focus = ReactionPickerFocus.shared
     let canReact: Bool
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var pickerOpen = false
-    @State private var hovered: Reaction?
+    /// The emoji under a dragging finger. Resets by itself when the drag ends or is
+    /// cancelled (scroll took over, view went away).
+    @GestureState private var hovered: Reaction?
     @State private var popping: Reaction?
     @State private var burst: Reaction?
     @State private var burstID = 0
 
     private static let space = "reactionBar"
+    /// What you see.
     private static let pillHeight: CGFloat = 32
-    /// Gap between the bar's top and the picker's bottom.
+    /// What you can tap.
+    private static let hitHeight: CGFloat = 44
+    /// Horizontal hit padding around each pill; two neighbours make the 6 pt gap.
+    private static let pillHitInset: CGFloat = 3
+    /// Gap between the pills' visible top and the picker's bottom.
     private static let pickerGap: CGFloat = 6
 
     init(store: NightThreadStore, canReact: Bool) {
@@ -156,23 +226,30 @@ struct ReactionBar: View {
         self.canReact = canReact
     }
 
+    private var pickerOpen: Bool { focus.openKey == store.key }
+
     var body: some View {
         let counts = store.summary.counts
-        let shown = Reaction.allCases.filter { (counts[$0] ?? 0) > 0 }
-        HStack(spacing: 6) {
-            ForEach(shown) { reaction in
+        let layout = ReactionBarLayout.visible(counts: counts, mine: store.myReaction)
+        HStack(spacing: 0) {
+            ForEach(layout.shown) { reaction in
                 pill(reaction, count: counts[reaction] ?? 0)
                     .transition(pillTransition)
             }
             if canReact {
-                plusButton
-            } else if shown.isEmpty {
+                plusButton(hidden: layout.hidden)
+            } else if layout.hidden > 0 {
+                moreChip(hidden: layout.hidden)
+            } else if layout.shown.isEmpty {
                 Text("No reactions yet")
                     .font(.caption)
                     .foregroundStyle(AppColors.textTertiary)
-                    .frame(height: Self.pillHeight)
+                    .lineLimit(1)
+                    .fixedSize()
+                    .frame(height: Self.hitHeight)
             }
         }
+        .fixedSize()
         .animation(changeAnimation, value: counts)
         .animation(changeAnimation, value: store.myReaction)
         .coordinateSpace(NamedCoordinateSpace.named(Self.space))
@@ -181,14 +258,19 @@ struct ReactionBar: View {
                 ReactionPicker(selected: store.myReaction, hovered: hovered) { reaction in
                     pick(reaction)
                 }
-                .offset(y: -(Self.pillHeight + Self.pickerGap))
+                // Bottom of the picker sits `pickerGap` above the pills' visible top.
+                .offset(y: -(Self.hitHeight - Self.visibleTop + Self.pickerGap))
                 .transition(pickerTransition)
             }
         }
         .onChange(of: canReact) { _, can in
             if !can { closePicker() }
         }
+        .onDisappear { closePicker() }
     }
+
+    /// The pills' visible top, measured down from the bar's top.
+    private static var visibleTop: CGFloat { (hitHeight - pillHeight) / 2 }
 
     // MARK: Pieces
 
@@ -203,7 +285,9 @@ struct ReactionBar: View {
                 .foregroundStyle(mine ? AppColors.accent : AppColors.text)
                 .contentTransition(.numericText(value: Double(count)))
         }
-        .padding(.horizontal, 10)
+        .lineLimit(1)
+        .fixedSize()
+        .padding(.horizontal, 9)
         .frame(height: Self.pillHeight)
         .background {
             Capsule().fill(mine ? AppColors.accentDim : Color.white.opacity(0.06))
@@ -218,7 +302,10 @@ struct ReactionBar: View {
                     .allowsHitTesting(false)
             }
         }
-        .contentShape(Capsule())
+        // 44 pt tall hit target; the visible capsule stays 32 pt.
+        .padding(.horizontal, Self.pillHitInset)
+        .frame(height: Self.hitHeight)
+        .contentShape(Rectangle())
         .gesture(fanGesture { react(reaction) }, including: canReact ? .all : .subviews)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(reaction.spokenName), \(count)")
@@ -232,57 +319,100 @@ struct ReactionBar: View {
         }
     }
 
-    private var plusButton: some View {
-        Image(systemName: "plus")
-            .font(.system(size: 13, weight: .bold))
-            .foregroundStyle(pickerOpen ? AppColors.accent : AppColors.textSecondary)
-            .rotationEffect(.degrees(pickerOpen ? 45 : 0))
-            .frame(width: Self.pillHeight, height: Self.pillHeight)
-            .background {
-                Circle().fill(pickerOpen ? AppColors.accentDim : Color.white.opacity(0.06))
+    /// "+" or, with reactions hidden, "+N"; either way it opens the picker.
+    private func plusButton(hidden: Int) -> some View {
+        let showsMore = hidden > 0 && !pickerOpen
+        return ZStack {
+            if showsMore {
+                Text("+\(hidden)")
+                    .font(.caption.weight(.semibold).monospacedDigit())
+                    .lineLimit(1)
+                    .fixedSize()
+                    .contentTransition(.numericText(value: Double(hidden)))
+                    .transition(.opacity)
+            } else {
+                Image(systemName: "plus")
+                    .font(.system(size: 13, weight: .bold))
+                    .rotationEffect(.degrees(pickerOpen ? 45 : 0))
+                    .transition(.opacity)
             }
-            .overlay {
-                Circle().stroke(pickerOpen ? AppColors.accent.opacity(0.6) : AppColors.border, lineWidth: 1)
-            }
-            .contentShape(Circle())
-            .animation(changeAnimation, value: pickerOpen)
-            .gesture(fanGesture { togglePicker() })
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(pickerOpen ? "Close reactions" : "Add reaction")
-            .accessibilityAddTraits(.isButton)
-            .accessibilityAction { togglePicker() }
+        }
+        .foregroundStyle(pickerOpen ? AppColors.accent : AppColors.textSecondary)
+        .padding(.horizontal, showsMore ? 9 : 0)
+        .frame(minWidth: Self.pillHeight, minHeight: Self.pillHeight, maxHeight: Self.pillHeight)
+        .background {
+            Capsule().fill(pickerOpen ? AppColors.accentDim : Color.white.opacity(0.06))
+        }
+        .overlay {
+            Capsule().stroke(pickerOpen ? AppColors.accent.opacity(0.6) : AppColors.border, lineWidth: 1)
+        }
+        // 44 × 44 hit target at least.
+        .frame(minWidth: Self.hitHeight, minHeight: Self.hitHeight)
+        .contentShape(Rectangle())
+        .animation(changeAnimation, value: pickerOpen)
+        .animation(changeAnimation, value: hidden)
+        .gesture(fanGesture { togglePicker() })
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(pickerOpen ? "Close reactions" : "Add reaction")
+        .accessibilityValue(hidden > 0 ? "\(hidden) more reactions" : "")
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction { togglePicker() }
+    }
+
+    /// My own night: how many reactions don't fit, not tappable.
+    private func moreChip(hidden: Int) -> some View {
+        Text("+\(hidden)")
+            .font(.caption.weight(.semibold).monospacedDigit())
+            .foregroundStyle(AppColors.textSecondary)
+            .lineLimit(1)
+            .fixedSize()
+            .contentTransition(.numericText(value: Double(hidden)))
+            .padding(.horizontal, 9)
+            .frame(height: Self.pillHeight)
+            .background { Capsule().fill(Color.white.opacity(0.06)) }
+            .overlay { Capsule().stroke(AppColors.border, lineWidth: 1) }
+            .padding(.horizontal, Self.pillHitInset)
+            .frame(height: Self.hitHeight)
+            .accessibilityLabel("\(hidden) more reactions")
     }
 
     // MARK: Gestures
 
     /// Long-press opens the fan and tracks the finger; releasing on an emoji reacts,
     /// releasing anywhere else leaves the fan open to tap. A quick tap runs `onTap`.
+    /// `hovered` is gesture state, so a cancelled drag can't leave an emoji raised.
     private func fanGesture(onTap: @escaping () -> Void) -> some Gesture {
         LongPressGesture(minimumDuration: 0.3)
             .sequenced(before: DragGesture(minimumDistance: 0,
                                            coordinateSpace: NamedCoordinateSpace.named(Self.space)))
+            .updating($hovered) { value, state, _ in
+                guard case .second(true, let drag) = value, let drag else { return }
+                let next = Self.reaction(at: drag.location)
+                if next != state {
+                    if next != nil { Haptics.shared.play(.selection) }
+                    state = next
+                }
+            }
             .onChanged { value in
-                guard case .second(true, let drag) = value else { return }
+                guard case .second(true, _) = value else { return }
                 if !pickerOpen { openPicker() }
-                if let drag { hover(Self.reaction(at: drag.location)) }
             }
             .onEnded { value in
-                guard case .second(true, let drag) = value else { return }
-                if let drag, let reaction = Self.reaction(at: drag.location) {
-                    pick(reaction)
-                } else {
-                    hovered = nil
-                }
+                guard case .second(true, let drag) = value,
+                      let drag,
+                      let reaction = Self.reaction(at: drag.location)
+                else { return }
+                pick(reaction)
             }
             .exclusively(before: TapGesture().onEnded { onTap() })
     }
 
-    /// The emoji under a point in the bar's space. The picker sits right above the bar,
-    /// starting at its leading edge; only a finger that has moved up off the bar counts,
-    /// so a long-press that is simply let go never reacts by accident.
+    /// The emoji under a point in the bar's space. The picker sits right above the
+    /// pills, starting at the bar's leading edge; only a finger that has moved up off
+    /// the pills counts, so a long-press that is simply let go never reacts by accident.
     private static func reaction(at point: CGPoint) -> Reaction? {
-        let pickerBottom = -pickerGap
-        guard point.y < pickerBottom + 4,
+        let pickerBottom = visibleTop - pickerGap
+        guard point.y < visibleTop - 2,
               point.y > pickerBottom - ReactionPickerMetrics.height - 70,
               let index = ReactionPickerMetrics.index(atX: point.x)
         else { return nil }
@@ -290,12 +420,6 @@ struct ReactionBar: View {
     }
 
     // MARK: Actions
-
-    private func hover(_ reaction: Reaction?) {
-        guard reaction != hovered else { return }
-        hovered = reaction
-        if reaction != nil { Haptics.shared.play(.selection) }
-    }
 
     private func togglePicker() {
         if pickerOpen { closePicker() } else { openPicker() }
@@ -305,15 +429,14 @@ struct ReactionBar: View {
         guard canReact, !pickerOpen else { return }
         Haptics.shared.play(.light)
         withAnimation(reduceMotion ? .easeOut(duration: 0.2) : .spring(response: 0.32, dampingFraction: 0.72)) {
-            pickerOpen = true
+            focus.open(store.key)
         }
     }
 
     private func closePicker() {
-        hovered = nil
         guard pickerOpen else { return }
         withAnimation(reduceMotion ? .easeOut(duration: 0.2) : .spring(response: 0.28, dampingFraction: 0.85)) {
-            pickerOpen = false
+            focus.close(store.key)
         }
     }
 

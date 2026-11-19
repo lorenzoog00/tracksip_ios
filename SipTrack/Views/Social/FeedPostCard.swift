@@ -40,7 +40,7 @@ struct FeedPostCard: View {
         let latest = latestVisibleComment
 
         VStack(alignment: .leading, spacing: 12) {
-            Button(action: onOpenNight) {
+            Button(action: openNight) {
                 VStack(alignment: .leading, spacing: 12) {
                     header(live: live, bac: bac, color: stageColor)
                     MiniBACCurve(
@@ -60,6 +60,8 @@ struct FeedPostCard: View {
             .accessibilityAddTraits(.isButton)
 
             footer
+                // 44 pt hit targets inside, 32 pt visuals: keep the visual rhythm.
+                .padding(.vertical, -6)
                 .zIndex(1)
 
             if let latest {
@@ -85,6 +87,22 @@ struct FeedPostCard: View {
             if let me = friends.myProfile?.username, !me.isEmpty { store.myUsername = me }
             store.start()
         }
+    }
+
+    // MARK: - Taps
+
+    /// With a reaction picker open anywhere, a tap on the card only closes it.
+    private func openNight() {
+        if ReactionPickerFocus.shared.isOpen {
+            ReactionPickerFocus.dismiss(reduceMotion: reduceMotion)
+        } else {
+            onOpenNight()
+        }
+    }
+
+    private func openThread() {
+        ReactionPickerFocus.dismiss(reduceMotion: reduceMotion)
+        onOpenThread()
     }
 
     // MARK: - Header
@@ -180,8 +198,9 @@ struct FeedPostCard: View {
         let count = store.summary.commentCount
         return HStack(alignment: .center, spacing: 8) {
             ReactionBar(store: store, canReact: !isMine)
+                .layoutPriority(1)
             Spacer(minLength: 8)
-            Button(action: onOpenThread) {
+            Button(action: openThread) {
                 HStack(spacing: 5) {
                     Image(systemName: "bubble.left")
                         .font(.system(size: 14, weight: .semibold))
@@ -196,7 +215,10 @@ struct FeedPostCard: View {
                 .frame(height: 32)
                 .background { Capsule().fill(Color.white.opacity(0.06)) }
                 .overlay { Capsule().stroke(AppColors.border, lineWidth: 1) }
-                .contentShape(Capsule())
+                .fixedSize()
+                // 44 × 44 hit target at least around the 32 pt capsule.
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
                 .animation(reduceMotion ? .easeInOut(duration: 0.2) : .spring(response: 0.38, dampingFraction: 0.7),
                            value: count)
             }
@@ -215,7 +237,7 @@ struct FeedPostCard: View {
     }
 
     private func latestCommentRow(_ comment: ThreadComment) -> some View {
-        Button(action: onOpenThread) {
+        Button(action: openThread) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(commentText(comment))
                     .font(.footnote)

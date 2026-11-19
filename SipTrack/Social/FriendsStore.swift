@@ -177,6 +177,7 @@ final class FriendsStore: ObservableObject {
         mySharedNight = nil
         // Thread listeners belong to this account; the next one starts clean.
         NightThreadStore.clearCache()
+        ReactionPickerFocus.shared.close()
         friendUids = []
         incomingUids = []
         outgoingUids = []

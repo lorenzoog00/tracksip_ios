@@ -76,6 +76,13 @@ struct FeedView: View {
     @State private var thread: NightKey?
     /// The night pushed by tapping a card's body.
     @State private var openedNight: FeedItem?
+    /// Any open reaction picker; closed by a scroll or a tap elsewhere in the feed.
+    @ObservedObject private var pickerFocus = ReactionPickerFocus.shared
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    init(onAddFriend: @escaping () -> Void) {
+        self.onAddFriend = onAddFriend
+    }
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 30)) { context in
@@ -113,6 +120,17 @@ struct FeedView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+                // Only while a picker is open, so normal taps are untouched. Buttons and the
+                // reaction gestures inside the cards take precedence over this one.
+                .gesture(
+                    TapGesture().onEnded { ReactionPickerFocus.dismiss(reduceMotion: reduceMotion) },
+                    including: pickerFocus.isOpen ? .all : .subviews
+                )
+            }
+            .onScrollPhaseChange { _, phase in
+                if phase.isScrolling { ReactionPickerFocus.dismiss(reduceMotion: reduceMotion) }
             }
         }
         .navigationDestination(isPresented: openedNightBinding) {
