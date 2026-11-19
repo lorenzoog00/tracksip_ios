@@ -74,6 +74,8 @@ struct FeedView: View {
 
     /// The night whose comment sheet is up.
     @State private var thread: NightKey?
+    /// That night's owner, for the sheet's title and mention suggestions.
+    @State private var threadOwnerName = ""
     /// The night pushed by tapping a card's body.
     @State private var openedNight: FeedItem?
     /// Any open reaction picker; closed by a scroll or a tap elsewhere in the feed.
@@ -139,7 +141,7 @@ struct FeedView: View {
             }
         }
         .sheet(item: $thread) { key in
-            ThreadSheetPlaceholder(key: key)
+            NightThreadSheet(key: key, ownerName: threadOwnerName)
         }
     }
 
@@ -148,7 +150,10 @@ struct FeedView: View {
             item: item,
             now: now,
             isMine: isMine,
-            onOpenThread: { thread = NightKey(owner: item.profile.uid, night: item.night) },
+            onOpenThread: {
+                threadOwnerName = item.profile.username
+                thread = NightKey(owner: item.profile.uid, night: item.night)
+            },
             onOpenNight: { openedNight = item }
         )
     }
@@ -182,29 +187,5 @@ struct FeedView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 80)
-    }
-}
-
-/// Stand-in for the comment sheet until it lands.
-private struct ThreadSheetPlaceholder: View {
-    let key: NightKey
-
-    init(key: NightKey) {
-        self.key = key
-    }
-
-    var body: some View {
-        VStack(spacing: 10) {
-            Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: 30, weight: .semibold))
-                .foregroundStyle(AppColors.accent)
-            Text("Comments")
-                .font(.headline)
-                .foregroundStyle(AppColors.text)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(AppColors.background.ignoresSafeArea())
-        .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
     }
 }

@@ -164,4 +164,83 @@ struct NightThreadTests {
         #expect(few.hidden == 0)
         #expect(ReactionBarLayout.visible(counts: [:], mine: nil).shown.isEmpty)
     }
+
+    // MARK: - Comment sheet
+
+    @Test func mentionSuggestionsOrderDedupeAndFilter() {
+        func names(_ query: String, limit: Int = MentionSuggestions.defaultLimit) -> [String] {
+            MentionSuggestions.candidates(
+                query: query, owner: "ana", reacted: ["beto", "Lu"],
+                commenters: ["beto", "carla", "me"], friends: ["Ana", "bruno", "zed"],
+                me: "me", limit: limit
+            ).map(\.username)
+        }
+        // Owner, reactors, commenters, friends; each once; never me; capped.
+        #expect(names("") == ["ana", "beto", "Lu", "carla", "bruno"])
+        #expect(names("", limit: 2) == ["ana", "beto"])
+        // Prefix, case-insensitive.
+        #expect(names("B") == ["beto", "bruno"])
+        #expect(names("l") == ["Lu"])
+        #expect(names("me").isEmpty)
+        #expect(names("x").isEmpty)
+
+        let sources = MentionSuggestions.candidates(
+            query: "", owner: "ana", reacted: ["beto"], commenters: ["carla"], friends: ["ANA", "zed"], me: "me"
+        ).map(\.source)
+        #expect(sources == [.owner, .reacted, .commented, .friend])
+    }
+
+    @Test func mentionCompletionReplacesThePartialName() {
+        let end = MentionSuggestions.complete("hey @bo", cursor: 7, with: "beto")
+        #expect(end?.text == "hey @beto ")
+        #expect(end?.cursor == 10)
+
+        // Cursor inside a name: the whole name is replaced, the space reused.
+        let middle = MentionSuggestions.complete("@boto rest", cursor: 3, with: "beto")
+        #expect(middle?.text == "@beto rest")
+        #expect(middle?.cursor == 6)
+
+        let bare = MentionSuggestions.complete("@", cursor: 1, with: "lu")
+        #expect(bare?.text == "@lu ")
+        #expect(bare?.cursor == 4)
+
+        #expect(MentionSuggestions.complete("hi", cursor: 2, with: "lu") == nil)
+        #expect(MentionSuggestions.complete("a@b", cursor: 3, with: "lu") == nil)
+    }
+
+    @Test func pickedNamesStayPillsOnlyWhileWritten() {
+        #expect(MentionSuggestions.stillMentioned(["beto", "lu"], in: "hey @Beto and lu") == ["beto"])
+        #expect(MentionSuggestions.stillMentioned(["beto"], in: "hey @bet").isEmpty)
+        #expect(MentionSuggestions.stillMentioned([], in: "@beto").isEmpty)
+    }
+
+    @Test func commentDraftCountsLikeTheServer() {
+        #expect(CommentDraft.length("  hi \n") == 2)
+        #expect(!CommentDraft.canSend("   \n"))
+        #expect(CommentDraft.canSend(String(repeating: "a", count: 200)))
+        #expect(!CommentDraft.canSend(String(repeating: "a", count: 201)))
+        // JS Array.from counts Unicode scalars: a flag is two.
+        #expect(CommentDraft.length("🇦🇷") == 2)
+        #expect(CommentDraft.canSend(String(repeating: "🇦🇷", count: 100)))
+        #expect(!CommentDraft.canSend(String(repeating: "🇦🇷", count: 101)))
+    }
+
+    @Test func myPendingCommentKeepsItsRowWhenConfirmed() {
+        let other = ThreadComment(id: "c1", uid: "u2", username: "beto", text: "hi",
+                                  mentions: [], at: Date())
+        let pending = ThreadComment(id: "pending-1", uid: "me", username: "ana", text: "hi",
+                                    mentions: [], at: Date(), isPending: true)
+        var confirmed = pending
+        confirmed.id = "srv-1"
+        confirmed.isPending = false
+
+        let before = CommentRowKeys.keys([other, pending], myUid: "me")
+        let after = CommentRowKeys.keys([other, confirmed], myUid: "me")
+        #expect(before == after)
+        #expect(before[0] == "c1")
+
+        // Two of mine with the same text stay distinct.
+        let twice = CommentRowKeys.keys([confirmed, pending], myUid: "me")
+        #expect(Set(twice).count == 2)
+    }
 }

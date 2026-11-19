@@ -7,6 +7,20 @@ struct FriendNightView: View {
     @EnvironmentObject var friends: FriendsStore
     let item: FeedItem
 
+    /// Same cached store as the feed card, so reactions and counts match.
+    @ObservedObject private var store: NightThreadStore
+    @ObservedObject private var pickerFocus = ReactionPickerFocus.shared
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// The night whose comment sheet is up.
+    @State private var thread: NightKey?
+
+    init(item: FeedItem) {
+        self.item = item
+        let key = NightKey(owner: item.profile.uid, night: item.night)
+        let myUid = FirebaseManager.shared.currentUserId() ?? ""
+        _store = ObservedObject(wrappedValue: NightThreadStore.store(for: key, myUid: myUid))
+    }
+
     /// The store's copy only: a removed friend, deleted night or incognito switch drops it.
     private var current: FeedItem? {
         if let mine = friends.myNight, mine.id == item.id { return mine }
@@ -30,6 +44,16 @@ struct FriendNightView: View {
         .background(AppColors.background.ignoresSafeArea())
         .navigationTitle("@\(item.profile.username)")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(item: $thread) { key in
+            NightThreadSheet(key: key, ownerName: item.profile.username)
+        }
+        .onAppear {
+            if let me = friends.myProfile?.username, !me.isEmpty { store.myUsername = me }
+            store.start()
+        }
+        .onChange(of: friends.myProfile?.username) { _, name in
+            if let name, !name.isEmpty { store.myUsername = name }
+        }
     }
 
     private func content(_ item: FeedItem, now: Date) -> some View {
@@ -40,9 +64,72 @@ struct FriendNightView: View {
                 header(item, now: now, live: live)
                 chart(night, now: now, live: live)
                 stats(night, now: now, live: live)
+                conversation(now: now)
                 if !night.drinks.isEmpty { drinkTimeline(night) }
             }
             .padding(16)
+            .contentShape(Rectangle())
+            // Only while a reaction picker is open: a tap elsewhere closes it.
+            .gesture(
+                TapGesture().onEnded { ReactionPickerFocus.dismiss(reduceMotion: reduceMotion) },
+                including: pickerFocus.isOpen ? .all : .subviews
+            )
+        }
+        .onScrollPhaseChange { _, phase in
+            if phase.isScrolling { ReactionPickerFocus.dismiss(reduceMotion: reduceMotion) }
+        }
+    }
+
+    // MARK: - Reactions and comments
+
+    /// The reaction bar (react from here too, unless it's my night) and a row that
+    /// opens the comment sheet, with the latest comment under it.
+    private func conversation(now: Date) -> some View {
+        let count = store.summary.commentCount
+        let blocked = Set(friends.blocked.map(\.uid))
+        let latest = store.summary.latest.last { !blocked.contains($0.uid) }
+        return VStack(alignment: .leading, spacing: 10) {
+            ReactionBar(store: store, canReact: !store.isOwnNight)
+                .zIndex(1)
+            Button {
+                ReactionPickerFocus.dismiss(reduceMotion: reduceMotion)
+                thread = store.key
+            } label: {
+                HStack(alignment: .center, spacing: 12) {
+                    Image(systemName: "bubble.left.and.bubble.right")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(AppColors.accent)
+                        .frame(width: 28)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(count == 0 ? "Add a comment" : (count == 1 ? "View 1 comment" : "View \(count) comments"))
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(AppColors.text)
+                            .contentTransition(.numericText(value: Double(count)))
+                        if let latest {
+                            Text("@\(latest.username): \(latest.text)")
+                                .font(.footnote)
+                                .foregroundStyle(AppColors.textSecondary)
+                                .lineLimit(1)
+                                .contentTransition(.opacity)
+                        }
+                    }
+                    Spacer(minLength: 8)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(AppColors.textTertiary)
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
+                .premiumCard(radius: 14)
+                .contentShape(RoundedRectangle(cornerRadius: 14))
+            }
+            .buttonStyle(.plain)
+            .animation(reduceMotion ? .easeInOut(duration: 0.2) : .spring(response: 0.38, dampingFraction: 0.75),
+                       value: latest?.id)
+            .animation(reduceMotion ? .easeInOut(duration: 0.2) : .spring(response: 0.38, dampingFraction: 0.75),
+                       value: count)
+            .accessibilityHint("Opens the comments")
         }
     }
 
