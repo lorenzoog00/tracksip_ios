@@ -327,6 +327,14 @@ final class FriendsStore: ObservableObject {
         try await FirebaseManager.shared.searchUsers(query: q)
     }
 
+    func suggestions() async throws -> [PersonSuggestion] {
+        try await FirebaseManager.shared.suggestFriends()
+    }
+
+    func contactMatches(emails: [String]) async throws -> [PersonSuggestion] {
+        try await FirebaseManager.shared.matchContacts(emails: emails)
+    }
+
     func sendRequest(to uid: String) async throws {
         try await FirebaseManager.shared.sendFriendRequest(toUid: uid)
         // Only reached on success: the first request sent is the moment to ask.

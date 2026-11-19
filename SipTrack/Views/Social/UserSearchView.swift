@@ -1,6 +1,9 @@
+import Contacts
 import SwiftUI
 
-/// Find people by username and send or accept friend requests.
+/// Find people by username and send or accept friend requests. With nothing
+/// typed it shows "You might know": friends of friends, and, once allowed,
+/// contacts who are on TrackSip.
 struct UserSearchView: View {
     @EnvironmentObject var friends: FriendsStore
 
@@ -12,6 +15,17 @@ struct UserSearchView: View {
     @State private var sent: Set<String> = []
     @StateObject private var coordinator = FriendActionCoordinator()
     @State private var busy: Set<String> = []
+    @State private var suggestions: [PersonSuggestion] = []
+    @State private var loadingSuggestions = true
+    @State private var contacts: ContactsState = .idle
+    /// One contacts check per app session: the server allows a few a day.
+    private static var contactsThisSession: [PersonSuggestion]?
+
+    private enum ContactsState: Equatable {
+        case idle, checking, denied
+        case done([PersonSuggestion])
+        case failed(String)
+    }
 
     private enum RowState { case add, pending, friend, accept }
 
@@ -33,7 +47,7 @@ struct UserSearchView: View {
             AppColors.background.ignoresSafeArea()
 
             if cleaned.count < 2 {
-                hint("Type at least 2 characters of a username.")
+                youMightKnow
             } else if isSearching && results.isEmpty {
                 ProgressView().tint(AppColors.accent)
             } else if results.isEmpty {
@@ -61,6 +75,181 @@ struct UserSearchView: View {
             sent.subtract(ids)
         }
         .onDisappear { searchTask?.cancel() }
+        .task { await loadSuggestions() }
+    }
+
+    // MARK: - You might know
+
+    private var contactMatches: [PersonSuggestion] {
+        if case .done(let found) = contacts { return found.filter { state(for: $0.profile) != .friend } }
+        return []
+    }
+
+    /// Friends of friends, minus anyone already listed from contacts or now a friend.
+    private var mutualSuggestions: [PersonSuggestion] {
+        let fromContacts = Set(contactMatches.map(\.id))
+        return suggestions.filter { !fromContacts.contains($0.id) && state(for: $0.profile) != .friend }
+    }
+
+    private var youMightKnow: some View {
+        List {
+            Section { contactsCard }
+                .listRowBackground(AppColors.surface)
+
+            if !contactMatches.isEmpty {
+                Section {
+                    ForEach(contactMatches) { suggestion in
+                        row(suggestion.profile, subtitle: suggestion.subtitle)
+                    }
+                } header: {
+                    sectionHeader("In your contacts")
+                }
+                .listRowBackground(AppColors.surface)
+            }
+
+            Section {
+                if loadingSuggestions && suggestions.isEmpty {
+                    HStack {
+                        Spacer()
+                        ProgressView().tint(AppColors.accent)
+                        Spacer()
+                    }
+                } else if mutualSuggestions.isEmpty {
+                    Text("When your friends add friends, people you might know show up here.")
+                        .font(.system(size: 15))
+                        .foregroundStyle(AppColors.textSecondary)
+                } else {
+                    ForEach(mutualSuggestions) { suggestion in
+                        row(suggestion.profile, subtitle: suggestion.subtitle)
+                    }
+                }
+            } header: {
+                sectionHeader("You might know")
+            }
+            .listRowBackground(AppColors.surface)
+        }
+        .scrollContentBackground(.hidden)
+        .refreshable { await loadSuggestions() }
+    }
+
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(AppColors.textSecondary)
+            .textCase(.uppercase)
+    }
+
+    @ViewBuilder
+    private var contactsCard: some View {
+        switch contacts {
+        case .idle, .failed:
+            Button {
+                Task { await checkContacts() }
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "person.crop.circle.badge.plus")
+                        .font(.system(size: 24))
+                        .foregroundStyle(AppColors.accent)
+                        .frame(width: 40)
+                        .accessibilityHidden(true)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Find friends from your contacts")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(AppColors.text)
+                        Text(contactsFailureText ?? "Only email addresses are checked, and nothing is saved.")
+                            .font(.system(size: 13))
+                            .foregroundStyle(contactsFailureText == nil ? AppColors.textSecondary : AppColors.danger)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        case .checking:
+            HStack(spacing: 12) {
+                ProgressView()
+                    .tint(AppColors.accent)
+                    .frame(width: 40)
+                Text("Checking your contacts...")
+                    .font(.system(size: 15))
+                    .foregroundStyle(AppColors.textSecondary)
+            }
+        case .denied:
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Contacts are off for Tracksip")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(AppColors.text)
+                Text("Turn them on in Settings to find friends who already use it.")
+                    .font(.system(size: 13))
+                    .foregroundStyle(AppColors.textSecondary)
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    Link("Open Settings", destination: url)
+                        .font(.system(size: 15, weight: .semibold))
+                        .tint(AppColors.accent)
+                }
+            }
+        case .done(let found):
+            HStack(spacing: 12) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 22))
+                    .foregroundStyle(AppColors.success)
+                    .frame(width: 40)
+                    .accessibilityHidden(true)
+                Text(found.isEmpty ? "None of your contacts are on Tracksip Social yet." : "Contacts checked")
+                    .font(.system(size: 15))
+                    .foregroundStyle(AppColors.textSecondary)
+            }
+        }
+    }
+
+    private var contactsFailureText: String? {
+        if case .failed(let message) = contacts { return message }
+        return nil
+    }
+
+    private func loadSuggestions() async {
+        loadingSuggestions = true
+        defer { loadingSuggestions = false }
+        if let cached = Self.contactsThisSession {
+            contacts = .done(cached)
+        } else if contacts == .idle && ContactEmails.isAllowed {
+            // Allowed on an earlier visit: check again without asking for a tap.
+            Task { await checkContacts() }
+        }
+        do {
+            suggestions = try await friends.suggestions()
+        } catch {
+            // Suggestions are a nicety; the username search still works.
+            suggestions = []
+        }
+    }
+
+    private func checkContacts() async {
+        guard contacts != .checking else { return }
+        switch CNContactStore.authorizationStatus(for: .contacts) {
+        case .denied, .restricted:
+            contacts = .denied
+            return
+        case .notDetermined:
+            let granted = (try? await CNContactStore().requestAccess(for: .contacts)) ?? false
+            guard granted else {
+                contacts = .denied
+                return
+            }
+        default:
+            break
+        }
+        contacts = .checking
+        do {
+            let emails = try await Task.detached(priority: .userInitiated) {
+                try ContactEmails.load()
+            }.value
+            let found = emails.isEmpty ? [] : try await friends.contactMatches(emails: emails)
+            Self.contactsThisSession = found
+            contacts = .done(found)
+        } catch {
+            contacts = .failed(error.localizedDescription)
+        }
     }
 
     private func hint(_ text: String) -> some View {
@@ -71,12 +260,20 @@ struct UserSearchView: View {
             .padding(32)
     }
 
-    private func row(_ profile: FriendProfile) -> some View {
+    private func row(_ profile: FriendProfile, subtitle: String? = nil) -> some View {
         HStack(spacing: 12) {
             AvatarView(profile: profile, size: 40)
-            Text("@\(profile.username)")
-                .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(AppColors.text)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("@\(profile.username)")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(AppColors.text)
+                if let subtitle {
+                    Text(subtitle)
+                        .font(.system(size: 13))
+                        .foregroundStyle(AppColors.textSecondary)
+                        .lineLimit(1)
+                }
+            }
             Spacer()
             actionButton(profile)
             ReportBlockMenu(profile: profile, coordinator: coordinator)
@@ -152,5 +349,37 @@ struct UserSearchView: View {
             }
             isSearching = false
         }
+    }
+}
+
+/// The email addresses in the address book, or in the contacts the user chose
+/// to share (limited access). Load off the main thread: enumeration blocks.
+enum ContactEmails {
+    /// The server takes at most this many per check.
+    nonisolated static let limit = 2000
+
+    /// Full or limited access already granted.
+    static var isAllowed: Bool {
+        switch CNContactStore.authorizationStatus(for: .contacts) {
+        case .authorized, .limited: return true
+        default: return false
+        }
+    }
+
+    nonisolated static func load() throws -> [String] {
+        let request = CNContactFetchRequest(keysToFetch: [CNContactEmailAddressesKey as CNKeyDescriptor])
+        var seen = Set<String>()
+        var emails: [String] = []
+        try CNContactStore().enumerateContacts(with: request) { contact, stop in
+            for address in contact.emailAddresses {
+                let email = (address.value as String).trimmingCharacters(in: .whitespaces).lowercased()
+                if !email.isEmpty, seen.insert(email).inserted { emails.append(email) }
+                if emails.count >= limit {
+                    stop.pointee = true
+                    return
+                }
+            }
+        }
+        return emails
     }
 }

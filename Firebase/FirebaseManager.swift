@@ -844,6 +844,38 @@ extension FirebaseManager {
         return r["username"] as? String ?? username
     }
 
+    /// Friends of your friends, most shared friends first.
+    func suggestFriends() async throws -> [PersonSuggestion] {
+        let r = try await callFunction("suggestFriends", data: [:])
+        return (r["results"] as? [[String: Any]] ?? []).compactMap { row in
+            guard let profile = Self.friendProfile(row) else { return nil }
+            let count = (row["mutual_count"] as? NSNumber)?.intValue ?? 1
+            return PersonSuggestion(
+                profile: profile,
+                reason: .mutualFriends(count: count, via: row["mutual_username"] as? String)
+            )
+        }
+    }
+
+    /// Which of these contact emails belong to people on TrackSip Social. The
+    /// server matches and discards them; nothing is stored.
+    func matchContacts(emails: [String]) async throws -> [PersonSuggestion] {
+        let r = try await callFunction("matchContacts", data: ["emails": emails])
+        return (r["results"] as? [[String: Any]] ?? []).compactMap { row in
+            Self.friendProfile(row).map { PersonSuggestion(profile: $0, reason: .contact) }
+        }
+    }
+
+    private static func friendProfile(_ row: [String: Any]) -> FriendProfile? {
+        guard let uid = row["uid"] as? String, let username = row["username"] as? String else { return nil }
+        return FriendProfile(
+            uid: uid,
+            username: username,
+            photoURL: (row["photo_url"] as? String).flatMap { URL(string: $0) },
+            avatarColor: row["avatar_color"] as? String ?? ""
+        )
+    }
+
     func searchUsers(query: String) async throws -> [FriendProfile] {
         let r = try await callFunction("searchUsers", data: ["query": query])
         let rows = r["results"] as? [[String: Any]] ?? []

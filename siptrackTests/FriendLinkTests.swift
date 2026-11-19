@@ -68,4 +68,72 @@ struct FriendLinkTests {
         #expect(url.absoluteString == "https://tracksip.online/u/lo.re_n9")
         #expect(FriendLink.username(from: url) == "lo.re_n9")
     }
+
+    // MARK: - Push routes
+
+    @Test func pushRoutes() {
+        #expect(PushRoute(userInfo: ["aps": [:]]) == .friends)
+        #expect(PushRoute(userInfo: ["route": "friends"]) == .friends)
+        #expect(PushRoute(userInfo: ["route": "add", "username": "Ana_9"]) == .add(username: "ana_9"))
+        // A malformed name never reaches the add sheet.
+        #expect(PushRoute(userInfo: ["route": "add", "username": "no spaces"]) == .social)
+        #expect(PushRoute(userInfo: ["route": "add"]) == .social)
+        #expect(PushRoute(userInfo: ["route": "social"]) == .social)
+    }
+
+    // MARK: - Suggestions
+
+    private func suggestion(_ reason: PersonSuggestion.Reason) -> PersonSuggestion {
+        PersonSuggestion(
+            profile: FriendProfile(uid: "u", username: "u", photoURL: nil, avatarColor: "#fff"),
+            reason: reason
+        )
+    }
+
+    @Test func suggestionSubtitles() {
+        #expect(suggestion(.contact).subtitle == "In your contacts")
+        #expect(suggestion(.mutualFriends(count: 1, via: "beto")).subtitle == "Friends with @beto")
+        #expect(suggestion(.mutualFriends(count: 2, via: "beto")).subtitle == "Friends with @beto and 1 other")
+        #expect(suggestion(.mutualFriends(count: 4, via: "beto")).subtitle == "Friends with @beto and 3 others")
+        #expect(suggestion(.mutualFriends(count: 3, via: nil)).subtitle == "3 friends in common")
+    }
+
+    // MARK: - A friend's chart
+
+    private let start = Date(timeIntervalSince1970: 1_700_000_000)
+
+    private func shared(ended: Bool) -> SharedNight {
+        SharedNight(
+            startedAt: start,
+            endedAt: ended ? start.addingTimeInterval(1500) : nil,
+            lastDrinkAt: start.addingTimeInterval(300),
+            expiresAt: start.addingTimeInterval(90_000),
+            samples: [0, 0.03, 0.05, 0.04, 0.02, 0],
+            drinks: [
+                SharedDrink(name: "Beer", icon: "beer-outline", at: start.addingTimeInterval(60)),
+                SharedDrink(name: "Beer", icon: "beer-outline", at: start.addingTimeInterval(120)),
+                SharedDrink(name: "Tequila", icon: "flask-outline", at: start.addingTimeInterval(300)),
+            ]
+        )
+    }
+
+    @Test func liveFriendChartSplitsAtNow() {
+        let now = start.addingTimeInterval(700)
+        let data = NightBACChartData(shared: shared(ended: false), now: now)
+        #expect(!data.isFinished)
+        #expect(data.start == start)
+        #expect(data.current.date == now)
+        #expect(data.history.allSatisfy { $0.date <= now })
+        #expect(data.projection.allSatisfy { $0.date >= now })
+        #expect(data.end == start.addingTimeInterval(1500))
+        #expect(data.hours.count == 1)
+        #expect(data.hours[0].summary == "Beer ×2 · Tequila ×1")
+    }
+
+    @Test func endedFriendChartStopsAtClose() {
+        let data = NightBACChartData(shared: shared(ended: true), now: start.addingTimeInterval(80_000))
+        #expect(data.isFinished)
+        #expect(data.current.date == start.addingTimeInterval(1500))
+        #expect(data.history.first?.date == start)
+    }
 }
