@@ -1109,6 +1109,27 @@ test("social: registerPushToken stores the token and validates it", async () => 
   assert.equal(await exists("push_tokens/B"), false);
 });
 
+test("social: registerPushToken stores the app's known features", async () => {
+  const register = (features) => registerPushToken({
+    db, uid: "A", data: {token: PUSH_TOKEN, environment: "sandbox", features},
+  });
+  const stored = async () =>
+    (await db.doc("push_tokens/A").get()).data().features;
+  await register(["threads"]);
+  assert.deepEqual(await stored(), ["threads"]);
+  // Names this backend doesn't know are dropped; repeats are kept once.
+  await register(["threads", "future", "threads"]);
+  assert.deepEqual(await stored(), ["threads"]);
+  // An older app sends none, and re-registering clears what a newer one set.
+  await register(undefined);
+  assert.deepEqual(await stored(), []);
+  for (const features of ["threads", [1], new Array(6).fill("threads")]) {
+    await assert.rejects(register(features),
+        (e) => e.code === "invalid-argument");
+  }
+  assert.deepEqual(await stored(), []);
+});
+
 test("social: notifyFromPushTokens sends the exact copy", async () => {
   await registerPushToken({
     db, uid: "B", data: {token: PUSH_TOKEN, environment: "production"},
@@ -1879,9 +1900,8 @@ const threadPushes = (result = {status: 200, reason: ""}) => {
   });
   return {sent, notify};
 };
-const tokenForA = () => registerPushToken({
-  db, uid: "A", data: {token: PUSH_TOKEN, environment: "production"},
-});
+const tokenForA = () => registerPushToken({db, uid: "A",
+  data: {token: PUSH_TOKEN, environment: "production", features: ["threads"]}});
 const ON_OLIVES = {from: "bobby", owner: "O", ownerName: "olive", startedAt: T};
 
 test("interactions: notifyThread copy and route", async () => {
@@ -1901,7 +1921,7 @@ test("interactions: notifyThread copy and route", async () => {
     environment: "production",
     token: PUSH_TOKEN,
     payload: {
-      aps: {alert: {body}, sound: "default"},
+      aps: {"alert": {body}, "sound": "default", "thread-id": `O_${T}`},
       route: "thread",
       owner: "O",
       started_at: T,
@@ -1926,6 +1946,32 @@ test("interactions: notifyThread does nothing without a token", async () => {
   const {sent, notify} = threadPushes();
   await notify("A", "comment", {...ON_OLIVES, text: "hi"});
   assert.deepEqual(sent, []);
+});
+
+test("interactions: an app without the threads feature gets no thread push", async () => {
+  const every = [
+    ["reaction", {...ON_OLIVES, emoji: "🍻", others: 0}],
+    ["comment", {...ON_OLIVES, text: "hi"}],
+    ["reply", {...ON_OLIVES, text: "hi"}],
+    ["mention", {...ON_OLIVES, text: "hi"}],
+  ];
+  // An older app sends no features at all.
+  for (const data of [{}, {features: []}]) {
+    await registerPushToken({db, uid: "A",
+      data: {token: PUSH_TOKEN, environment: "production", ...data}});
+    const {sent, notify} = threadPushes();
+    for (const [kind, payload] of every) await notify("A", kind, payload);
+    assert.deepEqual(sent, []);
+    // Friend-request pushes still reach it.
+    const requests = [];
+    await notifyFromPushTokens({
+      db, send: async (environment, token, payload) => {
+        requests.push(payload.route);
+        return {status: 200, reason: ""};
+      },
+    })("A", "request", "bobby");
+    assert.deepEqual(requests, ["friends"]);
+  }
 });
 
 test("interactions: a dead token is removed by a thread push", async () => {

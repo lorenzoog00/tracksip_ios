@@ -346,6 +346,10 @@ async function unblockUser({db, uid, data}) {
 // ---------------------------------------------------------------------------
 
 const REPORT_KINDS = ["username", "photo", "comment"];
+// What a push token's app can handle. "threads": it opens night reaction
+// and comment pushes and can switch them off; older apps never send it.
+const PUSH_FEATURES = ["threads"];
+const MAX_PUSH_FEATURES = 5;
 const PUSH_COPY = {
   request: (username) => `@${username} sent you a friend request`,
   accepted: (username) => `@${username} accepted your friend request`,
@@ -430,18 +434,37 @@ async function reportUser({db, uid, data}) {
 }
 
 /**
- * Stores the caller's APNs token so friend requests can reach them. A device
- * token belongs to one account at a time: any other account still holding it
+ * Checks the features an app says it handles. Missing means none (an older
+ * app); names this backend doesn't know are dropped.
+ * @param {*} raw the submitted features
+ * @return {string[]} the known features, each once
+ */
+function pushFeatures(raw) {
+  if (raw == null) return [];
+  if (!Array.isArray(raw) || raw.length > MAX_PUSH_FEATURES ||
+      !raw.every((feature) => typeof feature === "string")) {
+    throw new HttpsError("invalid-argument", "Those features aren't valid.");
+  }
+  return [...new Set(raw.filter((feature) =>
+    PUSH_FEATURES.includes(feature)))];
+}
+
+/**
+ * Stores the caller's APNs token so friend requests can reach them, with the
+ * features the app handles (thread pushes need "threads"). A device token
+ * belongs to one account at a time: any other account still holding it
  * (signed out on this phone) loses it, so its pushes stop landing here.
  * @param {object} params
  * @param {object} params.db Firestore
  * @param {string} params.uid the caller
- * @param {{token: string, environment: string}} params.data the payload
+ * @param {{token: string, environment: string, features: Array}} params.data
+ *     the payload; features is optional
  * @return {Promise<{status: string}>} always "registered"
  */
 async function registerPushToken({db, uid, data}) {
-  const {token, environment} = data || {};
+  const {token, environment, features: rawFeatures} = data || {};
   validatePushToken(token, environment);
+  const features = pushFeatures(rawFeatures);
   assertNotDeleting(await db.doc(`account_deletions/${uid}`).get());
   const holders = await db
       .collection("push_tokens")
@@ -454,6 +477,7 @@ async function registerPushToken({db, uid, data}) {
   batch.set(db.doc(`push_tokens/${uid}`), {
     token,
     environment,
+    features,
     updated_at: Date.now(),
   });
   await batch.commit();

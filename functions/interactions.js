@@ -636,7 +636,8 @@ const THREAD_COPY = {
 /**
  * Builds the notifier reactToNight and addComment call. A switch set to
  * false in notification_prefs/{uid} skips the push; a missing doc or key
- * means on. Users with no stored token are skipped; dead tokens are deleted.
+ * means on. Users with no stored token, or whose app did not register the
+ * "threads" feature, are skipped; dead tokens are deleted.
  * @param {object} params
  * @param {object} params.db Firestore
  * @param {Function} params.send (environment, token, payload) =>
@@ -654,9 +655,17 @@ function notifyThread({db, send}) {
     ]);
     if (prefs.exists && prefs.data()[THREAD_PREF[kind]] === false) return;
     if (!snap.exists) return;
-    const {token, environment} = snap.data();
+    const {token, environment, features} = snap.data();
+    // An app too old to open a thread, or to switch these pushes off, never
+    // registered the feature and gets none of them.
+    if (!Array.isArray(features) || !features.includes("threads")) return;
     const result = await send(environment, token, {
-      aps: {alert: {body: copy(payload)}, sound: "default"},
+      aps: {
+        "alert": {body: copy(payload)},
+        "sound": "default",
+        // Notification Center groups each night's pushes together.
+        "thread-id": nightKey(payload.owner, payload.startedAt),
+      },
       route: "thread",
       owner: payload.owner,
       started_at: payload.startedAt,
