@@ -1,5 +1,5 @@
 const {HttpsError} = require("firebase-functions/v2/https");
-const {deleteThreadsFor} = require("./interactions");
+const {deleteThreadsFor, removeFromThread} = require("./interactions");
 
 // eslint-disable-next-line require-jsdoc
 async function deleteAccount({
@@ -77,10 +77,18 @@ async function deleteSocialData({db, bucket, uid}) {
   // The shared_nights delete trigger does this too, but asynchronously and
   // only if it runs; deleting here keeps account deletion self-contained.
   await deleteThreadsFor({db, uid});
-  // What they left on other people's nights.
+  // What they left on other people's nights, summaries included: a deleted
+  // account's name and words must not linger in a friend's feed card.
+  const touched = new Map();
   for (const group of ["reactions", "comments"]) {
     const left = await db.collectionGroup(group).where("uid", "==", uid).get();
-    for (const item of left.docs) await item.ref.delete();
+    for (const item of left.docs) {
+      const threadRef = item.ref.parent.parent;
+      touched.set(threadRef.path, threadRef);
+    }
+  }
+  for (const threadRef of touched.values()) {
+    await removeFromThread({db, threadRef, uid});
   }
   await db.doc(`push_tokens/${uid}`).delete();
   await db.doc(`notification_prefs/${uid}`).delete();

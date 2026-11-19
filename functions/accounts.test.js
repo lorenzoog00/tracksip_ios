@@ -16,14 +16,27 @@ function fakeDb({owners = [], threads = [], groups = {}} = {}) {
     avatarDeletes: [],
     groupQueries: [],
     threadQueries: [],
+    threadSets: [],
   };
   const emptyQuery = {get: () => Promise.resolve({docs: []})};
+  // A night_threads ref, enough for removeFromThread's transaction: its
+  // queries carry what they ask for so tx.get can answer them.
+  const threadRefAt = (path) => ({
+    path,
+    collection: (name) => ({
+      doc: (id) => ({path: `${path}/${name}/${id}`}),
+      where: () => ({mine: name, thread: path}),
+      orderBy: () => ({limit: () => ({newest: true})}),
+    }),
+  });
+  const parentOf = (path) => threadRefAt(path.split("/").slice(0, 2).join("/"));
   // Docs whose ref deletes itself into docDeletes, as a query result.
   const docsAt = (paths) => ({
     get: () => Promise.resolve({
       docs: paths.map((path) => ({
         ref: {
           path,
+          parent: {parent: parentOf(path)},
           delete: () => {
             calls.docDeletes.push(path);
             return Promise.resolve();
@@ -31,6 +44,23 @@ function fakeDb({owners = [], threads = [], groups = {}} = {}) {
         },
       })),
     }),
+  });
+  // Group docs inside one thread, as transaction query results.
+  const groupDocsIn = (name, thread) => {
+    const docs = (groups[name] || [])
+        .filter((path) => path.startsWith(`${thread}/`))
+        .map((path) => ({ref: {path}, data: () => ({uid: "u1"})}));
+    return {docs, size: docs.length};
+  };
+  const runTransaction = async (fn) => fn({
+    get: async (target) => {
+      if (target.mine) return groupDocsIn(target.mine, target.thread);
+      if (target.newest) return {docs: [], size: 0};
+      const exists = (groups.reactions || []).includes(target.path);
+      return {exists, data: () => ({emoji: "beer"})};
+    },
+    delete: (ref) => calls.docDeletes.push(ref.path),
+    set: (ref) => calls.threadSets.push(ref.path),
   });
   const db = {
     doc: (path) => {
@@ -48,6 +78,7 @@ function fakeDb({owners = [], threads = [], groups = {}} = {}) {
       };
       return ref;
     },
+    runTransaction,
     recursiveDelete: (ref) => {
       calls.recursiveDeleted.push(ref.path);
       return Promise.resolve();
@@ -205,10 +236,13 @@ test("a delete removes the user's threads, reactions, comments and prefs", async
       calls.groupQueries.filter(([name]) => name !== "blocked"),
       [["reactions", "uid", "==", "u1"], ["comments", "uid", "==", "u1"]],
   );
+  // Removed thread by thread, each in one transaction that also clears
+  // their rate limit there (summaries are checked in the emulator test).
   assert.deepEqual(calls.docDeletes, [
     "live_activities/u1", "shared_nights/u1",
-    "night_threads/f1_7/reactions/u1",
-    "night_threads/f1_7/comments/c1", "night_threads/f2_8/comments/c2",
+    "night_threads/f1_7/reactions/u1", "night_threads/f1_7/comments/c1",
+    "night_threads/f1_7/limits/u1",
+    "night_threads/f2_8/comments/c2", "night_threads/f2_8/limits/u1",
     "push_tokens/u1", "notification_prefs/u1",
     "contact_nudges/u1",
     "contact_match_limits/u1",

@@ -461,22 +461,78 @@ async function deleteComment({db, uid, data, now = Date.now()}) {
       throw new HttpsError("permission-denied",
           "You can't delete this comment.");
     }
-    const latest = newest.docs
-        .filter((doc) => doc.id !== commentId)
-        .slice(0, LATEST_COMMENTS)
-        .reverse()
-        .map((doc) => {
-          const {uid: author, username, text, at} = doc.data();
-          return {id: doc.id, uid: author, username, text, at};
-        });
     const summary = thread.exists ? thread.data() : {};
     tx.delete(commentRef);
     tx.set(threadRef, {
       comment_count: Math.max(0, (summary.comment_count || 0) - 1),
-      latest_comments: latest,
+      latest_comments: latestComments(newest.docs,
+          (doc) => doc.id !== commentId),
     }, {merge: true});
   });
   return {status: "deleted"};
+}
+
+/**
+ * Rebuilds a summary's latest_comments from the newest comments.
+ * @param {object[]} newestDocs comment snapshots, newest first
+ * @param {Function} keep (doc) => boolean, false for comments going away
+ * @return {Array<object>} the last LATEST_COMMENTS kept, oldest first
+ */
+function latestComments(newestDocs, keep) {
+  return newestDocs
+      .filter(keep)
+      .slice(0, LATEST_COMMENTS)
+      .reverse()
+      .map((doc) => {
+        const {uid: author, username, text, at} = doc.data();
+        return {id: doc.id, uid: author, username, text, at};
+      });
+}
+
+/**
+ * Removes everything one person left on someone else's night: their
+ * reaction, comments and rate limit, and every trace of them in the
+ * summary (counts, reactor lists, latest comments). Used by account
+ * deletion.
+ * @param {object} params
+ * @param {object} params.db Firestore
+ * @param {object} params.threadRef the night_threads document
+ * @param {string} params.uid the person being removed
+ */
+async function removeFromThread({db, threadRef, uid}) {
+  const reactionRef = threadRef.collection("reactions").doc(uid);
+  const limitRef = threadRef.collection("limits").doc(uid);
+  const comments = threadRef.collection("comments");
+  await db.runTransaction(async (tx) => {
+    // One person has at most MAX_COMMENTS_PER_PERSON comments, so this many
+    // newest comments always holds the newest LATEST_COMMENTS of others.
+    const [thread, reaction, mine, newest] = await Promise.all([
+      tx.get(threadRef),
+      tx.get(reactionRef),
+      tx.get(comments.where("uid", "==", uid)),
+      tx.get(comments.orderBy("at", "desc")
+          .limit(LATEST_COMMENTS + MAX_COMMENTS_PER_PERSON)),
+    ]);
+    if (reaction.exists) tx.delete(reactionRef);
+    for (const doc of mine.docs) tx.delete(doc.ref);
+    tx.delete(limitRef);
+    if (!thread.exists) return;
+
+    const summary = thread.data();
+    const counts = {...(summary.reactions || {})};
+    const emoji = reaction.exists ? reaction.data().emoji : null;
+    if (emoji) counts[emoji] = Math.max(0, (counts[emoji] || 0) - 1);
+    const without = (list) => (list || []).filter((id) => id !== uid);
+    tx.set(threadRef, {
+      reactions: counts,
+      reactors: without(summary.reactors),
+      pushed_reactors: without(summary.pushed_reactors),
+      unpushed_reactors: without(summary.unpushed_reactors),
+      comment_count: Math.max(0, (summary.comment_count || 0) - mine.size),
+      latest_comments: latestComments(newest.docs,
+          (doc) => doc.data().uid !== uid),
+    }, {merge: true});
+  });
 }
 
 /**
@@ -612,5 +668,5 @@ async function deleteThreadsFor({db, uid}) {
 module.exports = {
   REACTIONS, nightKey, loadNight, reactToNight,
   addComment, deleteComment, getNightThread,
-  notifyThread, deleteThreadsFor,
+  notifyThread, deleteThreadsFor, removeFromThread,
 };

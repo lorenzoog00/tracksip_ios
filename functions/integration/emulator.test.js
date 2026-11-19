@@ -332,11 +332,28 @@ test("deleting an account removes every social trace of it", async () => {
     "night_threads/A_1": {owner: "A", started_at: 1},
     "night_threads/A_1/comments/c1": {uid: "B", text: "hi"},
     "night_threads/A_1/reactions/B": {uid: "B", emoji: "beer"},
-    "night_threads/B_1": {owner: "B", started_at: 1},
-    "night_threads/B_1/comments/c2": {uid: "A", text: "mine"},
-    "night_threads/B_1/comments/c3": {uid: "D", text: "theirs"},
+    "night_threads/B_1": {
+      owner: "B", started_at: 1,
+      reactions: {fire: 1, heart: 1},
+      reactors: ["A", "D"],
+      pushed_reactors: ["A"],
+      unpushed_reactors: ["A", "D"],
+      comment_count: 3,
+      latest_comments: [
+        {id: "c3", uid: "D", username: "dina", text: "theirs", at: 1},
+        {id: "c2", uid: "A", username: "alpha", text: "mine", at: 2},
+        {id: "c4", uid: "A", username: "alpha", text: "again", at: 3},
+      ],
+    },
+    "night_threads/B_1/comments/c2":
+      {uid: "A", username: "alpha", text: "mine", at: 2},
+    "night_threads/B_1/comments/c3":
+      {uid: "D", username: "dina", text: "theirs", at: 1},
+    "night_threads/B_1/comments/c4":
+      {uid: "A", username: "alpha", text: "again", at: 3},
     "night_threads/B_1/reactions/A": {uid: "A", emoji: "fire"},
     "night_threads/B_1/reactions/D": {uid: "D", emoji: "heart"},
+    "night_threads/B_1/limits/A": {count: 2, last_at: 3},
   };
   for (const [path, data] of Object.entries(writes)) {
     await db.doc(path).set(data);
@@ -354,9 +371,27 @@ test("deleting an account removes every social trace of it", async () => {
     "blocks/A/blocked/F", "blocks/B/blocked/A", "shared_nights/A",
     "push_tokens/A", "notification_prefs/A", "night_threads/A_1",
     "night_threads/A_1/comments/c1", "night_threads/A_1/reactions/B",
-    "night_threads/B_1/comments/c2", "night_threads/B_1/reactions/A",
+    "night_threads/B_1/comments/c2", "night_threads/B_1/comments/c4",
+    "night_threads/B_1/reactions/A", "night_threads/B_1/limits/A",
   ]) {
     assert.equal(await exists(gone), false, gone);
+  }
+  // The friend's summary keeps nothing of A: not the uid, name or words.
+  const friendSummary = (await db.doc("night_threads/B_1").get()).data();
+  assert.deepEqual(friendSummary, {
+    owner: "B", started_at: 1,
+    reactions: {fire: 0, heart: 1},
+    reactors: ["D"],
+    pushed_reactors: [],
+    unpushed_reactors: ["D"],
+    comment_count: 1,
+    latest_comments: [
+      {id: "c3", uid: "D", username: "dina", text: "theirs", at: 1},
+    ],
+  });
+  const flat = JSON.stringify(friendSummary);
+  for (const trace of ["\"A\"", "alpha", "mine", "again"]) {
+    assert.ok(!flat.includes(trace), trace);
   }
   for (const kept of [
     "public_profiles/B", "usernames/b", "friendships/B/friends/D",
@@ -1936,6 +1971,11 @@ test("thread rules: an expired summary is unreadable; a missing one is", async (
   for (const uid of ["alice", "bob"]) {
     const fs = env.authenticatedContext(uid).firestore();
     await assertFails(getDoc(doc(fs, "night_threads/alice_1")));
+    // Its reactions and comments expire with it, before TTL removes them.
+    for (const sub of ["comments", "reactions"]) {
+      await assertFails(getDocs(collection(fs, `night_threads/alice_1/${sub}`)));
+    }
+    await assertFails(getDoc(doc(fs, "night_threads/alice_1/comments/c1")));
     // A night nobody has reacted to yet has no summary; the feed card's
     // listener must not die on it.
     await assertSucceeds(getDoc(doc(fs, "night_threads/alice_2")));

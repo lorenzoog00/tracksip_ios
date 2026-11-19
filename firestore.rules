@@ -218,8 +218,8 @@ service cloud.firestore {
     // The key is "{ownerUid}_{started_at}"; uids contain no underscore. The
     // owner and their friends may get the summary while it is live, and a
     // missing one (nobody has reacted yet) so a feed listener doesn't die on
-    // it. Reactions and comments are readable to the same people; their
-    // expiry is enforced by TTL. Blocks are filtered by getNightThread, not
+    // it. Reactions and comments are readable to the same people while the
+    // summary is live. Blocks are filtered by getNightThread, not
     // here. limits (per-person rate limits) are never readable.
     match /night_threads/{key} {
       function threadOwner() {
@@ -233,11 +233,16 @@ service cloud.firestore {
       allow get: if canSeeThread()
         && (resource == null || resource.data.expires_at > request.time);
 
+      // Gated on the parent summary: a per-doc resource check would break
+      // list, and TTL may lag expiry by a day.
+      function threadLive() {
+        return get(/databases/$(database)/documents/night_threads/$(key)).data.expires_at > request.time;
+      }
       match /reactions/{uid} {
-        allow read: if canSeeThread();
+        allow read: if canSeeThread() && threadLive();
       }
       match /comments/{id} {
-        allow read: if canSeeThread();
+        allow read: if canSeeThread() && threadLive();
       }
     }
 
