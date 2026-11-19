@@ -28,7 +28,19 @@ struct SipTrackApp: App {
         _appState = StateObject(wrappedValue: state)
         _friends  = StateObject(wrappedValue: FriendsStore(appState: state))
         WatchBridge.shared.appState = state
-        PushRegistration.onOpenFriends = { [weak state] in state?.pendingOpenFriends = true }
+        PushRegistration.onOpen = { [weak state] route in
+            guard let state else { return }
+            switch route {
+            case .friends:
+                state.pendingOpenFriends = true
+            case .add(let username):
+                // The same add sheet a shared profile link opens.
+                AdManager.shared.suppressAppOpenAd(for: 30)
+                state.pendingFriendLink = username
+            case .social:
+                state.selectedTab = .social
+            }
+        }
         // Lock-screen buttons. iOS runs these in a background launch and ends it
         // when the intent returns, so each one waits for the lock screen and the
         // push server to hear about the change first.

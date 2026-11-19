@@ -7,6 +7,34 @@ struct FriendProfile: Equatable {
     var avatarColor: String
 }
 
+/// Someone "You might know", with why: shared friends or your contacts.
+struct PersonSuggestion: Equatable, Identifiable {
+    enum Reason: Equatable {
+        /// `via` is one of the shared friends, nil if their profile is gone.
+        case mutualFriends(count: Int, via: String?)
+        case contact
+    }
+
+    var profile: FriendProfile
+    var reason: Reason
+    var id: String { profile.uid }
+
+    /// The grey line under the username.
+    var subtitle: String {
+        switch reason {
+        case .contact:
+            return "In your contacts"
+        case .mutualFriends(let count, let via):
+            guard let via else { return count == 1 ? "1 friend in common" : "\(count) friends in common" }
+            switch count {
+            case ..<2: return "Friends with @\(via)"
+            case 2: return "Friends with @\(via) and 1 other"
+            default: return "Friends with @\(via) and \(count - 1) others"
+            }
+        }
+    }
+}
+
 struct FeedItem: Identifiable {
     /// Friend uid.
     var id: String

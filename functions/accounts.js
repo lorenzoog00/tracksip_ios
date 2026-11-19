@@ -38,7 +38,8 @@ async function deleteAccount({
 }
 
 // Friends data: profile, handle, graph (both directions), requests, blocks
-// (both directions), shared night, push token and avatar file.
+// (both directions), shared night, push token, contact-push and contact-check
+// bookkeeping, and avatar file.
 // eslint-disable-next-line require-jsdoc
 async function deleteSocialData({db, bucket, uid}) {
   // Found by owner, not via the profile: a retry after a partial failure has
@@ -72,6 +73,8 @@ async function deleteSocialData({db, bucket, uid}) {
 
   await db.doc(`shared_nights/${uid}`).delete();
   await db.doc(`push_tokens/${uid}`).delete();
+  await db.doc(`contact_nudges/${uid}`).delete();
+  await db.doc(`contact_match_limits/${uid}`).delete();
   await bucket.file(`avatars/${uid}.jpg`).delete({ignoreNotFound: true});
   // Last, so a failed earlier step leaves the profile for the retry.
   await db.doc(`public_profiles/${uid}`).delete();

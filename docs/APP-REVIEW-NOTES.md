@@ -97,6 +97,13 @@ User-generated content safeguards (Guideline 1.2):
   rejected if adult, violent or racy.
 - Friends can be removed at any time, and deleting the account removes all of
   the user's social data.
+- Contacts (optional): in Find friends, "Find friends from your contacts"
+  asks for Contacts access. Only the email addresses are sent, over HTTPS, to
+  check which belong to TrackSip accounts with a verified email; they are not
+  stored or logged, and the check runs at most a few times a day. People found
+  this way may get one notification that the user is on TrackSip. Nothing is
+  read until the user taps the button and grants access.
+- "You might know" also lists friends of the user's friends.
 
 The demo account has one friend with a recent night, so the Social tab has
 content to review.

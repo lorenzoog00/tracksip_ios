@@ -1,11 +1,38 @@
 import UIKit
 import UserNotifications
 
-/// Remote push for friend requests. The permission prompt only appears once there is a
-/// reason for it (the user sent a request or received one), never at launch.
+/// Where a tapped remote push leads. The server sends `route` (and `username`)
+/// beside `aps`; pushes from before that field existed are friend requests.
+nonisolated enum PushRoute: Equatable, Sendable {
+    /// My friends: a request arrived or was accepted.
+    case friends
+    /// The add sheet for someone who has you in their contacts.
+    case add(username: String)
+    /// Social, where someone without a profile picks a username.
+    case social
+
+    init(userInfo: [AnyHashable: Any]) {
+        switch userInfo["route"] as? String {
+        case "add":
+            if let name = (userInfo["username"] as? String)?.lowercased(), FriendLink.isValid(name) {
+                self = .add(username: name)
+            } else {
+                self = .social
+            }
+        case "social":
+            self = .social
+        default:
+            self = .friends
+        }
+    }
+}
+
+/// Remote push for friend requests and contacts joining. The permission prompt only
+/// appears once there is a reason for it (the user sent a request or received one),
+/// never at launch.
 enum PushRegistration {
-    /// Called when a friend-request push is tapped. Set by `SipTrackApp`.
-    static var onOpenFriends: (() -> Void)?
+    /// Called when a remote push is tapped. Set by `SipTrackApp`.
+    static var onOpen: ((PushRoute) -> Void)?
 
     /// Ask only while undecided, and only once a request exists in either direction.
     nonisolated static func shouldAsk(sentCount: Int, incomingCount: Int, status: UNAuthorizationStatus) -> Bool {

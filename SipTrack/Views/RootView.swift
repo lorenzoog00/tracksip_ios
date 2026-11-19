@@ -158,6 +158,10 @@ struct RootView: View {
     /// the camera request; otherwise left set for SocialRootView to present and clear.
     private func handleFriendLink() {
         guard appState.pendingFriendLink != nil else { return }
+        // On a cold launch (a tapped push or link) the stored session is restored a
+        // moment after the first frame. Wait for it rather than drop the link; the
+        // sign-in change below calls this again.
+        if !firebase.isSignedIn && appState.currentUserId != nil { return }
         guard showsTabs, firebase.isSignedIn else {
             appState.pendingFriendLink = nil
             return
@@ -302,6 +306,7 @@ struct RootView: View {
             // re-arms the one-shot detector; the next HomeView.task fires it.
             if signedIn { countryDetector.resetSession() }
             path = NavigationPath()
+            if signedIn { handleFriendLink() }
             if !signedIn {
                 appState.selectedTab = .home
                 appState.pendingFriendLink = nil
