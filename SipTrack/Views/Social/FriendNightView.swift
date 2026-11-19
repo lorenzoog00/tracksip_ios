@@ -39,7 +39,7 @@ struct FriendNightView: View {
                 header(item, now: now, live: live)
                 chart(night, now: now, live: live)
                 stats(night, now: now, live: live)
-                drinkTimeline(night)
+                if !night.drinks.isEmpty { drinkTimeline(night) }
             }
             .padding(16)
         }
@@ -80,59 +80,31 @@ struct FriendNightView: View {
 
     // MARK: - Chart
 
-    private struct Point: Identifiable {
-        let date: Date
-        let bac: Double
-        var id: Date { date }
-    }
-
+    /// The same BAC card as your own Stats. Before the first drink there is no
+    /// curve to draw, so a quiet empty card instead of axes with nothing on them.
+    @ViewBuilder
     private func chart(_ night: SharedNight, now: Date, live: Bool) -> some View {
-        let points = night.samples.enumerated().map { index, value in
-            Point(
-                date: night.startedAt.addingTimeInterval(Double(index) * SharedNight.sampleInterval),
-                bac: value
-            )
-        }
-        let yMax = max(night.peakBAC * 1.2, 0.08)
-        let end = max(points.last?.date ?? night.startedAt, night.startedAt.addingTimeInterval(SharedNight.sampleInterval))
-        return Chart {
-            ForEach(points) { point in
-                AreaMark(x: .value("Time", point.date), y: .value("BAC", point.bac))
-                    .foregroundStyle(AppColors.accent.opacity(0.12))
-                LineMark(x: .value("Time", point.date), y: .value("BAC", point.bac))
-                    .foregroundStyle(AppColors.accentWarm)
-                    .lineStyle(StrokeStyle(lineWidth: 2))
-            }
-            ForEach(Array(night.drinks.enumerated()), id: \.offset) { _, drink in
-                PointMark(x: .value("Drink", drink.at), y: .value("BAC", night.bac(at: drink.at)))
-                    .foregroundStyle(AppColors.accent)
-                    .symbolSize(18)
-            }
-            if live, (night.startedAt...end).contains(now) {
-                RuleMark(x: .value("Now", now))
-                    .foregroundStyle(AppColors.textSecondary.opacity(0.45))
-            }
-        }
-        .chartXScale(domain: night.startedAt...end)
-        .chartYScale(domain: 0...yMax)
-        .chartXAxis {
-            AxisMarks(values: .automatic(desiredCount: 4)) { _ in
-                AxisGridLine().foregroundStyle(AppColors.border)
-                AxisValueLabel(format: .dateTime.hour().minute())
+        if night.drinks.isEmpty {
+            VStack(spacing: 10) {
+                Image(systemName: "waveform.path.ecg")
+                    .font(.system(size: 28, weight: .semibold))
+                    .foregroundStyle(AppColors.textTertiary)
+                    .accessibilityHidden(true)
+                Text("No drinks yet")
+                    .font(.headline)
+                    .foregroundStyle(AppColors.text)
+                Text(live ? "Their BAC curve shows up after the first drink." : "This night ended without any drinks.")
+                    .font(.subheadline)
                     .foregroundStyle(AppColors.textSecondary)
+                    .multilineTextAlignment(.center)
             }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 32)
+            .padding(.horizontal, 16)
+            .premiumCard(radius: 14)
+        } else {
+            NightBACChartCard(data: NightBACChartData(shared: night, now: now))
         }
-        .chartYAxis {
-            AxisMarks(position: .leading, values: .automatic(desiredCount: 4)) { _ in
-                AxisGridLine().foregroundStyle(AppColors.border)
-                AxisValueLabel().foregroundStyle(AppColors.textSecondary)
-            }
-        }
-        .frame(height: 200)
-        .padding(12)
-        .background(AppColors.card, in: RoundedRectangle(cornerRadius: 14))
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Blood alcohol curve, peak \(FriendNightFormat.bac(night.peakBAC))")
     }
 
     // MARK: - Stats

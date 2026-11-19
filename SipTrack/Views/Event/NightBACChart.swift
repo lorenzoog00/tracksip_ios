@@ -104,6 +104,51 @@ struct NightBACChartData {
     }
 }
 
+extension NightBACChartData {
+    /// A friend's shared night, drawn with the same card as your own Stats. The
+    /// shared curve is already computed (one sample every 5 min), so it is split at
+    /// `now` into history and projection; a finished night ends at its close.
+    init(shared night: SharedNight, now: Date, calendar: Calendar = .current) {
+        let points = night.samples.enumerated().map { index, value in
+            BACDataPoint(
+                date: night.startedAt.addingTimeInterval(Double(index) * SharedNight.sampleInterval),
+                bac: value
+            )
+        }
+        let live = night.isLive(now: now)
+        let cut = live ? now : (night.endedAt ?? points.last?.date ?? night.lastDrinkAt)
+        let current = BACDataPoint(date: cut, bac: max(0, night.bac(at: cut)))
+
+        var history = points.filter { $0.date < cut }
+        if history.first.map({ $0.date > night.startedAt }) ?? true {
+            history.insert(BACDataPoint(date: night.startedAt, bac: 0), at: 0)
+        }
+        history.append(current)
+        let projection = [current] + points.filter { $0.date > cut }
+
+        self.start = min(night.startedAt, cut)
+        self.end = max(projection.last?.date ?? cut, start.addingTimeInterval(1))
+        self.current = current
+        self.history = history
+        self.projection = projection
+        self.hours = Self.groupByHour(shared: night.drinks.filter { $0.at <= cut }, calendar: calendar)
+        self.isFinished = !live
+    }
+
+    private static func groupByHour(shared drinks: [SharedDrink], calendar: Calendar) -> [Hour] {
+        let byHour = Dictionary(grouping: drinks) { drink in
+            calendar.dateInterval(of: .hour, for: drink.at)?.start ?? drink.at
+        }
+        return byHour.compactMap { start, drinks -> Hour? in
+            guard let first = drinks.map(\.at).min() else { return nil }
+            let grouped = Dictionary(grouping: drinks, by: \.name).map { name, same in
+                Drink(name: name, quantity: same.count)
+            }.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+            return Hour(start: start, end: start.addingTimeInterval(3600), firstDrinkTime: first, drinks: grouped)
+        }.sorted { $0.start < $1.start }
+    }
+}
+
 struct NightBACChartCard: View {
     let data: NightBACChartData
     var externalSelection: Binding<Date?>? = nil
