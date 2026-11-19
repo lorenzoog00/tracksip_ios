@@ -36,11 +36,21 @@ final class FriendActionCoordinator: ObservableObject {
     }
 
     func report(_ profile: FriendProfile, _ kind: ReportKind, store: FriendsStore) {
+        submitReport(profile) { try await store.report(profile.uid, kind: kind) }
+    }
+
+    /// Reports one comment `profile` wrote on the night `key`; then, like any report,
+    /// thanks and offers to block them.
+    func reportComment(_ commentId: String, by profile: FriendProfile, on key: NightKey, store: FriendsStore) {
+        submitReport(profile) { try await store.reportComment(commentId, by: profile.uid, on: key) }
+    }
+
+    private func submitReport(_ profile: FriendProfile, _ send: @escaping () async throws -> Void) {
         guard !busy.contains(profile.uid) else { return }
         busy.insert(profile.uid)
         Task {
             do {
-                try await store.report(profile.uid, kind: kind)
+                try await send()
                 thanksTarget = profile
             } catch {
                 fail("Couldn't send report", error.localizedDescription)

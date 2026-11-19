@@ -758,23 +758,20 @@ struct NightThreadSheet: View {
     private func send() {
         let text = draft
         guard CommentDraft.canSend(text) else { return }
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        let before = confirmedMine(trimmed)
+        let mentioned = picked
         Haptics.shared.play(.light)
         draft = ""
         selection = nil
         picked = []
         Task {
-            await store.send(text)
-            // It failed (the store showed why): give the text back to try again.
-            if confirmedMine(trimmed) <= before && draft.isEmpty {
+            let sent = await store.send(text)
+            // It failed (the store showed why): give the text back to try again,
+            // unless something new has been typed meanwhile.
+            if !sent && draft.isEmpty {
                 draft = text
+                picked = mentioned
             }
         }
-    }
-
-    private func confirmedMine(_ text: String) -> Int {
-        store.comments.filter { $0.uid == store.myUid && !$0.isPending && $0.text == text }.count
     }
 
     private func delete(_ comment: ThreadComment) {
@@ -782,11 +779,11 @@ struct NightThreadSheet: View {
         Task { await store.delete(comment) }
     }
 
-    /// Comments have no report kind of their own: the author is reported by
-    /// username, and the thanks alert offers to block them.
+    /// Reports the comment itself (the server keeps a copy of its text with the
+    /// author's username); the thanks alert then offers to block the author.
     private func report(_ comment: ThreadComment) {
         let author = profile(uid: comment.uid, username: displayName(comment))
-        actions.report(author, .username, store: friends)
+        actions.reportComment(comment.id, by: author, on: key, store: friends)
     }
 
     private var reportBinding: Binding<Bool> {

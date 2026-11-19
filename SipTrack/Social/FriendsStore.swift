@@ -414,6 +414,11 @@ final class FriendsStore: ObservableObject {
         try await FirebaseManager.shared.reportUser(targetUid: uid, kind: kind.rawValue)
     }
 
+    /// Reports a comment by `authorUid` on the night `key`.
+    func reportComment(_ commentId: String, by authorUid: String, on key: NightKey) async throws {
+        try await FirebaseManager.shared.reportComment(key, commentId: commentId, authorUid: authorUid)
+    }
+
     /// nil removes the photo.
     func setAvatar(_ image: UIImage?) async throws {
         var payload: Any = NSNull()

@@ -921,6 +921,11 @@ extension FirebaseManager {
         _ = try await callFunction("respondToFriendRequest", data: ["fromUid": fromUid, "accept": accept])
     }
 
+    /// What this app can do with a push beyond friend requests. "threads": it opens
+    /// night reaction/comment pushes and has the switches for them. The server sends
+    /// thread pushes only to tokens that registered it, so older builds get none.
+    static let pushFeatures = ["threads"]
+
     /// Best effort: a failed registration only means no request pushes until the next launch.
     func registerPushToken(_ token: String) async {
         guard auth.currentUser != nil else { return }
@@ -930,7 +935,9 @@ extension FirebaseManager {
         let environment = "production"
         #endif
         do {
-            _ = try await callFunction("registerPushToken", data: ["token": token, "environment": environment])
+            _ = try await callFunction("registerPushToken", data: [
+                "token": token, "environment": environment, "features": Self.pushFeatures
+            ])
         } catch {
             #if DEBUG
             print("[Push] token registration failed: \(error.localizedDescription)")
@@ -956,6 +963,14 @@ extension FirebaseManager {
 
     func reportUser(targetUid: String, kind: String) async throws {
         _ = try await callFunction("reportUser", data: ["targetUid": targetUid, "kind": kind])
+    }
+
+    /// Reports one comment on a night; the server stores a copy of its text.
+    func reportComment(_ key: NightKey, commentId: String, authorUid: String) async throws {
+        _ = try await callFunction("reportUser", data: [
+            "targetUid": authorUid, "kind": "comment",
+            "owner": key.owner, "startedAt": key.startedAt, "commentId": commentId
+        ])
     }
 
     /// `jpegBase64` is a base64 String, or NSNull to remove the photo.
