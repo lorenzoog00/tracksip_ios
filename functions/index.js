@@ -343,29 +343,13 @@ exports.cleanupEndedThread = onDocumentDeleted(
 );
 
 /**
- * Accounts whose verified sign-in number is one of these. Phone numbers on an
- * Auth account are always SMS-verified, so every match is real.
+ * Accounts whose verified sign-in number is one of these (see
+ * social.lookupPhoneOwners, which batches and skips a failed batch).
  * @param {string[]} phones E.164 numbers
  * @return {Promise<{uid: string, phone: string}[]>}
  */
-async function lookupPhoneOwners(phones) {
-  const auth = getAuth();
-  const batches = [];
-  for (let i = 0; i < phones.length; i += 100) {
-    batches.push(phones.slice(i, i + 100));
-  }
-  const owners = [];
-  for (let i = 0; i < batches.length; i += 5) {
-    const found = await Promise.all(batches.slice(i, i + 5).map((batch) =>
-      auth.getUsers(batch.map((phoneNumber) => ({phoneNumber})))));
-    for (const {users} of found) {
-      for (const user of users) {
-        if (user.disabled) continue;
-        owners.push({uid: user.uid, phone: user.phoneNumber});
-      }
-    }
-  }
-  return owners;
+function lookupPhoneOwners(phones) {
+  return social.lookupPhoneOwners({auth: getAuth(), phones});
 }
 
 /**

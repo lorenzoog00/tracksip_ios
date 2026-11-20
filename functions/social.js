@@ -1,4 +1,5 @@
 const {HttpsError} = require("firebase-functions/v2/https");
+const logger = require("firebase-functions/logger");
 const {normalizeUsername, validateUsername} = require("./username-policy");
 const {validatePushToken, tokenIsDead} = require("./live-activity");
 
@@ -697,6 +698,54 @@ async function claimNudge(db, toUid, fromUid, now) {
   });
 }
 
+// Auth's getUsers takes at most 100 identifiers a call; five calls at a time.
+const PHONE_LOOKUP_BATCH = 100;
+const PHONE_LOOKUP_WAVE = 5;
+
+/**
+ * Accounts whose verified sign-in number is one of these. Phone numbers on an
+ * Auth account are always SMS-verified, so every match is real. Disabled
+ * accounts are left out.
+ *
+ * A batch that fails is skipped and the rest still answer: the check has
+ * already been counted against the caller's daily limit by then. Only the
+ * number of failed batches is logged, never the numbers in them.
+ * @param {object} params
+ * @param {object} params.auth firebase-admin Auth (anything with getUsers)
+ * @param {string[]} params.phones E.164 numbers
+ * @param {object} [params.log] logger with warn(), for tests
+ * @return {Promise<{uid: string, phone: string}[]>}
+ */
+async function lookupPhoneOwners({auth, phones, log = logger}) {
+  const batches = [];
+  for (let i = 0; i < phones.length; i += PHONE_LOOKUP_BATCH) {
+    batches.push(phones.slice(i, i + PHONE_LOOKUP_BATCH));
+  }
+  const owners = [];
+  let failed = 0;
+  for (let i = 0; i < batches.length; i += PHONE_LOOKUP_WAVE) {
+    const wave = batches.slice(i, i + PHONE_LOOKUP_WAVE);
+    const settled = await Promise.allSettled(wave.map((batch) =>
+      auth.getUsers(batch.map((phoneNumber) => ({phoneNumber})))));
+    for (const outcome of settled) {
+      if (outcome.status === "rejected") {
+        failed++;
+        continue;
+      }
+      for (const user of outcome.value.users) {
+        if (user.disabled) continue;
+        owners.push({uid: user.uid, phone: user.phoneNumber});
+      }
+    }
+  }
+  if (failed > 0) {
+    // Counts only: an error's own message could quote the numbers it was sent.
+    log.warn("lookupPhoneOwners skipped failed batches",
+        {failed, batches: batches.length});
+  }
+  return owners;
+}
+
 /**
  * Finds which of the caller's contacts have TrackSip, by verified phone
  * number. Nothing from the contact list is stored or logged: the numbers are
@@ -799,6 +848,7 @@ async function matchContacts({
 module.exports = {
   suggestFriends,
   matchContacts,
+  lookupPhoneOwners,
   assertNotDeleting,
   reportUser,
   registerPushToken,
