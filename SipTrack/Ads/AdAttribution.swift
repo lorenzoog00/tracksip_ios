@@ -21,8 +21,9 @@ enum AdAttribution {
         startTikTok()
     }
 
-    /// TikTok stays off until its keys are filled in Info.plist (they come from
-    /// TikTok Events Manager), so a build without them behaves as before.
+    /// TikTok stays off without its App Secret, which reaches Info.plist only as
+    /// the TIKTOK_APP_SECRET build setting (a GitHub secret in the TestFlight
+    /// workflow, since the repo is public). Local and CI builds run without it.
     private static func startTikTok() {
         let info = Bundle.main.infoDictionary ?? [:]
         guard let tiktokAppId = info["TikTokAppID"] as? String, !tiktokAppId.isEmpty,

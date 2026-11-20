@@ -161,6 +161,9 @@ jobs:
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          # The repo is public, so TikTok's App Secret stays out of Info.plist and is
+          # passed as a build setting; without it the TikTok SDK simply stays off.
+          TIKTOK_APP_SECRET: ${{ secrets.TIKTOK_APP_SECRET }}
         run: |
           set -o pipefail
           xcodebuild archive \
@@ -175,6 +178,7 @@ jobs:
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             CURRENT_PROJECT_VERSION=${{ steps.version.outputs.build }} \
             DEVELOPMENT_TEAM="$TEAM_ID" \
+            TIKTOK_APP_SECRET="$TIKTOK_APP_SECRET" \
             -quiet
 
       - name: Export IPA

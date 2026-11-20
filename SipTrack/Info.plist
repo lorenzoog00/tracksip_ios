@@ -72,9 +72,9 @@
 	<key>FacebookAdvertiserIDCollectionEnabled</key>
 	<true/>
 	<key>TikTokAppID</key>
-	<string></string>
+	<string>7709968334468612104</string>
 	<key>TikTokAccessToken</key>
-	<string></string>
+	<string>$(TIKTOK_APP_SECRET)</string>
 	<key>SKAdNetworkItems</key>
 	<array>
 		<dict>
