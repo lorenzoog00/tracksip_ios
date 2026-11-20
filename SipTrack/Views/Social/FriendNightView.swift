@@ -88,8 +88,10 @@ struct FriendNightView: View {
     /// The reaction bar (react from here too, unless it's my night) and a row that
     /// opens the comment sheet, with the latest comment under it.
     private func conversation(now: Date) -> some View {
-        let count = store.summary.commentCount
-        let blocked = Set(friends.blocked.map(\.uid))
+        let blocked = friends.blockedUidSet
+        // nil: some may be from people I blocked, so no number (the sheet has it).
+        let visible = store.summary.visibleCommentCount(blocked: blocked)
+        let count = visible ?? 0
         let latest = store.summary.latest.last { !blocked.contains($0.uid) }
         return VStack(alignment: .leading, spacing: 10) {
             ReactionBar(store: store, canReact: true)
@@ -104,7 +106,8 @@ struct FriendNightView: View {
                         .foregroundStyle(AppColors.accent)
                         .frame(width: 28)
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(count == 0 ? "Add a comment" : (count == 1 ? "View 1 comment" : "View \(count) comments"))
+                        Text(visible == nil ? "View comments"
+                             : (count == 0 ? "Add a comment" : (count == 1 ? "View 1 comment" : "View \(count) comments")))
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(AppColors.text)
                             .contentTransition(.numericText(value: Double(count)))

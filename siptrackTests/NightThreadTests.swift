@@ -264,4 +264,24 @@ struct NightThreadTests {
         #expect(!FirebaseManager.isNightUnavailable(error(nil)))
         #expect(!FirebaseManager.isNightUnavailable(URLError(.notConnectedToInternet)))
     }
+
+    // MARK: - Card comment count
+
+    @Test func cardCommentCountLeavesOutBlockedPeopleOrShowsNone() {
+        func c(_ id: String, _ uid: String) -> ThreadComment {
+            ThreadComment(id: id, uid: uid, username: uid, text: "hi", mentions: [],
+                          at: Date(timeIntervalSince1970: 0), isPending: false)
+        }
+        var summary = ThreadSummary()
+        summary.commentCount = 2
+        summary.latest = [c("1", "a"), c("2", "b")]
+        // Nobody blocked: the server's count.
+        #expect(summary.visibleCommentCount(blocked: []) == 2)
+        // Every comment is in the summary: count the visible ones.
+        #expect(summary.visibleCommentCount(blocked: ["b"]) == 1)
+        // More comments than the summary carries: can't tell, so no number.
+        summary.commentCount = 7
+        #expect(summary.visibleCommentCount(blocked: ["b"]) == nil)
+        #expect(summary.visibleCommentCount(blocked: []) == 7)
+    }
 }
