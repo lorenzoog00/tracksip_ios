@@ -625,6 +625,26 @@ final class FirebaseManager: ObservableObject {
         return try DrinkLookup.parse(payload)
     }
 
+    // MARK: - Recovery photo review (admin)
+
+    /// Library photos awaiting review, newest first, at most 50. The server
+    /// answers `permission-denied` unless this uid is in its `ADMIN_UIDS`.
+    func listPendingPhotos() async throws -> [PendingPhoto] {
+        let result = try await callFunction("listPendingPhotos", data: [:])
+        return PendingPhoto.list(from: result)
+    }
+
+    /// Approves, rejects or regenerates one library photo. A regeneration
+    /// waits for the new photo (up to about two minutes) and returns what it
+    /// left; a failed photo comes back as `photoStatus: "failed"`, not as an
+    /// error. Nil for approve and reject.
+    @discardableResult
+    func reviewPhoto(id: String, action: PhotoReviewAction) async throws -> PhotoRegeneration? {
+        let result = try await callFunction("reviewPhoto", data: ["itemId": id, "action": action.rawValue])
+        guard action == .regenerate else { return nil }
+        return PhotoRegeneration(result: result)
+    }
+
     /// The JWS for an active Pro entitlement, which the server re-verifies
     /// against Apple. Nothing here is trusted on the client's say-so.
     private func signedProTransaction() async -> String? {

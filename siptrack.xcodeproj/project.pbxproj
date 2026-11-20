@@ -39,6 +39,9 @@
 		4D0E9A110000000000000B06 /* RecoveryPlanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D0E9A110000000000000B05 /* RecoveryPlanView.swift */; };
 		4D0E9A110000000000000B08 /* MorningPlanDisplay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D0E9A110000000000000B07 /* MorningPlanDisplay.swift */; };
 		4D0E9A110000000000000B0A /* MorningPlanDisplayTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D0E9A110000000000000B09 /* MorningPlanDisplayTests.swift */; };
+		4D0E9A110000000000000C02 /* AdminAccess.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D0E9A110000000000000C01 /* AdminAccess.swift */; };
+		4D0E9A110000000000000C04 /* PhotoReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D0E9A110000000000000C03 /* PhotoReviewView.swift */; };
+		4D0E9A110000000000000C06 /* PhotoReviewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D0E9A110000000000000C05 /* PhotoReviewTests.swift */; };
 		E34D6123C210440E9E1B4411 /* DrinkLookup.swift in Sources */ = {isa = PBXBuildFile; fileRef = E34D6123C210440E9E1B4412 /* DrinkLookup.swift */; };
 		E34D6123C210440E9E1B4415 /* AppDates.swift in Sources */ = {isa = PBXBuildFile; fileRef = E34D6123C210440E9E1B4416 /* AppDates.swift */; };
 		E34D6123C210440E9E1B4413 /* DrinkLookupTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E34D6123C210440E9E1B4414 /* DrinkLookupTests.swift */; };
@@ -278,6 +281,9 @@
 		4D0E9A110000000000000B05 /* RecoveryPlanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecoveryPlanView.swift; sourceTree = "<group>"; };
 		4D0E9A110000000000000B07 /* MorningPlanDisplay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningPlanDisplay.swift; sourceTree = "<group>"; };
 		4D0E9A110000000000000B09 /* MorningPlanDisplayTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningPlanDisplayTests.swift; sourceTree = "<group>"; };
+		4D0E9A110000000000000C01 /* AdminAccess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminAccess.swift; sourceTree = "<group>"; };
+		4D0E9A110000000000000C03 /* PhotoReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoReviewView.swift; sourceTree = "<group>"; };
+		4D0E9A110000000000000C05 /* PhotoReviewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoReviewTests.swift; sourceTree = "<group>"; };
 		E34D6123C210440E9E1B4412 /* DrinkLookup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrinkLookup.swift; sourceTree = "<group>"; };
 		E34D6123C210440E9E1B4416 /* AppDates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDates.swift; sourceTree = "<group>"; };
 		E34D6123C210440E9E1B4414 /* DrinkLookupTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrinkLookupTests.swift; sourceTree = "<group>"; };
@@ -609,6 +615,7 @@
 				D77C112605A0000000000007 /* StoryVideoExporter.swift */,
 				E34D6123C210440E9E1B4402 /* ReportAlcoholDose.swift */,
 				4D0E9A110000000000000903 /* MorningCheckIn.swift */,
+				4D0E9A110000000000000C01 /* AdminAccess.swift */,
 				E34D6123C210440E9E1B4412 /* DrinkLookup.swift */,
 				E34D6123C210440E9E1B4416 /* AppDates.swift */,
 				B101B4992F9C2F32009F7DDD /* ChallengeUtils.swift */,
@@ -755,6 +762,7 @@
 				B15DA9AB2FAC184E00345F64 /* ForgotPasswordView.swift */,
 				B15DA9A92FAC149800345F64 /* EmailVerificationView.swift */,
 				B101B4BF2F9C2F32009F7DDD /* ProfileView.swift */,
+				4D0E9A110000000000000C03 /* PhotoReviewView.swift */,
 				CC1A2B3D4E5F6A7B8C9D0E10 /* LearnView.swift */,
 			);
 			path = Profile;
@@ -907,6 +915,7 @@
 				4D0E9A110000000000000907 /* MorningCheckInTests.swift */,
 				4D0E9A110000000000000A01 /* MorningPlanFlowTests.swift */,
 				4D0E9A110000000000000B09 /* MorningPlanDisplayTests.swift */,
+				4D0E9A110000000000000C05 /* PhotoReviewTests.swift */,
 				E34D6123C210440E9E1B4414 /* DrinkLookupTests.swift */,
 				E34D6123C210440E9E1B4418 /* AppDatesTests.swift */,
 				A1B2C3D4E5F6A7B8C9D0E1F3 /* AIInsightsTests.swift */,
@@ -1247,6 +1256,8 @@
 				B101B4E12F9CD648009F7DDD /* BACCalculator.swift in Sources */,
 				E34D6123C210440E9E1B4401 /* ReportAlcoholDose.swift in Sources */,
 				4D0E9A110000000000000904 /* MorningCheckIn.swift in Sources */,
+				4D0E9A110000000000000C02 /* AdminAccess.swift in Sources */,
+				4D0E9A110000000000000C04 /* PhotoReviewView.swift in Sources */,
 				4D0E9A110000000000000B02 /* MorningCheckInCard.swift in Sources */,
 				4D0E9A110000000000000B04 /* MorningCheckInView.swift in Sources */,
 				4D0E9A110000000000000B06 /* RecoveryPlanView.swift in Sources */,
@@ -1355,6 +1366,7 @@
 				4D0E9A110000000000000908 /* MorningCheckInTests.swift in Sources */,
 				4D0E9A110000000000000A02 /* MorningPlanFlowTests.swift in Sources */,
 				4D0E9A110000000000000B0A /* MorningPlanDisplayTests.swift in Sources */,
+				4D0E9A110000000000000C06 /* PhotoReviewTests.swift in Sources */,
 				E34D6123C210440E9E1B4413 /* DrinkLookupTests.swift in Sources */,
 				E34D6123C210440E9E1B4417 /* AppDatesTests.swift in Sources */,
 				A1B2C3D4E5F6A7B8C9D0E1F2 /* AIInsightsTests.swift in Sources */,
