@@ -234,4 +234,34 @@ struct NightThreadTests {
         let twice = CommentRowKeys.keys([confirmed, pending], myUid: "me")
         #expect(Set(twice).count == 2)
     }
+
+    // MARK: - No user, unavailable night
+
+    @Test func noUserGivesAnInertUncachedStore() async {
+        let key = NightKey(owner: "abc", startedAt: 1_700_000_000_000)
+        let store = NightThreadStore.store(for: key, myUid: "")
+        #expect(!store.hasUser)
+        #expect(NightThreadStore.cache[key] == nil)
+        // Nothing reaches Firestore or a callable: these all return at once.
+        store.start()
+        await store.refresh()
+        let sent = await store.send("hi")
+        #expect(sent == false)
+        #expect(store.comments.isEmpty)
+        #expect(!store.isUnavailable)
+    }
+
+    @Test func onlyNotFoundAndPermissionDeniedMeanTheNightIsGone() {
+        func error(_ status: String?, code: Int = 404) -> NSError {
+            var info: [String: Any] = [NSLocalizedDescriptionKey: "x"]
+            if let status { info[FirebaseManager.callableStatusKey] = status }
+            return NSError(domain: "FirebaseManager", code: code, userInfo: info)
+        }
+        #expect(FirebaseManager.isNightUnavailable(error("NOT_FOUND")))
+        #expect(FirebaseManager.isNightUnavailable(error("PERMISSION_DENIED", code: 403)))
+        #expect(!FirebaseManager.isNightUnavailable(error("INTERNAL", code: 500)))
+        // A function that isn't deployed is a 404 with no callable status.
+        #expect(!FirebaseManager.isNightUnavailable(error(nil)))
+        #expect(!FirebaseManager.isNightUnavailable(URLError(.notConnectedToInternet)))
+    }
 }

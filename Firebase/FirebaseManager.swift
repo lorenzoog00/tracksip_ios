@@ -655,8 +655,11 @@ final class FirebaseManager: ObservableObject {
         // wrong. Please try again." and threw away the status code with it.
         let envelope = (try? JSONSerialization.jsonObject(with: body)) as? [String: Any]
         if let error = envelope?["error"] as? [String: Any] {
-            throw NSError(domain: "FirebaseManager", code: status,
-                          userInfo: [NSLocalizedDescriptionKey: error["message"] as? String ?? "Please try again."])
+            var info: [String: Any] = [NSLocalizedDescriptionKey: error["message"] as? String ?? "Please try again."]
+            // The callable's own code ("NOT_FOUND", "PERMISSION_DENIED", ...), so callers
+            // can tell an application answer from a missing function (also a 404).
+            if let code = error["status"] as? String { info[Self.callableStatusKey] = code }
+            throw NSError(domain: "FirebaseManager", code: status, userInfo: info)
         }
         guard (200..<300).contains(status),
               let result = (envelope?["result"] ?? envelope?["data"]) as? [String: Any] else {
@@ -664,6 +667,16 @@ final class FirebaseManager: ObservableObject {
                           userInfo: [NSLocalizedDescriptionKey: Self.serverErrorMessage(function: name, status: status)])
         }
         return result
+    }
+
+    nonisolated static let callableStatusKey = "FirebaseCallableStatus"
+
+    /// True when a callable said the night is gone or not ours to see: `not-found` or
+    /// `permission-denied` from the function itself (never a network failure or an
+    /// undeployed function).
+    nonisolated static func isNightUnavailable(_ error: Error) -> Bool {
+        let code = (error as NSError).userInfo[callableStatusKey] as? String
+        return code == "NOT_FOUND" || code == "PERMISSION_DENIED"
     }
 
     /// Shown when App Attest cannot vouch for this installation. It names App

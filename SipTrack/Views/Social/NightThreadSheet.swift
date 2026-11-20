@@ -139,16 +139,26 @@ struct NightThreadSheet: View {
         _store = ObservedObject(wrappedValue: NightThreadStore.store(for: key, myUid: myUid))
     }
 
+    /// The night is gone or hidden from me (or nobody is signed in): no reactions,
+    /// comments or composer, just a line saying so.
+    private var isUnavailable: Bool { store.isUnavailable || !store.hasUser }
+
     var body: some View {
         let rows = commentRows
         VStack(spacing: 0) {
-            header
-            Rectangle()
-                .fill(AppColors.border)
-                .frame(height: 1)
-            comments(rows)
+            if isUnavailable {
+                unavailableNotice
+            } else {
+                header
+                Rectangle()
+                    .fill(AppColors.border)
+                    .frame(height: 1)
+                comments(rows)
+            }
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) { composer }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if !isUnavailable { composer }
+        }
         .background(AppColors.background.ignoresSafeArea())
         .preferredColorScheme(.dark)
         .presentationDetents([.medium, .large], selection: $detent)
@@ -191,6 +201,21 @@ struct NightThreadSheet: View {
                 await store.refresh()
             }
         }
+    }
+
+    private var unavailableNotice: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "moon.zzz")
+                .font(.system(size: 28, weight: .semibold))
+                .foregroundStyle(AppColors.textTertiary)
+                .accessibilityHidden(true)
+            Text("This night is no longer available")
+                .font(.headline)
+                .foregroundStyle(AppColors.text)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.horizontal, 16)
     }
 
     // MARK: - Header
