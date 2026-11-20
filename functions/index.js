@@ -302,6 +302,7 @@ exports.blockUser = socialCallable("blockUser");
 exports.unblockUser = socialCallable("unblockUser");
 exports.reportUser = socialCallable("reportUser");
 exports.registerPushToken = socialCallable("registerPushToken");
+exports.unregisterPushToken = socialCallable("unregisterPushToken");
 exports.sendFriendRequest = pushingCallable("sendFriendRequest");
 exports.respondToFriendRequest = pushingCallable("respondToFriendRequest");
 

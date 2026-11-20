@@ -134,6 +134,19 @@ async function searchUsers({db, uid, data}) {
 // Friend requests, friendships and blocks
 // ---------------------------------------------------------------------------
 
+// A uid, comment id or other document id that goes into a path: Firebase
+// uids and auto-ids are alphanumeric, and nothing else (no "..", no "/").
+const ID_PATTERN = /^[A-Za-z0-9]{1,128}$/;
+
+/**
+ * True when the value can safely name a document in a path.
+ * @param {*} value the raw value
+ * @return {boolean}
+ */
+function isValidId(value) {
+  return typeof value === "string" && ID_PATTERN.test(value);
+}
+
 /**
  * Validates a uid argument from the request payload.
  * @param {*} value the raw value
@@ -141,7 +154,7 @@ async function searchUsers({db, uid, data}) {
  * @return {string} the uid
  */
 function otherUid(value, caller) {
-  if (typeof value !== "string" || value === "" || value.includes("/")) {
+  if (!isValidId(value)) {
     throw new HttpsError("invalid-argument", "Missing user.");
   }
   if (value === caller) {
@@ -382,9 +395,8 @@ async function reportedComment({db, uid, targetUid, data}) {
   // Required here: interactions.js requires this module at load time.
   const {loadNight, nightKey} = require("./interactions");
   const {owner, startedAt, commentId} = data;
-  if (typeof owner !== "string" || owner === "" || owner.includes("/") ||
-      !Number.isFinite(startedAt) || typeof commentId !== "string" ||
-      commentId === "" || commentId.includes("/")) {
+  if (!isValidId(owner) || !Number.isFinite(startedAt) ||
+      !isValidId(commentId)) {
     throw new HttpsError("invalid-argument", "That comment isn't valid.");
   }
   await loadNight({db, owner, startedAt, uid, now: Date.now()});
@@ -485,6 +497,19 @@ async function registerPushToken({db, uid, data}) {
 }
 
 /**
+ * Forgets the caller's push token, so a signed-out phone stops getting this
+ * account's pushes. Called before sign-out; deleting a missing doc is fine.
+ * @param {object} params
+ * @param {object} params.db Firestore
+ * @param {string} params.uid the caller
+ * @return {Promise<{status: string}>} always "unregistered"
+ */
+async function unregisterPushToken({db, uid}) {
+  await db.doc(`push_tokens/${uid}`).delete();
+  return {status: "unregistered"};
+}
+
+/**
  * Builds the notifier sendFriendRequest and respondToFriendRequest call.
  * Users with no stored token are skipped; dead tokens are deleted.
  * @param {object} params
@@ -518,8 +543,9 @@ const SUGGEST_LIMIT = 20;
 // Friend lists read per call. Past this the ranking is from a sample, which is
 // fine for suggestions and keeps one call to a bounded number of reads.
 const SUGGEST_FRIENDS_SCANNED = 50;
-const CONTACT_EMAILS_MAX = 2000;
-const CONTACT_CALLS_PER_DAY = 5;
+// Kept low so contact matching can't double as an email -> profile lookup.
+const CONTACT_EMAILS_MAX = 500;
+const CONTACT_CALLS_PER_DAY = 2;
 const CONTACT_PUSHES_PER_CALL = 30;
 const DAY_MS = 86400000;
 const NUDGE_SENDERS_KEPT = 50;
@@ -744,7 +770,11 @@ module.exports = {
   assertNotDeleting,
   reportUser,
   registerPushToken,
+  unregisterPushToken,
   notifyFromPushTokens,
+  isValidId,
+  CONTACT_EMAILS_MAX,
+  CONTACT_CALLS_PER_DAY,
   claimUsername,
   searchUsers,
   sendFriendRequest,

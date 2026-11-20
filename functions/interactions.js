@@ -1,6 +1,6 @@
 const {HttpsError} = require("firebase-functions/v2/https");
 const {Timestamp} = require("firebase-admin/firestore");
-const {assertNotDeleting} = require("./social");
+const {assertNotDeleting, isValidId} = require("./social");
 const {tokenIsDead} = require("./live-activity");
 
 // ---------------------------------------------------------------------------
@@ -20,6 +20,9 @@ const MAX_COMMENTS_PER_PERSON = 50;
 const COMMENT_GAP_MS = 3000;
 const LATEST_COMMENTS = 3;
 const MAX_MENTION_LOOKUPS = 10;
+// An @name starts the text or follows whitespace ("bob@carla" is no mention)
+// and is a whole word of at most 20 characters (a longer one is no mention).
+const MENTION_PATTERN = /(?:^|\s)@([a-z0-9._]{3,20})(?![a-z0-9._])/g;
 const LINK_PATTERN = /https?:\/\/|www\./i;
 // Thread docs outlive the night by this much. TTL only collects garbage:
 // who may read a thread is decided from the shared night itself (rules and
@@ -144,7 +147,9 @@ async function notifySafely(notify, kind, toUid, payload) {
 
 /**
  * Sets, changes or removes the caller's single reaction on a friend's night.
- * Tapping the reaction already held removes it; null removes it too.
+ * A reaction sets it (sending the one already held changes nothing); null
+ * removes it. The app sends the state it wants, never a toggle, so a
+ * repeated or out-of-order call can't flip the result.
  * @param {object} params
  * @param {object} params.db Firestore
  * @param {string} params.uid the caller
@@ -156,8 +161,7 @@ async function notifySafely(notify, kind, toUid, payload) {
  */
 async function reactToNight({db, uid, data, notify, now = Date.now()}) {
   const {owner, startedAt, emoji} = data || {};
-  if (typeof owner !== "string" || owner === "" || owner.includes("/") ||
-      !Number.isFinite(startedAt)) {
+  if (!isValidId(owner) || !Number.isFinite(startedAt)) {
     throw new HttpsError("invalid-argument", "That night isn't valid.");
   }
   if (emoji != null && !Object.hasOwn(REACTIONS, emoji)) {
@@ -177,7 +181,10 @@ async function reactToNight({db, uid, data, notify, now = Date.now()}) {
     assertNotDeleting(deleting);
 
     const previous = existing.exists ? existing.data().emoji : null;
-    const next = emoji == null || emoji === previous ? null : emoji;
+    const next = emoji == null ? null : emoji;
+    if (next === previous) {
+      return {emoji: next, others: null};
+    }
     const summary = thread.exists ? thread.data() : {};
     const counts = {...(summary.reactions || {})};
     if (previous) counts[previous] = Math.max(0, (counts[previous] || 0) - 1);
@@ -250,8 +257,7 @@ async function reactToNight({db, uid, data, notify, now = Date.now()}) {
  */
 function nightRef(data) {
   const {owner, startedAt} = data || {};
-  if (typeof owner !== "string" || owner === "" || owner.includes("/") ||
-      !Number.isFinite(startedAt)) {
+  if (!isValidId(owner) || !Number.isFinite(startedAt)) {
     throw new HttpsError("invalid-argument", "That night isn't valid.");
   }
   return {owner, startedAt};
@@ -334,7 +340,7 @@ async function lookupHandle(db, name) {
  */
 async function resolveMentions({db, text, owner, author}) {
   const names = [...new Set(
-      [...text.toLowerCase().matchAll(/@([a-z0-9._]{3,20})/g)]
+      [...text.toLowerCase().matchAll(MENTION_PATTERN)]
           .map((match) => match[1]))].slice(0, MAX_MENTION_LOOKUPS);
   const resolved = await Promise.all(names.map(async (name) => {
     const handle = await lookupHandle(db, name);
@@ -492,8 +498,7 @@ async function pushComment({db, notify, owner, ownerName, startedAt, uid,
 async function deleteComment({db, uid, data, now = Date.now()}) {
   const {owner, startedAt} = nightRef(data);
   const commentId = data.commentId;
-  if (typeof commentId !== "string" || commentId === "" ||
-      commentId.includes("/")) {
+  if (!isValidId(commentId)) {
     throw new HttpsError("invalid-argument", "That comment isn't valid.");
   }
   await loadNight({db, owner, startedAt, uid, now});

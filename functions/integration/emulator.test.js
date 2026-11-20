@@ -1176,6 +1176,7 @@ test("ended copies: strangers, anon and a tombstoned owner's friends see none", 
 const {
   reportUser,
   registerPushToken,
+  unregisterPushToken,
   notifyFromPushTokens,
 } = require("../social");
 const PUSH_TOKEN = "cd".repeat(32);
@@ -1221,6 +1222,29 @@ test("social: reportUser rejects a target with no public profile", async () => {
       (e) => e.code === "not-found",
   );
   assert.equal(await countDocs("reports"), 0);
+});
+
+test("social: unregisterPushToken deletes only the caller's token", async () => {
+  const other = "ef".repeat(32);
+  await registerPushToken({
+    db, uid: "A", data: {token: PUSH_TOKEN, environment: "sandbox"},
+  });
+  await registerPushToken({
+    db, uid: "B", data: {token: other, environment: "sandbox"},
+  });
+  assert.deepEqual(await unregisterPushToken({db, uid: "A"}),
+      {status: "unregistered"});
+  assert.equal(await exists("push_tokens/A"), false);
+  assert.equal(await exists("push_tokens/B"), true);
+  // Signing out twice (or with no token) is fine.
+  assert.deepEqual(await unregisterPushToken({db, uid: "A"}),
+      {status: "unregistered"});
+  // A signed-out phone gets no pushes for that account.
+  const sent = [];
+  const notify = notifyFromPushTokens({db,
+    send: async (...args) => sent.push(args)});
+  await notify("A", "request", "bobby");
+  assert.deepEqual(sent, []);
 });
 
 test("social: registerPushToken stores the token and validates it", async () => {
@@ -1494,11 +1518,27 @@ test("social: contact matching needs a profile and is rate limited", async () =>
   await assert.rejects(contactsCall("A", ["b@x.com"]),
       (e) => e.code === "failed-precondition");
   await claim("A", "alice");
-  for (let i = 0; i < 5; i++) await contactsCall("A", ["b@x.com"]);
+  assert.equal(social.CONTACT_CALLS_PER_DAY, 2);
+  for (let i = 0; i < 2; i++) await contactsCall("A", ["b@x.com"]);
   await assert.rejects(contactsCall("A", ["b@x.com"]),
       (e) => e.code === "resource-exhausted");
   await contactsCall("A", ["b@x.com"], {now: 1000 + 86400000});
   await assert.rejects(contactsCall("A", "b@x.com"),
+      (e) => e.code === "invalid-argument");
+});
+
+test("social: contact matching takes at most 500 emails a call", async () => {
+  await claim("A", "alice");
+  assert.equal(social.CONTACT_EMAILS_MAX, 500);
+  const emails = (n) => Array.from({length: n}, (_, i) => `p${i}@x.com`);
+  const seen = [];
+  const lookup = async (list) => {
+    seen.push(list.length);
+    return [];
+  };
+  await contactsCall("A", emails(500), {lookup});
+  assert.deepEqual(seen, [500]);
+  await assert.rejects(contactsCall("A", emails(501), {lookup}),
       (e) => e.code === "invalid-argument");
 });
 
@@ -1561,18 +1601,33 @@ test("interactions: reacting sets one reaction and counts", async () => {
   assert.equal(mine.uid, "B");
 });
 
-test("interactions: changing a reaction moves the count, same emoji removes", async () => {
+test("interactions: changing a reaction moves the count, null removes, same emoji is a no-op", async () => {
   await reactionsSetup();
   await react("B", "beer");
   await react("B", "water");
   let thread = await threadDoc();
   assert.equal(thread.reactions.beer || 0, 0);
   assert.equal(thread.reactions.water, 1);
-  assert.deepEqual(await react("B", "water"), {emoji: null});
+  // Sending the reaction already held keeps it and counts it once.
+  assert.deepEqual(await react("B", "water"), {emoji: "water"});
+  thread = await threadDoc();
+  assert.equal(thread.reactions.water, 1);
+  assert.deepEqual(thread.reactors, ["B"]);
+  assert.deepEqual(await react("B", null), {emoji: null});
   thread = await threadDoc();
   assert.equal(thread.reactions.water || 0, 0);
   assert.deepEqual(thread.reactors, []);
   assert.equal(await exists(`night_threads/A_${T}/reactions/B`), false);
+});
+
+test("interactions: a repeated or out-of-order reaction never flips the result", async () => {
+  await reactionsSetup();
+  // Double tap beer then remove, handled by the server in reverse order.
+  assert.deepEqual(await react("B", null), {emoji: null});
+  assert.deepEqual(await react("B", "beer"), {emoji: "beer"});
+  // The app now asks for beer again: it stays beer.
+  assert.deepEqual(await react("B", "beer"), {emoji: "beer"});
+  assert.equal((await threadDoc()).reactions.beer, 1);
 });
 
 test("interactions: reaction counts never go negative", async () => {
@@ -1696,7 +1751,7 @@ test("interactions: others never counts the pusher or removed reactions", async 
   const second = makeNotify();
   await react("B", "beer", {notify: second.notify, now: 0});
   await react("C", "water", {notify: second.notify, now: minute});
-  await react("C", "water", {notify: second.notify, now: 2 * minute});
+  await react("C", null, {notify: second.notify, now: 2 * minute});
   await react("D", "water", {notify: second.notify, now: 20 * minute});
   assert.equal(second.calls.length, 2);
   assert.equal(second.calls[1][2].from, "dina");
@@ -1874,6 +1929,43 @@ test("interactions: a mention followed by punctuation still resolves", async () 
   assert.deepEqual(none.mentions, []);
 });
 
+test("interactions: a name glued to a word or too long is no mention", async () => {
+  await commentsSetup();
+  await claim("L", "abcdefghijklmnopqrst");
+  await befriend("A", "L");
+  const {calls, notify} = makeNotify();
+  const glued = await comment("B", "ping bob@carla thanks", {notify, now: 0});
+  assert.deepEqual(glued.mentions, []);
+  assert.ok(!calls.some(([to, kind]) => to === "C" && kind === "mention"));
+  const long = await comment("B", "@abcdefghijklmnopqrstuvwxy hi",
+      {now: 5000});
+  assert.deepEqual(long.mentions, []);
+  // A 20-character name on its own still resolves.
+  const exact = await comment("B", "hi @abcdefghijklmnopqrst",
+      {now: 10000});
+  assert.deepEqual(exact.mentions.map((m) => m.username),
+      ["abcdefghijklmnopqrst"]);
+});
+
+test("interactions: path ids that aren't plain ids are invalid-argument", async () => {
+  await commentsSetup();
+  const invalid = (e) => e.code === "invalid-argument";
+  for (const owner of ["..", ".", "a/b", "A_1", "", 7]) {
+    await assert.rejects(interactions.getNightThread({db, uid: "B",
+      data: {owner, startedAt: T}}), invalid);
+    await assert.rejects(react("B", "beer", {owner}), invalid);
+    await assert.rejects(comment("B", "hi", {owner}), invalid);
+  }
+  for (const commentId of ["..", "a.b", "x".repeat(129)]) {
+    await assert.rejects(interactions.deleteComment({db, uid: "B",
+      data: {owner: "A", startedAt: T, commentId}}), invalid);
+  }
+  for (const targetUid of ["..", "a.b"]) {
+    await assert.rejects(social.blockUser({db, uid: "B",
+      data: {targetUid}}), invalid);
+  }
+});
+
 test("interactions: mentioning the owner still sends the owner a comment push", async () => {
   await commentsSetup();
   const {calls, notify} = makeNotify();
@@ -1990,9 +2082,11 @@ test("interactions: a thread outlives the expiry it was first written with", asy
   assert.deepEqual(summary.reactions, {beer: 1, water: 1});
   assert.equal(summary.comment_count, 2);
   assert.equal(summary.expires_at.toMillis(), graceAfter(night));
-  // Re-tapping a reaction made before the move toggles it, never counts it
-  // twice.
-  assert.deepEqual(await react("B", "beer", {now: later}), {emoji: null});
+  // Re-sending a reaction made before the move keeps it, never counts it
+  // twice; removing it takes it off.
+  assert.deepEqual(await react("B", "beer", {now: later}), {emoji: "beer"});
+  assert.deepEqual((await threadDoc()).reactions, {beer: 1, water: 1});
+  assert.deepEqual(await react("B", null, {now: later}), {emoji: null});
   summary = await threadDoc();
   assert.deepEqual(summary.reactions, {beer: 0, water: 1});
   const read = await interactions.getNightThread({db, uid: "B",
