@@ -229,23 +229,29 @@ struct AuthSessionTests {
         #expect(!LogDeepLink.accepts(eventId: "", activeEventId: ""))
     }
 
-    // MARK: - Sign-out never waits on the push token call
+}
 
-    @Test func waitAtMostReturnsAtTheTimeoutWhileWorkHangs() async {
-        let clock = ContinuousClock()
-        let elapsed = await clock.measure {
-            await FirebaseManager.waitAtMost(.milliseconds(100)) {
-                try? await Task.sleep(for: .seconds(30))
-            }
-        }
-        #expect(elapsed < .seconds(5))
-    }
+// MARK: - Sign-out never waits on the push token call
 
-    @Test func waitAtMostReturnsWhenWorkFinishesFirst() async {
-        let clock = ContinuousClock()
-        let elapsed = await clock.measure {
-            await FirebaseManager.waitAtMost(.seconds(30)) {}
+// Nonisolated and outside the main-actor suite: measured on the main actor, the
+// clock also counted the time spent queueing behind other main-actor tests,
+// which on a loaded CI simulator reached 2+ minutes and failed the run. The
+// bound only has to prove the 30 s work is not awaited.
+
+@Test nonisolated func waitAtMostReturnsAtTheTimeoutWhileWorkHangs() async {
+    let clock = ContinuousClock()
+    let elapsed = await clock.measure {
+        await FirebaseManager.waitAtMost(.milliseconds(100)) {
+            try? await Task.sleep(for: .seconds(30))
         }
-        #expect(elapsed < .seconds(5))
     }
+    #expect(elapsed < .seconds(20))
+}
+
+@Test nonisolated func waitAtMostReturnsWhenWorkFinishesFirst() async {
+    let clock = ContinuousClock()
+    let elapsed = await clock.measure {
+        await FirebaseManager.waitAtMost(.seconds(30)) {}
+    }
+    #expect(elapsed < .seconds(20))
 }

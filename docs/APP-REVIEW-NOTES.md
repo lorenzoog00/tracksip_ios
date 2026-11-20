@@ -115,7 +115,9 @@ User-generated content safeguards (Guideline 1.2):
   Social profile. It is verified by SMS code through Firebase Authentication
   and used only so friends can find each other. It is never shown to other
   users. The demo account works without
-  adding a number: skip the prompt with "Not now".
+  adding a number: skip the prompt with "Not now". To try it without a real
+  SMS, use the test phone number and code written in App Store Connect's
+  review notes.
 - Reactions and comments on a night: reactions are a fixed set of two emojis (🍻 and 💧).
   Comments are text only, at most 200 characters, with no links or photos, and
   are rate-limited. Any comment can be reported with a long-press: the report
