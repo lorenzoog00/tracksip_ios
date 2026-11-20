@@ -57,6 +57,8 @@ final class FriendsStore: ObservableObject {
     private var endedNights: [String: [SharedNight]] = [:]
     private var endedRetries: [String: Task<Void, Never>] = [:]
     private var endedFailures: [String: Int] = [:]
+    /// Which attach of each friend's ended listener is current.
+    private var endedTokens: [String: UUID] = [:]
     /// A denied ended query is most often one whose bound fell behind the server's
     /// clock, which a prompt re-attach fixes; after that, back off like the main doc.
     private static let endedRetryDelays: [UInt64] = [10, 120, 300, 900]
@@ -66,6 +68,7 @@ final class FriendsStore: ObservableObject {
     /// behind still gets through.
     private static let endedQueryMargin: TimeInterval = 600
     private var myEndedListener: ListenerRegistration?
+    private var myEndedToken = UUID()
     private var myEndedNights: [SharedNight] = []
 
     private var friendUids: [String] = []
@@ -198,6 +201,7 @@ final class FriendsStore: ObservableObject {
         endedRetries.values.forEach { $0.cancel() }
         endedRetries = [:]
         endedFailures = [:]
+        endedTokens = [:]
         endedNights = [:]
         myNightListener?.remove()
         myNightListener = nil
@@ -308,6 +312,7 @@ final class FriendsStore: ObservableObject {
         for (fid, listener) in endedListeners where !wanted.contains(fid) {
             listener.remove()
             endedListeners[fid] = nil
+            endedTokens[fid] = nil
         }
         for fid in Array(endedRetries.keys) where !wanted.contains(fid) {
             endedRetries[fid]?.cancel()
@@ -324,11 +329,14 @@ final class FriendsStore: ObservableObject {
         }
     }
 
-    /// `shared_nights/{uid}/ended`, unexpired copies only. A friend's query must carry
-    /// the `expires_at` bound or the rules deny it whole.
+    /// `shared_nights/{uid}/ended`, unexpired copies only, the 10 that expire last
+    /// (the newest) first. A friend's query must carry the `expires_at` bound or the
+    /// rules deny it whole.
     private func endedQuery(_ uid: String, after bound: Date) -> Query {
         db.collection("shared_nights").document(uid).collection("ended")
             .whereField("expires_at", isGreaterThan: Timestamp(date: bound))
+            .order(by: "expires_at", descending: true)
+            .limit(to: 10)
     }
 
     /// Ended copies that can still be shown: parsed, ended and not yet expired.
@@ -339,13 +347,17 @@ final class FriendsStore: ObservableObject {
 
     private func attachEnded(_ fid: String, session s: Int) {
         endedListeners[fid]?.remove()
+        // A callback already queued by the listener this replaces must not touch the new one.
+        let token = UUID()
+        endedTokens[fid] = token
         let bound = Date().addingTimeInterval(Self.endedQueryMargin)
         endedListeners[fid] = endedQuery(fid, after: bound)
             .addSnapshotListener { [weak self] snap, error in
                 let failed = error != nil || snap == nil
                 let docs = snap?.documents.map { $0.data() } ?? []
                 Task { @MainActor [weak self] in
-                    guard let self, self.session == s, self.friendUids.contains(fid) else { return }
+                    guard let self, self.session == s, self.endedTokens[fid] == token,
+                          self.friendUids.contains(fid) else { return }
                     if failed {
                         // Keep what was shown (the feed still drops it on expiry): a denial
                         // here is usually a bound the server clock has passed, fixed by the
@@ -452,12 +464,14 @@ final class FriendsStore: ObservableObject {
     /// copies TTL has not collected yet.
     private func attachMyEnded(_ uid: String, session s: Int) {
         myEndedListener?.remove()
+        let token = UUID()
+        myEndedToken = token
         myEndedListener = endedQuery(uid, after: Date())
             .addSnapshotListener { [weak self] snap, error in
                 let failed = error != nil || snap == nil
                 let docs = snap?.documents.map { $0.data() } ?? []
                 Task { @MainActor [weak self] in
-                    guard let self, self.session == s else { return }
+                    guard let self, self.session == s, self.myEndedToken == token else { return }
                     if failed {
                         // Dead listener; the next foreground attaches it again.
                         self.myEndedListener?.remove()
@@ -479,11 +493,14 @@ final class FriendsStore: ObservableObject {
     }
 
     /// Back to the foreground: try every dead listener now instead of waiting out its back-off.
+    /// Every ended-copy listener is attached again, live ones too: their `expires_at`
+    /// bound was fixed at attach and the server clock may have passed it in the
+    /// background. Their nights stay on screen until the new snapshot replaces them.
     private func reattachDeadNightListeners() {
         guard let uid else { return }
         let s = session
         if myNightListener == nil { attachMyNight(uid, session: s) }
-        if myEndedListener == nil { attachMyEnded(uid, session: s) }
+        attachMyEnded(uid, session: s)
         nightRetries.values.forEach { $0.cancel() }
         nightRetries = [:]
         for fid in friendUids where nightListeners[fid] == nil {
@@ -491,7 +508,7 @@ final class FriendsStore: ObservableObject {
         }
         endedRetries.values.forEach { $0.cancel() }
         endedRetries = [:]
-        for fid in friendUids where endedListeners[fid] == nil {
+        for fid in friendUids {
             attachEnded(fid, session: s)
         }
     }
