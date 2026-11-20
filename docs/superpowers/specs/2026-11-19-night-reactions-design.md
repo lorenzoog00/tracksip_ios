@@ -9,10 +9,10 @@ from the feed itself.
 
 | # | Decision | Choice |
 |---|----------|--------|
-| 1 | Reactions | A fixed set of six: 🍻 🔥 😂 🥴 💧 ❤️. **One reaction per person per night.** Tapping another replaces it; tapping yours removes it. The owner cannot react to their own night |
+| 1 | Reactions | **Two: 🍻 and 💧** (revised 2026-11-20 from six). **One reaction per person per night.** Tapping another replaces it; tapping yours removes it. The owner can react to their own night (no push to themselves) |
 | 2 | Feed card | Each shared night is a **post card**: avatar, @username, Live · duration (or "Ended 5h ago · 4h 30m"), BAC now (or peak), mini BAC curve (live: dashed projection), **drink summary** as chips grouped by drink ("Beer ×3", "Tequila ×2", water count), "Last: Tequila · 12 min ago", reaction bar with counts and your reaction highlighted, comment count, and the latest comment |
-| 2b | Interaction from the feed | Tap an emoji on the card to react. Long-press (or the + button) fans out all six. Tap 💬 or the latest comment → **comment sheet**. Tap the rest of the card → the full night (Stats-style chart), which also shows reactions and comments |
-| 2c | Comment sheet | Six reactions on top with yours marked, "Reacted: @beto, @lu, you", flat comment list, input with Send. Swipe down to close |
+| 2b | Interaction from the feed | Both pills (🍻 / 💧) are always on the card; tap one to react. Tap 💬 or the latest comment → **comment sheet**. Tap the rest of the card → the full night (Stats-style chart), which also shows reactions and comments |
+| 2c | Comment sheet | The same two pills on top with yours marked, "Reacted: @beto, @lu, you", flat comment list, input with Send. Swipe down to close |
 | 3 | Comment pushes | The owner gets every comment. Anyone who has commented on that night gets later comments by others. Reactions reach the owner only, grouped, at most one push per night every 15 min ("@beto and 2 others reacted to your night") |
 | 4 | Comment rules | Text only, max 200 characters, no links or photos. Authors delete their own; the owner deletes any on their night. No editing. Long-press → Report (same reports pipeline). Blocks hide reactions and comments in both directions. Anyone who can see the night sees its comments. Everything expires with the night (24 h after close) |
 | 5 | Your own night | Lives **only at the top of your feed**, same card, labelled "You", while live and for 24 h after. You can comment on it, not react. **A tapped push opens that night's comment sheet** directly, yours or a friend's |
@@ -63,9 +63,28 @@ so a font change never breaks a stored value.
 
 ### Who can read
 
-Rules allow `get` on `night_threads/{nightKey}` and `list`/`get` on its
-subcollections to the owner (prefix of `nightKey`) and to their friends, while
-`expires_at > request.time`. No client writes.
+Rules allow `get` on the summary `night_threads/{nightKey}` and on a person's
+own `reactions/{uid}` doc to the owner (prefix of `nightKey`) and to their
+friends; comments, other reactions and limits are served only by
+`getNightThread`. No client writes.
+
+Visibility is decided by the night, not by the thread docs (their
+`expires_at` only drives TTL garbage collection, 48 h later). A thread is
+visible while either:
+
+- the main doc `shared_nights/{owner}` is that night (`started_at` matches the
+  key) and its `expires_at > request.time`, or
+- that night's ended copy `shared_nights/{owner}/ended/{started_at}` exists and
+  its `expires_at > request.time`. The owner's app writes this copy with every
+  write of an ended night, so the night (and its thread) stays on friends'
+  feeds for its full 24 h after a new night overwrites the main doc.
+
+The rules' `nightVisible()` and the callables' `loadNight` make the same
+check. Going incognito or deleting the night deletes the main doc and that
+night's ended copy; the delete triggers then remove only that night's thread,
+so earlier nights' threads stay while their ended copies do (a new incognito
+night deleting the main doc that still holds the previous ended night leaves
+that night's thread, since its copy still shows it).
 
 Blocks are filtered in two places: the server never accepts a reaction or
 comment between two people where either blocked the other, and never pushes
@@ -98,8 +117,13 @@ All `onCall`, App Check enforced, thin shells over a new `interactions.js`.
 - `getNightThread({owner, startedAt})` — reactions and comments, block-filtered,
   oldest first.
 - `setNotificationPrefs` is not needed: the owner writes its own prefs doc.
-- Trigger `onDocumentDeleted("shared_nights/{uid}")` deletes that owner's
-  threads (going incognito, account deletion).
+- Trigger `onDocumentDeleted("shared_nights/{uid}")` deletes the thread of
+  the night the deleted doc held (`{uid}_{old started_at}`; going incognito,
+  deleting the night, TTL), not the owner's earlier nights' threads, and not
+  while that night's unexpired ended copy still shows it. Trigger
+  `onDocumentDeleted("shared_nights/{uid}/ended/{started}")` deletes that
+  night's thread unless the main doc still holds the same night. Account
+  deletion deletes every thread of the owner and the `ended` copies itself.
 - Account deletion also removes the user's reactions and comments everywhere
   (collection-group queries on `uid`) and its prefs doc.
 

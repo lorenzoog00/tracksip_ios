@@ -8,7 +8,7 @@ struct MyFriendsView: View {
 
     private func isLive(_ profile: FriendProfile) -> Bool {
         let now = Date()
-        return friends.feed.contains { $0.id == profile.uid && $0.night.isLive(now: now) }
+        return friends.feed.contains { $0.profile.uid == profile.uid && $0.night.isLive(now: now) }
     }
 
     var body: some View {

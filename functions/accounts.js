@@ -73,9 +73,10 @@ async function deleteSocialData({db, bucket, uid}) {
       .get();
   for (const block of blockedBy.docs) await block.ref.delete();
 
-  await db.doc(`shared_nights/${uid}`).delete();
-  // The shared_nights delete trigger does this too, but asynchronously and
-  // only if it runs; deleting here keeps account deletion self-contained.
+  // With its ended copies (shared_nights/{uid}/ended/*).
+  await db.recursiveDelete(db.doc(`shared_nights/${uid}`));
+  // The shared_nights delete trigger removes only the current night's
+  // thread, asynchronously and only if it runs; this removes every one.
   await deleteThreadsFor({db, uid});
   // What they left on other people's nights, summaries included: a deleted
   // account's name and words must not linger in a friend's feed card.

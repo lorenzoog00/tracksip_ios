@@ -17,6 +17,8 @@ const {
   collection,
   query,
   where,
+  orderBy,
+  limit,
   getDocs,
 } = require("firebase/firestore");
 const {initializeApp, deleteApp} = require("firebase-admin/app");
@@ -325,6 +327,8 @@ test("deleting an account removes every social trace of it", async () => {
     "blocks/B/blocked/A": {uid: "A"},
     "blocks/B/blocked/G": {uid: "G"},
     "shared_nights/A": {x: 1},
+    "shared_nights/A/ended/1": {x: 1},
+    "shared_nights/B/ended/1": {x: 1},
     "push_tokens/A": {token: "t"},
     "push_tokens/B": {token: "t"},
     "notification_prefs/A": {reactions: false},
@@ -369,6 +373,7 @@ test("deleting an account removes every social trace of it", async () => {
     "public_profiles/A", "usernames/a", "friendships/A/friends/B",
     "friendships/B/friends/A", "friend_requests/C_A", "friend_requests/A_E",
     "blocks/A/blocked/F", "blocks/B/blocked/A", "shared_nights/A",
+    "shared_nights/A/ended/1",
     "push_tokens/A", "notification_prefs/A", "night_threads/A_1",
     "night_threads/A_1/comments/c1", "night_threads/A_1/reactions/B",
     "night_threads/B_1/comments/c2", "night_threads/B_1/comments/c4",
@@ -398,6 +403,7 @@ test("deleting an account removes every social trace of it", async () => {
     "friend_requests/C_E", "blocks/B/blocked/G", "push_tokens/B",
     "notification_prefs/B", "night_threads/B_1",
     "night_threads/B_1/comments/c3", "night_threads/B_1/reactions/D",
+    "shared_nights/B/ended/1",
   ]) {
     assert.equal(await exists(kept), true, kept);
   }
@@ -1038,6 +1044,95 @@ test("friends cannot list shared_nights or read after owner tombstone", async ()
   await assertFails(getDoc(doc(bob, "shared_nights/alice")));
 });
 
+// --- Ended copies: shared_nights/{uid}/ended/{started_at} -------------------
+const ENDED = {...NIGHT, ended_at: 3};
+const seedEnded = (uid, started, expires) =>
+  env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), `shared_nights/${uid}/ended/${started}`),
+        {...ENDED, started_at: started, expires_at: expires});
+  });
+// The query FriendsStore runs: only unexpired copies. The bound must be at
+// or after request.time (a bound at the client's own clock is denied), so
+// the app queries 10 minutes past its clock, as here, newest 10 first.
+const unexpiredEnded = (fs, uid) => query(
+    collection(fs, `shared_nights/${uid}/ended`),
+    where("expires_at", ">",
+        Timestamp.fromMillis(Date.now() + 10 * 60 * 1000)),
+    orderBy("expires_at", "desc"), limit(10));
+
+test("ended copies: the owner writes a valid copy keyed by started_at", async () => {
+  const alice = env.authenticatedContext("alice").firestore();
+  const good = {...ENDED, expires_at: futureTs()};
+  const ref = doc(alice, "shared_nights/alice/ended/1");
+  await assertSucceeds(setDoc(ref, good));
+  await assertSucceeds(setDoc(ref, {...good, last_drink_at: 4}));
+  await assertSucceeds(getDoc(ref));
+  // The id must be the night's started_at.
+  await assertFails(setDoc(doc(alice, "shared_nights/alice/ended/2"), good));
+  await assertFails(setDoc(doc(alice, "shared_nights/alice/ended/x"), good));
+  // Only ended nights, with the main doc's allowlist and limits.
+  await assertFails(setDoc(ref, {...NIGHT, expires_at: futureTs()}));
+  await assertFails(setDoc(ref, {...good, ended_at: "x"}));
+  await assertFails(setDoc(ref, {...good, notes: "secret"}));
+  await assertFails(setDoc(ref, {...good, samples: new Array(301).fill(0)}));
+  await assertFails(setDoc(ref, {
+    ...good, expires_at: Timestamp.fromMillis(Date.now() + 30 * 3600 * 1000),
+  }));
+  await assertSucceeds(deleteDoc(ref));
+});
+
+test("ended copies: nobody else writes or deletes them", async () => {
+  await seedFriendship("alice", "bob");
+  await seedEnded("alice", 1, futureTs());
+  const bob = env.authenticatedContext("bob").firestore();
+  const ref = doc(bob, "shared_nights/alice/ended/1");
+  await assertFails(setDoc(ref, {...ENDED, expires_at: futureTs()}));
+  await assertFails(deleteDoc(ref));
+  await assertFails(setDoc(doc(bob, "shared_nights/alice/ended/7"),
+      {...ENDED, started_at: 7, expires_at: futureTs()}));
+});
+
+test("ended copies: friends get and list unexpired copies only", async () => {
+  await seedFriendship("alice", "bob");
+  await seedEnded("alice", 1, futureTs());
+  await seedEnded("alice", 2, pastTs());
+  const bob = env.authenticatedContext("bob").firestore();
+  await assertSucceeds(getDoc(doc(bob, "shared_nights/alice/ended/1")));
+  await assertFails(getDoc(doc(bob, "shared_nights/alice/ended/2")));
+  const listed = await assertSucceeds(getDocs(unexpiredEnded(bob, "alice")));
+  assert.deepEqual(listed.docs.map((d) => d.id), ["1"]);
+  // An unconstrained list, or one reaching back past now, is denied.
+  await assertFails(getDocs(collection(bob, "shared_nights/alice/ended")));
+  await assertFails(getDocs(query(
+      collection(bob, "shared_nights/alice/ended"),
+      where("expires_at", ">", Timestamp.fromMillis(0)))));
+  // The owner reads all of theirs.
+  const alice = env.authenticatedContext("alice").firestore();
+  await assertSucceeds(getDocs(collection(alice, "shared_nights/alice/ended")));
+  await assertSucceeds(getDoc(doc(alice, "shared_nights/alice/ended/2")));
+});
+
+test("ended copies: strangers, anon and a tombstoned owner's friends see none", async () => {
+  await seedFriendship("bob", "alice"); // directional: not alice's friend
+  await seedEnded("alice", 1, futureTs());
+  for (const fs of [
+    env.authenticatedContext("bob").firestore(),
+    env.authenticatedContext("carol").firestore(),
+    env.unauthenticatedContext().firestore(),
+  ]) {
+    await assertFails(getDoc(doc(fs, "shared_nights/alice/ended/1")));
+    await assertFails(getDocs(unexpiredEnded(fs, "alice")));
+  }
+  await seedFriendship("alice", "erin");
+  const erin = env.authenticatedContext("erin").firestore();
+  await assertSucceeds(getDocs(unexpiredEnded(erin, "alice")));
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), "account_deletions/alice"), {a: 1});
+  });
+  await assertFails(getDoc(doc(erin, "shared_nights/alice/ended/1")));
+  await assertFails(getDocs(unexpiredEnded(erin, "alice")));
+});
+
 // --- Friends v1: reports, push tokens, request pushes -----------------------
 const {
   reportUser,
@@ -1430,13 +1525,13 @@ test("interactions: reacting sets one reaction and counts", async () => {
 test("interactions: changing a reaction moves the count, same emoji removes", async () => {
   await reactionsSetup();
   await react("B", "beer");
-  await react("B", "fire");
+  await react("B", "water");
   let thread = await threadDoc();
   assert.equal(thread.reactions.beer || 0, 0);
-  assert.equal(thread.reactions.fire, 1);
-  assert.deepEqual(await react("B", "fire"), {emoji: null});
+  assert.equal(thread.reactions.water, 1);
+  assert.deepEqual(await react("B", "water"), {emoji: null});
   thread = await threadDoc();
-  assert.equal(thread.reactions.fire || 0, 0);
+  assert.equal(thread.reactions.water || 0, 0);
   assert.deepEqual(thread.reactors, []);
   assert.equal(await exists(`night_threads/A_${T}/reactions/B`), false);
 });
@@ -1454,7 +1549,22 @@ test("interactions: reaction counts never go negative", async () => {
   }
 });
 
-test("interactions: owner, ex-friends and blocked people cannot react", async () => {
+test("interactions: the owner reacts to their own night without a push", async () => {
+  await reactionsSetup();
+  const {calls, notify} = makeNotify();
+  assert.deepEqual(await react("A", "beer", {notify, now: 0}),
+      {emoji: "beer"});
+  const thread = await threadDoc();
+  assert.equal(thread.reactions.beer, 1);
+  assert.deepEqual(thread.reactors, ["A"]);
+  assert.deepEqual(thread.unpushed_reactors || [], []);
+  // A friend reacting later is not grouped with the owner as "1 other".
+  await react("B", "water", {notify, now: 1000});
+  assert.deepEqual(calls.map(([to, kind, p]) => [to, kind, p.others]),
+      [["A", "reaction", 0]]);
+});
+
+test("interactions: ex-friends and blocked people cannot react", async () => {
   await reactionsSetup();
   await claim("C", "carla");
   await claim("D", "dina");
@@ -1464,11 +1574,13 @@ test("interactions: owner, ex-friends and blocked people cannot react", async ()
   await befriend("A", "E");
   await db.doc("blocks/E/blocked/A").set({uid: "A", created_at: 1});
   const denied = (e) => e.code === "permission-denied";
-  await assert.rejects(react("A", "beer"), denied);
   await assert.rejects(react("C", "beer"), denied);
   await assert.rejects(react("D", "beer"), denied);
   await assert.rejects(react("E", "beer"), denied);
   await assert.rejects(react("B", "pizza"),
+      (e) => e.code === "invalid-argument");
+  // Only a beer or a water.
+  await assert.rejects(react("B", "fire"),
       (e) => e.code === "invalid-argument");
 });
 
@@ -1501,13 +1613,13 @@ test("interactions: reaction pushes are grouped", async () => {
     from: "bobby", owner: "A", ownerName: "alice", startedAt: T,
     emoji: "🍻", others: 0,
   }]]);
-  await react("C", "fire", {notify, now: minute});
+  await react("C", "water", {notify, now: minute});
   assert.equal(calls.length, 1);
-  await react("D", "laugh", {notify, now: 16 * minute});
+  await react("D", "beer", {notify, now: 16 * minute});
   assert.equal(calls.length, 2);
   assert.equal(calls[1][2].from, "dina");
   assert.equal(calls[1][2].others, 1);
-  await react("B", "heart", {notify, now: 40 * minute});
+  await react("B", "water", {notify, now: 40 * minute});
   assert.equal(calls.length, 2);
 });
 
@@ -1535,8 +1647,8 @@ test("interactions: others never counts the pusher or removed reactions", async 
   const minute = 60 * 1000;
   const first = makeNotify();
   await react("B", "beer", {notify: first.notify, now: 0});
-  await react("C", "fire", {notify: first.notify, now: minute});
-  await react("C", "laugh", {notify: first.notify, now: 20 * minute});
+  await react("C", "water", {notify: first.notify, now: minute});
+  await react("C", "beer", {notify: first.notify, now: 20 * minute});
   assert.equal(first.calls.length, 2);
   assert.equal(first.calls[1][2].from, "carla");
   assert.equal(first.calls[1][2].others, 0);
@@ -1544,9 +1656,9 @@ test("interactions: others never counts the pusher or removed reactions", async 
   await db.recursiveDelete(db.collection("night_threads"));
   const second = makeNotify();
   await react("B", "beer", {notify: second.notify, now: 0});
-  await react("C", "fire", {notify: second.notify, now: minute});
-  await react("C", "fire", {notify: second.notify, now: 2 * minute});
-  await react("D", "heart", {notify: second.notify, now: 20 * minute});
+  await react("C", "water", {notify: second.notify, now: minute});
+  await react("C", "water", {notify: second.notify, now: 2 * minute});
+  await react("D", "water", {notify: second.notify, now: 20 * minute});
   assert.equal(second.calls.length, 2);
   assert.equal(second.calls[1][2].from, "dina");
   assert.equal(second.calls[1][2].others, 0);
@@ -1599,7 +1711,7 @@ test("interactions: comments keep the reaction fields on the summary", async () 
   assert.equal(summary.reactions.beer, 1);
   assert.deepEqual(summary.reactors, ["B"]);
   assert.equal(summary.comment_count, 1);
-  await react("C", "fire");
+  await react("C", "water");
   assert.equal((await threadDoc()).comment_count, 1);
   assert.equal((await threadDoc()).latest_comments.length, 1);
 });
@@ -1800,13 +1912,13 @@ test("interactions: the thread is oldest first and hides blocks both ways", asyn
   await comment("C", "c1", {now: 5000});
   await comment("D", "d1", {now: 10000});
   await react("B", "beer", {now: 1});
-  await react("C", "fire", {now: 2});
-  await react("D", "heart", {now: 3});
+  await react("C", "water", {now: 2});
+  await react("D", "water", {now: 3});
 
   const mine = await thread("B");
   assert.deepEqual(mine.comments.map((c) => c.text), ["b1", "c1", "d1"]);
   assert.deepEqual(mine.reactions.map((r) => r.emoji),
-      ["beer", "fire", "heart"]);
+      ["beer", "water", "water"]);
   assert.deepEqual(Object.keys(mine.comments[0]).sort(),
       ["at", "id", "mentions", "text", "uid", "username"]);
   assert.deepEqual(Object.keys(mine.reactions[0]).sort(),
@@ -1833,17 +1945,17 @@ test("interactions: a thread outlives the expiry it was first written with", asy
   const night = (await db.doc("shared_nights/A").get()).data();
   // Past the expiry the first writes copied, the night is still live.
   const later = Date.now() + 2 * hour;
-  await react("C", "fire", {now: later});
+  await react("C", "water", {now: later});
   const second = await comment("C", "later", {now: later});
   let summary = await threadDoc();
-  assert.deepEqual(summary.reactions, {beer: 1, fire: 1});
+  assert.deepEqual(summary.reactions, {beer: 1, water: 1});
   assert.equal(summary.comment_count, 2);
   assert.equal(summary.expires_at.toMillis(), graceAfter(night));
   // Re-tapping a reaction made before the move toggles it, never counts it
   // twice.
   assert.deepEqual(await react("B", "beer", {now: later}), {emoji: null});
   summary = await threadDoc();
-  assert.deepEqual(summary.reactions, {beer: 0, fire: 1});
+  assert.deepEqual(summary.reactions, {beer: 0, water: 1});
   const read = await interactions.getNightThread({db, uid: "B",
     data: {owner: "A", startedAt: T}, now: later});
   assert.deepEqual(read.comments.map((c) => c.id), [first.id, second.id]);
@@ -2070,6 +2182,127 @@ test("interactions: deleteThreadsFor with no threads is a no-op", async () => {
   await interactions.deleteThreadsFor({db, uid: "nobody"});
 });
 
+test("interactions: deleteThreadOfNight removes only the deleted night's thread", async () => {
+  await commentsSetup();
+  await react("B", "beer");
+  await comment("C", "hi");
+  // An earlier night of A's, still on feeds through its ended copy.
+  await db.doc("night_threads/A_5").set({owner: "A", started_at: 5});
+  await db.doc("night_threads/A_5/comments/old").set({uid: "B"});
+
+  await interactions.deleteThreadOfNight({
+    db, uid: "A", night: (await db.doc("shared_nights/A").get()).data(),
+  });
+
+  assert.equal(await exists(`night_threads/A_${T}`), false);
+  for (const sub of ["reactions", "comments", "limits"]) {
+    assert.equal(await countDocs(`night_threads/A_${T}/${sub}`), 0, sub);
+  }
+  assert.equal(await exists("night_threads/A_5"), true);
+  assert.equal(await exists("night_threads/A_5/comments/old"), true);
+  // No old data (or no started_at) names no thread: nothing is deleted.
+  await interactions.deleteThreadOfNight({db, uid: "A", night: undefined});
+  await interactions.deleteThreadOfNight({db, uid: "A", night: {x: 1}});
+  assert.equal(await exists("night_threads/A_5"), true);
+});
+
+const seedEndedCopy = (owner, startedAt, expiresIn = 3600 * 1000) =>
+  db.doc(`shared_nights/${owner}/ended/${startedAt}`).set({
+    started_at: startedAt, ended_at: startedAt + 1, last_drink_at: startedAt,
+    samples: [], drinks: [], expires_at: inMs(expiresIn),
+  });
+const seedThreadDocs = async (key) => {
+  await db.doc(`night_threads/${key}`).set({owner: "A", started_at: 1});
+  await db.doc(`night_threads/${key}/comments/c1`).set({uid: "B"});
+};
+
+test("interactions: deleting the main doc keeps a thread its ended copy shows", async () => {
+  // A ended night T (main doc + copy, friends reacted); a new incognito
+  // night deletes the main doc still holding T.
+  await seedSharedNight("A", {started_at: T, ended_at: T + 1});
+  await seedEndedCopy("A", T);
+  await seedThreadDocs(`A_${T}`);
+  const night = (await db.doc("shared_nights/A").get()).data();
+  await db.doc("shared_nights/A").delete();
+  await interactions.deleteThreadOfNight({db, uid: "A", night});
+  assert.equal(await exists(`night_threads/A_${T}`), true);
+  assert.equal(await exists(`night_threads/A_${T}/comments/c1`), true);
+  // An expired copy no longer shows it: the thread goes.
+  await seedEndedCopy("A", T, -1000);
+  await interactions.deleteThreadOfNight({db, uid: "A", night});
+  assert.equal(await exists(`night_threads/A_${T}`), false);
+  assert.equal(await countDocs(`night_threads/A_${T}/comments`), 0);
+});
+
+test("interactions: deleting an ended copy takes its thread unless the main doc holds it", async () => {
+  await seedThreadDocs(`A_${T}`);
+  // The main doc is still night T: its card stays, so does the thread.
+  await seedSharedNight("A", {started_at: T, ended_at: T + 1});
+  await interactions.deleteThreadOfEndedCopy({db, uid: "A", started: `${T}`});
+  assert.equal(await exists(`night_threads/A_${T}`), true);
+  // The main doc moved on to night T + 10: the thread goes whole.
+  await seedSharedNight("A", {started_at: T + 10});
+  await seedThreadDocs(`A_${T + 10}`);
+  await interactions.deleteThreadOfEndedCopy({db, uid: "A", started: `${T}`});
+  assert.equal(await exists(`night_threads/A_${T}`), false);
+  assert.equal(await countDocs(`night_threads/A_${T}/comments`), 0);
+  assert.equal(await exists(`night_threads/A_${T + 10}`), true);
+  // No main doc at all: also deleted; a malformed id deletes nothing.
+  await db.doc("shared_nights/A").delete();
+  await seedThreadDocs(`A_${T}`);
+  await interactions.deleteThreadOfEndedCopy({db, uid: "A", started: `${T}`});
+  assert.equal(await exists(`night_threads/A_${T}`), false);
+  await interactions.deleteThreadOfEndedCopy({db, uid: "A", started: "x"});
+  assert.equal(await exists(`night_threads/A_${T + 10}`), true);
+});
+
+test("interactions: an ended copy keeps a replaced night open to reactions", async () => {
+  await commentsSetup();
+  // A started a new night; night T survives only as its ended copy.
+  const endedNight = {
+    started_at: T, ended_at: T + 1, last_drink_at: T, samples: [],
+    drinks: [], expires_at: inMs(3600 * 1000),
+  };
+  await db.doc(`shared_nights/A/ended/${T}`).set(endedNight);
+  await seedSharedNight("A", {started_at: T + 10});
+  assert.deepEqual(await react("B", "beer"), {emoji: "beer"});
+  const summary = await threadDoc();
+  assert.equal(summary.reactions.beer, 1);
+  assert.equal(summary.expires_at.toMillis(),
+      endedNight.expires_at.toMillis() + interactions.THREAD_GRACE_MS);
+  assert.equal((await comment("C", "still here")).text, "still here");
+  assert.equal((await thread("B")).comments.length, 1);
+  // The owner's own night works the same way.
+  assert.deepEqual(await react("A", "water"), {emoji: "water"});
+
+  // Expired copy: gone, like an expired main doc.
+  await db.doc(`shared_nights/A/ended/${T}`)
+      .set({...endedNight, expires_at: inMs(-1000)});
+  await assert.rejects(react("B", "water"), (e) => e.code === "not-found");
+  // A copy of another night never stands in for this one.
+  await db.doc(`shared_nights/A/ended/${T + 5}`)
+      .set({...endedNight, started_at: T + 5});
+  await assert.rejects(react("B", "water"), (e) => e.code === "not-found");
+});
+
+test("interactions: visibleNight prefers the main doc, then the ended copy", async () => {
+  const now = Date.now();
+  await seedSharedNight("A", {started_at: T});
+  await db.doc(`shared_nights/A/ended/${T}`).set({
+    started_at: T, ended_at: T + 1, last_drink_at: T, samples: [],
+    drinks: [], expires_at: inMs(3600 * 1000), marker: "copy",
+  });
+  const main = await interactions.visibleNight({
+    db, owner: "A", startedAt: T, now});
+  assert.equal(main.marker, undefined);
+  await seedSharedNight("A", {started_at: T + 10});
+  const copy = await interactions.visibleNight({
+    db, owner: "A", startedAt: T, now});
+  assert.equal(copy.marker, "copy");
+  assert.equal(await interactions.visibleNight({
+    db, owner: "A", startedAt: T + 99, now}), null);
+});
+
 // --- Night threads and notification prefs rules ----------------------------
 // Thread docs carry a TTL-only expires_at; visibility follows the shared
 // night (NIGHT.started_at is 1, so alice's thread key is alice_1).
@@ -2195,6 +2428,37 @@ test("thread rules: an expired, replaced or deleted night hides its thread", asy
   const bob = env.authenticatedContext("bob").firestore();
   await assertFails(getDoc(doc(bob, "night_threads/alice")));
   await assertFails(getDoc(doc(bob, "night_threads/alice_x")));
+});
+
+test("thread rules: an ended copy keeps a replaced night's thread visible", async () => {
+  await seedFriendship("alice", "bob");
+  await seedThread("alice");
+  const key = "night_threads/alice_1";
+  // A new night (started_at 2) has replaced night 1 in the main doc...
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), "shared_nights/alice"),
+        {...NIGHT, started_at: 2, expires_at: futureTs()});
+  });
+  // ...but night 1's ended copy is still within its 24 h.
+  await seedEnded("alice", 1, futureTs());
+  for (const uid of ["alice", "bob"]) {
+    const fs = env.authenticatedContext(uid).firestore();
+    await assertSucceeds(getDoc(doc(fs, key)));
+    await assertSucceeds(getDoc(doc(fs, `${key}/reactions/${uid}`)));
+  }
+  const carol = env.authenticatedContext("carol").firestore();
+  await assertFails(getDoc(doc(carol, key)));
+  // Once the copy expires (or is gone) the thread hides again.
+  await seedEnded("alice", 1, pastTs());
+  for (const uid of ["alice", "bob"]) {
+    const fs = env.authenticatedContext(uid).firestore();
+    await assertFails(getDoc(doc(fs, key)));
+  }
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await deleteDoc(doc(ctx.firestore(), "shared_nights/alice/ended/1"));
+  });
+  const bob = env.authenticatedContext("bob").firestore();
+  await assertFails(getDoc(doc(bob, key)));
 });
 
 test("thread rules: nobody writes a thread from a client", async () => {

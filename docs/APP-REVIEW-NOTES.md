@@ -84,7 +84,7 @@ other's current night and nights closed in the last 24 hours (drinks and BAC
 estimate). Nothing is public: only accepted friends see anything, data expires
 24 hours after a night closes, and a user can switch on Incognito to share
 nothing. There are no leaderboards and no rankings, and BAC is never compared or
-ranked between users. Friends can react to a night with one of six fixed emojis
+ranked between users. Friends can react to a night with one of two fixed emojis (🍻 or 💧)
 and leave short text comments on it; there is no private chat or direct
 messaging.
 
@@ -105,7 +105,7 @@ User-generated content safeguards (Guideline 1.2):
   stored or logged, and the check runs at most a few times a day. People found
   this way may get one notification that the user is on TrackSip. Nothing is
   read until the user taps the button and grants access.
-- Reactions and comments on a night: reactions are a fixed set of six emojis.
+- Reactions and comments on a night: reactions are a fixed set of two emojis (🍻 and 💧).
   Comments are text only, at most 200 characters, with no links or photos, and
   are rate-limited. Any comment can be reported with a long-press: the report
   stores a copy of that comment's text with its author and night (same

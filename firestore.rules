@@ -211,6 +211,29 @@ service cloud.firestore {
         'started_at', 'ended_at', 'last_drink_at', 'expires_at', 'samples', 'drinks'
       ]) && validNight(request.resource.data);
       allow delete: if owner(uid);
+
+      // A copy of each ended night, keyed by its started_at. The main doc
+      // above is overwritten as soon as a new night starts; this copy keeps
+      // the ended night (and its thread) on friends' feeds for its full 24 h.
+      // Same shape and limits as the main doc, plus ended_at and an id that
+      // matches started_at. Friends get or list only unexpired copies: the
+      // list condition reads resource.data, so a query must itself be
+      // constrained to expires_at > request.time or it is denied whole.
+      match /ended/{started} {
+        function friendMayRead() {
+          return request.auth != null
+            && !exists(/databases/$(database)/documents/account_deletions/$(uid))
+            && exists(/databases/$(database)/documents/friendships/$(uid)/friends/$(request.auth.uid))
+            && resource.data.expires_at > request.time;
+        }
+        allow read: if owner(uid) || friendMayRead();
+        allow create, update: if owner(uid) && request.resource.data.keys().hasOnly([
+          'started_at', 'ended_at', 'last_drink_at', 'expires_at', 'samples', 'drinks'
+        ]) && validNight(request.resource.data)
+          && request.resource.data.ended_at is number
+          && started == string(request.resource.data.started_at);
+        allow delete: if owner(uid);
+      }
     }
 
     // --- Night reactions and comments --------------------------------------
@@ -220,14 +243,16 @@ service cloud.firestore {
     // by the thread docs: the night's expires_at moves later with every drink,
     // while thread docs carry a later expires_at that only drives TTL garbage
     // collection. So a thread is readable while shared_nights/{owner} exists,
-    // is the same night (started_at matches the key) and has not expired --
-    // the check loadNight makes for the callables. The owner and their
+    // is the same night (started_at matches the key) and has not expired, or
+    // while that night's ended copy shared_nights/{owner}/ended/{started_at}
+    // exists and has not expired (the main doc has moved on to a newer
+    // night) -- the check loadNight makes for the callables. The owner and their
     // friends may get the summary, including a missing one (nobody has
     // reacted yet) so a feed listener doesn't die on it. A person may get
     // only their own reaction; comments, other reactions and limits are never
     // client-readable (getNightThread serves them, filtering blocks).
-    // A get looks up two documents, the friendship and the shared night;
-    // repeat lookups of the same document are cached.
+    // A get looks up at most three documents, the friendship, the shared
+    // night and its ended copy; repeat lookups of the same document are cached.
     match /night_threads/{key} {
       function threadOwner() {
         return key.split('_')[0];
@@ -240,10 +265,15 @@ service cloud.firestore {
       function nightPath() {
         return /databases/$(database)/documents/shared_nights/$(threadOwner());
       }
+      function endedPath() {
+        return /databases/$(database)/documents/shared_nights/$(threadOwner())/ended/$(key.split('_')[1]);
+      }
       function nightVisible() {
-        return exists(nightPath())
-          && get(nightPath()).data.started_at == int(key.split('_')[1])
-          && get(nightPath()).data.expires_at > request.time;
+        return (exists(nightPath())
+            && get(nightPath()).data.started_at == int(key.split('_')[1])
+            && get(nightPath()).data.expires_at > request.time)
+          || (exists(endedPath())
+            && get(endedPath()).data.expires_at > request.time);
       }
       allow get: if canSeeThread() && nightVisible();
 

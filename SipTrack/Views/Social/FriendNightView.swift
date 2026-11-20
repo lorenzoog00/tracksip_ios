@@ -22,18 +22,12 @@ struct FriendNightView: View {
     }
 
     /// The store's copy only: a removed friend, deleted night or incognito switch drops it.
-    /// It must still be the same night (owner and start), or the reactions and comments
-    /// shown here would belong to the one opened: a new night by the same friend is
-    /// "no longer available" too.
+    /// Looked up by night (owner and start), so the reactions and comments shown here
+    /// always belong to the one opened: a new night by the same friend leaves this one
+    /// on screen (through its ended copy) until it expires.
     private var current: FeedItem? {
-        let found: FeedItem?
-        if let mine = friends.myNight, mine.id == item.id {
-            found = mine
-        } else {
-            found = friends.feed.first { $0.id == item.id }
-        }
-        guard let found, NightKey(owner: found.profile.uid, night: found.night) == store.key else { return nil }
-        return found
+        friends.myNights.first(where: { $0.key == store.key })
+            ?? friends.feed.first(where: { $0.key == store.key })
     }
 
     var body: some View {
@@ -98,7 +92,7 @@ struct FriendNightView: View {
         let blocked = Set(friends.blocked.map(\.uid))
         let latest = store.summary.latest.last { !blocked.contains($0.uid) }
         return VStack(alignment: .leading, spacing: 10) {
-            ReactionBar(store: store, canReact: !store.isOwnNight)
+            ReactionBar(store: store, canReact: true)
                 .zIndex(1)
             Button {
                 ReactionPickerFocus.dismiss(reduceMotion: reduceMotion)

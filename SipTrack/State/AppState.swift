@@ -313,6 +313,8 @@ final class AppState: ObservableObject {
         stomachState: StomachState = .empty,
         incognito: Bool? = nil
     ) -> NightEvent {
+        // The night friends see until this one replaces it.
+        ensureEndedCopy(of: sharedNightEvent())
         var event = DataStore.shared.createEvent(name: name, drivingMode: drivingMode, bacLimit: bacLimit, userId: currentUserId, startTime: startTime)
         event.incognito = Self.resolveIncognito(incognito, profileDefault: userProfile.incognitoByDefault)
         event.stomachState = stomachState
@@ -583,14 +585,48 @@ final class AppState: ObservableObject {
             .max { ($0.endTime ?? .distantPast) < ($1.endTime ?? .distantPast) }
     }
 
-    private func deleteSharedNightRemotely() {
+    /// Deletes `shared_nights/{uid}` and, given the night's start, that night's ended
+    /// copy. Earlier nights' copies stay on friends' feeds.
+    private func deleteSharedNightRemotely(startedAt: Date?) {
         sharedNightGeneration &+= 1
         let gen = sharedNightGeneration
         lastSentSharedNight = nil
         push {
             guard self.sharedNightGeneration == gen else { return }
-            try await FirebaseManager.shared.deleteSharedNight()
+            try await FirebaseManager.shared.deleteSharedNight(startedAt: startedAt)
         }
+    }
+
+    /// Takes one ended night's copy off friends' feeds. Not tied to the generation: a
+    /// later write of another night must not cancel it.
+    private func deleteEndedSharedNightRemotely(_ event: NightEvent) {
+        guard event.endTime != nil, event.userId == currentUserId else { return }
+        let startedAt = event.startTime
+        push { try await FirebaseManager.shared.deleteEndedSharedNight(startedAt: startedAt) }
+    }
+
+    /// The night as friends see it; nil once expired (not worth writing: friends hide it).
+    private func unexpiredSharedNight(for event: NightEvent) -> SharedNight? {
+        let eventEntries = entries.filter { $0.eventId == event.id }
+        let eventFood = foodEntries.filter { $0.eventId == event.id }
+        let built = SharedNight.build(
+            event: event, entries: eventEntries, drinkTypes: allDrinkTypes,
+            points: fullNightPoints(for: event, entries: eventEntries, foodEntries: eventFood)
+        )
+        return built.expiresAt > Date() ? built : nil
+    }
+
+    /// Before a new night replaces it in the main doc, makes sure the outgoing ended
+    /// night's copy exists: its last write may never have gone out (ended before the
+    /// first cloud pull was merged, or superseded). Writes only the copy, so it is
+    /// idempotent, and is not tied to the generation so the new night's first sync
+    /// cannot cancel it. Same conditions as a normal write: a username, cloud data
+    /// merged (so a stale "not incognito" can't leak), not incognito, not expired.
+    private func ensureEndedCopy(of event: NightEvent?) {
+        guard let event, event.endTime != nil, !event.isIncognito,
+              event.userId == currentUserId, hasSocialProfile, hasAppliedCloudData,
+              let night = unexpiredSharedNight(for: event) else { return }
+        push { try await FirebaseManager.shared.writeEndedSharedNight(night) }
     }
 
     /// Syncs the active night (or, with none active, the most recently ended one so its
@@ -600,14 +636,7 @@ final class AppState: ObservableObject {
 
         var night: SharedNight?
         if let event, !event.isIncognito {
-            let eventEntries = entries.filter { $0.eventId == event.id }
-            let eventFood = foodEntries.filter { $0.eventId == event.id }
-            let built = SharedNight.build(
-                event: event, entries: eventEntries, drinkTypes: allDrinkTypes,
-                points: fullNightPoints(for: event, entries: eventEntries, foodEntries: eventFood)
-            )
-            // An expired night is not worth writing (friends hide it).
-            night = built.expiresAt > Date() ? built : nil
+            night = unexpiredSharedNight(for: event)
         }
 
         switch SharedNightSync.action(isIncognito: event?.isIncognito, night: night, lastSent: lastSentSharedNight, hasUsername: hasSocialProfile) {
@@ -624,7 +653,8 @@ final class AppState: ObservableObject {
                 self.lastSentSharedNight = toSend
             }
         case .delete:
-            deleteSharedNightRemotely()
+            // Incognito on the shared night: it and its ended copy go.
+            deleteSharedNightRemotely(startedAt: event?.startTime)
         case .none:
             break
         }
@@ -668,6 +698,11 @@ final class AppState: ObservableObject {
         // Going incognito deletes the shared night (and clears lastSent); coming back
         // re-sends the whole night.
         syncSharedNight()
+        // An earlier night still on friends' feeds through its ended copy goes too. The
+        // shared night's own copy was deleted with it above.
+        if on, sharedNightEvent()?.id != eventId, let event = events.first(where: { $0.id == eventId }) {
+            deleteEndedSharedNightRemotely(event)
+        }
     }
 
     // MARK: - AI Report
@@ -1560,6 +1595,7 @@ final class AppState: ObservableObject {
 
     func deleteEvent(_ id: String) {
         let wasShared = sharedNightEvent()?.id == id
+        let deleted = events.first { $0.id == id }
         DataStore.shared.deleteEvent(id)
         events.removeAll { $0.id == id }
         entries.removeAll { $0.eventId == id }
@@ -1567,8 +1603,11 @@ final class AppState: ObservableObject {
         foodEntries.removeAll { $0.eventId == id }
         refreshWaterReminder()
         push { try await FirebaseManager.shared.deleteEvent(id) }
+        // Its ended copy goes whether or not it was still the shared night: an earlier
+        // night can still be on friends' feeds through it.
+        if let deleted { deleteEndedSharedNightRemotely(deleted) }
         if wasShared {
-            deleteSharedNightRemotely()
+            deleteSharedNightRemotely(startedAt: deleted?.startTime)
             syncSharedNight()
         }
     }

@@ -35,11 +35,16 @@ struct PersonSuggestion: Equatable, Identifiable {
     }
 }
 
+/// One night on the feed. A person can have two at once (a live night and the ended
+/// one before it), so identity is the night, not the person.
 struct FeedItem: Identifiable {
-    /// Friend uid.
-    var id: String
     var profile: FriendProfile
     var night: SharedNight
+
+    /// The night's thread: owner and start.
+    var key: NightKey { NightKey(owner: profile.uid, night: night) }
+    /// `{uid}_{startedAtMs}`, unique per night.
+    var id: String { key.id }
 }
 
 /// The feed card's drink chips: "Beer ×3", "Tequila ×1".
@@ -69,8 +74,23 @@ nonisolated enum DrinkSummary {
 }
 
 enum FeedOrdering {
-    /// Drops expired nights. Live (open) nights first by most recent drink; finished
-    /// nights by most recent end.
+    /// One person's nights: the main `shared_nights` doc (live, or the latest ended)
+    /// and the ended copies under it, one item per night. A night in both comes from
+    /// the main doc. Expiry is left to `sections`.
+    static func merge(profile: FriendProfile, main: SharedNight?, ended: [SharedNight]) -> [FeedItem] {
+        var seen = Set<Int64>()
+        var items: [FeedItem] = []
+        let all: [SharedNight] = (main.map({ [$0] }) ?? []) + ended
+        for night in all {
+            if seen.insert(night.startedAtMs).inserted {
+                items.append(FeedItem(profile: profile, night: night))
+            }
+        }
+        return items
+    }
+
+    /// Per night, not per person. Drops expired nights. Live (open) nights first by most
+    /// recent drink; finished nights by most recent end.
     static func sections(_ items: [FeedItem], now: Date) -> (live: [FeedItem], recent: [FeedItem]) {
         let unexpired = items.filter { $0.night.expiresAt > now }
         let live = unexpired

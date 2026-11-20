@@ -53,7 +53,11 @@ struct SharedNightTests {
     }
 
     private func item(_ uid: String, _ n: SharedNight) -> FeedItem {
-        FeedItem(id: uid, profile: FriendProfile(uid: uid, username: uid, photoURL: nil, avatarColor: "#fff"), night: n)
+        FeedItem(profile: profile(uid), night: n)
+    }
+
+    private func profile(_ uid: String) -> FriendProfile {
+        FriendProfile(uid: uid, username: uid, photoURL: nil, avatarColor: "#fff")
     }
 
     // MARK: - build
@@ -217,21 +221,88 @@ struct SharedNightTests {
         let recent = item("recent", night(end: now.addingTimeInterval(-600), expires: now.addingTimeInterval(3600)))
         let expired = item("expired", night(end: now.addingTimeInterval(-90_000), expires: now.addingTimeInterval(-1)))
         let s = FeedOrdering.sections([expired, recent, live], now: now)
-        #expect(s.live.map(\.id) == ["live"])
-        #expect(s.recent.map(\.id) == ["recent"])
+        #expect(s.live.map(\.profile.uid) == ["live"])
+        #expect(s.recent.map(\.profile.uid) == ["recent"])
     }
 
     @Test func liveOrderedByLastDrinkDescending() {
         let now = start.addingTimeInterval(10_000)
         let older = item("older", night(lastDrink: now.addingTimeInterval(-3000), expires: now.addingTimeInterval(3600)))
         let newer = item("newer", night(lastDrink: now.addingTimeInterval(-100), expires: now.addingTimeInterval(3600)))
-        #expect(FeedOrdering.sections([older, newer], now: now).live.map(\.id) == ["newer", "older"])
+        #expect(FeedOrdering.sections([older, newer], now: now).live.map(\.profile.uid) == ["newer", "older"])
     }
 
     @Test func recentOrderedByEndDescending() {
         let now = start.addingTimeInterval(10_000)
         let a = item("a", night(end: now.addingTimeInterval(-5000), expires: now.addingTimeInterval(3600)))
         let b = item("b", night(end: now.addingTimeInterval(-500), expires: now.addingTimeInterval(3600)))
-        #expect(FeedOrdering.sections([a, b], now: now).recent.map(\.id) == ["b", "a"])
+        #expect(FeedOrdering.sections([a, b], now: now).recent.map(\.profile.uid) == ["b", "a"])
+    }
+
+    // MARK: - Ended copies (one friend, two nights)
+
+    private func night(startOffset: TimeInterval, end: Date? = nil, lastDrink: Date? = nil,
+                       expires: Date) -> SharedNight {
+        let started = start.addingTimeInterval(startOffset)
+        return SharedNight(
+            startedAt: started, endedAt: end, lastDrinkAt: lastDrink ?? started,
+            expiresAt: expires, samples: [0, 0.04], drinks: []
+        )
+    }
+
+    @Test func oneFriendLiveAndEndedNightsLandInBothSections() {
+        let now = start.addingTimeInterval(30_000)
+        let ended = night(startOffset: 0, end: now.addingTimeInterval(-9000), expires: now.addingTimeInterval(70_000))
+        let live = night(startOffset: 25_000, expires: now.addingTimeInterval(80_000))
+        let items = FeedOrdering.merge(profile: profile("f"), main: live, ended: [ended])
+        let s = FeedOrdering.sections(items, now: now)
+        #expect(s.live.map(\.night) == [live])
+        #expect(s.recent.map(\.night) == [ended])
+        #expect(s.live.map(\.profile.uid) == ["f"])
+        #expect(s.recent.map(\.profile.uid) == ["f"])
+    }
+
+    @Test func mergeKeepsOneItemPerNightPreferringTheMainDoc() {
+        let now = start.addingTimeInterval(30_000)
+        let end = now.addingTimeInterval(-600)
+        let main = night(startOffset: 0, end: end, expires: now.addingTimeInterval(3600))
+        // The ended copy of the same night, older (say written before a later edit).
+        var copy = main
+        copy.lastDrinkAt = start.addingTimeInterval(-1)
+        let earlier = night(startOffset: -50_000, end: now.addingTimeInterval(-20_000),
+                            expires: now.addingTimeInterval(60_000))
+        let items = FeedOrdering.merge(profile: profile("f"), main: main, ended: [copy, earlier, earlier])
+        #expect(items.count == 2)
+        #expect(items.first?.night == main)
+        #expect(items.map(\.night).contains(earlier))
+        // With no main doc the copies alone still show.
+        #expect(FeedOrdering.merge(profile: profile("f"), main: nil, ended: [copy]).map(\.night) == [copy])
+    }
+
+    @Test func mergeLeavesExpiryToSections() {
+        let now = start.addingTimeInterval(30_000)
+        let expired = night(startOffset: 0, end: now.addingTimeInterval(-90_000), expires: now.addingTimeInterval(-1))
+        let items = FeedOrdering.merge(profile: profile("f"), main: nil, ended: [expired])
+        #expect(items.count == 1)
+        let s = FeedOrdering.sections(items, now: now)
+        #expect(s.live.isEmpty && s.recent.isEmpty)
+    }
+
+    @Test func feedItemIdIsUniquePerNight() {
+        let now = start.addingTimeInterval(30_000)
+        let a = item("f", night(startOffset: 0, end: now, expires: now.addingTimeInterval(3600)))
+        let b = item("f", night(startOffset: 25_000, expires: now.addingTimeInterval(3600)))
+        let c = item("g", night(startOffset: 0, end: now, expires: now.addingTimeInterval(3600)))
+        #expect(Set([a.id, b.id, c.id]).count == 3)
+        #expect(a.id == "f_\(a.night.startedAtMs)")
+        #expect(a.id == a.key.id)
+        #expect(a.key == NightKey(owner: "f", night: a.night))
+    }
+
+    @Test func startedAtMsMatchesTheFirestoreStartedAt() {
+        let n = night(startOffset: 0.4567, expires: start.addingTimeInterval(3600))
+        let written = n.firestoreData()["started_at"] as? Int64
+        #expect(written == n.startedAtMs)
+        #expect(n.startedAtMs == 1_700_000_000_457)
     }
 }

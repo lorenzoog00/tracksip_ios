@@ -180,14 +180,50 @@ final class FirebaseManager: ObservableObject {
     }
 
     /// Full replace (no merge) so removed keys such as a stale `ended_at` cannot linger.
+    /// An ended night is also copied, in the same batch, to
+    /// `shared_nights/{uid}/ended/{startedAtMs}`: the main doc is overwritten when the
+    /// next night starts, and the copy keeps the ended night (and its reactions and
+    /// comments) on friends' feeds for its full 24 h.
     func writeSharedNight(_ night: SharedNight) async throws {
         guard let uid = currentUserId() else { return }
-        try await db.collection("shared_nights").document(uid).setData(night.firestoreData())
+        let main = db.collection("shared_nights").document(uid)
+        let data = night.firestoreData()
+        let batch = db.batch()
+        batch.setData(data, forDocument: main)
+        if night.endedAt != nil {
+            batch.setData(data, forDocument: endedSharedNight(uid: uid, startedAtMs: night.startedAtMs))
+        }
+        try await batch.commit()
     }
 
-    func deleteSharedNight() async throws {
+    /// Deletes the shared night and, when its start is known, that night's ended copy.
+    /// Earlier nights' copies stay on friends' feeds until they expire.
+    func deleteSharedNight(startedAt: Date?) async throws {
         guard let uid = currentUserId() else { return }
-        try await db.collection("shared_nights").document(uid).delete()
+        let batch = db.batch()
+        batch.deleteDocument(db.collection("shared_nights").document(uid))
+        if let startedAt {
+            batch.deleteDocument(endedSharedNight(uid: uid, startedAtMs: SharedNight.ms(startedAt)))
+        }
+        try await batch.commit()
+    }
+
+    /// Writes only an ended night's copy (full replace, so idempotent), never the main
+    /// doc. An open night has no copy.
+    func writeEndedSharedNight(_ night: SharedNight) async throws {
+        guard let uid = currentUserId(), night.endedAt != nil else { return }
+        try await endedSharedNight(uid: uid, startedAtMs: night.startedAtMs).setData(night.firestoreData())
+    }
+
+    /// Takes one earlier night's ended copy off friends' feeds (that night was deleted or
+    /// made incognito after a newer night replaced it in the main doc).
+    func deleteEndedSharedNight(startedAt: Date) async throws {
+        guard let uid = currentUserId() else { return }
+        try await endedSharedNight(uid: uid, startedAtMs: SharedNight.ms(startedAt)).delete()
+    }
+
+    private func endedSharedNight(uid: String, startedAtMs: Int64) -> DocumentReference {
+        db.collection("shared_nights").document(uid).collection("ended").document(String(startedAtMs))
     }
 
     // MARK: - Notification switches

@@ -18,21 +18,21 @@ struct NightThreadTests {
         let beer = ReactionMath.apply(counts: none, old: nil, new: .beer)
         #expect(beer == [.beer: 1])
 
-        let fire = ReactionMath.apply(counts: beer, old: .beer, new: .fire)
-        #expect(fire == [.fire: 1])
+        let water = ReactionMath.apply(counts: beer, old: .beer, new: .water)
+        #expect(water == [.water: 1])
 
-        let cleared = ReactionMath.apply(counts: fire, old: .fire, new: nil)
+        let cleared = ReactionMath.apply(counts: water, old: .water, new: nil)
         #expect(cleared == [:])
 
         // Someone else's reactions stay put.
-        let shared = ReactionMath.apply(counts: [.beer: 3, .heart: 1], old: .beer, new: .heart)
-        #expect(shared == [.beer: 2, .heart: 2])
+        let shared = ReactionMath.apply(counts: [.beer: 3, .water: 1], old: .beer, new: .water)
+        #expect(shared == [.beer: 2, .water: 2])
     }
 
     @Test func toggleMathNeverNegative() {
         #expect(ReactionMath.apply(counts: [:], old: .beer, new: nil) == [:])
         #expect(ReactionMath.apply(counts: [.beer: 0], old: .beer, new: nil) == [:])
-        #expect(ReactionMath.apply(counts: [.fire: -2], old: nil, new: .water) == [.water: 1])
+        #expect(ReactionMath.apply(counts: [.beer: -2], old: nil, new: .water) == [.water: 1])
     }
 
     // MARK: - Summary parse
@@ -48,7 +48,8 @@ struct NightThreadTests {
             ] as [[String: Any]]
         ]
         let summary = try #require(ThreadSummary.parse(data))
-        #expect(summary.counts == [.beer: 3, .fire: 2, .laugh: 1])
+        // Keys from the old six-emoji set (fire, laugh) are ignored; zero counts too.
+        #expect(summary.counts == [.beer: 3])
         #expect(summary.reactors == ["a", "b"])
         #expect(summary.commentCount == 4)
         #expect(summary.latest.map(\.id) == ["c1", "c2"])
@@ -146,23 +147,13 @@ struct NightThreadTests {
 
     // MARK: - Reaction bar fit
 
-    @Test func reactionBarShowsTopThreeWithMineAndCountsTheRest() {
-        let counts: [Reaction: Int] = [.beer: 12, .fire: 30, .laugh: 2, .woozy: 1, .water: 10, .heart: 10]
-        // Top three by count, shown in allCases order; ties by allCases order.
-        let top = ReactionBarLayout.visible(counts: counts, mine: nil)
-        #expect(top.shown == [.beer, .fire, .water])
-        #expect(top.hidden == 13)
-
-        // Mine always shows, replacing the third.
-        let withMine = ReactionBarLayout.visible(counts: counts, mine: .woozy)
-        #expect(withMine.shown == [.beer, .fire, .woozy])
-        #expect(withMine.hidden == 22)
-
-        // Few enough: everything shows, nothing hidden.
-        let few = ReactionBarLayout.visible(counts: [.heart: 1, .beer: 2], mine: .heart)
-        #expect(few.shown == [.beer, .heart])
-        #expect(few.hidden == 0)
+    @Test func reactionBarShowsWhatWasUsed() {
+        // Read-only bars show only reactions someone used, in allCases order.
+        let layout = ReactionBarLayout.visible(counts: [.water: 1, .beer: 2], mine: .water)
+        #expect(layout.shown == [.beer, .water])
+        #expect(layout.hidden == 0)
         #expect(ReactionBarLayout.visible(counts: [:], mine: nil).shown.isEmpty)
+        #expect(Reaction.allCases == [.beer, .water])
     }
 
     // MARK: - Comment sheet

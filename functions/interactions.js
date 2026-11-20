@@ -7,13 +7,11 @@ const {tokenIsDead} = require("./live-activity");
 // Night reactions and comments
 // ---------------------------------------------------------------------------
 
+// A beer or a water: cheers, or "drink some water". Older keys (fire, laugh,
+// woozy, heart) can still sit in a summary's counts; the app ignores them.
 const REACTIONS = {
   beer: "🍻",
-  fire: "🔥",
-  laugh: "😂",
-  woozy: "🥴",
   water: "💧",
-  heart: "❤️",
 };
 const REACTION_PUSH_GAP_MS = 15 * 60 * 1000;
 const MAX_TRACKED_UIDS = 50;
@@ -40,6 +38,33 @@ function nightKey(owner, startedAt) {
 }
 
 /**
+ * The unexpired data of one night: the main shared_nights doc while it is
+ * still that night, otherwise the ended copy the owner's app wrote under
+ * shared_nights/{owner}/ended/{startedAt} (the main doc has moved on to a
+ * newer night). The same test the rules' nightVisible() makes.
+ * @param {object} params
+ * @param {object} params.db Firestore
+ * @param {string} params.owner the night owner's uid
+ * @param {number} params.startedAt the night's start in ms
+ * @param {number} params.now current time in ms
+ * @return {Promise<object|null>} the night data, or null if not visible
+ */
+async function visibleNight({db, owner, startedAt, now}) {
+  const unexpired = (data) => {
+    const expiresAt = data && data.expires_at && data.expires_at.toMillis();
+    return expiresAt > now;
+  };
+  const main = await db.doc(`shared_nights/${owner}`).get();
+  const night = main.exists ? main.data() : null;
+  if (night && night.started_at === startedAt && unexpired(night)) {
+    return night;
+  }
+  const ended = await db.doc(`shared_nights/${owner}/ended/${startedAt}`).get();
+  const copy = ended.exists ? ended.data() : null;
+  return copy && unexpired(copy) ? copy : null;
+}
+
+/**
  * Loads the shared night a caller wants to interact with and checks they may.
  * @param {object} params
  * @param {object} params.db Firestore
@@ -51,10 +76,8 @@ function nightKey(owner, startedAt) {
  *     the shared night data and both usernames
  */
 async function loadNight({db, owner, startedAt, uid, now}) {
-  const nightDoc = await db.doc(`shared_nights/${owner}`).get();
-  const night = nightDoc.exists ? nightDoc.data() : null;
-  const expiresAt = night && night.expires_at && night.expires_at.toMillis();
-  if (!night || night.started_at !== startedAt || !(expiresAt > now)) {
+  const night = await visibleNight({db, owner, startedAt, now});
+  if (!night) {
     throw new HttpsError("not-found", "This night is no longer available.");
   }
 
@@ -140,10 +163,6 @@ async function reactToNight({db, uid, data, notify, now = Date.now()}) {
   if (emoji != null && !Object.hasOwn(REACTIONS, emoji)) {
     throw new HttpsError("invalid-argument", "That reaction isn't allowed.");
   }
-  if (uid === owner) {
-    throw new HttpsError("permission-denied",
-        "You can't react to your own night.");
-  }
   const {night, ownerName, viewerName} =
       await loadNight({db, owner, startedAt, uid, now});
 
@@ -167,9 +186,12 @@ async function reactToNight({db, uid, data, notify, now = Date.now()}) {
     let reactors = (summary.reactors || []).filter((id) => id !== uid);
     if (next) reactors = capped([...reactors, uid]);
 
+    // The owner may react to their own night, but never pushes themselves and
+    // never counts as one of the "others" in a grouped push.
+    const isOwner = uid === owner;
     const pushed = summary.pushed_reactors || [];
     const lastPush = summary.last_reaction_push_at;
-    const mayPush = next !== null && !pushed.includes(uid) &&
+    const mayPush = !isOwner && next !== null && !pushed.includes(uid) &&
         (typeof lastPush !== "number" || now - lastPush >= REACTION_PUSH_GAP_MS);
     let waiting = (summary.unpushed_reactors || []).filter((id) => id !== uid);
     const update = {};
@@ -179,7 +201,7 @@ async function reactToNight({db, uid, data, notify, now = Date.now()}) {
       waiting = [];
       update.last_reaction_push_at = now;
       update.pushed_reactors = capped([...pushed, uid]);
-    } else if (next !== null && !pushed.includes(uid)) {
+    } else if (!isOwner && next !== null && !pushed.includes(uid)) {
       waiting = capped([...waiting, uid]);
     }
 
@@ -693,8 +715,7 @@ function notifyThread({db, send}) {
 
 /**
  * Deletes every thread on a person's nights, reactions, comments and rate
- * limits included. Runs when their shared night is deleted (going
- * incognito, deleting the night, deleting the account).
+ * limits included. Account deletion runs it: nothing of theirs may stay.
  * @param {object} params
  * @param {object} params.db Firestore
  * @param {string} params.uid the night owner
@@ -707,8 +728,50 @@ async function deleteThreadsFor({db, uid}) {
   for (const thread of threads.docs) await db.recursiveDelete(thread.ref);
 }
 
+/**
+ * Deletes the thread of the one night a deleted shared_nights doc held,
+ * reactions, comments and rate limits included. Runs when that doc is
+ * deleted (going incognito, deleting the night, TTL). Earlier nights'
+ * threads stay, and so does this night's while its unexpired ended copy
+ * keeps it on friends' feeds (a new incognito night deletes the main doc
+ * still holding the previous, ended night); deleting that copy later runs
+ * deleteThreadOfEndedCopy.
+ * @param {object} params
+ * @param {object} params.db Firestore
+ * @param {string} params.uid the night owner
+ * @param {object|undefined} params.night the deleted doc's data, if any
+ * @param {number} [params.now] current time in ms
+ */
+async function deleteThreadOfNight({db, uid, night, now = Date.now()}) {
+  const startedAt = night && night.started_at;
+  if (!Number.isFinite(startedAt)) return;
+  const copy = await db.doc(`shared_nights/${uid}/ended/${startedAt}`).get();
+  const expiresAt = copy.exists && copy.data().expires_at &&
+    copy.data().expires_at.toMillis();
+  if (expiresAt > now) return;
+  await db.recursiveDelete(
+      db.doc(`night_threads/${nightKey(uid, startedAt)}`));
+}
+
+/**
+ * Deletes the thread of the night whose ended copy was deleted (that night
+ * deleted or made incognito, TTL, account deletion), unless the main
+ * shared_nights doc still holds that same night and so still shows it.
+ * @param {object} params
+ * @param {object} params.db Firestore
+ * @param {string} params.uid the night owner
+ * @param {string} params.started the copy's id: the night's started_at
+ */
+async function deleteThreadOfEndedCopy({db, uid, started}) {
+  if (!/^\d+$/.test(started)) return;
+  const main = await db.doc(`shared_nights/${uid}`).get();
+  if (main.exists && String(main.data().started_at) === started) return;
+  await db.recursiveDelete(db.doc(`night_threads/${uid}_${started}`));
+}
+
 module.exports = {
-  REACTIONS, THREAD_GRACE_MS, nightKey, loadNight, reactToNight,
-  addComment, deleteComment, getNightThread,
-  notifyThread, deleteThreadsFor, removeFromThread,
+  REACTIONS, THREAD_GRACE_MS, nightKey, loadNight, visibleNight,
+  reactToNight, addComment, deleteComment, getNightThread,
+  notifyThread, deleteThreadsFor, deleteThreadOfNight,
+  deleteThreadOfEndedCopy, removeFromThread,
 };

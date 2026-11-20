@@ -190,13 +190,14 @@ test("a fresh delete writes the tombstone before erasing the user", async () => 
     path: "account_deletions/u1",
     data: {startedAt: NOW},
   });
+  // The shared night goes with its ended copies, so recursively.
   assert.deepEqual(calls.recursiveDeleted, [
-    "users/u1", "friendships/u1", "blocks/u1",
+    "users/u1", "friendships/u1", "blocks/u1", "shared_nights/u1",
   ]);
   assert.deepEqual(calls.ownerDeletes, ["o1", "o2"]);
   // The lock-screen push curve sits outside users/ and holds a device token.
   assert.deepEqual(calls.docDeletes, [
-    "live_activities/u1", "shared_nights/u1", "push_tokens/u1",
+    "live_activities/u1", "push_tokens/u1",
     "notification_prefs/u1",
     "contact_nudges/u1",
     "contact_match_limits/u1",
@@ -228,7 +229,7 @@ test("a delete removes the user's threads, reactions, comments and prefs", async
   // waiting on the shared_nights delete trigger.
   assert.deepEqual(calls.threadQueries, [["owner", "==", "u1"]]);
   assert.deepEqual(calls.recursiveDeleted, [
-    "users/u1", "friendships/u1", "blocks/u1",
+    "users/u1", "friendships/u1", "blocks/u1", "shared_nights/u1",
     "night_threads/u1_5", "night_threads/u1_9",
   ]);
   // What they left on friends' nights is found by collection-group uid.
@@ -239,7 +240,7 @@ test("a delete removes the user's threads, reactions, comments and prefs", async
   // Removed thread by thread, each in one transaction that also clears
   // their rate limit there (summaries are checked in the emulator test).
   assert.deepEqual(calls.docDeletes, [
-    "live_activities/u1", "shared_nights/u1",
+    "live_activities/u1",
     "night_threads/f1_7/reactions/u1", "night_threads/f1_7/comments/c1",
     "night_threads/f1_7/limits/u1",
     "night_threads/f2_8/comments/c2", "night_threads/f2_8/limits/u1",
