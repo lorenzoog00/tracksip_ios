@@ -111,6 +111,9 @@
 		B15DA93A2FA938B200345F64 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = B15DA9392FA938B200345F64 /* PrivacyInfo.xcprivacy */; };
 		B15DA93C2FA9390900345F64 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B15DA93B2FA9390900345F64 /* Assets.xcassets */; };
 		B15DA9492FA9733900345F64 /* WaterReminderManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B15DA9482FA9733900345F64 /* WaterReminderManager.swift */; };
+		AD7A00012FD0000000AD7A00 /* AdAttribution.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD7A00022FD0000000AD7A00 /* AdAttribution.swift */; };
+		AD7A00072FD0000000AD7A00 /* FacebookCore in Frameworks */ = {isa = PBXBuildFile; productRef = AD7A00052FD0000000AD7A00 /* FacebookCore */; };
+		AD7A00082FD0000000AD7A00 /* TikTokBusinessSDK in Frameworks */ = {isa = PBXBuildFile; productRef = AD7A00062FD0000000AD7A00 /* TikTokBusinessSDK */; };
 		B15DA94B2FAABF7600345F64 /* ConsentManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B15DA94A2FAABF7600345F64 /* ConsentManager.swift */; };
 		B15DA9642FAB947B00345F64 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = B15DA9632FAB947B00345F64 /* FirebaseAuth */; };
 		C0DE00012FAB947B00345F64 /* FirebaseAppCheck in Frameworks */ = {isa = PBXBuildFile; productRef = C0DE00022FAB947B00345F64 /* FirebaseAppCheck */; };
@@ -340,6 +343,7 @@
 		B15DA9392FA938B200345F64 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		B15DA93B2FA9390900345F64 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B15DA9482FA9733900345F64 /* WaterReminderManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaterReminderManager.swift; sourceTree = "<group>"; };
+		AD7A00022FD0000000AD7A00 /* AdAttribution.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdAttribution.swift; sourceTree = "<group>"; };
 		B15DA94A2FAABF7600345F64 /* ConsentManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConsentManager.swift; sourceTree = "<group>"; };
 		B15DA9852FAB993000345F64 /* FirebaseManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirebaseManager.swift; sourceTree = "<group>"; };
 
@@ -440,6 +444,8 @@
 				B15DA98C2FAB9EED00345F64 /* GoogleSignIn in Frameworks */,
 				B1AE99082F9F37E7001DD5F8 /* StoreKit.framework in Frameworks */,
 				B101B5142F9EB92E009F7DDD /* GoogleMobileAds in Frameworks */,
+				AD7A00072FD0000000AD7A00 /* FacebookCore in Frameworks */,
+				AD7A00082FD0000000AD7A00 /* TikTokBusinessSDK in Frameworks */,
 				B15DA98E2FAB9EED00345F64 /* GoogleSignInSwift in Frameworks */,
 				B15DA96E2FAB947B00345F64 /* FirebaseFirestore in Frameworks */,
 				B15DA9642FAB947B00345F64 /* FirebaseAuth in Frameworks */,
@@ -550,6 +556,7 @@
 		B101B4942F9C2F32009F7DDD /* Ads */ = {
 			isa = PBXGroup;
 			children = (
+				AD7A00022FD0000000AD7A00 /* AdAttribution.swift */,
 				B15DA94A2FAABF7600345F64 /* ConsentManager.swift */,
 				B101B4902F9C2F32009F7DDD /* AdConfig.swift */,
 				B101B4912F9C2F32009F7DDD /* AdManager.swift */,
@@ -911,6 +918,8 @@
 			name = siptrack;
 			packageProductDependencies = (
 				B101B5122F9EB92E009F7DDD /* GoogleMobileAds */,
+				AD7A00052FD0000000AD7A00 /* FacebookCore */,
+				AD7A00062FD0000000AD7A00 /* TikTokBusinessSDK */,
 				B1CC00052FA00001000CCCCC /* SipTrackActivityKit */,
 				B15DA9632FAB947B00345F64 /* FirebaseAuth */,
 				C0DE00022FAB947B00345F64 /* FirebaseAppCheck */,
@@ -1107,6 +1116,8 @@
 				B1AE996E2FA02EA5001DD5F8 /* XCLocalSwiftPackageReference "SipTrackActivityKit" */,
 				B15DA9542FAB940400345F64 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 				B15DA9882FAB9E3600345F64 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
+				AD7A00032FD0000000AD7A00 /* XCRemoteSwiftPackageReference "facebook-ios-sdk" */,
+				AD7A00042FD0000000AD7A00 /* XCRemoteSwiftPackageReference "tiktok-business-ios-sdk" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = B101B4632F9C2B24009F7DDD /* Products */;
@@ -1204,6 +1215,7 @@
 				B1F0A7D32FC10A010011AAAA /* Haptics.swift in Sources */,
 				B101B4E22F9CD648009F7DDD /* ChallengeUtils.swift in Sources */,
 				B101B4E32F9CD648009F7DDD /* IntoxicationStage.swift in Sources */,
+				AD7A00012FD0000000AD7A00 /* AdAttribution.swift in Sources */,
 				B15DA94B2FAABF7600345F64 /* ConsentManager.swift in Sources */,
 				B101B4E42F9CD648009F7DDD /* WarningSystem.swift in Sources */,
 				B101B4E52F9CD648009F7DDD /* Challenge.swift in Sources */,
@@ -2009,6 +2021,22 @@
 				minimumVersion = 9.1.0;
 			};
 		};
+		AD7A00032FD0000000AD7A00 /* XCRemoteSwiftPackageReference "facebook-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/facebook/facebook-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 19.0.1;
+			};
+		};
+		AD7A00042FD0000000AD7A00 /* XCRemoteSwiftPackageReference "tiktok-business-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/tiktok/tiktok-business-ios-sdk";
+			requirement = {
+				kind = upToNextMinorVersion;
+				minimumVersion = 1.7.2;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -2056,6 +2084,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = B1AE996E2FA02EA5001DD5F8 /* XCLocalSwiftPackageReference "SipTrackActivityKit" */;
 			productName = SipTrackActivityKit;
+		};
+		AD7A00052FD0000000AD7A00 /* FacebookCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AD7A00032FD0000000AD7A00 /* XCRemoteSwiftPackageReference "facebook-ios-sdk" */;
+			productName = FacebookCore;
+		};
+		AD7A00062FD0000000AD7A00 /* TikTokBusinessSDK */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AD7A00042FD0000000AD7A00 /* XCRemoteSwiftPackageReference "tiktok-business-ios-sdk" */;
+			productName = TikTokBusinessSDK;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
