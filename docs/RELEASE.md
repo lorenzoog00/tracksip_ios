@@ -277,8 +277,9 @@ it is done by the developer with their own credentials.
    step 8 (from `functions/`, `$env:FUNCTIONS_DISCOVERY_TIMEOUT=120`):
    1. **Indexes.** `npx firebase deploy --only firestore:indexes --project
       device-streaming-8326abff` adds the `ended.expires_at` field override:
-      a TTL policy (collection group `ended`) plus the ascending
-      collection-scope index the feed's `expires_at >` query needs. Until
+      a TTL policy (collection group `ended`) plus the ascending and
+      descending collection-scope indexes the feed's `expires_at >` query
+      (newest 10, `expires_at` descending) needs. Until
       the index is **Enabled**, friends' ended-copy listeners fail (the
       feed just shows no ended copies); wait for it and for `gcloud
       firestore fields ttls list --project device-streaming-8326abff` to
@@ -289,8 +290,11 @@ it is done by the developer with their own credentials.
       doc), so deploy rules before shipping the build.
    3. **Functions.** `npx firebase deploy --only functions --project
       device-streaming-8326abff`: `loadNight` accepts ended copies,
-      `cleanupThreads` deletes only the deleted night's thread, account
-      deletion removes `ended` copies. Check `functions:list`.
+      `cleanupThreads` deletes only the deleted night's thread (and not while
+      its unexpired ended copy still shows it), the new `cleanupEndedThread`
+      trigger deletes a night's thread when its ended copy goes (unless the
+      main doc still holds that night), account deletion removes `ended`
+      copies. Check `functions:list` lists `cleanupEndedThread`.
    4. **Ship the build.** Two-account QA: A ends a night, B reacts and
       comments; A starts a new night. B sees A twice, "Live now" and "Last
       24 hours", and can still react and comment on the ended one. A sees

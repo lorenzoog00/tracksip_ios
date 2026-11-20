@@ -81,8 +81,10 @@ visible while either:
 
 The rules' `nightVisible()` and the callables' `loadNight` make the same
 check. Going incognito or deleting the night deletes the main doc and that
-night's ended copy; the delete trigger then removes only that night's thread,
-so earlier nights' threads stay while their ended copies do.
+night's ended copy; the delete triggers then remove only that night's thread,
+so earlier nights' threads stay while their ended copies do (a new incognito
+night deleting the main doc that still holds the previous ended night leaves
+that night's thread, since its copy still shows it).
 
 Blocks are filtered in two places: the server never accepts a reaction or
 comment between two people where either blocked the other, and never pushes
@@ -117,7 +119,10 @@ All `onCall`, App Check enforced, thin shells over a new `interactions.js`.
 - `setNotificationPrefs` is not needed: the owner writes its own prefs doc.
 - Trigger `onDocumentDeleted("shared_nights/{uid}")` deletes the thread of
   the night the deleted doc held (`{uid}_{old started_at}`; going incognito,
-  deleting the night, TTL), not the owner's earlier nights' threads. Account
+  deleting the night, TTL), not the owner's earlier nights' threads, and not
+  while that night's unexpired ended copy still shows it. Trigger
+  `onDocumentDeleted("shared_nights/{uid}/ended/{started}")` deletes that
+  night's thread unless the main doc still holds the same night. Account
   deletion deletes every thread of the owner and the `ended` copies itself.
 - Account deletion also removes the user's reactions and comments everywhere
   (collection-group queries on `uid`) and its prefs doc.
