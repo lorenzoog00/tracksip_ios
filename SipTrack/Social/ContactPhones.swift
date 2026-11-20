@@ -77,9 +77,9 @@ enum ContactPhones {
             .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
 
-    // MARK: - Private
-
-    private nonisolated static func makeEntry(_ contact: CNContact, defaultRegion: String) -> ContactEntry? {
+    /// One contact as an entry: valid numbers as E.164 with mobile and iPhone
+    /// numbers first, each number once, or nil when no number is valid.
+    nonisolated static func makeEntry(_ contact: CNContact, defaultRegion: String) -> ContactEntry? {
         var mobile: [String] = []
         var other: [String] = []
         for labeled in contact.phoneNumbers {
@@ -100,6 +100,8 @@ enum ContactPhones {
                             name: displayName(contact) ?? PhoneNumbers.formatted(first),
                             phones: phones)
     }
+
+    // MARK: - Private
 
     /// "Given Family", else the nickname, else the company; nil when all are blank.
     private nonisolated static func displayName(_ contact: CNContact) -> String? {

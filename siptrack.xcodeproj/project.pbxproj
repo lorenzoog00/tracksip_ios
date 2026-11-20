@@ -2073,10 +2073,10 @@
 		};
 		2C30CB933200000000000009 /* XCRemoteSwiftPackageReference "PhoneNumberKit" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/marmelroy/PhoneNumberKit";
+			repositoryURL = "https://github.com/PhoneNumberKit/PhoneNumberKit";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 4.3.0;
+				minimumVersion = 5.0.14;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */

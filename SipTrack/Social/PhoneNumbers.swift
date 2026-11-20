@@ -22,8 +22,7 @@ enum PhoneNumbers {
     /// One parser for the whole app: building it loads the metadata JSON.
     /// PhoneNumberUtility is not marked Sendable, but after init it only reads its
     /// metadata, and its regex cache sits behind an NSLock, so sharing it across
-    /// threads is safe. (Its init is deprecated in 4.3.0 only to announce the
-    /// library's move to github.com/PhoneNumberKit; 5.x keeps the same API.)
+    /// threads is safe.
     private nonisolated(unsafe) static let utility = PhoneNumberUtility()
 
     /// Any written form of a number, as E.164 ("+525512345678"), or nil when it is
