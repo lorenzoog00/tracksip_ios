@@ -34,4 +34,17 @@ struct PhoneAuthErrorTests {
             == "That number doesn't look right.")
         #expect(FirebaseManager.phoneErrorMessage(code: Self.networkError) == nil)
     }
+
+    /// "FIRAuthErrorDomain" is `AuthErrors.domain` in firebase-ios-sdk 12.13.0.
+    @Test func phoneErrorTextChecksTheDomain() {
+        #expect(FirebaseManager.phoneErrorText(NSError(domain: "FIRAuthErrorDomain", code: Self.invalidVerificationCode))
+            == "That code isn't right. Check the SMS and try again.")
+        // The same number outside Auth's domain is not an Auth code.
+        let ours = NSError(domain: "FirebaseManager", code: Self.invalidVerificationCode,
+                           userInfo: [NSLocalizedDescriptionKey: "Please sign in and try again."])
+        #expect(FirebaseManager.phoneErrorText(ours) == "Please sign in and try again.")
+        // No phone copy: the app's usual offline message.
+        #expect(FirebaseManager.phoneErrorText(NSError(domain: "FIRAuthErrorDomain", code: Self.networkError))
+            == "Connection error. Check your internet and try again.")
+    }
 }

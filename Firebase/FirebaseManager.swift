@@ -204,6 +204,18 @@ final class FirebaseManager: ObservableObject {
         }
     }
 
+    /// What the phone screens show for any error: the copy above for a Firebase
+    /// Auth error that has some, else `friendlyAuthError` (which covers no
+    /// network). The domain is checked first: the codes only mean Auth codes
+    /// inside Auth's domain.
+    static func phoneErrorText(_ error: Error) -> String {
+        let nsError = error as NSError
+        if nsError.domain == AuthErrors.domain, let message = phoneErrorMessage(code: nsError.code) {
+            return message
+        }
+        return friendlyAuthError(error)
+    }
+
     // MARK: - Firestore helpers
 
     private func col(_ name: String) -> CollectionReference? {

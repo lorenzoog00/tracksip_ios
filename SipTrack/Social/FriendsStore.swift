@@ -93,6 +93,12 @@ final class FriendsStore: ObservableObject {
         return contactMatchesThisSession
     }
 
+    /// Called after this account's phone number is added, changed or removed,
+    /// since who can be found from contacts depends on it. Nothing is cached by
+    /// phone yet, so there is nothing to drop until contact matching moves to
+    /// phone numbers.
+    func clearContactCache() {}
+
     private var profiles: [String: FriendProfile] = [:]
     private var resolving: Set<String> = []
 
