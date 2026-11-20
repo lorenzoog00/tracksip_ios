@@ -111,6 +111,19 @@ struct FriendLinkTests {
         #expect(suggestion(.mutualFriends(count: 3, via: nil)).subtitle == "3 friends in common")
     }
 
+    @Test func visibleSuggestionsDropMeAndBlockedPeople() {
+        let people = ["me", "blocked", "ok"].map { uid in
+            PersonSuggestion(
+                profile: FriendProfile(uid: uid, username: uid, photoURL: nil, avatarColor: "#fff"),
+                reason: .contact
+            )
+        }
+        let shown = PersonSuggestion.visible(people, myUid: "me", blocked: ["blocked"])
+        #expect(shown.map(\.id) == ["ok"])
+        // Signed out: nobody is "me", blocks still apply.
+        #expect(PersonSuggestion.visible(people, myUid: nil, blocked: ["blocked"]).map(\.id) == ["me", "ok"])
+    }
+
     // MARK: - A friend's chart
 
     private let start = Date(timeIntervalSince1970: 1_700_000_000)

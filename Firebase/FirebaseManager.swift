@@ -115,7 +115,10 @@ final class FirebaseManager: ObservableObject {
         return false
     }
 
-    func signOut() async {
+    /// `unregisterPush` is false after account deletion, which already removed the token.
+    func signOut(unregisterPush: Bool = true) async {
+        // While still signed in: the callable needs this account's ID token.
+        if unregisterPush { await unregisterPushToken() }
         Crashlytics.crashlytics().setUserID("")
         try? auth.signOut()
         userDidSignOut.send()
@@ -747,7 +750,7 @@ final class FirebaseManager: ObservableObject {
 
             let result = try await callFunction("deleteAccount", data: [:], idToken: idToken)
             guard result["deleted"] as? Bool == true else { return .failed("Deletion did not complete. Please try again.") }
-            await signOut()
+            await signOut(unregisterPush: false)
             return .deleted
         } catch let error as NSError
             where error.domain == ASAuthorizationError.errorDomain
@@ -977,6 +980,30 @@ extension FirebaseManager {
         } catch {
             #if DEBUG
             print("[Push] token registration failed: \(error.localizedDescription)")
+            #endif
+        }
+    }
+
+    /// Best effort, before sign-out: the server forgets this account's push token, so
+    /// a signed-out or handed-over phone stops getting its pushes. Gives up after
+    /// `timeout` so sign-out never hangs on a slow network.
+    func unregisterPushToken(timeout: Duration = .seconds(4)) async {
+        guard auth.currentUser != nil else { return }
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask { await self.callIgnoringResult("unregisterPushToken") }
+            group.addTask { try? await Task.sleep(for: timeout) }
+            _ = await group.next()
+            group.cancelAll()
+        }
+    }
+
+    /// A callable whose answer doesn't matter; failures are dropped.
+    private func callIgnoringResult(_ name: String) async {
+        do {
+            _ = try await callFunction(name, data: [:])
+        } catch {
+            #if DEBUG
+            print("[Firebase] \(name) failed: \(error.localizedDescription)")
             #endif
         }
     }

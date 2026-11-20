@@ -18,8 +18,6 @@ struct UserSearchView: View {
     @State private var suggestions: [PersonSuggestion] = []
     @State private var loadingSuggestions = true
     @State private var contacts: ContactsState = .idle
-    /// One contacts check per app session: the server allows a few a day.
-    private static var contactsThisSession: [PersonSuggestion]?
 
     private enum ContactsState: Equatable {
         case idle, checking, denied
@@ -81,14 +79,16 @@ struct UserSearchView: View {
     // MARK: - You might know
 
     private var contactMatches: [PersonSuggestion] {
-        if case .done(let found) = contacts { return found.filter { state(for: $0.profile) != .friend } }
-        return []
+        guard case .done(let found) = contacts else { return [] }
+        return PersonSuggestion.visible(found, myUid: friends.currentUid, blocked: friends.blockedUidSet)
+            .filter { state(for: $0.profile) != .friend }
     }
 
     /// Friends of friends, minus anyone already listed from contacts or now a friend.
     private var mutualSuggestions: [PersonSuggestion] {
         let fromContacts = Set(contactMatches.map(\.id))
-        return suggestions.filter { !fromContacts.contains($0.id) && state(for: $0.profile) != .friend }
+        return PersonSuggestion.visible(suggestions, myUid: friends.currentUid, blocked: friends.blockedUidSet)
+            .filter { !fromContacts.contains($0.id) && state(for: $0.profile) != .friend }
     }
 
     private var youMightKnow: some View {
@@ -210,7 +210,8 @@ struct UserSearchView: View {
     private func loadSuggestions() async {
         loadingSuggestions = true
         defer { loadingSuggestions = false }
-        if let cached = Self.contactsThisSession {
+        // One contacts check per session and account: the server allows two a day.
+        if let cached = friends.cachedContactMatches() {
             contacts = .done(cached)
         } else if contacts == .idle && ContactEmails.isAllowed {
             // Allowed on an earlier visit: check again without asking for a tap.
@@ -245,7 +246,6 @@ struct UserSearchView: View {
                 try ContactEmails.load()
             }.value
             let found = emails.isEmpty ? [] : try await friends.contactMatches(emails: emails)
-            Self.contactsThisSession = found
             contacts = .done(found)
         } catch {
             contacts = .failed(error.localizedDescription)
@@ -355,8 +355,8 @@ struct UserSearchView: View {
 /// The email addresses in the address book, or in the contacts the user chose
 /// to share (limited access). Load off the main thread: enumeration blocks.
 enum ContactEmails {
-    /// The server takes at most this many per check.
-    nonisolated static let limit = 2000
+    /// The server takes at most this many per check (CONTACT_EMAILS_MAX in social.js).
+    nonisolated static let limit = 500
 
     /// Full or limited access already granted.
     static var isAllowed: Bool {

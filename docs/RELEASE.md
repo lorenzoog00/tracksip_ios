@@ -300,6 +300,21 @@ it is done by the developer with their own credentials.
       24 hours", and can still react and comment on the ended one. A sees
       both "You" cards. A turns incognito on for the new night: only the
       live card goes; the ended one and its comments stay.
+10. **Bug hunt round 1.** Deploy rules and functions before shipping the
+    build (from `functions/`, `$env:FUNCTIONS_DISCOVERY_TIMEOUT=120`):
+    1. **Rules.** `validNight` now bounds `started_at`, `last_drink_at` and
+       `ended_at` (2020-01-01 ... now + 2 days, last drink and end not before
+       the start). Builds already clamp the last drink to the start, so a
+       normal night still writes.
+    2. **Functions.** `npx firebase deploy --only functions --project
+       device-streaming-8326abff`, then check `functions:list` lists the new
+       `unregisterPushToken` callable: the build calls it on sign-out, and
+       until it exists sign-out still works but leaves the token behind.
+       The same deploy makes `reactToNight` set (not toggle) the reaction
+       the app sends; every build already sends `null` to remove, so older
+       builds keep working. Contact matching drops to 500 emails a call,
+       twice a day: an older build sends up to 2,000 and gets "Too many
+       contacts" for a larger address book (the new build sends at most 500).
 
 ## Dependencies
 
