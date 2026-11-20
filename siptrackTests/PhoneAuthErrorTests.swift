@@ -65,6 +65,16 @@ struct PhoneAuthErrorTests {
         #expect(FirebaseManager.phoneErrorText(ours) == "Please sign in and try again.")
     }
 
+    /// The SMS is written in the language part of the phone's first preferred
+    /// language; no preferred language leaves Firebase's default alone.
+    @Test func smsLanguageIsTheFirstPreferredLanguage() {
+        #expect(FirebaseManager.smsLanguageCode(preferred: ["es-MX", "en-US"]) == "es")
+        #expect(FirebaseManager.smsLanguageCode(preferred: ["en-US"]) == "en")
+        #expect(FirebaseManager.smsLanguageCode(preferred: ["pt-BR"]) == "pt")
+        #expect(FirebaseManager.smsLanguageCode(preferred: []) == nil)
+        #expect(FirebaseManager.smsLanguageCode(preferred: ["zh-Hans-CN"]) == "zh")
+    }
+
     /// "FIRAuthErrorDomain" is `AuthErrors.domain` in firebase-ios-sdk 12.13.0.
     @Test func phoneErrorTextChecksTheDomain() {
         #expect(FirebaseManager.phoneErrorText(NSError(domain: "FIRAuthErrorDomain", code: Self.invalidVerificationCode))

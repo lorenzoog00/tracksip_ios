@@ -148,9 +148,22 @@ final class FirebaseManager: ObservableObject {
 
     /// Texts a code to `e164` and returns the verification id that
     /// `confirmPhoneCode` needs. Firebase tries a silent APNs check first and
-    /// falls back to a reCAPTCHA page it presents itself.
+    /// falls back to a reCAPTCHA page it presents itself. The SMS is written in
+    /// the phone's language (see `smsLanguageCode`).
     func sendPhoneCode(to e164: String) async throws -> String {
-        try await PhoneAuthProvider.provider().verifyPhoneNumber(e164, uiDelegate: nil)
+        if let language = Self.smsLanguageCode(preferred: Locale.preferredLanguages) {
+            auth.languageCode = language
+        }
+        return try await PhoneAuthProvider.provider().verifyPhoneNumber(e164, uiDelegate: nil)
+    }
+
+    /// The language part of the phone's first preferred language, lowercased:
+    /// "es-MX" → "es", "zh-Hans-CN" → "zh". Nil for an empty list, which leaves
+    /// Firebase's own choice alone.
+    nonisolated static func smsLanguageCode(preferred: [String]) -> String? {
+        guard let first = preferred.first,
+              let language = first.split(whereSeparator: { $0 == "-" || $0 == "_" }).first else { return nil }
+        return language.lowercased()
     }
 
     /// Adds the number to the signed-in account, or replaces the one it has. A
