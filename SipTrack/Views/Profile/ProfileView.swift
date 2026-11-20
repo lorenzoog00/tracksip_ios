@@ -35,6 +35,8 @@ struct ProfileView: View {
     @State private var showDiscardAlert = false
     @State private var showDeleteAccountConfirm = false
     @State private var deletingAccount = false
+    /// Sign Out is disabled while the push token is being removed (at most ~2 s).
+    @State private var isSigningOut = false
     @State private var deleteError: String? = nil
     @State private var showDeletePasswordPrompt = false
     @State private var versionCopied = false
@@ -462,9 +464,14 @@ struct ProfileView: View {
                                 }
                                 Spacer()
                                 Button {
-                                    Task { await firebase.signOut() }
+                                    guard !isSigningOut else { return }
+                                    isSigningOut = true
+                                    Task {
+                                        await firebase.signOut()
+                                        isSigningOut = false
+                                    }
                                 } label: {
-                                    Text("Sign Out")
+                                    Text(isSigningOut ? "Signing Out..." : "Sign Out")
                                         .font(.system(size: 16, weight: .medium))
                                         .foregroundStyle(AppColors.danger)
                                         .padding(.horizontal, 12)
@@ -472,6 +479,7 @@ struct ProfileView: View {
                                         .background(AppColors.dangerDim)
                                         .cornerRadius(8)
                                 }
+                                .disabled(isSigningOut)
                             }
 
                             ProfileDivider()

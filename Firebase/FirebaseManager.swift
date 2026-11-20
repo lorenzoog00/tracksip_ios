@@ -623,7 +623,8 @@ final class FirebaseManager: ObservableObject {
     /// afterwards fails and the request never leaves the phone. `deleteAccount`
     /// takes its token before revoking and hands it over.
     private func callFunction(
-        _ name: String, data: [String: Any], idToken: String? = nil
+        _ name: String, data: [String: Any], idToken: String? = nil,
+        forcingTokenRefresh: Bool = true
     ) async throws -> [String: Any] {
         guard let project = FirebaseApp.app()?.options.projectID,
               let url = URL(string: "https://us-central1-\(project).cloudfunctions.net/\(name)") else {
@@ -638,7 +639,7 @@ final class FirebaseManager: ObservableObject {
                 throw NSError(domain: "FirebaseManager", code: 401,
                               userInfo: [NSLocalizedDescriptionKey: "Please sign in and try again."])
             }
-            token = try await user.getIDToken(forcingRefresh: true)
+            token = try await user.getIDToken(forcingRefresh: forcingTokenRefresh)
         }
         let appCheck = try await appCheckToken()
         var request = URLRequest(url: url, timeoutInterval: 130)
@@ -978,8 +979,13 @@ extension FirebaseManager {
     /// thread pushes only to tokens that registered it, so older builds get none.
     static let pushFeatures = ["threads"]
 
+    /// This phone's APNs token, once iOS has handed it over this launch. Sent with
+    /// `unregisterPushToken` so sign-out removes only this phone's token.
+    private(set) var lastPushToken: String?
+
     /// Best effort: a failed registration only means no request pushes until the next launch.
     func registerPushToken(_ token: String) async {
+        lastPushToken = token
         guard auth.currentUser != nil else { return }
         #if DEBUG
         let environment = "sandbox"
@@ -997,27 +1003,41 @@ extension FirebaseManager {
         }
     }
 
-    /// Best effort, before sign-out: the server forgets this account's push token, so
-    /// a signed-out or handed-over phone stops getting its pushes. Gives up after
-    /// `timeout` so sign-out never hangs on a slow network.
-    func unregisterPushToken(timeout: Duration = .seconds(4)) async {
-        guard auth.currentUser != nil else { return }
-        await withTaskGroup(of: Void.self) { group in
-            group.addTask { await self.callIgnoringResult("unregisterPushToken") }
-            group.addTask { try? await Task.sleep(for: timeout) }
-            _ = await group.next()
-            group.cancelAll()
+    /// Best effort, before sign-out: the server forgets this phone's push token (only
+    /// if the account still holds it), so a signed-out or handed-over phone stops
+    /// getting its pushes. Waits at most `timeout`: the call runs in its own task and
+    /// is left to finish (or fail) on its own, since the ID token and App Check
+    /// fetches ignore cancellation.
+    func unregisterPushToken(timeout: Duration = .seconds(2)) async {
+        guard auth.currentUser != nil, let token = lastPushToken else { return }
+        let call = Task { @MainActor in
+            do {
+                _ = try await self.callFunction(
+                    "unregisterPushToken", data: ["token": token], forcingTokenRefresh: false
+                )
+            } catch {
+                #if DEBUG
+                print("[Push] unregister failed: \(error.localizedDescription)")
+                #endif
+            }
         }
+        await Self.waitAtMost(timeout) { await call.value }
     }
 
-    /// A callable whose answer doesn't matter; failures are dropped.
-    private func callIgnoringResult(_ name: String) async {
-        do {
-            _ = try await callFunction(name, data: [:])
-        } catch {
-            #if DEBUG
-            print("[Firebase] \(name) failed: \(error.localizedDescription)")
-            #endif
+    /// Runs `work` and returns when it finishes or after `timeout`, whichever is first.
+    /// Never waits for `work` past the timeout: it keeps running unattended.
+    nonisolated static func waitAtMost(_ timeout: Duration, _ work: @escaping @Sendable () async -> Void) async {
+        let gate = ResumeOnce()
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            gate.set(continuation)
+            Task {
+                await work()
+                gate.resume()
+            }
+            Task {
+                try? await Task.sleep(for: timeout)
+                gate.resume()
+            }
         }
     }
 
@@ -1104,5 +1124,34 @@ extension FirebaseManager {
         }
         let comments = (r["comments"] as? [[String: Any]] ?? []).compactMap { ThreadComment.parse($0) }
         return (reactions: reactions, comments: comments)
+    }
+}
+
+/// Resumes a continuation exactly once, from whichever caller gets there first.
+/// `resume()` before `set` is remembered and resumes as soon as it is set.
+nonisolated final class ResumeOnce: @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<Void, Never>?
+    private var done = false
+
+    func set(_ continuation: CheckedContinuation<Void, Never>) {
+        lock.lock()
+        if done {
+            lock.unlock()
+            continuation.resume()
+            return
+        }
+        self.continuation = continuation
+        lock.unlock()
+    }
+
+    func resume() {
+        lock.lock()
+        guard !done else { lock.unlock(); return }
+        done = true
+        let pending = continuation
+        continuation = nil
+        lock.unlock()
+        pending?.resume()
     }
 }

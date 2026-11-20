@@ -213,4 +213,24 @@ struct AuthSessionTests {
         #expect(!LogDeepLink.accepts(eventId: "e1", activeEventId: nil))
         #expect(!LogDeepLink.accepts(eventId: "", activeEventId: ""))
     }
+
+    // MARK: - Sign-out never waits on the push token call
+
+    @Test func waitAtMostReturnsAtTheTimeoutWhileWorkHangs() async {
+        let clock = ContinuousClock()
+        let elapsed = await clock.measure {
+            await FirebaseManager.waitAtMost(.milliseconds(100)) {
+                try? await Task.sleep(for: .seconds(30))
+            }
+        }
+        #expect(elapsed < .seconds(5))
+    }
+
+    @Test func waitAtMostReturnsWhenWorkFinishesFirst() async {
+        let clock = ContinuousClock()
+        let elapsed = await clock.measure {
+            await FirebaseManager.waitAtMost(.seconds(30)) {}
+        }
+        #expect(elapsed < .seconds(5))
+    }
 }

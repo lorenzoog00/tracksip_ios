@@ -156,6 +156,23 @@ struct FriendLinkTests {
         #expect(data.hours[0].summary == "Beer ×2 · Tequila ×1")
     }
 
+    @Test func friendChartCoversAtMost48HoursBeforeTheCut() {
+        // A live night that claims to have started three years ago.
+        let now = start.addingTimeInterval(3 * 365 * 86400)
+        let ancient = SharedNight(
+            startedAt: start, endedAt: nil, lastDrinkAt: start,
+            expiresAt: now.addingTimeInterval(3600), samples: [0, 0.03, 0.05], drinks: [
+                SharedDrink(name: "Beer", icon: "beer-outline", at: start.addingTimeInterval(60))
+            ]
+        )
+        let data = NightBACChartData(shared: ancient, now: now)
+        #expect(data.start == now.addingTimeInterval(-48 * 3600))
+        #expect(data.history.allSatisfy { $0.date >= data.start })
+        #expect(data.end.timeIntervalSince(data.start) <= 48 * 3600 + 3600)
+        #expect(data.hours.isEmpty)
+        #expect(data.yMax.isFinite)
+    }
+
     @Test func endedFriendChartStopsAtClose() {
         let data = NightBACChartData(shared: shared(ended: true), now: start.addingTimeInterval(80_000))
         #expect(data.isFinished)

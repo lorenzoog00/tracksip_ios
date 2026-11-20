@@ -108,6 +108,9 @@ struct NightBACChartData {
 }
 
 extension NightBACChartData {
+    /// The longest stretch a friend's chart covers, ending at its cut.
+    static let maxSharedSpan: TimeInterval = 48 * 3600
+
     /// A friend's shared night, drawn with the same card as your own Stats. The
     /// shared curve is already computed (one sample every 5 min), so it is split at
     /// `now` into history and projection; a finished night ends at its close.
@@ -121,20 +124,28 @@ extension NightBACChartData {
         let live = night.isLive(now: now)
         let cut = live ? now : (night.endedAt ?? points.last?.date ?? night.lastDrinkAt)
         let current = BACDataPoint(date: cut, bac: max(0, night.bac(at: cut)))
+        // A friend's "live" night can claim to have started years ago; the x-axis
+        // would then need thousands of hour marks. Show at most the 48 h before the cut.
+        let chartStart = max(night.startedAt, cut.addingTimeInterval(-Self.maxSharedSpan))
+        let clamped = chartStart > night.startedAt
+        let shown = points.filter { $0.date >= chartStart }
 
-        var history = points.filter { $0.date < cut }
-        if history.first.map({ $0.date > night.startedAt }) ?? true {
-            history.insert(BACDataPoint(date: night.startedAt, bac: 0), at: 0)
+        var history = shown.filter { $0.date < cut }
+        if history.first.map({ $0.date > chartStart }) ?? true {
+            let bac = clamped ? max(0, night.bac(at: chartStart)) : 0
+            history.insert(BACDataPoint(date: chartStart, bac: bac), at: 0)
         }
         history.append(current)
-        let projection = [current] + points.filter { $0.date > cut }
+        let projection = [current] + shown.filter { $0.date > cut }
 
-        self.start = min(night.startedAt, cut)
+        self.start = min(chartStart, cut)
         self.end = max(projection.last?.date ?? cut, start.addingTimeInterval(1))
         self.current = current
         self.history = history
         self.projection = projection
-        self.hours = Self.groupByHour(shared: night.drinks.filter { $0.at <= cut }, calendar: calendar)
+        self.hours = Self.groupByHour(
+            shared: night.drinks.filter { $0.at <= cut && $0.at >= chartStart }, calendar: calendar
+        )
         self.isFinished = !live
     }
 

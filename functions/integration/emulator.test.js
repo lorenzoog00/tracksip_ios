@@ -1233,19 +1233,38 @@ test("social: unregisterPushToken deletes only the caller's token", async () => 
   await registerPushToken({
     db, uid: "B", data: {token: other, environment: "sandbox"},
   });
-  assert.deepEqual(await unregisterPushToken({db, uid: "A"}),
+  const unregister = (uid, token) =>
+    unregisterPushToken({db, uid, data: {token}});
+  assert.deepEqual(await unregister("A", PUSH_TOKEN),
       {status: "unregistered"});
   assert.equal(await exists("push_tokens/A"), false);
   assert.equal(await exists("push_tokens/B"), true);
-  // Signing out twice (or with no token) is fine.
-  assert.deepEqual(await unregisterPushToken({db, uid: "A"}),
+  // Signing out twice (no token stored any more) is fine.
+  assert.deepEqual(await unregister("A", PUSH_TOKEN),
       {status: "unregistered"});
+  // A bad or missing token is refused.
+  for (const token of [undefined, "nothex", 7]) {
+    await assert.rejects(unregister("B", token),
+        (e) => e.code === "invalid-argument");
+  }
   // A signed-out phone gets no pushes for that account.
   const sent = [];
   const notify = notifyFromPushTokens({db,
     send: async (...args) => sent.push(args)});
   await notify("A", "request", "bobby");
   assert.deepEqual(sent, []);
+});
+
+test("social: unregistering an old phone keeps the account's newer token", async () => {
+  const newer = "ab".repeat(32);
+  // The account moved to a new phone; the old phone signs out later.
+  await registerPushToken({
+    db, uid: "A", data: {token: newer, environment: "production"},
+  });
+  assert.deepEqual(
+      await unregisterPushToken({db, uid: "A", data: {token: PUSH_TOKEN}}),
+      {status: "kept"});
+  assert.equal((await db.doc("push_tokens/A").get()).data().token, newer);
 });
 
 test("social: registerPushToken stores the token and validates it", async () => {
@@ -1951,11 +1970,19 @@ test("interactions: a name glued to a word or too long is no mention", async () 
   const long = await comment("B", "@abcdefghijklmnopqrstuvwxy hi",
       {now: 5000});
   assert.deepEqual(long.mentions, []);
-  // A 20-character name on its own still resolves.
+  // A 20-character name on its own, or ending a sentence, still resolves.
   const exact = await comment("B", "hi @abcdefghijklmnopqrst",
       {now: 10000});
   assert.deepEqual(exact.mentions.map((m) => m.username),
       ["abcdefghijklmnopqrst"]);
+  const dotted = await comment("B", "hi @abcdefghijklmnopqrst.",
+      {now: 15000});
+  assert.deepEqual(dotted.mentions.map((m) => m.username),
+      ["abcdefghijklmnopqrst"]);
+  // But a dot leading into more name characters makes it too long.
+  const longer = await comment("B", "hi @abcdefghijklmnopqrst.x",
+      {now: 20000});
+  assert.deepEqual(longer.mentions, []);
 });
 
 test("interactions: path ids that aren't plain ids are invalid-argument", async () => {

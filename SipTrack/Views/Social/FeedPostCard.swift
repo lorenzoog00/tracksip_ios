@@ -239,7 +239,7 @@ struct FeedPostCard: View {
 
     /// The newest comment from someone I haven't blocked.
     private var latestVisibleComment: ThreadComment? {
-        let blocked = Set(friends.blocked.map(\.uid))
+        let blocked = friends.blockedUidSet
         return store.summary.latest.last { !blocked.contains($0.uid) }
     }
 

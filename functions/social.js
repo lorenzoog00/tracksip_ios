@@ -498,15 +498,28 @@ async function registerPushToken({db, uid, data}) {
 
 /**
  * Forgets the caller's push token, so a signed-out phone stops getting this
- * account's pushes. Called before sign-out; deleting a missing doc is fine.
+ * account's pushes. Called before sign-out with this phone's token: the doc
+ * is deleted only while it still holds that token, so signing out on one
+ * phone never silences the account's newer phone. A missing doc is fine.
  * @param {object} params
  * @param {object} params.db Firestore
  * @param {string} params.uid the caller
- * @return {Promise<{status: string}>} always "unregistered"
+ * @param {{token: string}} params.data this phone's token
+ * @return {Promise<{status: string}>} "unregistered", or "kept" when the
+ *     stored token belongs to another phone
  */
-async function unregisterPushToken({db, uid}) {
-  await db.doc(`push_tokens/${uid}`).delete();
-  return {status: "unregistered"};
+async function unregisterPushToken({db, uid, data}) {
+  const {token} = data || {};
+  if (typeof token !== "string" || !/^[0-9a-f]{32,400}$/.test(token)) {
+    throw new HttpsError("invalid-argument", "Invalid push token.");
+  }
+  const ref = db.doc(`push_tokens/${uid}`);
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    if (snap.exists && snap.data().token !== token) return {status: "kept"};
+    if (snap.exists) tx.delete(ref);
+    return {status: "unregistered"};
+  });
 }
 
 /**

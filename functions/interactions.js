@@ -22,7 +22,11 @@ const LATEST_COMMENTS = 3;
 const MAX_MENTION_LOOKUPS = 10;
 // An @name starts the text or follows whitespace ("bob@carla" is no mention)
 // and is a whole word of at most 20 characters (a longer one is no mention).
-const MENTION_PATTERN = /(?:^|\s)@([a-z0-9._]{3,20})(?![a-z0-9._])/g;
+// A name may be followed by sentence punctuation: "@bobby." captures "bobby."
+// (the trailing-dot retry in lookupHandle strips it), but a dot that goes on
+// into more name characters means the word is longer than 20.
+const MENTION_PATTERN =
+  /(?:^|\s)@([a-z0-9._]{3,20})(?![a-z0-9_]|\.[a-z0-9._])/g;
 const LINK_PATTERN = /https?:\/\/|www\./i;
 // Thread docs outlive the night by this much. TTL only collects garbage:
 // who may read a thread is decided from the shared night itself (rules and
