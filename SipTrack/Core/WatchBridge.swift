@@ -60,9 +60,18 @@ final class WatchBridge: NSObject, WCSessionDelegate {
             switch action {
 
             case "startEvent":
-                appState.createEvent(name: nil, drivingMode: false, bacLimit: nil)
+                // A night is already running (a double tap, or a second message before
+                // the Watch saw the new state), or nobody is signed in: start nothing,
+                // just send the Watch the current state.
+                let started = WatchBridge.mayStartNight(
+                    hasActiveNight: appState.activeEvent != nil,
+                    signedInUid: FirebaseManager.shared.currentUserId()
+                )
+                if started {
+                    appState.createEvent(name: nil, drivingMode: false, bacLimit: nil)
+                }
                 pushState()
-                replyHandler(["ok": true])
+                replyHandler(["ok": started, "hasActiveEvent": appState.activeEvent != nil])
 
             case "addDrink":
                 guard let eventId = appState.activeEvent?.id,
@@ -94,6 +103,11 @@ final class WatchBridge: NSObject, WCSessionDelegate {
                 replyHandler(["ok": false])
             }
         }
+    }
+
+    /// The Watch may start a night only with none running and someone signed in.
+    nonisolated static func mayStartNight(hasActiveNight: Bool, signedInUid: String?) -> Bool {
+        !hasActiveNight && signedInUid != nil
     }
 
     // MARK: - WCSessionDelegate boilerplate

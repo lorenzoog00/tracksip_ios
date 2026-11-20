@@ -120,8 +120,13 @@ final class WaterReminderManager: NSObject, UNUserNotificationCenterDelegate {
         }
     }
 
-    nonisolated static func foregroundOptions(for identifier: String) -> UNNotificationPresentationOptions {
-        identifier == "siptrack.water-reminder" ? [.banner, .list, .sound] : []
+    /// While the app is open: the water reminder and every remote push (friend
+    /// requests, reactions, comments, mentions) show as a banner; other local
+    /// notifications stay quiet.
+    nonisolated static func foregroundOptions(for identifier: String, isRemote: Bool = false)
+        -> UNNotificationPresentationOptions {
+        if isRemote { return [.banner, .list, .sound] }
+        return identifier == "siptrack.water-reminder" ? [.banner, .list, .sound] : []
     }
 
     /// A tap on a remote push opens where its `route` says (PushRoute). Remote pushes are
@@ -144,6 +149,7 @@ final class WaterReminderManager: NSObject, UNUserNotificationCenterDelegate {
         _ center: UNUserNotificationCenter, willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
-        completionHandler(Self.foregroundOptions(for: notification.request.identifier))
+        let isRemote = notification.request.trigger is UNPushNotificationTrigger
+        completionHandler(Self.foregroundOptions(for: notification.request.identifier, isRemote: isRemote))
     }
 }

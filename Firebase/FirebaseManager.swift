@@ -115,7 +115,10 @@ final class FirebaseManager: ObservableObject {
         return false
     }
 
-    func signOut() async {
+    /// `unregisterPush` is false after account deletion, which already removed the token.
+    func signOut(unregisterPush: Bool = true) async {
+        // While still signed in: the callable needs this account's ID token.
+        if unregisterPush { await unregisterPushToken() }
         Crashlytics.crashlytics().setUserID("")
         try? auth.signOut()
         userDidSignOut.send()
@@ -620,7 +623,8 @@ final class FirebaseManager: ObservableObject {
     /// afterwards fails and the request never leaves the phone. `deleteAccount`
     /// takes its token before revoking and hands it over.
     private func callFunction(
-        _ name: String, data: [String: Any], idToken: String? = nil
+        _ name: String, data: [String: Any], idToken: String? = nil,
+        forcingTokenRefresh: Bool = true
     ) async throws -> [String: Any] {
         guard let project = FirebaseApp.app()?.options.projectID,
               let url = URL(string: "https://us-central1-\(project).cloudfunctions.net/\(name)") else {
@@ -635,7 +639,7 @@ final class FirebaseManager: ObservableObject {
                 throw NSError(domain: "FirebaseManager", code: 401,
                               userInfo: [NSLocalizedDescriptionKey: "Please sign in and try again."])
             }
-            token = try await user.getIDToken(forcingRefresh: true)
+            token = try await user.getIDToken(forcingRefresh: forcingTokenRefresh)
         }
         let appCheck = try await appCheckToken()
         var request = URLRequest(url: url, timeoutInterval: 130)
@@ -652,8 +656,11 @@ final class FirebaseManager: ObservableObject {
         // wrong. Please try again." and threw away the status code with it.
         let envelope = (try? JSONSerialization.jsonObject(with: body)) as? [String: Any]
         if let error = envelope?["error"] as? [String: Any] {
-            throw NSError(domain: "FirebaseManager", code: status,
-                          userInfo: [NSLocalizedDescriptionKey: error["message"] as? String ?? "Please try again."])
+            var info: [String: Any] = [NSLocalizedDescriptionKey: error["message"] as? String ?? "Please try again."]
+            // The callable's own code ("NOT_FOUND", "PERMISSION_DENIED", ...), so callers
+            // can tell an application answer from a missing function (also a 404).
+            if let code = error["status"] as? String { info[Self.callableStatusKey] = code }
+            throw NSError(domain: "FirebaseManager", code: status, userInfo: info)
         }
         guard (200..<300).contains(status),
               let result = (envelope?["result"] ?? envelope?["data"]) as? [String: Any] else {
@@ -661,6 +668,16 @@ final class FirebaseManager: ObservableObject {
                           userInfo: [NSLocalizedDescriptionKey: Self.serverErrorMessage(function: name, status: status)])
         }
         return result
+    }
+
+    nonisolated static let callableStatusKey = "FirebaseCallableStatus"
+
+    /// True when a callable said the night is gone or not ours to see: `not-found` or
+    /// `permission-denied` from the function itself (never a network failure or an
+    /// undeployed function).
+    nonisolated static func isNightUnavailable(_ error: Error) -> Bool {
+        let code = (error as NSError).userInfo[callableStatusKey] as? String
+        return code == "NOT_FOUND" || code == "PERMISSION_DENIED"
     }
 
     /// Shown when App Attest cannot vouch for this installation. It names App
@@ -747,7 +764,7 @@ final class FirebaseManager: ObservableObject {
 
             let result = try await callFunction("deleteAccount", data: [:], idToken: idToken)
             guard result["deleted"] as? Bool == true else { return .failed("Deletion did not complete. Please try again.") }
-            await signOut()
+            await signOut(unregisterPush: false)
             return .deleted
         } catch let error as NSError
             where error.domain == ASAuthorizationError.errorDomain
@@ -962,8 +979,13 @@ extension FirebaseManager {
     /// thread pushes only to tokens that registered it, so older builds get none.
     static let pushFeatures = ["threads"]
 
+    /// This phone's APNs token, once iOS has handed it over this launch. Sent with
+    /// `unregisterPushToken` so sign-out removes only this phone's token.
+    private(set) static var lastPushToken: String?
+
     /// Best effort: a failed registration only means no request pushes until the next launch.
     func registerPushToken(_ token: String) async {
+        Self.lastPushToken = token
         guard auth.currentUser != nil else { return }
         #if DEBUG
         let environment = "sandbox"
@@ -978,6 +1000,44 @@ extension FirebaseManager {
             #if DEBUG
             print("[Push] token registration failed: \(error.localizedDescription)")
             #endif
+        }
+    }
+
+    /// Best effort, before sign-out: the server forgets this phone's push token (only
+    /// if the account still holds it), so a signed-out or handed-over phone stops
+    /// getting its pushes. Waits at most `timeout`: the call runs in its own task and
+    /// is left to finish (or fail) on its own, since the ID token and App Check
+    /// fetches ignore cancellation.
+    func unregisterPushToken(timeout: Duration = .seconds(2)) async {
+        guard auth.currentUser != nil, let token = Self.lastPushToken else { return }
+        let call = Task { @MainActor in
+            do {
+                _ = try await self.callFunction(
+                    "unregisterPushToken", data: ["token": token], forcingTokenRefresh: false
+                )
+            } catch {
+                #if DEBUG
+                print("[Push] unregister failed: \(error.localizedDescription)")
+                #endif
+            }
+        }
+        await Self.waitAtMost(timeout) { await call.value }
+    }
+
+    /// Runs `work` and returns when it finishes or after `timeout`, whichever is first.
+    /// Never waits for `work` past the timeout: it keeps running unattended.
+    nonisolated static func waitAtMost(_ timeout: Duration, _ work: @escaping @Sendable () async -> Void) async {
+        let gate = ResumeOnce()
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            gate.set(continuation)
+            Task {
+                await work()
+                gate.resume()
+            }
+            Task {
+                try? await Task.sleep(for: timeout)
+                gate.resume()
+            }
         }
     }
 
@@ -1064,5 +1124,34 @@ extension FirebaseManager {
         }
         let comments = (r["comments"] as? [[String: Any]] ?? []).compactMap { ThreadComment.parse($0) }
         return (reactions: reactions, comments: comments)
+    }
+}
+
+/// Resumes a continuation exactly once, from whichever caller gets there first.
+/// `resume()` before `set` is remembered and resumes as soon as it is set.
+nonisolated final class ResumeOnce: @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<Void, Never>?
+    private var done = false
+
+    func set(_ continuation: CheckedContinuation<Void, Never>) {
+        lock.lock()
+        if done {
+            lock.unlock()
+            continuation.resume()
+            return
+        }
+        self.continuation = continuation
+        lock.unlock()
+    }
+
+    func resume() {
+        lock.lock()
+        guard !done else { lock.unlock(); return }
+        done = true
+        let pending = continuation
+        continuation = nil
+        lock.unlock()
+        pending?.resume()
     }
 }

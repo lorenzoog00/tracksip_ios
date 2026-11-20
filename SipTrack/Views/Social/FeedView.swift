@@ -8,17 +8,24 @@ enum FriendNightFormat {
 
     /// "42m" or "3h 12m".
     static func duration(_ interval: TimeInterval) -> String {
-        let minutes = max(0, Int(interval / 60))
+        let minutes = wholeMinutes(interval)
         if minutes < 60 { return "\(minutes)m" }
         return "\(minutes / 60)h \(minutes % 60)m"
     }
 
     /// "just now", "12m ago", "3h ago".
     static func ago(_ interval: TimeInterval) -> String {
-        let minutes = max(0, Int(interval / 60))
+        let minutes = wholeMinutes(interval)
         if minutes < 1 { return "just now" }
         if minutes < 60 { return "\(minutes)m ago" }
         return "\(minutes / 60)h ago"
+    }
+
+    /// Whole minutes, 0 for negative or non-finite input, capped at 100 days so the
+    /// Int conversion can never trap on a friend's bad data.
+    nonisolated static func wholeMinutes(_ interval: TimeInterval) -> Int {
+        guard interval.isFinite, interval > 0 else { return 0 }
+        return Int(min(interval / 60, 144_000).rounded(.down))
     }
 
     static func drinkLabel(_ count: Int) -> String {

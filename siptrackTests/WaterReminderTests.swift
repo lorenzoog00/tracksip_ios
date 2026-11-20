@@ -66,6 +66,12 @@ struct WaterReminderTests {
         #expect(WaterReminderManager.foregroundOptions(for: "weekly-report").isEmpty)
     }
 
+    @Test func remotePushesAppearWhileTheAppIsOpen() {
+        let options = WaterReminderManager.foregroundOptions(for: "some-apns-id", isRemote: true)
+        #expect(options == [.banner, .list, .sound])
+        #expect(WaterReminderManager.foregroundOptions(for: "some-apns-id", isRemote: false).isEmpty)
+    }
+
     @Test func changingSettingsDuringAnAddKeepsOnlyTheLatestInterval() async {
         let notifications = TestWaterNotifications()
         notifications.pauseNextAdd = true

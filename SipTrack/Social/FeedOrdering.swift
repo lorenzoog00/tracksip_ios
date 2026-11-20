@@ -19,6 +19,12 @@ struct PersonSuggestion: Equatable, Identifiable {
     var reason: Reason
     var id: String { profile.uid }
 
+    /// What Find friends may show: never me, nor anyone I've blocked (a cached list
+    /// can predate a block).
+    static func visible(_ list: [PersonSuggestion], myUid: String?, blocked: Set<String>) -> [PersonSuggestion] {
+        list.filter { $0.profile.uid != myUid && !blocked.contains($0.profile.uid) }
+    }
+
     /// The grey line under the username.
     var subtitle: String {
         switch reason {

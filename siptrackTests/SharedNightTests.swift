@@ -213,6 +213,84 @@ struct SharedNightTests {
         #expect(SharedNight(firestore: [:]) == nil)
     }
 
+    // MARK: - Untrusted friend data
+
+    private var startMs: Double { start.timeIntervalSince1970 * 1000 }
+
+    /// A normal friend night in Firestore form; `now` is two hours after the start.
+    private func friendDoc(_ overrides: [String: Any] = [:]) -> [String: Any] {
+        // firestoreData() supplies expires_at as a Firestore Timestamp.
+        let base = SharedNight(
+            startedAt: start, endedAt: nil, lastDrinkAt: start.addingTimeInterval(600),
+            expiresAt: start.addingTimeInterval(86400), samples: [0.0, 0.02, 0.04],
+            drinks: [SharedDrink(name: "Beer", icon: "beer-outline", at: start.addingTimeInterval(600))]
+        )
+        var data = base.firestoreData()
+        for (key, value) in overrides { data[key] = value }
+        return data
+    }
+
+    private var friendNow: Date { start.addingTimeInterval(7200) }
+
+    @Test func initAcceptsANormalNight() {
+        let n = SharedNight(firestore: friendDoc(["ended_at": startMs + 3_600_000]), now: friendNow)
+        #expect(n != nil)
+        #expect(n?.samples == [0.0, 0.02, 0.04])
+        #expect(n?.drinks.count == 1)
+        #expect(n?.endedAt == start.addingTimeInterval(3600))
+    }
+
+    @Test func initRejectsAbsurdOrNonFiniteTimes() {
+        for bad: Double in [1e300, -1e300, .nan, .infinity, -.infinity, -1, 0] {
+            #expect(SharedNight(firestore: friendDoc(["started_at": bad]), now: friendNow) == nil)
+            #expect(SharedNight(firestore: friendDoc(["last_drink_at": bad]), now: friendNow) == nil)
+            #expect(SharedNight(firestore: friendDoc(["ended_at": bad]), now: friendNow) == nil)
+            let drinks: [[String: Any]] = [["name": "Beer", "icon": "beer-outline", "at": bad]]
+            #expect(SharedNight(firestore: friendDoc(["drinks": drinks]), now: friendNow) == nil)
+        }
+        // More than two days past now.
+        let farFuture = friendNow.timeIntervalSince1970 * 1000 + 3 * 86_400_000
+        #expect(SharedNight(firestore: friendDoc(["started_at": farFuture]), now: friendNow) == nil)
+    }
+
+    @Test func initClampsInvertedTimesToTheStart() {
+        // Older builds can write a last drink (or end) before the start: keep the
+        // night, with the time moved up to the start.
+        let early = startMs - 3_600_000
+        let n = SharedNight(firestore: friendDoc(["last_drink_at": early, "ended_at": early]), now: friendNow)
+        #expect(n != nil)
+        #expect(n?.lastDrinkAt == start)
+        #expect(n?.endedAt == start)
+    }
+
+    @Test func initRejectsNonFiniteSamplesAndClampsTheRest() {
+        #expect(SharedNight(firestore: friendDoc(["samples": [0.01, Double.nan]]), now: friendNow) == nil)
+        #expect(SharedNight(firestore: friendDoc(["samples": [Double.infinity]]), now: friendNow) == nil)
+        let n = SharedNight(firestore: friendDoc(["samples": [-0.5, 0.03, 7.0]]), now: friendNow)
+        #expect(n?.samples == [0, 0.03, 1.0])
+    }
+
+    @Test func msNeverTraps() {
+        #expect(SharedNight.ms(Date(timeIntervalSince1970: 1e300)) == 0)
+        #expect(SharedNight.ms(Date(timeIntervalSince1970: .nan)) == 0)
+        #expect(SharedNight.ms(Date(timeIntervalSince1970: 1.5)) == 1500)
+    }
+
+    @Test func buildNeverPutsTheLastDrinkBeforeTheStart() {
+        let n = SharedNight.build(
+            event: event(), entries: [entry("early", minutes: -30)], drinkTypes: [beer], points: points()
+        )
+        #expect(n.lastDrinkAt == start)
+    }
+
+    @Test func feedMinutesNeverTrap() {
+        #expect(FriendNightFormat.wholeMinutes(.nan) == 0)
+        #expect(FriendNightFormat.wholeMinutes(.infinity) == 0)
+        #expect(FriendNightFormat.wholeMinutes(-60) == 0)
+        #expect(FriendNightFormat.wholeMinutes(150) == 2)
+        #expect(FriendNightFormat.duration(1e300) == "2400h 0m")
+    }
+
     // MARK: - FeedOrdering
 
     @Test func sectionsSplitLiveAndRecentAndDropExpired() {

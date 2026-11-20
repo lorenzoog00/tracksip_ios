@@ -200,7 +200,9 @@ struct FeedPostCard: View {
     // MARK: - Footer
 
     private var footer: some View {
-        let count = store.summary.commentCount
+        // nil: some may be from people I blocked, so no number (the sheet has it).
+        let visible = store.summary.visibleCommentCount(blocked: friends.blockedUidSet)
+        let count = visible ?? 0
         return HStack(alignment: .center, spacing: 8) {
             ReactionBar(store: store, canReact: true)
                 .layoutPriority(1)
@@ -228,7 +230,7 @@ struct FeedPostCard: View {
                            value: count)
             }
             .buttonStyle(CardPressStyle())
-            .accessibilityLabel(count == 1 ? "1 comment" : "\(count) comments")
+            .accessibilityLabel(visible == nil ? "Comments" : (count == 1 ? "1 comment" : "\(count) comments"))
             .accessibilityHint("Opens the comments")
         }
     }
@@ -237,7 +239,7 @@ struct FeedPostCard: View {
 
     /// The newest comment from someone I haven't blocked.
     private var latestVisibleComment: ThreadComment? {
-        let blocked = Set(friends.blocked.map(\.uid))
+        let blocked = friends.blockedUidSet
         return store.summary.latest.last { !blocked.contains($0.uid) }
     }
 

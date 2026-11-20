@@ -111,6 +111,19 @@ struct FriendLinkTests {
         #expect(suggestion(.mutualFriends(count: 3, via: nil)).subtitle == "3 friends in common")
     }
 
+    @Test func visibleSuggestionsDropMeAndBlockedPeople() {
+        let people = ["me", "blocked", "ok"].map { uid in
+            PersonSuggestion(
+                profile: FriendProfile(uid: uid, username: uid, photoURL: nil, avatarColor: "#fff"),
+                reason: .contact
+            )
+        }
+        let shown = PersonSuggestion.visible(people, myUid: "me", blocked: ["blocked"])
+        #expect(shown.map(\.id) == ["ok"])
+        // Signed out: nobody is "me", blocks still apply.
+        #expect(PersonSuggestion.visible(people, myUid: nil, blocked: ["blocked"]).map(\.id) == ["me", "ok"])
+    }
+
     // MARK: - A friend's chart
 
     private let start = Date(timeIntervalSince1970: 1_700_000_000)
@@ -141,6 +154,23 @@ struct FriendLinkTests {
         #expect(data.end == start.addingTimeInterval(1500))
         #expect(data.hours.count == 1)
         #expect(data.hours[0].summary == "Beer ×2 · Tequila ×1")
+    }
+
+    @Test func friendChartCoversAtMost48HoursBeforeTheCut() {
+        // A live night that claims to have started three years ago.
+        let now = start.addingTimeInterval(3 * 365 * 86400)
+        let ancient = SharedNight(
+            startedAt: start, endedAt: nil, lastDrinkAt: start,
+            expiresAt: now.addingTimeInterval(3600), samples: [0, 0.03, 0.05], drinks: [
+                SharedDrink(name: "Beer", icon: "beer-outline", at: start.addingTimeInterval(60))
+            ]
+        )
+        let data = NightBACChartData(shared: ancient, now: now)
+        #expect(data.start == now.addingTimeInterval(-48 * 3600))
+        #expect(data.history.allSatisfy { $0.date >= data.start })
+        #expect(data.end.timeIntervalSince(data.start) <= 48 * 3600 + 3600)
+        #expect(data.hours.isEmpty)
+        #expect(data.yMax.isFinite)
     }
 
     @Test func endedFriendChartStopsAtClose() {

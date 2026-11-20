@@ -44,7 +44,8 @@ nonisolated struct SharedNight: Equatable {
         points: [BACDataPoint]
     ) -> SharedNight {
         let sortedEntries = entries.sorted { $0.timestamp < $1.timestamp }
-        let lastDrinkAt = sortedEntries.last?.timestamp ?? event.startTime
+        // Never before the start: the rules reject a last drink earlier than started_at.
+        let lastDrinkAt = max(sortedEntries.last?.timestamp ?? event.startTime, event.startTime)
 
         var allDrinks: [SharedDrink] = []
         for entry in sortedEntries {
@@ -130,32 +131,58 @@ nonisolated struct SharedNight: Equatable {
         return data
     }
 
-    init?(firestore data: [String: Any]) {
-        guard let started = SharedNight.number(data["started_at"]),
-              let lastDrink = SharedNight.number(data["last_drink_at"]),
+    /// Earliest time a friend's night may carry: 2020-01-01 in ms.
+    static let earliestMs: Double = 1_577_836_800_000
+    /// How far past `now` a time may sit (clock skew): two days in ms.
+    static let futureSlackMs: Double = 172_800_000
+    /// Highest BAC a sample may show; higher values are clamped.
+    static let maxSampleBAC: Double = 1.0
+
+    /// Friends' docs are untrusted: a modified client can write any number the rules
+    /// let through. Rejects non-finite or out-of-window times (2020-01-01 ... now + 2 days)
+    /// and non-finite samples; clamps samples to 0...1, and a last drink or end before
+    /// the start (older builds can write a backdated last drink) to the start. Nothing
+    /// built here can trap when converted to Int later.
+    init?(firestore data: [String: Any], now: Date = Date()) {
+        let latest = now.timeIntervalSince1970 * 1000 + SharedNight.futureSlackMs
+        guard let started = SharedNight.time(data["started_at"], latest: latest),
+              let rawLastDrink = SharedNight.time(data["last_drink_at"], latest: latest),
               let expires = data["expires_at"] as? Timestamp,
               let rawSamples = data["samples"] as? [Any],
               let rawDrinks = data["drinks"] as? [Any]
         else { return nil }
 
-        let samples = rawSamples.compactMap { SharedNight.number($0) }
-        guard samples.count == rawSamples.count else { return nil }
+        let lastDrink = max(rawLastDrink, started)
+        var ended: Double?
+        if let rawEnded = data["ended_at"], !(rawEnded is NSNull) {
+            guard let e = SharedNight.time(rawEnded, latest: latest) else { return nil }
+            ended = max(e, started)
+        }
+
+        var samples: [Double] = []
+        for raw in rawSamples {
+            guard let v = SharedNight.number(raw), v.isFinite else { return nil }
+            samples.append(min(max(v, 0), SharedNight.maxSampleBAC))
+        }
 
         var drinks: [SharedDrink] = []
         for raw in rawDrinks {
             guard let dict = raw as? [String: Any],
                   let name = dict["name"] as? String,
                   let icon = dict["icon"] as? String,
-                  let at = SharedNight.number(dict["at"])
+                  let at = SharedNight.time(dict["at"], latest: latest)
             else { return nil }
             drinks.append(SharedDrink(name: name, icon: icon, at: SharedNight.date(ms: at)))
         }
 
+        let expiresAt = expires.dateValue()
+        guard expiresAt.timeIntervalSince1970.isFinite else { return nil }
+
         self.init(
             startedAt: SharedNight.date(ms: started),
-            endedAt: SharedNight.number(data["ended_at"]).map { SharedNight.date(ms: $0) },
+            endedAt: ended.map { SharedNight.date(ms: $0) },
             lastDrinkAt: SharedNight.date(ms: lastDrink),
-            expiresAt: expires.dateValue(),
+            expiresAt: expiresAt,
             samples: samples,
             drinks: drinks
         )
@@ -165,8 +192,17 @@ nonisolated struct SharedNight: Equatable {
     /// (`shared_nights/{uid}/ended/{startedAtMs}`) and the second half of its `NightKey`.
     var startedAtMs: Int64 { SharedNight.ms(startedAt) }
 
+    /// Never traps: a non-finite or out-of-range date gives 0.
     static func ms(_ date: Date) -> Int64 {
-        Int64((date.timeIntervalSince1970 * 1000).rounded())
+        let value = (date.timeIntervalSince1970 * 1000).rounded()
+        guard value.isFinite, let ms = Int64(exactly: value) else { return 0 }
+        return ms
+    }
+
+    /// A time in ms if it is finite and inside 2020-01-01 ... `latest`.
+    private static func time(_ value: Any?, latest: Double) -> Double? {
+        guard let v = number(value), v.isFinite, v >= earliestMs, v <= latest else { return nil }
+        return v
     }
 
     private static func date(ms: Double) -> Date {

@@ -858,6 +858,13 @@ const pastTs = () => Timestamp.fromMillis(Date.now() - 60 * 1000);
 const NIGHT = {
   started_at: 1, last_drink_at: 2, samples: [], drinks: [],
 };
+// Client writes go through validNight, which wants real times: between
+// 2020-01-01 and now + 2 days, the last drink and end not before the start.
+// (Seeded docs above bypass the rules and keep the short started_at 1.)
+const S = Date.now() - 3600 * 1000;
+const LIVE = {
+  started_at: S, last_drink_at: S + 60000, samples: [], drinks: [],
+};
 const seedFriendship = (owner, friend) =>
   env.withSecurityRulesDisabled(async (ctx) => {
     await setDoc(
@@ -916,10 +923,10 @@ test("friendship is directional for the night read", async () => {
 test("owner writes a valid shared night but nothing outside the allowlist or limits", async () => {
   const alice = env.authenticatedContext("alice").firestore();
   const ref = doc(alice, "shared_nights/alice");
-  const good = {...NIGHT, ended_at: 3, expires_at: futureTs()};
+  const good = {...LIVE, ended_at: S + 120000, expires_at: futureTs()};
   await assertSucceeds(setDoc(ref, good));
   await assertSucceeds(setDoc(ref, {...good, samples: [{t: 1, bac: 0.01}]}));
-  await assertSucceeds(updateDoc(ref, {last_drink_at: 5}));
+  await assertSucceeds(updateDoc(ref, {last_drink_at: S + 5}));
   await assertFails(setDoc(ref, {...good, notes: "secret"}));
   await assertFails(setDoc(ref, {...good, driving_mode: true}));
   await assertFails(setDoc(ref, {...good, bac_limit: 0.05}));
@@ -1025,7 +1032,7 @@ test("request inbox queries succeed with a party filter, unfiltered list fails",
 test("shared night expires_at is capped near 24 h", async () => {
   const alice = env.authenticatedContext("alice").firestore();
   const at = (ms) => ({
-    ...NIGHT, expires_at: Timestamp.fromMillis(Date.now() + ms),
+    ...LIVE, expires_at: Timestamp.fromMillis(Date.now() + ms),
   });
   const ref = doc(alice, "shared_nights/alice");
   await assertSucceeds(setDoc(ref, at(24 * 3600 * 1000)));
@@ -1062,16 +1069,17 @@ const unexpiredEnded = (fs, uid) => query(
 
 test("ended copies: the owner writes a valid copy keyed by started_at", async () => {
   const alice = env.authenticatedContext("alice").firestore();
-  const good = {...ENDED, expires_at: futureTs()};
-  const ref = doc(alice, "shared_nights/alice/ended/1");
+  const good = {...LIVE, ended_at: S + 120000, expires_at: futureTs()};
+  const ref = doc(alice, `shared_nights/alice/ended/${S}`);
   await assertSucceeds(setDoc(ref, good));
-  await assertSucceeds(setDoc(ref, {...good, last_drink_at: 4}));
+  await assertSucceeds(setDoc(ref, {...good, last_drink_at: S + 4}));
   await assertSucceeds(getDoc(ref));
   // The id must be the night's started_at.
-  await assertFails(setDoc(doc(alice, "shared_nights/alice/ended/2"), good));
+  await assertFails(setDoc(doc(alice, `shared_nights/alice/ended/${S + 1}`),
+      good));
   await assertFails(setDoc(doc(alice, "shared_nights/alice/ended/x"), good));
   // Only ended nights, with the main doc's allowlist and limits.
-  await assertFails(setDoc(ref, {...NIGHT, expires_at: futureTs()}));
+  await assertFails(setDoc(ref, {...LIVE, expires_at: futureTs()}));
   await assertFails(setDoc(ref, {...good, ended_at: "x"}));
   await assertFails(setDoc(ref, {...good, notes: "secret"}));
   await assertFails(setDoc(ref, {...good, samples: new Array(301).fill(0)}));
@@ -1079,6 +1087,38 @@ test("ended copies: the owner writes a valid copy keyed by started_at", async ()
     ...good, expires_at: Timestamp.fromMillis(Date.now() + 30 * 3600 * 1000),
   }));
   await assertSucceeds(deleteDoc(ref));
+});
+
+test("shared nights: absurd times are rejected, inverted ones kept, main and ended", async () => {
+  const alice = env.authenticatedContext("alice").firestore();
+  const main = doc(alice, "shared_nights/alice");
+  const good = {...LIVE, ended_at: S + 120000, expires_at: futureTs()};
+  await assertSucceeds(setDoc(main, good));
+  const tooLate = Date.now() + 3 * 86400 * 1000;
+  for (const bad of [1e300, -1e300, NaN, Infinity, -Infinity, -1, 1,
+    1577836800000, tooLate]) {
+    await assertFails(setDoc(main, {...good, started_at: bad}));
+    await assertFails(setDoc(main, {...good, last_drink_at: bad}));
+    await assertFails(setDoc(main, {...good, ended_at: bad}));
+  }
+  // The last drink or the end before the start: builds in the field write a
+  // backdated last drink, so order isn't checked (readers clamp it).
+  await assertSucceeds(setDoc(main, {...good, last_drink_at: S - 60000}));
+  await assertSucceeds(setDoc(main, {...good, ended_at: S - 60000}));
+  // A live night (no ended_at) is still fine.
+  await assertSucceeds(setDoc(main, {...LIVE, expires_at: futureTs()}));
+
+  const ref = doc(alice, `shared_nights/alice/ended/${S}`);
+  await assertSucceeds(setDoc(ref, good));
+  for (const bad of [1e300, NaN, Infinity, -Infinity, -1, tooLate]) {
+    await assertFails(setDoc(ref, {...good, last_drink_at: bad}));
+    await assertFails(setDoc(ref, {...good, ended_at: bad}));
+  }
+  await assertSucceeds(setDoc(ref, {...good, last_drink_at: S - 60000}));
+  await assertSucceeds(setDoc(ref, {...good, ended_at: S - 60000}));
+  // A bad started_at can't even name its copy, but is rejected regardless.
+  await assertFails(setDoc(doc(alice, "shared_nights/alice/ended/1"),
+      {...good, started_at: 1}));
 });
 
 test("ended copies: nobody else writes or deletes them", async () => {
@@ -1137,6 +1177,7 @@ test("ended copies: strangers, anon and a tombstoned owner's friends see none", 
 const {
   reportUser,
   registerPushToken,
+  unregisterPushToken,
   notifyFromPushTokens,
 } = require("../social");
 const PUSH_TOKEN = "cd".repeat(32);
@@ -1182,6 +1223,48 @@ test("social: reportUser rejects a target with no public profile", async () => {
       (e) => e.code === "not-found",
   );
   assert.equal(await countDocs("reports"), 0);
+});
+
+test("social: unregisterPushToken deletes only the caller's token", async () => {
+  const other = "ef".repeat(32);
+  await registerPushToken({
+    db, uid: "A", data: {token: PUSH_TOKEN, environment: "sandbox"},
+  });
+  await registerPushToken({
+    db, uid: "B", data: {token: other, environment: "sandbox"},
+  });
+  const unregister = (uid, token) =>
+    unregisterPushToken({db, uid, data: {token}});
+  assert.deepEqual(await unregister("A", PUSH_TOKEN),
+      {status: "unregistered"});
+  assert.equal(await exists("push_tokens/A"), false);
+  assert.equal(await exists("push_tokens/B"), true);
+  // Signing out twice (no token stored any more) is fine.
+  assert.deepEqual(await unregister("A", PUSH_TOKEN),
+      {status: "unregistered"});
+  // A bad or missing token is refused.
+  for (const token of [undefined, "nothex", 7]) {
+    await assert.rejects(unregister("B", token),
+        (e) => e.code === "invalid-argument");
+  }
+  // A signed-out phone gets no pushes for that account.
+  const sent = [];
+  const notify = notifyFromPushTokens({db,
+    send: async (...args) => sent.push(args)});
+  await notify("A", "request", "bobby");
+  assert.deepEqual(sent, []);
+});
+
+test("social: unregistering an old phone keeps the account's newer token", async () => {
+  const newer = "ab".repeat(32);
+  // The account moved to a new phone; the old phone signs out later.
+  await registerPushToken({
+    db, uid: "A", data: {token: newer, environment: "production"},
+  });
+  assert.deepEqual(
+      await unregisterPushToken({db, uid: "A", data: {token: PUSH_TOKEN}}),
+      {status: "kept"});
+  assert.equal((await db.doc("push_tokens/A").get()).data().token, newer);
 });
 
 test("social: registerPushToken stores the token and validates it", async () => {
@@ -1455,12 +1538,38 @@ test("social: contact matching needs a profile and is rate limited", async () =>
   await assert.rejects(contactsCall("A", ["b@x.com"]),
       (e) => e.code === "failed-precondition");
   await claim("A", "alice");
-  for (let i = 0; i < 5; i++) await contactsCall("A", ["b@x.com"]);
+  assert.equal(social.CONTACT_CALLS_PER_DAY, 2);
+  for (let i = 0; i < 2; i++) await contactsCall("A", ["b@x.com"]);
   await assert.rejects(contactsCall("A", ["b@x.com"]),
       (e) => e.code === "resource-exhausted");
   await contactsCall("A", ["b@x.com"], {now: 1000 + 86400000});
   await assert.rejects(contactsCall("A", "b@x.com"),
       (e) => e.code === "invalid-argument");
+});
+
+test("social: contact matching checks the first 500 clean emails", async () => {
+  await claim("A", "alice");
+  assert.equal(social.CONTACT_EMAILS_MAX, 500);
+  assert.equal(social.CONTACT_PAYLOAD_MAX, 5000);
+  const emails = (n) => Array.from({length: n}, (_, i) => `p${i}@x.com`);
+  const seen = [];
+  const lookup = async (list) => {
+    seen.push(list);
+    return [];
+  };
+  // Junk and duplicates don't use up the 500.
+  await contactsCall("A", ["junk", "P0@x.com", ...emails(700)], {lookup});
+  assert.equal(seen[0].length, 500);
+  assert.equal(seen[0][0], "p0@x.com");
+  assert.equal(seen[0][499], "p499@x.com");
+  // A non-array or an absurd payload is still refused, before the daily
+  // limit is counted.
+  await assert.rejects(contactsCall("A", emails(5001), {lookup}),
+      (e) => e.code === "invalid-argument");
+  await assert.rejects(contactsCall("A", "p0@x.com", {lookup}),
+      (e) => e.code === "invalid-argument");
+  await contactsCall("A", emails(5000), {lookup});
+  assert.equal(seen[1].length, 500);
 });
 
 test("social: contacts hide anyone blocked in either direction", async () => {
@@ -1522,18 +1631,33 @@ test("interactions: reacting sets one reaction and counts", async () => {
   assert.equal(mine.uid, "B");
 });
 
-test("interactions: changing a reaction moves the count, same emoji removes", async () => {
+test("interactions: changing a reaction moves the count, null removes, same emoji is a no-op", async () => {
   await reactionsSetup();
   await react("B", "beer");
   await react("B", "water");
   let thread = await threadDoc();
   assert.equal(thread.reactions.beer || 0, 0);
   assert.equal(thread.reactions.water, 1);
-  assert.deepEqual(await react("B", "water"), {emoji: null});
+  // Sending the reaction already held keeps it and counts it once.
+  assert.deepEqual(await react("B", "water"), {emoji: "water"});
+  thread = await threadDoc();
+  assert.equal(thread.reactions.water, 1);
+  assert.deepEqual(thread.reactors, ["B"]);
+  assert.deepEqual(await react("B", null), {emoji: null});
   thread = await threadDoc();
   assert.equal(thread.reactions.water || 0, 0);
   assert.deepEqual(thread.reactors, []);
   assert.equal(await exists(`night_threads/A_${T}/reactions/B`), false);
+});
+
+test("interactions: a repeated or out-of-order reaction never flips the result", async () => {
+  await reactionsSetup();
+  // Double tap beer then remove, handled by the server in reverse order.
+  assert.deepEqual(await react("B", null), {emoji: null});
+  assert.deepEqual(await react("B", "beer"), {emoji: "beer"});
+  // The app now asks for beer again: it stays beer.
+  assert.deepEqual(await react("B", "beer"), {emoji: "beer"});
+  assert.equal((await threadDoc()).reactions.beer, 1);
 });
 
 test("interactions: reaction counts never go negative", async () => {
@@ -1657,7 +1781,7 @@ test("interactions: others never counts the pusher or removed reactions", async 
   const second = makeNotify();
   await react("B", "beer", {notify: second.notify, now: 0});
   await react("C", "water", {notify: second.notify, now: minute});
-  await react("C", "water", {notify: second.notify, now: 2 * minute});
+  await react("C", null, {notify: second.notify, now: 2 * minute});
   await react("D", "water", {notify: second.notify, now: 20 * minute});
   assert.equal(second.calls.length, 2);
   assert.equal(second.calls[1][2].from, "dina");
@@ -1835,6 +1959,51 @@ test("interactions: a mention followed by punctuation still resolves", async () 
   assert.deepEqual(none.mentions, []);
 });
 
+test("interactions: a name glued to a word or too long is no mention", async () => {
+  await commentsSetup();
+  await claim("L", "abcdefghijklmnopqrst");
+  await befriend("A", "L");
+  const {calls, notify} = makeNotify();
+  const glued = await comment("B", "ping bob@carla thanks", {notify, now: 0});
+  assert.deepEqual(glued.mentions, []);
+  assert.ok(!calls.some(([to, kind]) => to === "C" && kind === "mention"));
+  const long = await comment("B", "@abcdefghijklmnopqrstuvwxy hi",
+      {now: 5000});
+  assert.deepEqual(long.mentions, []);
+  // A 20-character name on its own, or ending a sentence, still resolves.
+  const exact = await comment("B", "hi @abcdefghijklmnopqrst",
+      {now: 10000});
+  assert.deepEqual(exact.mentions.map((m) => m.username),
+      ["abcdefghijklmnopqrst"]);
+  const dotted = await comment("B", "hi @abcdefghijklmnopqrst.",
+      {now: 15000});
+  assert.deepEqual(dotted.mentions.map((m) => m.username),
+      ["abcdefghijklmnopqrst"]);
+  // But a dot leading into more name characters makes it too long.
+  const longer = await comment("B", "hi @abcdefghijklmnopqrst.x",
+      {now: 20000});
+  assert.deepEqual(longer.mentions, []);
+});
+
+test("interactions: path ids that aren't plain ids are invalid-argument", async () => {
+  await commentsSetup();
+  const invalid = (e) => e.code === "invalid-argument";
+  for (const owner of ["..", ".", "a/b", "A_1", "", 7]) {
+    await assert.rejects(interactions.getNightThread({db, uid: "B",
+      data: {owner, startedAt: T}}), invalid);
+    await assert.rejects(react("B", "beer", {owner}), invalid);
+    await assert.rejects(comment("B", "hi", {owner}), invalid);
+  }
+  for (const commentId of ["..", "a.b", "x".repeat(129)]) {
+    await assert.rejects(interactions.deleteComment({db, uid: "B",
+      data: {owner: "A", startedAt: T, commentId}}), invalid);
+  }
+  for (const targetUid of ["..", "a.b"]) {
+    await assert.rejects(social.blockUser({db, uid: "B",
+      data: {targetUid}}), invalid);
+  }
+});
+
 test("interactions: mentioning the owner still sends the owner a comment push", async () => {
   await commentsSetup();
   const {calls, notify} = makeNotify();
@@ -1951,9 +2120,11 @@ test("interactions: a thread outlives the expiry it was first written with", asy
   assert.deepEqual(summary.reactions, {beer: 1, water: 1});
   assert.equal(summary.comment_count, 2);
   assert.equal(summary.expires_at.toMillis(), graceAfter(night));
-  // Re-tapping a reaction made before the move toggles it, never counts it
-  // twice.
-  assert.deepEqual(await react("B", "beer", {now: later}), {emoji: null});
+  // Re-sending a reaction made before the move keeps it, never counts it
+  // twice; removing it takes it off.
+  assert.deepEqual(await react("B", "beer", {now: later}), {emoji: "beer"});
+  assert.deepEqual((await threadDoc()).reactions, {beer: 1, water: 1});
+  assert.deepEqual(await react("B", null, {now: later}), {emoji: null});
   summary = await threadDoc();
   assert.deepEqual(summary.reactions, {beer: 0, water: 1});
   const read = await interactions.getNightThread({db, uid: "B",

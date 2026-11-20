@@ -13,8 +13,10 @@ final class NightThreadStore: ObservableObject {
     static var cache: [NightKey: NightThreadStore] = [:]
 
     /// The cached store for this night, created on first use. A store from another
-    /// account (after a sign-out) is replaced.
+    /// account (after a sign-out) is replaced. With no signed-in user (an empty uid)
+    /// the store is inert and uncached: it never touches a Firestore path.
     static func store(for key: NightKey, myUid: String) -> NightThreadStore {
+        guard !myUid.isEmpty else { return NightThreadStore(key: key, myUid: "") }
         if let existing = cache[key], existing.myUid == myUid { return existing }
         cache[key]?.stop()
         let store = NightThreadStore(key: key, myUid: myUid)
@@ -43,6 +45,13 @@ final class NightThreadStore: ObservableObject {
     @Published private(set) var reactedNames: [String] = []
 
     var isOwnNight: Bool { key.owner == myUid }
+    /// False for the inert store made with no signed-in user.
+    var hasUser: Bool { !myUid.isEmpty }
+
+    /// The server said this night is gone or not ours to see (`getNightThread`
+    /// answered not-found or permission-denied): the sheet says so instead of
+    /// showing an empty thread with a working composer.
+    @Published private(set) var isUnavailable = false
 
     /// What the server last said: the summary doc and my reaction doc.
     private var serverSummary = ThreadSummary()
@@ -83,7 +92,7 @@ final class NightThreadStore: ObservableObject {
     /// Attaches the listeners. A no-op while the summary listener is live; once
     /// Firestore has ended it (and the retries gave up), this attaches it again.
     func start() {
-        guard summaryListener == nil else { return }
+        guard hasUser, summaryListener == nil else { return }
         // Also cancels a pending retry and drops a reaction listener left from before.
         stop()
         let g = generation
@@ -182,8 +191,11 @@ final class NightThreadStore: ObservableObject {
 
     // MARK: - Reactions
 
-    /// Tapping my reaction removes it; any other replaces it.
+    /// Tapping my reaction removes it; any other replaces it. The server is sent the
+    /// reaction wanted (nil to remove), never a toggle, so a repeated or reordered
+    /// call can't flip it.
     func react(_ reaction: Reaction) async {
+        guard hasUser, !isUnavailable else { return }
         let target: Reaction? = (myReaction == reaction) ? nil : reaction
         reactSeq &+= 1
         let seq = reactSeq
@@ -215,7 +227,7 @@ final class NightThreadStore: ObservableObject {
     @discardableResult
     func send(_ text: String) async -> Bool {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return false }
+        guard hasUser, !isUnavailable, !trimmed.isEmpty else { return false }
         let pending = ThreadComment(
             id: "pending-\(UUID().uuidString)",
             uid: myUid,
@@ -251,7 +263,7 @@ final class NightThreadStore: ObservableObject {
     /// whether it was deleted.
     @discardableResult
     func delete(_ comment: ThreadComment) async -> Bool {
-        guard !comment.isPending,
+        guard hasUser, !comment.isPending,
               let index = comments.firstIndex(where: { $0.id == comment.id })
         else { return false }
         comments.remove(at: index)
@@ -280,10 +292,19 @@ final class NightThreadStore: ObservableObject {
     /// (bringing a deleted comment back or losing a sent one); the next poll loads
     /// the thread again.
     func refresh() async {
+        guard hasUser else { return }
         let started = mutations
-        guard let thread = try? await FirebaseManager.shared.nightThread(key),
-              mutations == started
-        else { return }
+        let thread: (reactions: [(uid: String, username: String, reaction: Reaction)], comments: [ThreadComment])
+        do {
+            thread = try await FirebaseManager.shared.nightThread(key)
+        } catch {
+            // Gone for good (expired, deleted, unfriended or blocked): say so. Any other
+            // failure keeps the last good state.
+            if FirebaseManager.isNightUnavailable(error) { isUnavailable = true }
+            return
+        }
+        isUnavailable = false
+        guard mutations == started else { return }
         let pending = comments.filter(\.isPending)
         comments = thread.comments.filter { !deleting.contains($0.id) } + pending
         reactedNames = thread.reactions

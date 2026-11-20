@@ -93,6 +93,16 @@ nonisolated struct ThreadSummary: Equatable {
     var commentCount: Int = 0
     var latest: [ThreadComment] = []
 
+    /// The comment count without people I blocked, when the summary can tell: with
+    /// nobody blocked, or when every comment is among `latest`. Otherwise nil (a
+    /// blocked person may have written comments the summary doesn't carry), and
+    /// the card shows no number; the sheet counts what it loaded.
+    func visibleCommentCount(blocked: Set<String>) -> Int? {
+        if blocked.isEmpty { return commentCount }
+        guard commentCount <= latest.count else { return nil }
+        return latest.filter { !blocked.contains($0.uid) }.count
+    }
+
     /// Missing fields read as zero; unknown reaction keys and zero counts are dropped.
     static func parse(_ data: [String: Any]) -> ThreadSummary? {
         var summary = ThreadSummary()

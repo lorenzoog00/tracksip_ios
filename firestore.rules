@@ -193,10 +193,20 @@ service cloud.firestore {
     // whole resulting doc. A friend get costs three exists() calls, with the
     // tombstone lookup shared with owner().
     match /shared_nights/{uid} {
+      // Times are ms since 1970, between 2020-01-01 and now + 2 days. The
+      // range checks also reject NaN and +/-Infinity (every comparison with
+      // NaN is false), which a friend's app would trap converting to Int.
+      // Order (last drink or end before the start) is not checked: builds in
+      // the field can write a backdated last drink; readers clamp it.
+      function validTime(t) {
+        return t is number
+          && t > 1577836800000
+          && t < request.time.toMillis() + 172800000;
+      }
       function validNight(d) {
-        return d.started_at is number
-          && d.last_drink_at is number
-          && d.get('ended_at', 0) is number
+        return validTime(d.started_at)
+          && validTime(d.last_drink_at)
+          && (!('ended_at' in d) || validTime(d.ended_at))
           && d.expires_at is timestamp
           && d.expires_at <= request.time + duration.value(25, 'h')
           && d.samples is list && d.samples.size() <= 300

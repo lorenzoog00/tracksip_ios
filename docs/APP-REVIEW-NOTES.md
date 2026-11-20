@@ -102,7 +102,8 @@ User-generated content safeguards (Guideline 1.2):
 - Contacts (optional): in Find friends, "Find friends from your contacts"
   asks for Contacts access. Only the email addresses are sent, over HTTPS, to
   check which belong to TrackSip accounts with a verified email; they are not
-  stored or logged, and the check runs at most a few times a day. People found
+  stored or logged, and the check takes at most 500 addresses and runs at most
+  twice a day. People found
   this way may get one notification that the user is on TrackSip. Nothing is
   read until the user taps the button and grants access.
 - Reactions and comments on a night: reactions are a fixed set of two emojis (🍻 and 💧).

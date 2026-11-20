@@ -195,4 +195,42 @@ struct AuthSessionTests {
         )
         #expect(friendlyAuthError(error) == "Sign in with Apple was restarted. Please try again.")
     }
+
+    // MARK: - Starting a night from the Watch
+
+    @Test func watchStartsANightOnlyWhenSignedInWithNoneRunning() {
+        #expect(WatchBridge.mayStartNight(hasActiveNight: false, signedInUid: "u1"))
+        #expect(!WatchBridge.mayStartNight(hasActiveNight: true, signedInUid: "u1"))
+        #expect(!WatchBridge.mayStartNight(hasActiveNight: false, signedInUid: nil))
+        #expect(!WatchBridge.mayStartNight(hasActiveNight: true, signedInUid: nil))
+    }
+
+    // MARK: - Logging deep links
+
+    @Test func logLinksOnlyCountForTheActiveNight() {
+        #expect(LogDeepLink.accepts(eventId: "e1", activeEventId: "e1"))
+        #expect(!LogDeepLink.accepts(eventId: "e0", activeEventId: "e1"))
+        #expect(!LogDeepLink.accepts(eventId: "e1", activeEventId: nil))
+        #expect(!LogDeepLink.accepts(eventId: "", activeEventId: ""))
+    }
+
+    // MARK: - Sign-out never waits on the push token call
+
+    @Test func waitAtMostReturnsAtTheTimeoutWhileWorkHangs() async {
+        let clock = ContinuousClock()
+        let elapsed = await clock.measure {
+            await FirebaseManager.waitAtMost(.milliseconds(100)) {
+                try? await Task.sleep(for: .seconds(30))
+            }
+        }
+        #expect(elapsed < .seconds(5))
+    }
+
+    @Test func waitAtMostReturnsWhenWorkFinishesFirst() async {
+        let clock = ContinuousClock()
+        let elapsed = await clock.measure {
+            await FirebaseManager.waitAtMost(.seconds(30)) {}
+        }
+        #expect(elapsed < .seconds(5))
+    }
 }

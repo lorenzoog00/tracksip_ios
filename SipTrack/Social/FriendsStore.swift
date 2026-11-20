@@ -76,6 +76,23 @@ final class FriendsStore: ObservableObject {
     private var outgoingUids: [String] = []
     private var blockedUids: [String] = []
 
+    /// The signed-in uid while started; nil after sign-out.
+    var currentUid: String? { uid }
+    /// Everyone I've blocked, whether or not their profile has loaded.
+    var blockedUidSet: Set<String> { Set(blockedUids) }
+    /// Contact matches found this session, so Find friends doesn't check again (the
+    /// server allows two checks a day). Belongs to `contactMatchesOwner`; cleared on
+    /// sign-out so the next account never sees them.
+    private var contactMatchesThisSession: [PersonSuggestion]?
+    private var contactMatchesOwner: String?
+
+    /// This account's cached contact matches, or nil if it has none (or another
+    /// account found them).
+    func cachedContactMatches() -> [PersonSuggestion]? {
+        guard let owner = contactMatchesOwner, owner == FirebaseManager.shared.currentUserId() else { return nil }
+        return contactMatchesThisSession
+    }
+
     private var profiles: [String: FriendProfile] = [:]
     private var resolving: Set<String> = []
 
@@ -211,6 +228,8 @@ final class FriendsStore: ObservableObject {
         myEndedNights = []
         // Thread listeners belong to this account; the next one starts clean.
         NightThreadStore.clearCache()
+        contactMatchesThisSession = nil
+        contactMatchesOwner = nil
         ReactionPickerFocus.shared.close()
         friendUids = []
         incomingUids = []
@@ -527,8 +546,16 @@ final class FriendsStore: ObservableObject {
         try await FirebaseManager.shared.suggestFriends()
     }
 
+    /// Checks the emails and caches the answer for this account's session.
     func contactMatches(emails: [String]) async throws -> [PersonSuggestion] {
-        try await FirebaseManager.shared.matchContacts(emails: emails)
+        let owner = FirebaseManager.shared.currentUserId()
+        let found = try await FirebaseManager.shared.matchContacts(emails: emails)
+        // Signed out (or switched) while checking: keep nothing.
+        if let owner, owner == FirebaseManager.shared.currentUserId() {
+            contactMatchesThisSession = found
+            contactMatchesOwner = owner
+        }
+        return found
     }
 
     func sendRequest(to uid: String) async throws {

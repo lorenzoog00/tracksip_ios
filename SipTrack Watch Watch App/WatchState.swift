@@ -69,6 +69,8 @@ final class WatchState: NSObject, ObservableObject {
     }
 
     func startEvent() {
+        // A second tap before the button redraws as disabled sends nothing.
+        guard !isSending, !hasActiveEvent else { return }
         isSending = true
         sendWithReply(["action": "startEvent"]) { [weak self] in
             self?.isSending = false
@@ -87,6 +89,7 @@ final class WatchState: NSObject, ObservableObject {
     }
 
     func endEvent() {
+        guard !isSending else { return }
         isSending = true
         sendWithReply(["action": "endEvent", "eventId": eventId]) { [weak self] in
             self?.isSending = false
