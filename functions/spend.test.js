@@ -10,6 +10,7 @@ const {
   MAX_PROMPT_CHARS,
 } = require("./report-policy");
 const {buildPrompt} = require("./prompts");
+const {buildMorningPrompt} = require("./recovery/prompt");
 const {MAX_OUTPUT_TOKENS: LOOKUP_MAX_OUTPUT_TOKENS} = require("./drink-lookup");
 
 // A user who hits every cap is the worst case we pay for. Nothing enforces a
@@ -155,4 +156,34 @@ test("the priced model is the model the request names", () => {
         `report-policy.js prices claude-haiku-5-5; index.js uses ${model}`,
     );
   }
+});
+
+test("the largest morning prompt still fits", () => {
+  const night = largestLegitimatePayload().eventA;
+  const named = (kind, i) => `${kind} ${i}`.padEnd(60, "x");
+  const item = (kind, i) => ({
+    id: `${kind}-${String(i).padStart(3, "0")}`,
+    name: named(kind, i), kind, effort: "order",
+  });
+  const symptoms = [
+    "headache", "nausea", "wrecked", "dizzy", "anxious", "fine",
+  ];
+  const {system, prompt} = buildMorningPrompt({
+    payload: {
+      ...night, symptoms, endHour: 5, checkInHour: 9, weekday: 7,
+      waterMl: 750, foodEntryCount: 3, stomachState: "empty",
+    },
+    severity: "very_heavy", symptoms, country: "MX", timeOfDay: "early",
+    isWorkday: false,
+    shortlist: {
+      breakfasts: Array.from({length: 12}, (_, i) => item("breakfast", i)),
+      activities: Array.from({length: 10}, (_, i) => item("activity", i)),
+    },
+  });
+  const chars = assertPromptFits(system, prompt);
+  assert.ok(
+      chars < MAX_PROMPT_CHARS * 0.9,
+      `the largest morning prompt is ${chars} of ${MAX_PROMPT_CHARS} ` +
+      "characters — shorten the prompt or trim the shortlist",
+  );
 });
