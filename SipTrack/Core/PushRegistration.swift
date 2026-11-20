@@ -101,6 +101,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         // cold-start tap on a push is never delivered.
         _ = WaterReminderManager.shared
         Task { await PushRegistration.registerIfAuthorized() }
+        AdAttribution.start(application, launchOptions: launchOptions)
         return true
     }
 

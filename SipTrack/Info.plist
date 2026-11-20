@@ -60,7 +60,21 @@
 	<key>NSSupportsLiveActivitiesFrequentUpdates</key>
 	<true/>
 	<key>NSUserTrackingUsageDescription</key>
-	<string>We use this to show you relevant ads that help keep Tracksip free.</string>
+	<string>We use this to show you relevant ads and to measure which of our ads bring new people to Tracksip.</string>
+	<key>FacebookAppID</key>
+	<string>1503180748358374</string>
+	<key>FacebookClientToken</key>
+	<string>32643d684ecc6c1f12f6607d2596a305</string>
+	<key>FacebookDisplayName</key>
+	<string>Tracksip</string>
+	<key>FacebookAutoLogAppEventsEnabled</key>
+	<true/>
+	<key>FacebookAdvertiserIDCollectionEnabled</key>
+	<true/>
+	<key>TikTokAppID</key>
+	<string>7709968334468612104</string>
+	<key>TikTokAccessToken</key>
+	<string>$(TIKTOK_APP_SECRET)</string>
 	<key>SKAdNetworkItems</key>
 	<array>
 		<dict>
