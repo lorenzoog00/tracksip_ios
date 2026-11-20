@@ -208,6 +208,13 @@ final class FirebaseManager: ObservableObject {
         try await batch.commit()
     }
 
+    /// Writes only an ended night's copy (full replace, so idempotent), never the main
+    /// doc. An open night has no copy.
+    func writeEndedSharedNight(_ night: SharedNight) async throws {
+        guard let uid = currentUserId(), night.endedAt != nil else { return }
+        try await endedSharedNight(uid: uid, startedAtMs: night.startedAtMs).setData(night.firestoreData())
+    }
+
     /// Takes one earlier night's ended copy off friends' feeds (that night was deleted or
     /// made incognito after a newer night replaced it in the main doc).
     func deleteEndedSharedNight(startedAt: Date) async throws {

@@ -313,6 +313,8 @@ final class AppState: ObservableObject {
         stomachState: StomachState = .empty,
         incognito: Bool? = nil
     ) -> NightEvent {
+        // The night friends see until this one replaces it.
+        ensureEndedCopy(of: sharedNightEvent())
         var event = DataStore.shared.createEvent(name: name, drivingMode: drivingMode, bacLimit: bacLimit, userId: currentUserId, startTime: startTime)
         event.incognito = Self.resolveIncognito(incognito, profileDefault: userProfile.incognitoByDefault)
         event.stomachState = stomachState
@@ -603,6 +605,30 @@ final class AppState: ObservableObject {
         push { try await FirebaseManager.shared.deleteEndedSharedNight(startedAt: startedAt) }
     }
 
+    /// The night as friends see it; nil once expired (not worth writing: friends hide it).
+    private func unexpiredSharedNight(for event: NightEvent) -> SharedNight? {
+        let eventEntries = entries.filter { $0.eventId == event.id }
+        let eventFood = foodEntries.filter { $0.eventId == event.id }
+        let built = SharedNight.build(
+            event: event, entries: eventEntries, drinkTypes: allDrinkTypes,
+            points: fullNightPoints(for: event, entries: eventEntries, foodEntries: eventFood)
+        )
+        return built.expiresAt > Date() ? built : nil
+    }
+
+    /// Before a new night replaces it in the main doc, makes sure the outgoing ended
+    /// night's copy exists: its last write may never have gone out (ended before the
+    /// first cloud pull was merged, or superseded). Writes only the copy, so it is
+    /// idempotent, and is not tied to the generation so the new night's first sync
+    /// cannot cancel it. Same conditions as a normal write: a username, cloud data
+    /// merged (so a stale "not incognito" can't leak), not incognito, not expired.
+    private func ensureEndedCopy(of event: NightEvent?) {
+        guard let event, event.endTime != nil, !event.isIncognito,
+              event.userId == currentUserId, hasSocialProfile, hasAppliedCloudData,
+              let night = unexpiredSharedNight(for: event) else { return }
+        push { try await FirebaseManager.shared.writeEndedSharedNight(night) }
+    }
+
     /// Syncs the active night (or, with none active, the most recently ended one so its
     /// story is written once more with `ended_at`). Incognito deletes and never writes.
     func syncSharedNight() {
@@ -610,14 +636,7 @@ final class AppState: ObservableObject {
 
         var night: SharedNight?
         if let event, !event.isIncognito {
-            let eventEntries = entries.filter { $0.eventId == event.id }
-            let eventFood = foodEntries.filter { $0.eventId == event.id }
-            let built = SharedNight.build(
-                event: event, entries: eventEntries, drinkTypes: allDrinkTypes,
-                points: fullNightPoints(for: event, entries: eventEntries, foodEntries: eventFood)
-            )
-            // An expired night is not worth writing (friends hide it).
-            night = built.expiresAt > Date() ? built : nil
+            night = unexpiredSharedNight(for: event)
         }
 
         switch SharedNightSync.action(isIncognito: event?.isIncognito, night: night, lastSent: lastSentSharedNight, hasUsername: hasSocialProfile) {
