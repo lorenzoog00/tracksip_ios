@@ -99,6 +99,11 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
+        // First, before anything reads Firebase: configuring it any earlier (in
+        // App.init) left phone auth half set up and crashed 1.0.9 on launch. The
+        // stores come right after, so push taps and lock-screen intents find them.
+        FirebaseSetup.configureIfNeeded()
+        _ = AppServices.shared
         // The notification delegate must be in place before launch finishes or a
         // cold-start tap on a push is never delivered.
         _ = WaterReminderManager.shared
@@ -131,7 +136,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         didReceiveRemoteNotification userInfo: [AnyHashable: Any],
         fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
     ) {
-        _ = Auth.auth().canHandleNotification(userInfo)
+        _ = FirebaseManager.shared.handlesAuthNotification(userInfo)
         completionHandler(.noData)
     }
 
