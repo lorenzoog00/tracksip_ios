@@ -69,7 +69,7 @@ ${cards}
 
 /** @param {string[]} argv */
 function main(argv) {
-  const flags = parseFlags(argv);
+  const flags = parseFlags(argv, [], ["out"]);
   const out = flags.out ? path.resolve(flags.out) : DEFAULT_OUT_DIR;
   fs.mkdirSync(out, {recursive: true});
   const seed = loadSeed();

@@ -102,3 +102,50 @@ test("fake generation, skip logic and dry-run import end to end", () => {
   assert.notStrictEqual(refused.status, 0);
   fs.rmSync(out, {recursive: true, force: true});
 });
+
+test("every script throws on an unknown flag before doing any work", () => {
+  const out = fs.mkdtempSync(path.join(os.tmpdir(), "recovery-flag-"));
+  const env = {...process.env, RECOVERY_FAKE_IMAGES: "1"};
+  assert.throws(() => gen.parseArgs(["--onyl", "a"]), /Unknown flag: --onyl/);
+  assert.throws(() => gen.parseArgs(["--concurency", "2"]), /Unknown flag/);
+  assert.throws(() => imp.parseArgs(
+      ["--confirm-production", "--bucket", "x", "--dryrun"]), /Unknown flag/);
+  for (const script of ["generate-photos.cjs", "contact-sheet.cjs"]) {
+    const r = spawnSync(process.execPath,
+        [path.join(__dirname, script), "--out", out, "--onyl", "a"],
+        {env, encoding: "utf8"});
+    assert.notStrictEqual(r.status, 0, script);
+    assert.deepStrictEqual(fs.readdirSync(out), [], `${script} did work`);
+  }
+  const r = spawnSync(process.execPath,
+      [path.join(__dirname, "import-library.cjs"), "--confirm-production",
+        "--bucket", "x", "--out", out, "--dryrun"], {encoding: "utf8"});
+  assert.notStrictEqual(r.status, 0);
+  assert.match(r.stderr, /Unknown flag/);
+  fs.rmSync(out, {recursive: true, force: true});
+});
+
+test("import --only limits the run and rejects unknown ids", () => {
+  const out = fs.mkdtempSync(path.join(os.tmpdir(), "recovery-only-"));
+  const env = {...process.env, RECOVERY_FAKE_IMAGES: "1"};
+  const ids = require("../../functions/recovery/library-seed.json")
+      .slice(0, 2).map((i) => i.id);
+  const gen1 = spawnSync(process.execPath,
+      [path.join(__dirname, "generate-photos.cjs"), "--out", out,
+        "--only", ids.join(",")], {env, encoding: "utf8"});
+  assert.strictEqual(gen1.status, 0);
+  const base = [path.join(__dirname, "import-library.cjs"),
+    "--confirm-production", "--bucket", "b", "--dry-run", "--out", out];
+  assert.deepStrictEqual(imp.parseArgs(
+      ["--confirm-production", "--bucket", "b", "--only", "a,b"]).only,
+  ["a", "b"]);
+  const one = spawnSync(process.execPath, [...base, "--only", ids[1]],
+      {encoding: "utf8"});
+  assert.match(one.stdout, /would import 1 of 1/);
+  assert.doesNotMatch(one.stdout, new RegExp(`recovery_library/${ids[0]}\b`));
+  const bad = spawnSync(process.execPath, [...base, "--only", "nope"],
+      {encoding: "utf8"});
+  assert.notStrictEqual(bad.status, 0);
+  assert.match(bad.stderr, /Unknown ids/);
+  fs.rmSync(out, {recursive: true, force: true});
+});

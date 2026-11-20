@@ -17,10 +17,11 @@ const {
 
 /**
  * @param {string[]} argv
- * @return {{bucket: string, dryRun: boolean, out: string}}
+ * @return {{bucket: string, dryRun: boolean, only: ?string[], out: string}}
  */
 function parseArgs(argv) {
-  const flags = parseFlags(argv, ["confirm-production", "dry-run"]);
+  const flags = parseFlags(
+      argv, ["confirm-production", "dry-run"], ["bucket", "only", "out"]);
   if (!flags["confirm-production"]) {
     throw new Error("Refusing to run: pass --confirm-production to write " +
       "to the production project.");
@@ -29,6 +30,8 @@ function parseArgs(argv) {
   return {
     bucket: flags.bucket,
     dryRun: Boolean(flags["dry-run"]),
+    only: flags.only === undefined ? null :
+      flags.only.split(",").map((id) => id.trim()).filter(Boolean),
     out: flags.out ? path.resolve(flags.out) : DEFAULT_OUT_DIR,
   };
 }
@@ -82,12 +85,22 @@ function splitByPhoto(seed, dir, exists = fs.existsSync) {
 /** @param {string[]} argv */
 async function main(argv) {
   const args = parseArgs(argv);
-  const seed = loadSeed();
+  let seed = loadSeed();
+  if (args.only) {
+    const known = new Set(seed.map((item) => item.id));
+    const unknown = args.only.filter((id) => !known.has(id));
+    if (unknown.length > 0) {
+      throw new Error(`Unknown ids in --only: ${unknown.join(", ")}`);
+    }
+    seed = seed.filter((item) => args.only.includes(item.id));
+  }
   const {ready, missing} = splitByPhoto(seed, args.out);
   const now = Date.now();
   const docs = ready.map((item) => buildDoc(item, {
     bucket: args.bucket, token: crypto.randomUUID(), now,
   }));
+  const imported = [];
+  const failed = [];
 
   if (args.dryRun) {
     console.log(`DRY RUN: nothing is written (project ${PROJECT_ID}, ` +
@@ -103,23 +116,36 @@ async function main(argv) {
     const bucket = admin.storage().bucket();
     const db = admin.firestore();
     for (const doc of docs) {
-      const token = new URL(doc.photoUrl).searchParams.get("token");
-      await bucket.file(doc.photoPath).save(
-          fs.readFileSync(path.join(args.out, `${doc.id}.jpg`)), {
-            metadata: {
-              contentType: "image/jpeg",
-              metadata: {firebaseStorageDownloadTokens: token},
-            },
-          });
-      // set, not merge: a re-import resets the doc.
-      await db.doc(`recovery_library/${doc.id}`).set(doc);
-      console.log(`imported ${doc.id}`);
+      try {
+        const token = new URL(doc.photoUrl).searchParams.get("token");
+        await bucket.file(doc.photoPath).save(
+            fs.readFileSync(path.join(args.out, `${doc.id}.jpg`)), {
+              metadata: {
+                contentType: "image/jpeg",
+                metadata: {firebaseStorageDownloadTokens: token},
+              },
+            });
+        // set, not merge: a re-import resets the doc.
+        await db.doc(`recovery_library/${doc.id}`).set(doc);
+        imported.push(doc.id);
+        console.log(`imported ${doc.id}`);
+      } catch (error) {
+        failed.push(doc.id);
+        console.log(`FAILED ${doc.id}: ${(error && error.message) || error}`);
+      }
     }
   }
-  console.log(`\n${args.dryRun ? "would import" : "imported"} ` +
-    `${docs.length} of ${seed.length}`);
+  const done = args.dryRun ? docs.length : imported.length;
+  console.log(`
+${args.dryRun ? "would import" : "imported"} ` +
+    `${done} of ${seed.length}`);
   console.log(`skipped, photo file missing (${missing.length}): ` +
     missing.join(", "));
+  console.log(`failed (${failed.length}): ${failed.join(", ")}`);
+  if (failed.length > 0) {
+    console.log(`retry with: --only ${failed.join(",")}`);
+    process.exitCode = 1;
+  }
 }
 
 if (require.main === module) {

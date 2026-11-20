@@ -20,7 +20,7 @@ const {
  * @return {{only: ?string[], concurrency: number, model: string, out: string}}
  */
 function parseArgs(argv) {
-  const flags = parseFlags(argv);
+  const flags = parseFlags(argv, [], ["only", "concurrency", "model", "out"]);
   const concurrency = flags.concurrency === undefined ?
     4 : Number(flags.concurrency);
   if (!Number.isInteger(concurrency) || concurrency < 1) {

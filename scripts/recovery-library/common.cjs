@@ -23,14 +23,19 @@ function loadSeed(seedPath = SEED_PATH) {
  * Minimal `--flag value` / `--flag` parser. Flags in `booleans` take no value.
  * @param {string[]} argv
  * @param {string[]} booleans
+ * @param {string[]} valued Flags that take a value. Anything else throws, so
+ *   a typo can never silently drop a safety flag.
  * @return {object} Flag values keyed by name.
  */
-function parseFlags(argv, booleans = []) {
+function parseFlags(argv, booleans, valued) {
   const flags = {};
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (!arg.startsWith("--")) throw new Error(`Unexpected argument: ${arg}`);
     const name = arg.slice(2);
+    if (!booleans.includes(name) && !valued.includes(name)) {
+      throw new Error(`Unknown flag: --${name}`);
+    }
     if (booleans.includes(name)) {
       flags[name] = true;
     } else {
