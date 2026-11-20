@@ -981,11 +981,11 @@ extension FirebaseManager {
 
     /// This phone's APNs token, once iOS has handed it over this launch. Sent with
     /// `unregisterPushToken` so sign-out removes only this phone's token.
-    private(set) var lastPushToken: String?
+    private(set) static var lastPushToken: String?
 
     /// Best effort: a failed registration only means no request pushes until the next launch.
     func registerPushToken(_ token: String) async {
-        lastPushToken = token
+        Self.lastPushToken = token
         guard auth.currentUser != nil else { return }
         #if DEBUG
         let environment = "sandbox"
@@ -1009,7 +1009,7 @@ extension FirebaseManager {
     /// is left to finish (or fail) on its own, since the ID token and App Check
     /// fetches ignore cancellation.
     func unregisterPushToken(timeout: Duration = .seconds(2)) async {
-        guard auth.currentUser != nil, let token = lastPushToken else { return }
+        guard auth.currentUser != nil, let token = Self.lastPushToken else { return }
         let call = Task { @MainActor in
             do {
                 _ = try await self.callFunction(
