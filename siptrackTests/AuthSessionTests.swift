@@ -204,4 +204,13 @@ struct AuthSessionTests {
         #expect(!WatchBridge.mayStartNight(hasActiveNight: false, signedInUid: nil))
         #expect(!WatchBridge.mayStartNight(hasActiveNight: true, signedInUid: nil))
     }
+
+    // MARK: - Logging deep links
+
+    @Test func logLinksOnlyCountForTheActiveNight() {
+        #expect(LogDeepLink.accepts(eventId: "e1", activeEventId: "e1"))
+        #expect(!LogDeepLink.accepts(eventId: "e0", activeEventId: "e1"))
+        #expect(!LogDeepLink.accepts(eventId: "e1", activeEventId: nil))
+        #expect(!LogDeepLink.accepts(eventId: "", activeEventId: ""))
+    }
 }

@@ -126,13 +126,16 @@ struct SipTrackApp: App {
                           let eventId = components.queryItems?.first(where: { $0.name == "event" })?.value
                     else { return }
 
+                    // Logging links only count for the night that is running: any app
+                    // can open a siptrack:// URL, and an old or guessed id must not log.
+                    let mayLog = LogDeepLink.accepts(eventId: eventId, activeEventId: appState.activeEvent?.id)
                     switch url.host {
                     case "drink":
-                        if let typeId = components.queryItems?.first(where: { $0.name == "type" })?.value {
+                        if mayLog, let typeId = components.queryItems?.first(where: { $0.name == "type" })?.value {
                             appState.addDrink(eventId: eventId, drinkTypeId: typeId)
                         }
                     case "water":
-                        appState.addWater(eventId: eventId)
+                        if mayLog { appState.addWater(eventId: eventId) }
                     case "camera":
                         // RootView checks the night is still running. The app-open
                         // ad would present on the same root and knock the camera out.
@@ -153,6 +156,14 @@ struct SipTrackApp: App {
                 LiveActivityRefresh.schedule(active: appState.activeEvent != nil)
             }
         }
+    }
+}
+
+/// `siptrack://drink` and `siptrack://water` (widgets, Live Activity) log only into
+/// the active night.
+enum LogDeepLink {
+    nonisolated static func accepts(eventId: String, activeEventId: String?) -> Bool {
+        !eventId.isEmpty && eventId == activeEventId
     }
 }
 
