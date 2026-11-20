@@ -272,6 +272,30 @@ it is done by the developer with their own credentials.
       the new build once (it re-registers its token) before expecting them.
       In two-account QA also report a comment: the `SOCIAL_REPORT` email
       carries the comment's text, author and night.
+9. **Ended nights stay 24 h.** A build that writes ended-night copies
+   (`shared_nights/{uid}/ended/{started_at}`) needs, in the same order as
+   step 8 (from `functions/`, `$env:FUNCTIONS_DISCOVERY_TIMEOUT=120`):
+   1. **Indexes.** `npx firebase deploy --only firestore:indexes --project
+      device-streaming-8326abff` adds the `ended.expires_at` field override:
+      a TTL policy (collection group `ended`) plus the ascending
+      collection-scope index the feed's `expires_at >` query needs. Until
+      the index is **Enabled**, friends' ended-copy listeners fail (the
+      feed just shows no ended copies); wait for it and for `gcloud
+      firestore fields ttls list --project device-streaming-8326abff` to
+      show the `ended` policy **ACTIVE**.
+   2. **Rules.** `npx firebase deploy --only firestore:rules --project
+      device-streaming-8326abff`. Until they are live the new build's
+      writes of an ended night fail whole (the copy is batched with the main
+      doc), so deploy rules before shipping the build.
+   3. **Functions.** `npx firebase deploy --only functions --project
+      device-streaming-8326abff`: `loadNight` accepts ended copies,
+      `cleanupThreads` deletes only the deleted night's thread, account
+      deletion removes `ended` copies. Check `functions:list`.
+   4. **Ship the build.** Two-account QA: A ends a night, B reacts and
+      comments; A starts a new night. B sees A twice, "Live now" and "Last
+      24 hours", and can still react and comment on the ended one. A sees
+      both "You" cards. A turns incognito on for the new night: only the
+      live card goes; the ended one and its comments stay.
 
 ## Dependencies
 

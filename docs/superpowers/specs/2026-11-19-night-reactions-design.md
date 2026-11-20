@@ -63,9 +63,26 @@ so a font change never breaks a stored value.
 
 ### Who can read
 
-Rules allow `get` on `night_threads/{nightKey}` and `list`/`get` on its
-subcollections to the owner (prefix of `nightKey`) and to their friends, while
-`expires_at > request.time`. No client writes.
+Rules allow `get` on the summary `night_threads/{nightKey}` and on a person's
+own `reactions/{uid}` doc to the owner (prefix of `nightKey`) and to their
+friends; comments, other reactions and limits are served only by
+`getNightThread`. No client writes.
+
+Visibility is decided by the night, not by the thread docs (their
+`expires_at` only drives TTL garbage collection, 48 h later). A thread is
+visible while either:
+
+- the main doc `shared_nights/{owner}` is that night (`started_at` matches the
+  key) and its `expires_at > request.time`, or
+- that night's ended copy `shared_nights/{owner}/ended/{started_at}` exists and
+  its `expires_at > request.time`. The owner's app writes this copy with every
+  write of an ended night, so the night (and its thread) stays on friends'
+  feeds for its full 24 h after a new night overwrites the main doc.
+
+The rules' `nightVisible()` and the callables' `loadNight` make the same
+check. Going incognito or deleting the night deletes the main doc and that
+night's ended copy; the delete trigger then removes only that night's thread,
+so earlier nights' threads stay while their ended copies do.
 
 Blocks are filtered in two places: the server never accepts a reaction or
 comment between two people where either blocked the other, and never pushes
@@ -98,8 +115,10 @@ All `onCall`, App Check enforced, thin shells over a new `interactions.js`.
 - `getNightThread({owner, startedAt})` — reactions and comments, block-filtered,
   oldest first.
 - `setNotificationPrefs` is not needed: the owner writes its own prefs doc.
-- Trigger `onDocumentDeleted("shared_nights/{uid}")` deletes that owner's
-  threads (going incognito, account deletion).
+- Trigger `onDocumentDeleted("shared_nights/{uid}")` deletes the thread of
+  the night the deleted doc held (`{uid}_{old started_at}`; going incognito,
+  deleting the night, TTL), not the owner's earlier nights' threads. Account
+  deletion deletes every thread of the owner and the `ended` copies itself.
 - Account deletion also removes the user's reactions and comments everywhere
   (collection-group queries on `uid`) and its prefs doc.
 
