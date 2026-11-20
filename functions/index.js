@@ -42,6 +42,7 @@ const social = require("./social");
 const interactions = require("./interactions");
 const {setAvatar} = require("./avatar");
 const {generatePhoto, completeLibraryPhoto} = require("./recovery/image");
+const {isAdmin, listPendingPhotos, reviewPhoto} = require("./recovery/review");
 
 initializeApp();
 setGlobalOptions({region: "us-central1", maxInstances: 10});
@@ -55,6 +56,8 @@ const allowSandbox = defineBoolean("APPLE_ALLOW_SANDBOX", {default: false});
 // a sandbox one and cannot be verified while allowSandbox is false, which
 // left our own testers on the free tier. Server configuration only.
 const proTesters = defineString("PRO_TESTER_UIDS", {default: ""});
+// Uids allowed to review recovery photos. Empty denies everyone.
+const adminUids = defineString("ADMIN_UIDS", {default: ""});
 // APNs auth key (.p8) for lock-screen pushes. Separate from the App Store
 // Connect key above: Apple issues push keys under Certificates, IDs & Profiles.
 const apnsKey = defineSecret("APNS_AUTH_KEY");
@@ -505,6 +508,30 @@ exports.setAvatar = onCall(
     },
 );
 
+/**
+ * Generates and stores one library photo, with the genai client built per run.
+ * @param {string} itemId
+ * @return {Promise<void>}
+ */
+async function runLibraryPhoto(itemId) {
+  // Built per run, not at load, so a cold start that never needs it
+  // does not pay for it.
+  const {GoogleGenAI} = require("@google/genai");
+  const genai = new GoogleGenAI({
+    vertexai: true,
+    project: process.env.GCLOUD_PROJECT,
+    location: "us-central1",
+  });
+  await completeLibraryPhoto({
+    db: getFirestore(),
+    bucket: getStorage().bucket(),
+    itemId,
+    now: Date.now(),
+    generate: (picked) =>
+      generatePhoto(picked, {genai, model: imageModel.value()}),
+  });
+}
+
 // A new library item needs a photo. The plan that proposed it is filled in by
 // the same run, so the plan is returned without waiting for the image.
 exports.generateLibraryPhoto = onDocumentCreated(
@@ -516,21 +543,38 @@ exports.generateLibraryPhoto = onDocumentCreated(
     async (event) => {
       const item = event.data && event.data.data();
       if (!item || item.photoStatus !== "generating") return;
-      // Built per run, not at load, so a cold start that never needs it
-      // does not pay for it.
-      const {GoogleGenAI} = require("@google/genai");
-      const genai = new GoogleGenAI({
-        vertexai: true,
-        project: process.env.GCLOUD_PROJECT,
-        location: "us-central1",
-      });
-      await completeLibraryPhoto({
-        db: getFirestore(),
-        bucket: getStorage().bucket(),
-        itemId: event.params.itemId,
-        now: Date.now(),
-        generate: (picked) =>
-          generatePhoto(picked, {genai, model: imageModel.value()}),
+      await runLibraryPhoto(event.params.itemId);
+    },
+);
+
+/**
+ * Rejects callers that are not signed in admins.
+ * @param {object} request The callable request.
+ */
+function requireAdmin(request) {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Please sign in.");
+  }
+  if (!isAdmin(request.auth.uid, adminUids.value())) {
+    throw new HttpsError("permission-denied", "Admins only.");
+  }
+}
+
+exports.listPendingPhotos = onCall(
+    {enforceAppCheck: true},
+    async (request) => {
+      requireAdmin(request);
+      return listPendingPhotos({db: getFirestore()});
+    },
+);
+
+exports.reviewPhoto = onCall(
+    {enforceAppCheck: true, memory: "1GiB", timeoutSeconds: 120},
+    async (request) => {
+      requireAdmin(request);
+      const {itemId, action} = request.data ?? {};
+      return reviewPhoto({
+        db: getFirestore(), itemId, action, regenerate: runLibraryPhoto,
       });
     },
 );
