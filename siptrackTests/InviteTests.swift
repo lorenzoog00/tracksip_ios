@@ -58,4 +58,21 @@ struct InviteTests {
         #expect(Invite.invitedAt(contactID: "c1", uid: otherUid) == nil)
         #expect(UserDefaults.standard.dictionary(forKey: "invited.\(uid)") != nil)
     }
+
+    /// Account deletion forgets every mark, for that account only.
+    @Test func clearForgetsTheMarksForThatAccountOnly() {
+        let uid = "invite-test-\(UUID().uuidString)"
+        let otherUid = "invite-test-\(UUID().uuidString)"
+        defer {
+            UserDefaults.standard.removeObject(forKey: "invited.\(uid)")
+            UserDefaults.standard.removeObject(forKey: "invited.\(otherUid)")
+        }
+
+        Invite.markInvited(contactID: "c1", uid: uid)
+        Invite.markInvited(contactID: "c2", uid: otherUid)
+        Invite.clear(uid: uid)
+        #expect(Invite.invitedContactIDs(uid: uid, now: Date()).isEmpty)
+        #expect(UserDefaults.standard.object(forKey: "invited.\(uid)") == nil)
+        #expect(Invite.invitedContactIDs(uid: otherUid, now: Date()) == ["c2"])
+    }
 }

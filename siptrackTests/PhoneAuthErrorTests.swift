@@ -20,6 +20,13 @@ struct PhoneAuthErrorTests {
     static let tooManyRequests = 17010
     static let invalidPhoneNumber = 17042
     static let networkError = 17020
+    static let webContextCancelled = 17058
+    static let quotaExceeded = 17052
+    static let missingAppCredential = 17047
+    static let operationNotAllowed = 17006
+    static let appNotAuthorized = 17028
+
+    static let unavailable = "Adding a number isn't available right now. Try again later."
 
     @Test func phoneErrorCopy() {
         #expect(FirebaseManager.phoneErrorMessage(code: Self.invalidVerificationCode)
@@ -33,6 +40,29 @@ struct PhoneAuthErrorTests {
         #expect(FirebaseManager.phoneErrorMessage(code: Self.invalidPhoneNumber)
             == "That number doesn't look right.")
         #expect(FirebaseManager.phoneErrorMessage(code: Self.networkError) == nil)
+    }
+
+    /// SMS quota used up, or phone auth off or not set up for the app: the
+    /// same "not available" line for all four.
+    @Test func unavailableCodesShareOneLine() {
+        #expect(FirebaseManager.phoneErrorMessage(code: Self.quotaExceeded) == Self.unavailable)
+        #expect(FirebaseManager.phoneErrorMessage(code: Self.missingAppCredential) == Self.unavailable)
+        #expect(FirebaseManager.phoneErrorMessage(code: Self.operationNotAllowed) == Self.unavailable)
+        #expect(FirebaseManager.phoneErrorMessage(code: Self.appNotAuthorized) == Self.unavailable)
+        #expect(FirebaseManager.phoneErrorText(NSError(domain: "FIRAuthErrorDomain", code: Self.quotaExceeded))
+            == Self.unavailable)
+    }
+
+    /// Closing the reCAPTCHA page is a cancel, not an error: nothing is shown.
+    /// Only inside Auth's domain.
+    @Test func closedRecaptchaShowsNothing() {
+        #expect(FirebaseManager.isPhoneCancel(code: Self.webContextCancelled))
+        #expect(!FirebaseManager.isPhoneCancel(code: Self.invalidVerificationCode))
+        #expect(FirebaseManager.phoneErrorMessage(code: Self.webContextCancelled) == nil)
+        #expect(FirebaseManager.phoneErrorText(NSError(domain: "FIRAuthErrorDomain", code: Self.webContextCancelled)) == nil)
+        let ours = NSError(domain: "FirebaseManager", code: Self.webContextCancelled,
+                           userInfo: [NSLocalizedDescriptionKey: "Please sign in and try again."])
+        #expect(FirebaseManager.phoneErrorText(ours) == "Please sign in and try again.")
     }
 
     /// "FIRAuthErrorDomain" is `AuthErrors.domain` in firebase-ios-sdk 12.13.0.

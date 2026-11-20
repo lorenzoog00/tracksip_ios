@@ -55,7 +55,13 @@ struct SocialRootView: View {
                     // still choosing a username gets the sheet right after.
                     .onAppear(perform: openPendingThread)
                     .onChange(of: appState.pendingThread) { _, _ in openPendingThread() }
-                    .onAppear(perform: promptForPhoneIfNeeded)
+                    // Once per appearance: re-read the number first, so one added
+                    // on another phone isn't asked for again here.
+                    .task {
+                        await firebase.refreshPhoneNumber()
+                        guard !Task.isCancelled else { return }
+                        promptForPhoneIfNeeded()
+                    }
             }
             }
             // On every Social root state, choosing a username included, so there is

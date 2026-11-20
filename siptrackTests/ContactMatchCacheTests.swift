@@ -59,13 +59,28 @@ struct ContactMatchCacheTests {
         let otherUid = "contact-match-test-\(UUID().uuidString)"
         defer { UserDefaults.standard.removeObject(forKey: "contactMatch.\(uid)") }
 
-        #expect(ContactMatchCache.load(uid: uid) == nil)
+        // `now` pinned to the sample's check, so the test doesn't age out.
+        let now = t0 + 60
+        #expect(ContactMatchCache.load(uid: uid, now: now) == nil)
         ContactMatchCache.save(sample(), uid: uid)
-        #expect(ContactMatchCache.load(uid: uid) == sample())
+        #expect(ContactMatchCache.load(uid: uid, now: now) == sample())
         #expect(UserDefaults.standard.data(forKey: "contactMatch.\(uid)") != nil)
-        #expect(ContactMatchCache.load(uid: otherUid) == nil)
+        #expect(ContactMatchCache.load(uid: otherUid, now: now) == nil)
         ContactMatchCache.clear(uid: uid)
-        #expect(ContactMatchCache.load(uid: uid) == nil)
+        #expect(ContactMatchCache.load(uid: uid, now: now) == nil)
+    }
+
+    /// A check 24 hours old or more is never returned again, and loading it
+    /// removes it from the phone.
+    @Test func loadDropsAndRemovesAnExpiredCheck() {
+        let uid = "contact-match-test-\(UUID().uuidString)"
+        defer { UserDefaults.standard.removeObject(forKey: "contactMatch.\(uid)") }
+
+        ContactMatchCache.save(sample(), uid: uid)
+        #expect(ContactMatchCache.load(uid: uid, now: t0 + 23 * 3600) == sample())
+        #expect(UserDefaults.standard.data(forKey: "contactMatch.\(uid)") != nil)
+        #expect(ContactMatchCache.load(uid: uid, now: t0 + 24 * 3600) == nil)
+        #expect(UserDefaults.standard.data(forKey: "contactMatch.\(uid)") == nil)
     }
 
     /// Only the callable's own `resource-exhausted` means the day's checks are used up.

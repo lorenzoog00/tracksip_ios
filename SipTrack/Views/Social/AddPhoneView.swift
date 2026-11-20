@@ -26,11 +26,16 @@ struct AddPhoneView: View {
     @State private var national = ""
     @State private var showCountryPicker = false
     /// The number the current code went to, and the id Firebase gave for it.
+    /// Kept through "Change number", so asking again for the same number
+    /// before Resend unlocks goes back to that code instead of a new SMS.
     @State private var sentTo: String?
     @State private var verificationID: String?
     @State private var code = ""
     @State private var resendAt = Date.distantPast
     @State private var isWorking = false
+    /// A code is being checked and the number linked: the one request that
+    /// "Not now" must not race.
+    @State private var isConfirming = false
     @State private var errorMessage: String?
     /// A non-error line, such as a resent code.
     @State private var notice: String?
@@ -246,7 +251,11 @@ struct AddPhoneView: View {
         .disabled(!enabled || isWorking)
     }
 
-    /// Off while a request is out, so leaving can't race a code that is landing.
+    /// Off only while a code is being confirmed, so leaving can't race a number
+    /// being linked. On while a code is being sent: that can hang (the silent
+    /// check falling back to a reCAPTCHA page that never returns), and in
+    /// onboarding this is the only way on. A send that lands after "Not now"
+    /// is ignored (see `finished`).
     private var notNowButton: some View {
         Button { finish(false) } label: {
             Text("Not now")
@@ -254,7 +263,7 @@ struct AddPhoneView: View {
                 .foregroundStyle(AppColors.textSecondary)
                 .padding(.vertical, 6)
         }
-        .disabled(isWorking)
+        .disabled(isConfirming)
     }
 
     // MARK: - Input
@@ -298,21 +307,35 @@ struct AddPhoneView: View {
 
     // MARK: - Actions
 
+    /// Every code is a billed SMS, so none goes out for the number the account
+    /// already has, nor again for the number whose code was just sent.
     private func sendCode() {
         guard let number = e164, !isWorking else { return }
-        focus = nil
-        isWorking = true
         errorMessage = nil
         notice = nil
+        if number == FirebaseManager.shared.phoneNumber {
+            errorMessage = "That's already your number."
+            return
+        }
+        focus = nil
+        if number == sentTo, verificationID != nil, secondsUntilResend(at: Date()) > 0 {
+            code = ""
+            step = .code
+            return
+        }
+        isWorking = true
         Task {
             do {
                 let id = try await FirebaseManager.shared.sendPhoneCode(to: number)
+                // "Not now" while the code was on its way: the screen is closing.
+                guard !finished else { return }
                 sentTo = number
                 verificationID = id
                 code = ""
                 resendAt = Date().addingTimeInterval(Self.resendDelay)
                 step = .code
             } catch {
+                guard !finished else { return }
                 errorMessage = FirebaseManager.phoneErrorText(error)
             }
             isWorking = false
@@ -326,11 +349,14 @@ struct AddPhoneView: View {
         notice = nil
         Task {
             do {
-                verificationID = try await FirebaseManager.shared.sendPhoneCode(to: number)
+                let id = try await FirebaseManager.shared.sendPhoneCode(to: number)
+                guard !finished else { return }
+                verificationID = id
                 code = ""
                 resendAt = Date().addingTimeInterval(Self.resendDelay)
                 notice = "We sent you a new code."
             } catch {
+                guard !finished else { return }
                 errorMessage = FirebaseManager.phoneErrorText(error)
             }
             isWorking = false
@@ -342,6 +368,7 @@ struct AddPhoneView: View {
         guard code.count == 6, let id = verificationID, !isWorking else { return }
         let entered = code
         isWorking = true
+        isConfirming = true
         errorMessage = nil
         notice = nil
         Task {
@@ -351,19 +378,20 @@ struct AddPhoneView: View {
                 errorMessage = FirebaseManager.phoneErrorText(error)
                 code = ""
                 isWorking = false
+                isConfirming = false
                 focus = .code
                 return
             }
             isWorking = false
+            isConfirming = false
             await showSuccess()
         }
     }
 
+    /// Back to the number step. The code already sent stays valid (see `sentTo`).
     private func changeNumber() {
         guard !isWorking else { return }
         step = .number
-        sentTo = nil
-        verificationID = nil
         code = ""
         errorMessage = nil
         notice = nil

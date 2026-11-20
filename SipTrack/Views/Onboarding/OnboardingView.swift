@@ -135,7 +135,8 @@ struct OnboardingView: View {
             }
         }
         // Full screen with no swipe-down, so the only ways on are "Not now" or a
-        // verified number.
+        // verified number. "Not now" stays on while a code is being sent, so a
+        // send that never comes back can't trap a new user here.
         .fullScreenCover(isPresented: $showAddPhone) {
             AddPhoneView { added in
                 // Answered here, so the Social tab doesn't ask again.

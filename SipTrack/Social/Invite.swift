@@ -57,6 +57,12 @@ enum Invite {
         Set(stored(uid: uid).filter { _, at in isInvited(at: at, now: now) }.keys)
     }
 
+    /// Forgets every Invited mark of this account. Only for a deleted account:
+    /// signing out keeps them.
+    static func clear(uid: String) {
+        UserDefaults.standard.removeObject(forKey: key(uid))
+    }
+
     // MARK: - Private
 
     /// Contact id → when it was invited, under "invited.<uid>".

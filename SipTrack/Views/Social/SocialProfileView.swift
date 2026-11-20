@@ -140,6 +140,10 @@ struct SocialProfileView: View {
         .sheet(isPresented: $showAddPhone) {
             AddPhoneView { added in
                 showAddPhone = false
+                // Answered here, so the feed doesn't ask again right after.
+                if let uid = firebase.currentUserId() {
+                    PhonePrompt.markDismissed(uid: uid)
+                }
                 if added { friends.clearContactCache() }
             }
         }

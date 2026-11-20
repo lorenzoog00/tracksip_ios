@@ -164,6 +164,11 @@ final class FirebaseManager: ObservableObject {
         let credential = PhoneAuthProvider.provider().credential(
             withVerificationID: verificationID, verificationCode: code
         )
+        // Another device may have added, changed or removed the number since
+        // this one last looked, and linking onto an account that has one (or
+        // updating one that has none) fails. Ask the server first; offline,
+        // the local copy is the best guess left.
+        try? await user.reload()
         if user.phoneNumber == nil {
             try await user.link(with: credential)
         } else {
@@ -185,6 +190,21 @@ final class FirebaseManager: ObservableObject {
         phoneNumber = auth.currentUser?.phoneNumber
     }
 
+    /// Re-reads the account so a number added, changed or removed on another
+    /// device shows here too. Called once each time Social or Find friends
+    /// appears; a failure (offline, say) keeps the number already shown.
+    func refreshPhoneNumber() async {
+        guard let user = auth.currentUser else { return }
+        do {
+            try await user.reload()
+        } catch {
+            return
+        }
+        // Signed out or switched account meanwhile: the auth listener owns that.
+        guard isSignedIn, auth.currentUser?.uid == user.uid else { return }
+        phoneNumber = auth.currentUser?.phoneNumber
+    }
+
     /// Copy for the phone screens, keyed by `AuthErrorCode` raw value. Nil means
     /// the error is not phone-specific: show `friendlyAuthError` instead.
     nonisolated static func phoneErrorMessage(code: Int) -> String? {
@@ -199,19 +219,33 @@ final class FirebaseManager: ObservableObject {
             return "Too many tries. Try again later."
         case AuthErrorCode.invalidPhoneNumber.rawValue:
             return "That number doesn't look right."
+        // The project's SMS quota, or phone auth itself being off or not set up
+        // for this app: nothing the user can fix by trying again now.
+        case AuthErrorCode.quotaExceeded.rawValue,
+             AuthErrorCode.missingAppCredential.rawValue,
+             AuthErrorCode.operationNotAllowed.rawValue,
+             AuthErrorCode.appNotAuthorized.rawValue:
+            return "Adding a number isn't available right now. Try again later."
         default:
             return nil
         }
     }
 
-    /// What the phone screens show for any error: the copy above for a Firebase
-    /// Auth error that has some, else `friendlyAuthError` (which covers no
-    /// network). The domain is checked first: the codes only mean Auth codes
-    /// inside Auth's domain.
-    static func phoneErrorText(_ error: Error) -> String {
+    /// The user closed Firebase's reCAPTCHA page. Nothing went wrong, so the
+    /// phone screens show nothing for it.
+    nonisolated static func isPhoneCancel(code: Int) -> Bool {
+        code == AuthErrorCode.webContextCancelled.rawValue
+    }
+
+    /// What the phone screens show for any error: nil for a cancelled reCAPTCHA
+    /// page, the copy above for a Firebase Auth error that has some, else
+    /// `friendlyAuthError` (which covers no network). The domain is checked
+    /// first: the codes only mean Auth codes inside Auth's domain.
+    static func phoneErrorText(_ error: Error) -> String? {
         let nsError = error as NSError
-        if nsError.domain == AuthErrors.domain, let message = phoneErrorMessage(code: nsError.code) {
-            return message
+        if nsError.domain == AuthErrors.domain {
+            if isPhoneCancel(code: nsError.code) { return nil }
+            if let message = phoneErrorMessage(code: nsError.code) { return message }
         }
         return friendlyAuthError(error)
     }
@@ -842,8 +876,13 @@ final class FirebaseManager: ObservableObject {
 
             let result = try await callFunction("deleteAccount", data: [:], idToken: idToken)
             guard result["deleted"] as? Bool == true else { return .failed("Deletion did not complete. Please try again.") }
-            // The saved contacts check (matched profiles and numbers) goes with the account.
+            // The saved contacts check (matched profiles and numbers), the
+            // Invited marks and the answered phone prompt go with the account.
+            // A plain sign-out keeps them: signing back in the same day must
+            // not spend another check.
             ContactMatchCache.clear(uid: user.uid)
+            Invite.clear(uid: user.uid)
+            PhonePrompt.clear(uid: user.uid)
             await signOut(unregisterPush: false)
             return .deleted
         } catch let error as NSError

@@ -24,6 +24,11 @@ enum PhonePrompt {
         UserDefaults.standard.set(true, forKey: key(uid))
     }
 
+    /// Forgets the answer. Only for a deleted account: signing out keeps it.
+    static func clear(uid: String) {
+        UserDefaults.standard.removeObject(forKey: key(uid))
+    }
+
     private static func key(_ uid: String) -> String {
         "phonePromptDismissed.\(uid)"
     }

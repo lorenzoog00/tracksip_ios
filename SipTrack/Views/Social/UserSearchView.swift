@@ -280,9 +280,7 @@ struct UserSearchView: View {
                 }
             case .done(let result):
                 statusRow(icon: "checkmark.circle.fill", tint: AppColors.success,
-                          text: result.profiles.isEmpty && result.onTrackSip.isEmpty
-                              ? "None of your contacts are on TrackSip yet. Invite them below."
-                              : "Contacts checked")
+                          text: checkedText(result))
             case .limitReached:
                 statusRow(icon: "clock", tint: AppColors.textSecondary,
                           text: "You've already checked today. Your results will be here tomorrow.")
@@ -323,6 +321,14 @@ struct UserSearchView: View {
                 .font(.system(size: 15))
                 .foregroundStyle(AppColors.textSecondary)
         }
+    }
+
+    /// "Invite them below" only when there is an Invite list below.
+    private func checkedText(_ result: ContactMatchResult) -> LocalizedStringKey {
+        guard result.profiles.isEmpty && result.onTrackSip.isEmpty else { return "Contacts checked" }
+        return showsInviteList
+            ? "None of your contacts are on TrackSip yet. Invite them below."
+            : "None of your contacts are on TrackSip yet."
     }
 
     private var contactsFailureText: String? {
@@ -436,7 +442,13 @@ struct UserSearchView: View {
 
     private func loadSuggestions(refresh: Bool) async {
         loadingSuggestions = true
-        let contactsTask = Task { await showContacts(refresh: refresh) }
+        let contactsTask = Task {
+            // The first load of each visit re-reads the number before deciding
+            // whether there is one: it may have been added, changed or removed
+            // on another phone.
+            if !refresh { await firebase.refreshPhoneNumber() }
+            await showContacts(refresh: refresh)
+        }
         do {
             suggestions = try await friends.suggestions()
         } catch {

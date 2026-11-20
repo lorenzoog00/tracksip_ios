@@ -86,7 +86,8 @@ enum PushRegistration {
         }
     }
 
-    /// Launch and sign-in: never prompts, only refreshes the token when already allowed.
+    /// Sign-in: never prompts, only refreshes the token when already allowed.
+    /// Launch needs no call: it registers unconditionally (see `AppDelegate`).
     static func registerIfAuthorized() async {
         let status = await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
         if isAuthorized(status) { UIApplication.shared.registerForRemoteNotifications() }
@@ -105,7 +106,6 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         // over without asking the user and shows nothing; our server only gets
         // it once notifications are allowed (see below).
         application.registerForRemoteNotifications()
-        Task { await PushRegistration.registerIfAuthorized() }
         AdAttribution.start(application, launchOptions: launchOptions)
         return true
     }
@@ -131,10 +131,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         didReceiveRemoteNotification userInfo: [AnyHashable: Any],
         fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
     ) {
-        if Auth.auth().canHandleNotification(userInfo) {
-            completionHandler(.noData)
-            return
-        }
+        _ = Auth.auth().canHandleNotification(userInfo)
         completionHandler(.noData)
     }
 

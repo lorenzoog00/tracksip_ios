@@ -54,9 +54,16 @@ nonisolated struct ContactMatchCache: Codable, Equatable, Sendable {
         return age >= 0 && age < validFor
     }
 
-    static func load(uid: String) -> ContactMatchCache? {
-        guard let data = UserDefaults.standard.data(forKey: key(uid)) else { return nil }
-        return try? JSONDecoder().decode(ContactMatchCache.self, from: data)
+    /// The saved check, unless it is 24 hours old or more: that one can never
+    /// be fresh again, so it is removed from the phone instead of lingering.
+    static func load(uid: String, now: Date = Date()) -> ContactMatchCache? {
+        guard let data = UserDefaults.standard.data(forKey: key(uid)),
+              let cache = try? JSONDecoder().decode(ContactMatchCache.self, from: data) else { return nil }
+        if now.timeIntervalSince(cache.checkedAt) >= validFor {
+            clear(uid: uid)
+            return nil
+        }
+        return cache
     }
 
     static func save(_ cache: ContactMatchCache, uid: String) {
