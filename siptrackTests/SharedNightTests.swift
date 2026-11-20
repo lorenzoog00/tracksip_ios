@@ -253,9 +253,14 @@ struct SharedNightTests {
         #expect(SharedNight(firestore: friendDoc(["started_at": farFuture]), now: friendNow) == nil)
     }
 
-    @Test func initRejectsInvertedTimes() {
-        #expect(SharedNight(firestore: friendDoc(["last_drink_at": startMs - 1]), now: friendNow) == nil)
-        #expect(SharedNight(firestore: friendDoc(["ended_at": startMs - 1]), now: friendNow) == nil)
+    @Test func initClampsInvertedTimesToTheStart() {
+        // Older builds can write a last drink (or end) before the start: keep the
+        // night, with the time moved up to the start.
+        let early = startMs - 3_600_000
+        let n = SharedNight(firestore: friendDoc(["last_drink_at": early, "ended_at": early]), now: friendNow)
+        #expect(n != nil)
+        #expect(n?.lastDrinkAt == start)
+        #expect(n?.endedAt == start)
     }
 
     @Test func initRejectsNonFiniteSamplesAndClampsTheRest() {

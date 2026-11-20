@@ -196,6 +196,8 @@ service cloud.firestore {
       // Times are ms since 1970, between 2020-01-01 and now + 2 days. The
       // range checks also reject NaN and +/-Infinity (every comparison with
       // NaN is false), which a friend's app would trap converting to Int.
+      // Order (last drink or end before the start) is not checked: builds in
+      // the field can write a backdated last drink; readers clamp it.
       function validTime(t) {
         return t is number
           && t > 1577836800000
@@ -204,9 +206,7 @@ service cloud.firestore {
       function validNight(d) {
         return validTime(d.started_at)
           && validTime(d.last_drink_at)
-          && d.last_drink_at >= d.started_at
-          && (!('ended_at' in d)
-            || (validTime(d.ended_at) && d.ended_at >= d.started_at))
+          && (!('ended_at' in d) || validTime(d.ended_at))
           && d.expires_at is timestamp
           && d.expires_at <= request.time + duration.value(25, 'h')
           && d.samples is list && d.samples.size() <= 300

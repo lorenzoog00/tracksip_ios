@@ -1089,7 +1089,7 @@ test("ended copies: the owner writes a valid copy keyed by started_at", async ()
   await assertSucceeds(deleteDoc(ref));
 });
 
-test("shared nights: absurd or inverted times are rejected, main and ended", async () => {
+test("shared nights: absurd times are rejected, inverted ones kept, main and ended", async () => {
   const alice = env.authenticatedContext("alice").firestore();
   const main = doc(alice, "shared_nights/alice");
   const good = {...LIVE, ended_at: S + 120000, expires_at: futureTs()};
@@ -1101,9 +1101,10 @@ test("shared nights: absurd or inverted times are rejected, main and ended", asy
     await assertFails(setDoc(main, {...good, last_drink_at: bad}));
     await assertFails(setDoc(main, {...good, ended_at: bad}));
   }
-  // The last drink or the end before the start.
-  await assertFails(setDoc(main, {...good, last_drink_at: S - 1}));
-  await assertFails(setDoc(main, {...good, ended_at: S - 1}));
+  // The last drink or the end before the start: builds in the field write a
+  // backdated last drink, so order isn't checked (readers clamp it).
+  await assertSucceeds(setDoc(main, {...good, last_drink_at: S - 60000}));
+  await assertSucceeds(setDoc(main, {...good, ended_at: S - 60000}));
   // A live night (no ended_at) is still fine.
   await assertSucceeds(setDoc(main, {...LIVE, expires_at: futureTs()}));
 
@@ -1113,8 +1114,8 @@ test("shared nights: absurd or inverted times are rejected, main and ended", asy
     await assertFails(setDoc(ref, {...good, last_drink_at: bad}));
     await assertFails(setDoc(ref, {...good, ended_at: bad}));
   }
-  await assertFails(setDoc(ref, {...good, last_drink_at: S - 1}));
-  await assertFails(setDoc(ref, {...good, ended_at: S - 1}));
+  await assertSucceeds(setDoc(ref, {...good, last_drink_at: S - 60000}));
+  await assertSucceeds(setDoc(ref, {...good, ended_at: S - 60000}));
   // A bad started_at can't even name its copy, but is rejected regardless.
   await assertFails(setDoc(doc(alice, "shared_nights/alice/ended/1"),
       {...good, started_at: 1}));
@@ -1527,19 +1528,29 @@ test("social: contact matching needs a profile and is rate limited", async () =>
       (e) => e.code === "invalid-argument");
 });
 
-test("social: contact matching takes at most 500 emails a call", async () => {
+test("social: contact matching checks the first 500 clean emails", async () => {
   await claim("A", "alice");
   assert.equal(social.CONTACT_EMAILS_MAX, 500);
+  assert.equal(social.CONTACT_PAYLOAD_MAX, 5000);
   const emails = (n) => Array.from({length: n}, (_, i) => `p${i}@x.com`);
   const seen = [];
   const lookup = async (list) => {
-    seen.push(list.length);
+    seen.push(list);
     return [];
   };
-  await contactsCall("A", emails(500), {lookup});
-  assert.deepEqual(seen, [500]);
-  await assert.rejects(contactsCall("A", emails(501), {lookup}),
+  // Junk and duplicates don't use up the 500.
+  await contactsCall("A", ["junk", "P0@x.com", ...emails(700)], {lookup});
+  assert.equal(seen[0].length, 500);
+  assert.equal(seen[0][0], "p0@x.com");
+  assert.equal(seen[0][499], "p499@x.com");
+  // A non-array or an absurd payload is still refused, before the daily
+  // limit is counted.
+  await assert.rejects(contactsCall("A", emails(5001), {lookup}),
       (e) => e.code === "invalid-argument");
+  await assert.rejects(contactsCall("A", "p0@x.com", {lookup}),
+      (e) => e.code === "invalid-argument");
+  await contactsCall("A", emails(5000), {lookup});
+  assert.equal(seen[1].length, 500);
 });
 
 test("social: contacts hide anyone blocked in either direction", async () => {

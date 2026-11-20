@@ -544,7 +544,10 @@ const SUGGEST_LIMIT = 20;
 // fine for suggestions and keeps one call to a bounded number of reads.
 const SUGGEST_FRIENDS_SCANNED = 50;
 // Kept low so contact matching can't double as an email -> profile lookup.
+// A call may send more; only the first CONTACT_EMAILS_MAX clean ones are
+// checked. Past CONTACT_PAYLOAD_MAX entries the payload is refused.
 const CONTACT_EMAILS_MAX = 500;
+const CONTACT_PAYLOAD_MAX = 5000;
 const CONTACT_CALLS_PER_DAY = 2;
 const CONTACT_PUSHES_PER_CALL = 30;
 const DAY_MS = 86400000;
@@ -635,7 +638,8 @@ async function suggestFriends({db, uid}) {
 }
 
 /**
- * Lowercased, trimmed, de-duplicated emails that look like emails.
+ * Lowercased, trimmed, de-duplicated emails that look like emails, at most
+ * CONTACT_EMAILS_MAX of them (the first ones).
  * @param {*} value the raw payload
  * @return {string[]}
  */
@@ -643,7 +647,7 @@ function cleanEmails(value) {
   if (!Array.isArray(value)) {
     throw new HttpsError("invalid-argument", "Missing contacts.");
   }
-  if (value.length > CONTACT_EMAILS_MAX) {
+  if (value.length > CONTACT_PAYLOAD_MAX) {
     throw new HttpsError("invalid-argument", "Too many contacts.");
   }
   const emails = new Set();
@@ -651,6 +655,7 @@ function cleanEmails(value) {
     if (typeof raw !== "string") continue;
     const email = raw.trim().toLowerCase();
     if (email.length <= 254 && EMAIL_PATTERN.test(email)) emails.add(email);
+    if (emails.size >= CONTACT_EMAILS_MAX) break;
   }
   return [...emails];
 }
@@ -774,6 +779,7 @@ module.exports = {
   notifyFromPushTokens,
   isValidId,
   CONTACT_EMAILS_MAX,
+  CONTACT_PAYLOAD_MAX,
   CONTACT_CALLS_PER_DAY,
   claimUsername,
   searchUsers,

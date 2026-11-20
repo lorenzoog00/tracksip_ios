@@ -139,23 +139,24 @@ nonisolated struct SharedNight: Equatable {
     static let maxSampleBAC: Double = 1.0
 
     /// Friends' docs are untrusted: a modified client can write any number the rules
-    /// let through. Rejects non-finite or out-of-window times (2020-01-01 ... now + 2 days),
-    /// a last drink or end before the start, and non-finite samples; clamps samples
-    /// to 0...1. Nothing built here can trap when converted to Int later.
+    /// let through. Rejects non-finite or out-of-window times (2020-01-01 ... now + 2 days)
+    /// and non-finite samples; clamps samples to 0...1, and a last drink or end before
+    /// the start (older builds can write a backdated last drink) to the start. Nothing
+    /// built here can trap when converted to Int later.
     init?(firestore data: [String: Any], now: Date = Date()) {
         let latest = now.timeIntervalSince1970 * 1000 + SharedNight.futureSlackMs
         guard let started = SharedNight.time(data["started_at"], latest: latest),
-              let lastDrink = SharedNight.time(data["last_drink_at"], latest: latest),
-              lastDrink >= started,
+              let rawLastDrink = SharedNight.time(data["last_drink_at"], latest: latest),
               let expires = data["expires_at"] as? Timestamp,
               let rawSamples = data["samples"] as? [Any],
               let rawDrinks = data["drinks"] as? [Any]
         else { return nil }
 
+        let lastDrink = max(rawLastDrink, started)
         var ended: Double?
         if let rawEnded = data["ended_at"], !(rawEnded is NSNull) {
-            guard let e = SharedNight.time(rawEnded, latest: latest), e >= started else { return nil }
-            ended = e
+            guard let e = SharedNight.time(rawEnded, latest: latest) else { return nil }
+            ended = max(e, started)
         }
 
         var samples: [Double] = []
