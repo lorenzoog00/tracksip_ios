@@ -94,11 +94,13 @@ struct FeedView: View {
         TimelineView(.periodic(from: .now, by: 30)) { context in
             let now = context.date
             let sections = FeedOrdering.sections(friends.feed, now: now)
-            let mine = friends.myNight.flatMap { $0.night.expiresAt > now ? $0 : nil }
+            // My nights on top: live first, then ended, newest end first.
+            let mySections = FeedOrdering.sections(friends.myNights, now: now)
+            let mine = mySections.live + mySections.recent
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 14) {
-                    if let mine {
-                        card(mine, now: now, isMine: true)
+                    ForEach(mine) { item in
+                        card(item, now: now, isMine: true)
                     }
                     if friends.friends.isEmpty {
                         emptyFriends

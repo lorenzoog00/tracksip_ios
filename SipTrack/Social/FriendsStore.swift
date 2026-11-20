@@ -18,10 +18,13 @@ final class FriendsStore: ObservableObject {
     @Published private(set) var incoming: [FriendProfile] = []
     @Published private(set) var outgoing: [FriendProfile] = []
     @Published private(set) var blocked: [FriendProfile] = []
+    /// Friends' nights, one item per night: a friend's live night and the ended one
+    /// before it both show.
     @Published private(set) var feed: [FeedItem] = []
-    /// My own shared night, shown on top of the feed as "You". Nil while it is
-    /// missing, expired or unreadable (incognito nights are never written).
-    @Published private(set) var myNight: FeedItem?
+    /// My own shared nights (the main doc and my unexpired ended copies, one item per
+    /// night), shown on top of the feed as "You". Empty while there are none or they
+    /// are unreadable (incognito nights are never written).
+    @Published private(set) var myNights: [FeedItem] = []
     /// True once the first `public_profiles` snapshot has arrived (even for a missing doc),
     /// so `myProfile == nil` can be told apart from "not loaded yet".
     @Published private(set) var profileLoaded = false
@@ -47,6 +50,23 @@ final class FriendsStore: ObservableObject {
     private var nightRetries: [String: Task<Void, Never>] = [:]
     private var nightFailures: [String: Int] = [:]
     private static let retryDelays: [UInt64] = [120, 300, 900]
+
+    /// Per friend, the unexpired ended copies (`shared_nights/{fid}/ended`): nights that
+    /// ended and were since replaced in the main doc by a newer night.
+    private var endedListeners: [String: ListenerRegistration] = [:]
+    private var endedNights: [String: [SharedNight]] = [:]
+    private var endedRetries: [String: Task<Void, Never>] = [:]
+    private var endedFailures: [String: Int] = [:]
+    /// A denied ended query is most often one whose bound fell behind the server's
+    /// clock, which a prompt re-attach fixes; after that, back off like the main doc.
+    private static let endedRetryDelays: [UInt64] = [10, 120, 300, 900]
+    /// The rules let a friend list ended copies only with a query bound at or after
+    /// the server's request time, so the bound sits this far past the device clock:
+    /// a copy within 10 min of expiring is left out, and a device clock up to 10 min
+    /// behind still gets through.
+    private static let endedQueryMargin: TimeInterval = 600
+    private var myEndedListener: ListenerRegistration?
+    private var myEndedNights: [SharedNight] = []
 
     private var friendUids: [String] = []
     private var incomingUids: [String] = []
@@ -159,6 +179,7 @@ final class FriendsStore: ObservableObject {
             })
 
         attachMyNight(uid, session: s)
+        attachMyEnded(uid, session: s)
     }
 
     /// Sign-out: remove every listener and clear all state.
@@ -172,9 +193,18 @@ final class FriendsStore: ObservableObject {
         nightRetries = [:]
         nightFailures = [:]
         nights = [:]
+        endedListeners.values.forEach { $0.remove() }
+        endedListeners = [:]
+        endedRetries.values.forEach { $0.cancel() }
+        endedRetries = [:]
+        endedFailures = [:]
+        endedNights = [:]
         myNightListener?.remove()
         myNightListener = nil
         mySharedNight = nil
+        myEndedListener?.remove()
+        myEndedListener = nil
+        myEndedNights = []
         // Thread listeners belong to this account; the next one starts clean.
         NightThreadStore.clearCache()
         ReactionPickerFocus.shared.close()
@@ -198,7 +228,7 @@ final class FriendsStore: ObservableObject {
 
     private func applyMyProfile(_ profile: FriendProfile?, syncNight: Bool) {
         if myProfile != profile { myProfile = profile }
-        rebuildMyNight()
+        rebuildMyNights()
         appState?.hasSocialProfile = (profile != nil)
         if syncNight { appState?.syncSharedNight() }
     }
@@ -245,8 +275,9 @@ final class FriendsStore: ObservableObject {
             let count = incoming.count
             Task { await PushRegistration.requestIfNeeded(incomingCount: count) }
         }
-        feed = friends.compactMap { profile in
-            nights[profile.uid].map { FeedItem(id: profile.uid, profile: profile, night: $0) }
+        feed = friends.flatMap { profile in
+            FeedOrdering.merge(profile: profile, main: nights[profile.uid],
+                               ended: endedNights[profile.uid] ?? [])
         }
     }
 
@@ -272,6 +303,77 @@ final class FriendsStore: ObservableObject {
         }
         for fid in wanted where nightListeners[fid] == nil && nightRetries[fid] == nil {
             attachNight(fid, session: s)
+        }
+
+        for (fid, listener) in endedListeners where !wanted.contains(fid) {
+            listener.remove()
+            endedListeners[fid] = nil
+        }
+        for fid in Array(endedRetries.keys) where !wanted.contains(fid) {
+            endedRetries[fid]?.cancel()
+            endedRetries[fid] = nil
+        }
+        for fid in Array(endedFailures.keys) where !wanted.contains(fid) {
+            endedFailures[fid] = nil
+        }
+        for fid in Array(endedNights.keys) where !wanted.contains(fid) {
+            endedNights[fid] = nil
+        }
+        for fid in wanted where endedListeners[fid] == nil && endedRetries[fid] == nil {
+            attachEnded(fid, session: s)
+        }
+    }
+
+    /// `shared_nights/{uid}/ended`, unexpired copies only. A friend's query must carry
+    /// the `expires_at` bound or the rules deny it whole.
+    private func endedQuery(_ uid: String, after bound: Date) -> Query {
+        db.collection("shared_nights").document(uid).collection("ended")
+            .whereField("expires_at", isGreaterThan: Timestamp(date: bound))
+    }
+
+    /// Ended copies that can still be shown: parsed, ended and not yet expired.
+    private static func unexpiredEnded(_ docs: [[String: Any]], now: Date) -> [SharedNight] {
+        docs.compactMap { SharedNight(firestore: $0) }
+            .filter { $0.endedAt != nil && $0.expiresAt > now }
+    }
+
+    private func attachEnded(_ fid: String, session s: Int) {
+        endedListeners[fid]?.remove()
+        let bound = Date().addingTimeInterval(Self.endedQueryMargin)
+        endedListeners[fid] = endedQuery(fid, after: bound)
+            .addSnapshotListener { [weak self] snap, error in
+                let failed = error != nil || snap == nil
+                let docs = snap?.documents.map { $0.data() } ?? []
+                Task { @MainActor [weak self] in
+                    guard let self, self.session == s, self.friendUids.contains(fid) else { return }
+                    if failed {
+                        // Keep what was shown (the feed still drops it on expiry): a denial
+                        // here is usually a bound the server clock has passed, fixed by the
+                        // quick re-attach. An unfriending removes the friend's nights anyway.
+                        self.endedListeners[fid]?.remove()
+                        self.endedListeners[fid] = nil
+                        self.retryEnded(fid, session: s)
+                        return
+                    }
+                    self.endedFailures[fid] = nil
+                    self.endedNights[fid] = Self.unexpiredEnded(docs, now: Date())
+                    self.rebuild()
+                }
+            }
+    }
+
+    /// One retry per friend, with growing delays, like `retryNight`.
+    private func retryEnded(_ fid: String, session s: Int) {
+        guard endedRetries[fid] == nil else { return }
+        let failures = (endedFailures[fid] ?? 0) + 1
+        endedFailures[fid] = failures
+        let delay = Self.endedRetryDelays[min(failures - 1, Self.endedRetryDelays.count - 1)]
+        endedRetries[fid] = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: delay * 1_000_000_000)
+            guard !Task.isCancelled, let self, self.session == s else { return }
+            self.endedRetries[fid] = nil
+            guard self.friendUids.contains(fid), self.endedListeners[fid] == nil else { return }
+            self.attachEnded(fid, session: s)
         }
     }
 
@@ -341,17 +443,39 @@ final class FriendsStore: ObservableObject {
                         self.myNightListener?.remove()
                         self.myNightListener = nil
                     }
-                    self.rebuildMyNight()
+                    self.rebuildMyNights()
                 }
             }
     }
 
-    private func rebuildMyNight() {
-        guard let profile = myProfile, let night = mySharedNight else {
-            if myNight != nil { myNight = nil }
+    /// My ended copies. The owner may read all of them; the bound only skips expired
+    /// copies TTL has not collected yet.
+    private func attachMyEnded(_ uid: String, session s: Int) {
+        myEndedListener?.remove()
+        myEndedListener = endedQuery(uid, after: Date())
+            .addSnapshotListener { [weak self] snap, error in
+                let failed = error != nil || snap == nil
+                let docs = snap?.documents.map { $0.data() } ?? []
+                Task { @MainActor [weak self] in
+                    guard let self, self.session == s else { return }
+                    if failed {
+                        // Dead listener; the next foreground attaches it again.
+                        self.myEndedListener?.remove()
+                        self.myEndedListener = nil
+                        return
+                    }
+                    self.myEndedNights = Self.unexpiredEnded(docs, now: Date())
+                    self.rebuildMyNights()
+                }
+            }
+    }
+
+    private func rebuildMyNights() {
+        guard let profile = myProfile else {
+            if !myNights.isEmpty { myNights = [] }
             return
         }
-        myNight = FeedItem(id: profile.uid, profile: profile, night: night)
+        myNights = FeedOrdering.merge(profile: profile, main: mySharedNight, ended: myEndedNights)
     }
 
     /// Back to the foreground: try every dead listener now instead of waiting out its back-off.
@@ -359,10 +483,16 @@ final class FriendsStore: ObservableObject {
         guard let uid else { return }
         let s = session
         if myNightListener == nil { attachMyNight(uid, session: s) }
+        if myEndedListener == nil { attachMyEnded(uid, session: s) }
         nightRetries.values.forEach { $0.cancel() }
         nightRetries = [:]
         for fid in friendUids where nightListeners[fid] == nil {
             attachNight(fid, session: s)
+        }
+        endedRetries.values.forEach { $0.cancel() }
+        endedRetries = [:]
+        for fid in friendUids where endedListeners[fid] == nil {
+            attachEnded(fid, session: s)
         }
     }
 
