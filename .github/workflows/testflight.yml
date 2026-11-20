@@ -1,11 +1,21 @@
 name: TestFlight
 
-# Ship a build to TestFlight. Triggered by pushing a tag like v1.0.3, or by
-# hand from the Actions tab. CI (ci.yml) still guards every ordinary push;
-# this workflow is only for producing an installable build.
+# Ship a build to TestFlight. Runs on every push to main, which in practice is
+# merging the dev -> main release PR, or by hand from the Actions tab. Feature
+# work merges into dev and never ships from there. Tags no longer trigger it.
+#
+# Bump MARKETING_VERSION before the release PR: a version that was already
+# submitted for review accepts no new builds, so the upload would be rejected.
+#
+# A push that only touches docs or workflows ships nothing new, and each run
+# costs a slot in Apple's certificate cap, so those pushes are skipped.
 on:
   push:
-    tags: ["v*"]
+    branches: [main]
+    paths-ignore:
+      - ".github/**"
+      - "docs/**"
+      - "**/*.md"
   workflow_dispatch:
     inputs:
       notes:
@@ -17,12 +27,16 @@ concurrency:
   group: testflight
   cancel-in-progress: false
 
+# A manual run can be started from any branch in the Actions tab; both jobs
+# skip unless it is main, so a dev or feature branch never reaches TestFlight.
 jobs:
   checks:
+    if: github.ref == 'refs/heads/main'
     uses: ./.github/workflows/ci.yml
 
   upload:
     needs: checks
+    if: github.ref == 'refs/heads/main'
     name: Archive & upload
     runs-on: macos-latest
     timeout-minutes: 60
