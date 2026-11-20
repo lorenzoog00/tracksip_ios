@@ -80,24 +80,26 @@ final class FriendsStore: ObservableObject {
     var currentUid: String? { uid }
     /// Everyone I've blocked, whether or not their profile has loaded.
     var blockedUidSet: Set<String> { Set(blockedUids) }
-    /// Contact matches found this session, so Find friends doesn't check again (the
-    /// server allows two checks a day). Belongs to `contactMatchesOwner`; cleared on
-    /// sign-out so the next account never sees them.
-    private var contactMatchesThisSession: [PersonSuggestion]?
-    private var contactMatchesOwner: String?
-
-    /// This account's cached contact matches, or nil if it has none (or another
-    /// account found them).
-    func cachedContactMatches() -> [PersonSuggestion]? {
-        guard let owner = contactMatchesOwner, owner == FirebaseManager.shared.currentUserId() else { return nil }
-        return contactMatchesThisSession
+    /// This account's last contacts check when it is under 24 hours old and was
+    /// made with the number the account has now; nil otherwise. Saved per uid
+    /// (`ContactMatchCache`), so a relaunch or another visit to Find friends
+    /// spends none of the server's two checks a day, and another account on this
+    /// phone never sees it.
+    func cachedContactMatches() -> ContactMatchResult? {
+        guard let owner = FirebaseManager.shared.currentUserId() else { return nil }
+        let cache = ContactMatchCache.load(uid: owner)
+        guard ContactMatchCache.isFresh(cache, now: Date(), currentPhone: FirebaseManager.shared.phoneNumber) else {
+            return nil
+        }
+        return cache?.result
     }
 
     /// Called after this account's phone number is added, changed or removed,
-    /// since who can be found from contacts depends on it. Nothing is cached by
-    /// phone yet, so there is nothing to drop until contact matching moves to
-    /// phone numbers.
-    func clearContactCache() {}
+    /// since who can be found from contacts depends on it.
+    func clearContactCache() {
+        guard let owner = FirebaseManager.shared.currentUserId() else { return }
+        ContactMatchCache.clear(uid: owner)
+    }
 
     private var profiles: [String: FriendProfile] = [:]
     private var resolving: Set<String> = []
@@ -234,8 +236,6 @@ final class FriendsStore: ObservableObject {
         myEndedNights = []
         // Thread listeners belong to this account; the next one starts clean.
         NightThreadStore.clearCache()
-        contactMatchesThisSession = nil
-        contactMatchesOwner = nil
         ReactionPickerFocus.shared.close()
         friendUids = []
         incomingUids = []
@@ -552,16 +552,20 @@ final class FriendsStore: ObservableObject {
         try await FirebaseManager.shared.suggestFriends()
     }
 
-    /// Checks the emails and caches the answer for this account's session.
-    func contactMatches(emails: [String]) async throws -> [PersonSuggestion] {
+    /// Checks the numbers, which spends one of the account's two checks a day,
+    /// and saves the answer for this account for 24 hours.
+    func contactMatches(phones: [String]) async throws -> ContactMatchResult {
         let owner = FirebaseManager.shared.currentUserId()
-        let found = try await FirebaseManager.shared.matchContacts(emails: emails)
-        // Signed out (or switched) while checking: keep nothing.
-        if let owner, owner == FirebaseManager.shared.currentUserId() {
-            contactMatchesThisSession = found
-            contactMatchesOwner = owner
+        let ownerPhone = FirebaseManager.shared.phoneNumber
+        let checkedAt = Date()
+        let result = try await FirebaseManager.shared.matchContacts(phones: phones)
+        // Signed out, switched account or changed number while checking: keep nothing.
+        if let owner, owner == FirebaseManager.shared.currentUserId(),
+           let ownerPhone, ownerPhone == FirebaseManager.shared.phoneNumber {
+            ContactMatchCache.save(ContactMatchCache(result: result, checkedAt: checkedAt, ownerPhone: ownerPhone),
+                                   uid: owner)
         }
-        return found
+        return result
     }
 
     func sendRequest(to uid: String) async throws {

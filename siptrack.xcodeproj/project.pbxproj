@@ -25,6 +25,11 @@
 		4D50E0A1F00000000000B002 /* CountryPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D50E0A1F00000000000A002 /* CountryPickerView.swift */; };
 		4D50E0A1F00000000000B003 /* AddPhoneView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D50E0A1F00000000000A003 /* AddPhoneView.swift */; };
 		4D50E0A1F00000000000B004 /* PhonePromptTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D50E0A1F00000000000A004 /* PhonePromptTests.swift */; };
+		7E5C0A110000000000000B01 /* ContactMatchCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E5C0A110000000000000A01 /* ContactMatchCache.swift */; };
+		7E5C0A110000000000000B02 /* Invite.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E5C0A110000000000000A02 /* Invite.swift */; };
+		7E5C0A110000000000000B03 /* MessageComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E5C0A110000000000000A03 /* MessageComposer.swift */; };
+		7E5C0A110000000000000B04 /* ContactMatchCacheTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E5C0A110000000000000A04 /* ContactMatchCacheTests.swift */; };
+		7E5C0A110000000000000B05 /* InviteTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E5C0A110000000000000A05 /* InviteTests.swift */; };
 		2C30CB93320000000000000B /* PhoneNumberKit in Frameworks */ = {isa = PBXBuildFile; productRef = 2C30CB93320000000000000A /* PhoneNumberKit */; };
 		5F1D0001000000000000B003 /* FriendLinkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F1D0001000000000000A003 /* FriendLinkTests.swift */; };
 		6A2E0000000000000000B003 /* NightThreadTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A2E0000000000000000A003 /* NightThreadTests.swift */; };
@@ -264,6 +269,11 @@
 		4D50E0A1F00000000000A002 /* CountryPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CountryPickerView.swift; sourceTree = "<group>"; };
 		4D50E0A1F00000000000A003 /* AddPhoneView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddPhoneView.swift; sourceTree = "<group>"; };
 		4D50E0A1F00000000000A004 /* PhonePromptTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhonePromptTests.swift; sourceTree = "<group>"; };
+		7E5C0A110000000000000A01 /* ContactMatchCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactMatchCache.swift; sourceTree = "<group>"; };
+		7E5C0A110000000000000A02 /* Invite.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Invite.swift; sourceTree = "<group>"; };
+		7E5C0A110000000000000A03 /* MessageComposer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageComposer.swift; sourceTree = "<group>"; };
+		7E5C0A110000000000000A04 /* ContactMatchCacheTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactMatchCacheTests.swift; sourceTree = "<group>"; };
+		7E5C0A110000000000000A05 /* InviteTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InviteTests.swift; sourceTree = "<group>"; };
 		5F1D0001000000000000A003 /* FriendLinkTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FriendLinkTests.swift; sourceTree = "<group>"; };
 		6A2E0000000000000000A003 /* NightThreadTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NightThreadTests.swift; sourceTree = "<group>"; };
 		5A7C1E3D9B2F4A60C8D1E706 /* SharedNightTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedNightTests.swift; sourceTree = "<group>"; };
@@ -537,6 +547,8 @@
 				2C30CB933200000000000001 /* PhoneNumbers.swift */,
 				2C30CB933200000000000003 /* ContactPhones.swift */,
 				4D50E0A1F00000000000A001 /* PhonePrompt.swift */,
+				7E5C0A110000000000000A01 /* ContactMatchCache.swift */,
+				7E5C0A110000000000000A02 /* Invite.swift */,
 			);
 			path = Social;
 			sourceTree = "<group>";
@@ -801,6 +813,7 @@
 				5E1A000A000000000000A00A /* FriendActionDialogs.swift */,
 				4D50E0A1F00000000000A002 /* CountryPickerView.swift */,
 				4D50E0A1F00000000000A003 /* AddPhoneView.swift */,
+				7E5C0A110000000000000A03 /* MessageComposer.swift */,
 			);
 			path = Social;
 			sourceTree = "<group>";
@@ -921,6 +934,8 @@
 				2C30CB933200000000000007 /* ContactPhonesTests.swift */,
 				2C30CB93320000000000000C /* PhoneAuthErrorTests.swift */,
 				4D50E0A1F00000000000A004 /* PhonePromptTests.swift */,
+				7E5C0A110000000000000A04 /* ContactMatchCacheTests.swift */,
+				7E5C0A110000000000000A05 /* InviteTests.swift */,
 			);
 			path = siptrackTests;
 			sourceTree = "<group>";
@@ -1270,6 +1285,8 @@
 				2C30CB933200000000000002 /* PhoneNumbers.swift in Sources */,
 				2C30CB933200000000000004 /* ContactPhones.swift in Sources */,
 				4D50E0A1F00000000000B001 /* PhonePrompt.swift in Sources */,
+				7E5C0A110000000000000B01 /* ContactMatchCache.swift in Sources */,
+				7E5C0A110000000000000B02 /* Invite.swift in Sources */,
 				B101B4EE2F9CD648009F7DDD /* CalendarView.swift in Sources */,
 				B101B4EF2F9CD648009F7DDD /* ChallengesView.swift in Sources */,
 				B101B4F02F9CD648009F7DDD /* DashboardView.swift in Sources */,
@@ -1320,6 +1337,7 @@
 				5E1B0004000000000000B004 /* SocialProfileView.swift in Sources */,
 				4D50E0A1F00000000000B002 /* CountryPickerView.swift in Sources */,
 				4D50E0A1F00000000000B003 /* AddPhoneView.swift in Sources */,
+				7E5C0A110000000000000B03 /* MessageComposer.swift in Sources */,
 				5E1B0005000000000000B005 /* SocialTabIcon.swift in Sources */,
 				B101B4D92F9CD5E0009F7DDD /* SipTrackApp.swift in Sources */,
 				B1CC00042FA00000000BBBBB /* LiveActivityManager.swift in Sources */,
@@ -1370,6 +1388,8 @@
 				2C30CB933200000000000008 /* ContactPhonesTests.swift in Sources */,
 				2C30CB93320000000000000D /* PhoneAuthErrorTests.swift in Sources */,
 				4D50E0A1F00000000000B004 /* PhonePromptTests.swift in Sources */,
+				7E5C0A110000000000000B04 /* ContactMatchCacheTests.swift in Sources */,
+				7E5C0A110000000000000B05 /* InviteTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

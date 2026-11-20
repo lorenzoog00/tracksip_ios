@@ -842,6 +842,8 @@ final class FirebaseManager: ObservableObject {
 
             let result = try await callFunction("deleteAccount", data: [:], idToken: idToken)
             guard result["deleted"] as? Bool == true else { return .failed("Deletion did not complete. Please try again.") }
+            // The saved contacts check (matched profiles and numbers) goes with the account.
+            ContactMatchCache.clear(uid: user.uid)
             await signOut(unregisterPush: false)
             return .deleted
         } catch let error as NSError
@@ -1009,13 +1011,24 @@ extension FirebaseManager {
         }
     }
 
-    /// Which of these contact emails belong to people on TrackSip Social. The
-    /// server matches and discards them; nothing is stored.
-    func matchContacts(emails: [String]) async throws -> [PersonSuggestion] {
-        let r = try await callFunction("matchContacts", data: ["emails": emails])
-        return (r["results"] as? [[String: Any]] ?? []).compactMap { row in
-            Self.friendProfile(row).map { PersonSuggestion(profile: $0, reason: .contact) }
+    /// Which of these contact numbers (E.164) belong to people on TrackSip. The
+    /// server matches and discards them; nothing is stored there. `profiles` are
+    /// the matches with a Social profile; `onTrackSip` is every matched number,
+    /// so the Invite list can leave those people out. Each call spends one of the
+    /// account's two checks a day (`isContactCheckLimit` once they are used).
+    func matchContacts(phones: [String]) async throws -> ContactMatchResult {
+        let r = try await callFunction("matchContacts", data: ["phones": phones])
+        let profiles = (r["results"] as? [[String: Any]] ?? []).compactMap { row in
+            Self.friendProfile(row).map { profile in FriendProfileSnapshot(profile) }
         }
+        let onTrackSip = Set(r["on_tracksip"] as? [String] ?? [])
+        return ContactMatchResult(profiles: profiles, onTrackSip: onTrackSip)
+    }
+
+    /// True when `matchContacts` said this account has used its checks for the
+    /// day (`resource-exhausted`). Its message is not for showing.
+    nonisolated static func isContactCheckLimit(_ error: Error) -> Bool {
+        ((error as NSError).userInfo[callableStatusKey] as? String) == "RESOURCE_EXHAUSTED"
     }
 
     private static func friendProfile(_ row: [String: Any]) -> FriendProfile? {

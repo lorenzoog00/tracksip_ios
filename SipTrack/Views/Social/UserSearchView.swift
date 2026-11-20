@@ -1,11 +1,15 @@
 import Contacts
+import MessageUI
 import SwiftUI
 
 /// Find people by username and send or accept friend requests. With nothing
-/// typed it shows "You might know": friends of friends, and, once allowed,
-/// contacts who are on TrackSip.
+/// typed it shows "You might know": contacts who are on TrackSip, friends of
+/// friends, and contacts to invite. Contacts need a verified number on the
+/// account and contacts permission; the server allows two checks a day, so the
+/// last check is reused for 24 hours (`FriendsStore.cachedContactMatches`).
 struct UserSearchView: View {
     @EnvironmentObject var friends: FriendsStore
+    @EnvironmentObject var firebase: FirebaseManager
 
     @State private var query = ""
     @State private var results: [FriendProfile] = []
@@ -18,14 +22,46 @@ struct UserSearchView: View {
     @State private var suggestions: [PersonSuggestion] = []
     @State private var loadingSuggestions = true
     @State private var contacts: ContactsState = .idle
+    /// The address book as read on this visit, for the Invite list. Kept in
+    /// memory only; never saved.
+    @State private var entries: [ContactEntry] = []
+    /// Contacts to invite, sorted by name. Rebuilt when `entries` or the check change.
+    @State private var invitable: [ContactEntry] = []
+    /// Contact ids invited from this account in the last 7 days.
+    @State private var invited: Set<String> = []
+    @State private var inviteQuery = ""
+    @State private var showAllInvites = false
+    @State private var showAddPhone = false
+    @State private var messageDraft: MessageDraft?
+    @State private var shareDraft: ShareDraft?
 
     private enum ContactsState: Equatable {
         case idle, checking, denied
-        case done([PersonSuggestion])
+        case done(ContactMatchResult)
+        /// Today's checks are used up and none of them is saved on this phone.
+        case limitReached
         case failed(String)
     }
 
     private enum RowState { case add, pending, friend, accept }
+
+    /// An invite going out through the Messages composer.
+    private struct MessageDraft: Identifiable {
+        let id = UUID()
+        let uid: String
+        let contactID: String
+        let recipient: String
+        let body: String
+    }
+
+    /// An invite going out through the share sheet (no WhatsApp, no Messages).
+    private struct ShareDraft: Identifiable {
+        let id = UUID()
+        let text: String
+    }
+
+    /// Invite rows shown before "Show all".
+    private static let invitePageSize = 30
 
     private var cleaned: String {
         var q = query.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -66,20 +102,53 @@ struct UserSearchView: View {
         .textInputAutocapitalization(.never)
         .autocorrectionDisabled()
         .friendActionDialogs(coordinator)
+        .sheet(isPresented: $showAddPhone) {
+            AddPhoneView { added in
+                showAddPhone = false
+                guard added else { return }
+                friends.clearContactCache()
+                // The number is what the check needs; run it now (asking for
+                // contacts first if it hasn't been asked yet).
+                Task { await checkContacts() }
+            }
+        }
+        .sheet(item: $messageDraft) { draft in
+            MessageComposer(recipient: draft.recipient, body: draft.body) { result in
+                messageDraft = nil
+                if result == .sent { markInvited(draft.contactID, by: draft.uid) }
+            }
+            .ignoresSafeArea()
+        }
+        .sheet(item: $shareDraft) { draft in
+            ShareSheet(items: [draft.text])
+        }
         .onChange(of: query) { _, _ in scheduleSearch() }
         .onChange(of: friends.outgoing.map(\.uid)) { _, ids in
             // The snapshot has arrived; Pending now comes from `outgoing`, so a later
             // cancel or decline must not leave a stale "Pending" behind.
             sent.subtract(ids)
         }
+        .onChange(of: firebase.phoneNumber) { _, phone in
+            // Removed (here or elsewhere): nothing from contacts stays on screen.
+            if phone == nil { forgetContacts() }
+        }
         .onDisappear { searchTask?.cancel() }
-        .task { await loadSuggestions() }
+        .task { await loadSuggestions(refresh: false) }
     }
 
     // MARK: - You might know
 
+    /// The check on screen, only while the account has a number.
+    private var contactResult: ContactMatchResult? {
+        guard firebase.phoneNumber != nil, case .done(let result) = contacts else { return nil }
+        return result
+    }
+
     private var contactMatches: [PersonSuggestion] {
-        guard case .done(let found) = contacts else { return [] }
+        guard let result = contactResult else { return [] }
+        let found = result.profiles.map { snapshot in
+            PersonSuggestion(profile: snapshot.profile, reason: .contact)
+        }
         return PersonSuggestion.visible(found, myUid: friends.currentUid, blocked: friends.blockedUidSet)
             .filter { state(for: $0.profile) != .friend }
     }
@@ -89,6 +158,23 @@ struct UserSearchView: View {
         let fromContacts = Set(contactMatches.map(\.id))
         return PersonSuggestion.visible(suggestions, myUid: friends.currentUid, blocked: friends.blockedUidSet)
             .filter { !fromContacts.contains($0.id) && state(for: $0.profile) != .friend }
+    }
+
+    /// Only after a check: without it the list could invite people who already
+    /// have TrackSip.
+    private var showsInviteList: Bool {
+        contactResult != nil && !invitable.isEmpty
+    }
+
+    private var filteredInvites: [ContactEntry] {
+        let q = inviteQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !q.isEmpty else { return invitable }
+        return invitable.filter { $0.name.localizedStandardContains(q) }
+    }
+
+    private var shownInvites: [ContactEntry] {
+        let matching = filteredInvites
+        return showAllInvites ? matching : Array(matching.prefix(Self.invitePageSize))
     }
 
     private var youMightKnow: some View {
@@ -127,9 +213,19 @@ struct UserSearchView: View {
                 sectionHeader("You might know")
             }
             .listRowBackground(AppColors.surface)
+
+            if showsInviteList {
+                Section {
+                    inviteRows
+                } header: {
+                    sectionHeader("Invite to TrackSip")
+                }
+                .listRowBackground(AppColors.surface)
+            }
         }
         .scrollContentBackground(.hidden)
-        .refreshable { await loadSuggestions() }
+        // Pulling runs a new contacts check, which spends one of the day's two.
+        .refreshable { await loadSuggestions(refresh: true) }
     }
 
     private func sectionHeader(_ title: String) -> some View {
@@ -141,64 +237,91 @@ struct UserSearchView: View {
 
     @ViewBuilder
     private var contactsCard: some View {
-        switch contacts {
-        case .idle, .failed:
+        if firebase.phoneNumber == nil {
             Button {
-                Task { await checkContacts() }
+                showAddPhone = true
             } label: {
-                HStack(spacing: 12) {
-                    Image(systemName: "person.crop.circle.badge.plus")
-                        .font(.system(size: 24))
-                        .foregroundStyle(AppColors.accent)
-                        .frame(width: 40)
-                        .accessibilityHidden(true)
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Find friends from your contacts")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(AppColors.text)
-                        Text(contactsFailureText ?? "Only email addresses are checked, and nothing is saved.")
-                            .font(.system(size: 13))
-                            .foregroundStyle(contactsFailureText == nil ? AppColors.textSecondary : AppColors.danger)
-                    }
-                    Spacer(minLength: 0)
-                }
-                .contentShape(Rectangle())
+                cardLabel("Add your number to find friends from your contacts", subtitle: nil)
             }
             .buttonStyle(.plain)
-        case .checking:
-            HStack(spacing: 12) {
-                ProgressView()
-                    .tint(AppColors.accent)
-                    .frame(width: 40)
-                Text("Checking your contacts...")
-                    .font(.system(size: 15))
-                    .foregroundStyle(AppColors.textSecondary)
+        } else {
+            switch contacts {
+            case .idle, .failed:
+                Button {
+                    Task { await checkContacts() }
+                } label: {
+                    cardLabel("Find friends from your contacts",
+                              subtitle: contactsFailureText ?? "Only phone numbers are checked, and nothing is saved.",
+                              subtitleIsError: contactsFailureText != nil)
+                }
+                .buttonStyle(.plain)
+            case .checking:
+                HStack(spacing: 12) {
+                    ProgressView()
+                        .tint(AppColors.accent)
+                        .frame(width: 40)
+                    Text("Checking your contacts...")
+                        .font(.system(size: 15))
+                        .foregroundStyle(AppColors.textSecondary)
+                }
+            case .denied:
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Contacts are off for TrackSip")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(AppColors.text)
+                    Text("Turn them on in Settings to find friends who already use it.")
+                        .font(.system(size: 13))
+                        .foregroundStyle(AppColors.textSecondary)
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        Link("Open Settings", destination: url)
+                            .font(.system(size: 15, weight: .semibold))
+                            .tint(AppColors.accent)
+                    }
+                }
+            case .done(let result):
+                statusRow(icon: "checkmark.circle.fill", tint: AppColors.success,
+                          text: result.profiles.isEmpty && result.onTrackSip.isEmpty
+                              ? "None of your contacts are on TrackSip yet. Invite them below."
+                              : "Contacts checked")
+            case .limitReached:
+                statusRow(icon: "clock", tint: AppColors.textSecondary,
+                          text: "You've already checked today. Your results will be here tomorrow.")
             }
-        case .denied:
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Contacts are off for Tracksip")
+        }
+    }
+
+    private func cardLabel(_ title: LocalizedStringKey, subtitle: String?, subtitleIsError: Bool = false) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "person.crop.circle.badge.plus")
+                .font(.system(size: 24))
+                .foregroundStyle(AppColors.accent)
+                .frame(width: 40)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(AppColors.text)
-                Text("Turn them on in Settings to find friends who already use it.")
-                    .font(.system(size: 13))
-                    .foregroundStyle(AppColors.textSecondary)
-                if let url = URL(string: UIApplication.openSettingsURLString) {
-                    Link("Open Settings", destination: url)
-                        .font(.system(size: 15, weight: .semibold))
-                        .tint(AppColors.accent)
+                if let subtitle {
+                    Text(subtitle)
+                        .font(.system(size: 13))
+                        .foregroundStyle(subtitleIsError ? AppColors.danger : AppColors.textSecondary)
                 }
             }
-        case .done(let found):
-            HStack(spacing: 12) {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 22))
-                    .foregroundStyle(AppColors.success)
-                    .frame(width: 40)
-                    .accessibilityHidden(true)
-                Text(found.isEmpty ? "None of your contacts are on Tracksip Social yet." : "Contacts checked")
-                    .font(.system(size: 15))
-                    .foregroundStyle(AppColors.textSecondary)
-            }
+            Spacer(minLength: 0)
+        }
+        .contentShape(Rectangle())
+    }
+
+    private func statusRow(icon: String, tint: Color, text: LocalizedStringKey) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 22))
+                .foregroundStyle(tint)
+                .frame(width: 40)
+                .accessibilityHidden(true)
+            Text(text)
+                .font(.system(size: 15))
+                .foregroundStyle(AppColors.textSecondary)
         }
     }
 
@@ -207,26 +330,144 @@ struct UserSearchView: View {
         return nil
     }
 
-    private func loadSuggestions() async {
-        loadingSuggestions = true
-        defer { loadingSuggestions = false }
-        // One contacts check per session and account: the server allows two a day.
-        if let cached = friends.cachedContactMatches() {
-            contacts = .done(cached)
-        } else if contacts == .idle && ContactEmails.isAllowed {
-            // Allowed on an earlier visit: check again without asking for a tap.
-            Task { await checkContacts() }
+    // MARK: - Invite list
+
+    @ViewBuilder
+    private var inviteRows: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(AppColors.textSecondary)
+                .accessibilityHidden(true)
+            TextField("Search contacts", text: $inviteQuery)
+                .foregroundStyle(AppColors.text)
+                .autocorrectionDisabled()
+                .submitLabel(.search)
         }
+        if filteredInvites.isEmpty {
+            Text("No contacts match \"\(inviteQuery.trimmingCharacters(in: .whitespacesAndNewlines))\".")
+                .font(.system(size: 15))
+                .foregroundStyle(AppColors.textSecondary)
+        } else {
+            ForEach(shownInvites) { entry in
+                inviteRow(entry)
+            }
+            if !showAllInvites && filteredInvites.count > Self.invitePageSize {
+                Button {
+                    showAllInvites = true
+                } label: {
+                    Text("Show all (\(filteredInvites.count))")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(AppColors.accent)
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderless)
+            }
+        }
+    }
+
+    private func inviteRow(_ entry: ContactEntry) -> some View {
+        let isInvited = invited.contains(entry.id)
+        return HStack(spacing: 12) {
+            Text(Self.initial(of: entry.name))
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(AppColors.text)
+                .frame(width: 40, height: 40)
+                .background(AppColors.border)
+                .clipShape(Circle())
+                .accessibilityHidden(true)
+            Text(entry.name)
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(AppColors.text)
+                .lineLimit(1)
+            Spacer()
+            Button {
+                invite(entry)
+            } label: {
+                Text(isInvited ? "Invited" : "Invite")
+                    .font(.system(size: 14, weight: .semibold))
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 7)
+                    .foregroundStyle(isInvited ? AppColors.textSecondary : Color.black)
+                    .background(isInvited ? AppColors.border : AppColors.accent)
+                    .clipShape(Capsule())
+            }
+            .buttonStyle(.borderless)
+            .disabled(isInvited)
+        }
+    }
+
+    /// The first letter or digit of a name, for its round placeholder.
+    private static func initial(of name: String) -> String {
+        guard let first = name.first(where: { $0.isLetter || $0.isNumber }) else { return "#" }
+        return String(first).uppercased()
+    }
+
+    /// WhatsApp when it's installed, else the Messages composer, else the share
+    /// sheet, with the same text. Invited is set once WhatsApp opens (iOS can't
+    /// confirm a WhatsApp send) or the composer reports sent.
+    private func invite(_ entry: ContactEntry) {
+        guard let uid = friends.currentUid,
+              let username = friends.myProfile?.username,
+              let phone = entry.phones.first else { return }
+        let spanish = Locale.preferredLanguages.first?.hasPrefix("es") ?? false
+        let message = Invite.message(username: username, spanish: spanish)
+        if let probe = URL(string: "whatsapp://"), UIApplication.shared.canOpenURL(probe),
+           let url = Invite.whatsAppURL(phone: phone, message: message) {
+            Task {
+                if await UIApplication.shared.open(url) {
+                    markInvited(entry.id, by: uid)
+                }
+            }
+        } else if MFMessageComposeViewController.canSendText() {
+            messageDraft = MessageDraft(uid: uid, contactID: entry.id, recipient: phone, body: message)
+        } else {
+            shareDraft = ShareDraft(text: message)
+        }
+    }
+
+    /// Nothing is marked if another account is signed in by the time the invite went out.
+    private func markInvited(_ contactID: String, by uid: String) {
+        guard uid == friends.currentUid else { return }
+        Invite.markInvited(contactID: contactID, uid: uid)
+        invited.insert(contactID)
+    }
+
+    // MARK: - Loading
+
+    private func loadSuggestions(refresh: Bool) async {
+        loadingSuggestions = true
+        let contactsTask = Task { await showContacts(refresh: refresh) }
         do {
             suggestions = try await friends.suggestions()
         } catch {
             // Suggestions are a nicety; the username search still works.
             suggestions = []
         }
+        loadingSuggestions = false
+        // Pull to refresh stays up until the new contacts check is in too.
+        if refresh { await contactsTask.value }
+    }
+
+    /// Fills the contacts sections: the saved check while it is fresh (no server
+    /// call), else a new check when contacts are already allowed, as before.
+    /// `refresh` (pull to refresh) always checks, spending one of the day's two.
+    private func showContacts(refresh: Bool) async {
+        guard let phone = firebase.phoneNumber else {
+            forgetContacts()
+            return
+        }
+        // Not asked yet, or turned off: the card asks or explains on a tap.
+        guard ContactPhones.isAllowed else { return }
+        if !refresh, let cached = friends.cachedContactMatches() {
+            contacts = .done(cached)
+            await loadEntries(ownPhone: phone)
+        } else if refresh || contacts == .idle {
+            await checkContacts()
+        }
     }
 
     private func checkContacts() async {
-        guard contacts != .checking else { return }
+        guard contacts != .checking, let phone = firebase.phoneNumber else { return }
         switch CNContactStore.authorizationStatus(for: .contacts) {
         case .denied, .restricted:
             contacts = .denied
@@ -240,16 +481,76 @@ struct UserSearchView: View {
         default:
             break
         }
+        let shown = contacts
         contacts = .checking
         do {
-            let emails = try await Task.detached(priority: .userInitiated) {
-                try ContactEmails.load()
-            }.value
-            let found = emails.isEmpty ? [] : try await friends.contactMatches(emails: emails)
-            contacts = .done(found)
+            let read = try await Self.readContacts(ownPhone: phone)
+            entries = read
+            let phones = ContactPhones.phonesToCheck(read, ownPhone: phone)
+            let result: ContactMatchResult
+            if phones.isEmpty {
+                // No numbers to ask about: don't spend a check on nothing.
+                result = ContactMatchResult(profiles: [], onTrackSip: [])
+            } else {
+                result = try await friends.contactMatches(phones: phones)
+            }
+            contacts = .done(result)
+        } catch let error where FirebaseManager.isContactCheckLimit(error) {
+            // Never the server's own sentence: the saved check, else ours.
+            if let cached = friends.cachedContactMatches() {
+                contacts = .done(cached)
+            } else if case .done = shown {
+                contacts = shown
+            } else {
+                contacts = .limitReached
+            }
         } catch {
-            contacts = .failed(error.localizedDescription)
+            if case .done = shown {
+                // A failed refresh keeps what was on screen.
+                contacts = shown
+                showSocialNotice(title: "Couldn't check your contacts", message: error.localizedDescription)
+            } else {
+                contacts = .failed(error.localizedDescription)
+            }
         }
+        rebuildInvitable()
+    }
+
+    /// Reads the address book for the Invite list when showing a saved check. No server call.
+    private func loadEntries(ownPhone: String) async {
+        if entries.isEmpty {
+            entries = (try? await Self.readContacts(ownPhone: ownPhone)) ?? []
+        }
+        rebuildInvitable()
+    }
+
+    /// The address book as entries, read off the main thread (enumeration
+    /// blocks). Numbers saved without a country code count as numbers of the
+    /// user's own country.
+    private static func readContacts(ownPhone: String) async throws -> [ContactEntry] {
+        let region = PhoneNumbers.region(ofE164: ownPhone) ?? PhoneNumbers.defaultRegion
+        return try await Task.detached(priority: .userInitiated) {
+            try ContactPhones.load(defaultRegion: region)
+        }.value
+    }
+
+    private func rebuildInvitable() {
+        guard case .done(let result) = contacts, let phone = firebase.phoneNumber else {
+            invitable = []
+            return
+        }
+        invitable = ContactPhones.invitable(entries, onTrackSip: result.onTrackSip, ownPhone: phone)
+        invited = friends.currentUid.map { uid in Invite.invitedContactIDs(uid: uid, now: Date()) } ?? []
+    }
+
+    /// No number: nothing read from contacts stays in memory or on screen.
+    private func forgetContacts() {
+        contacts = .idle
+        entries = []
+        invitable = []
+        invited = []
+        inviteQuery = ""
+        showAllInvites = false
     }
 
     private func hint(_ text: String) -> some View {
@@ -349,37 +650,5 @@ struct UserSearchView: View {
             }
             isSearching = false
         }
-    }
-}
-
-/// The email addresses in the address book, or in the contacts the user chose
-/// to share (limited access). Load off the main thread: enumeration blocks.
-enum ContactEmails {
-    /// The server takes at most this many per check (CONTACT_EMAILS_MAX in social.js).
-    nonisolated static let limit = 500
-
-    /// Full or limited access already granted.
-    static var isAllowed: Bool {
-        switch CNContactStore.authorizationStatus(for: .contacts) {
-        case .authorized, .limited: return true
-        default: return false
-        }
-    }
-
-    nonisolated static func load() throws -> [String] {
-        let request = CNContactFetchRequest(keysToFetch: [CNContactEmailAddressesKey as CNKeyDescriptor])
-        var seen = Set<String>()
-        var emails: [String] = []
-        try CNContactStore().enumerateContacts(with: request) { contact, stop in
-            for address in contact.emailAddresses {
-                let email = (address.value as String).trimmingCharacters(in: .whitespaces).lowercased()
-                if !email.isEmpty, seen.insert(email).inserted { emails.append(email) }
-                if emails.count >= limit {
-                    stop.pointee = true
-                    return
-                }
-            }
-        }
-        return emails
     }
 }
