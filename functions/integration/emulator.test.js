@@ -544,6 +544,7 @@ test("a purchase bound to another account cannot grant paid quotas", async () =>
 // --- Morning recovery plans -------------------------------------------------
 const {
   loadMorningContext,
+  assertPlannable,
   finalizePlan,
   resetLibraryCache,
 } = require("../recovery/morning");
@@ -623,6 +624,7 @@ async function planWith(over = {}, {id = "e1", onCall, ...rest} = {}) {
   const ctx = await loadMorningContext({
     db, uid: "alice", payload: MORNING, rng: () => 0,
   });
+  assertPlannable(ctx);
   return generateReport({
     db,
     uid: "alice",
@@ -803,6 +805,34 @@ test("morning: what a plan picked 10 days ago is left out of the next shortlist"
   const ids = (items) => items.map((item) => item.id).sort();
   assert.deepEqual(ids(ctx.shortlist.breakfasts), ["b2", "b3", "b4"]);
   assert.deepEqual(ids(ctx.shortlist.activities), ["a2", "a3", "a4"]);
+});
+
+test("morning: a check-in nothing fits is refused without spending a plan", async () => {
+  // A library with nothing for Mexico, then one with breakfasts only.
+  await seedLibrary();
+  for (const id of ["b1", "b2", "b3", "b4", "a1", "a2", "a3", "a4"]) {
+    await db.doc(`recovery_library/${id}`).update({countries: ["US"]});
+  }
+  resetLibraryCache();
+  let calls = 0;
+  const onCall = () => calls++;
+  await assert.rejects(
+      planWith({}, {onCall}),
+      (e) => e.code === "failed-precondition",
+  );
+  await db.doc("recovery_library/b1").update({countries: ["MX"]});
+  resetLibraryCache();
+  await assert.rejects(
+      planWith({}, {onCall}),
+      (e) => e.code === "failed-precondition",
+  );
+  assert.equal(calls, 0);
+  assert.equal(
+      (await db.doc("users/alice/report_usage/current").get()).exists,
+      false,
+  );
+  assert.equal((await db.collection("users/alice/report_jobs").get()).empty,
+      true);
 });
 
 test("morning: a reply that fails validation is a failed attempt, retried", async () => {

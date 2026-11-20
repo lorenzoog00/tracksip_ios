@@ -2,6 +2,7 @@
 // answer into the stored plan: library names and photos in, at most one new
 // library item out, under the app-wide daily photo cap.
 
+const {HttpsError} = require("firebase-functions/v2/https");
 const {severityOf, safetyFlags, nightContext} = require("./severity");
 const {normalizeName, shortlist, findDuplicate} = require("./library");
 
@@ -85,6 +86,22 @@ async function loadMorningContext({
     library,
     shortlist: shortlist(library, {...night, severity}, history, rng),
   };
+}
+
+/**
+ * Refuses a morning whose shortlist lacks breakfasts or activities. A plan
+ * needs both and the model may invent only one item, so such a request can
+ * fail every attempt; it is refused before any quota is reserved.
+ * @param {object} ctx The morning context.
+ */
+function assertPlannable(ctx) {
+  const {breakfasts, activities} = ctx.shortlist;
+  if (breakfasts.length === 0 || activities.length === 0) {
+    throw new HttpsError(
+        "failed-precondition",
+        "A recovery plan isn't available for this check-in yet.",
+    );
+  }
 }
 
 /**
@@ -242,6 +259,7 @@ async function finalizePlan({
 
 module.exports = {
   loadMorningContext,
+  assertPlannable,
   finalizePlan,
   resetLibraryCache,
   historyOf,

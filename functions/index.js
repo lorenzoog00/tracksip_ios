@@ -27,7 +27,11 @@ const {
 } = require("./report-policy");
 const {lookupDrink} = require("./drink-lookup");
 const {buildPrompt} = require("./prompts");
-const {loadMorningContext, finalizePlan} = require("./recovery/morning");
+const {
+  loadMorningContext,
+  assertPlannable,
+  finalizePlan,
+} = require("./recovery/morning");
 const {buildMorningPrompt} = require("./recovery/prompt");
 const {PLAN_JSON_SCHEMA, parsePlan} = require("./recovery/plan");
 const liveActivity = require("./live-activity");
@@ -117,6 +121,8 @@ exports.requestReport = onCall(
             prompt.system + JSON.stringify(PLAN_JSON_SCHEMA),
             prompt.prompt,
         );
+        // Also a certain refusal, so also before any quota is reserved.
+        assertPlannable(ctx);
         morning = {ctx, prompt};
       }
       return generateReport({

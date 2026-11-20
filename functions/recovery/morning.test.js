@@ -5,6 +5,7 @@ const {
   photoSlot,
   libraryItem,
   assemblePlan,
+  assertPlannable,
 } = require("./morning");
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -80,6 +81,23 @@ const ctx = (over = {}) => ({
     ],
   },
   ...over,
+});
+
+test("a shortlist missing either kind is refused before anything is spent", () => {
+  // parsePlan needs a breakfast and an activity, and the model may invent
+  // only one item, so an empty kind can fail every attempt.
+  const full = ctx().shortlist;
+  for (const shortlist of [
+    {breakfasts: [], activities: []},
+    {breakfasts: [], activities: full.activities},
+    {breakfasts: full.breakfasts, activities: []},
+  ]) {
+    assert.throws(
+        () => assertPlannable(ctx({shortlist})),
+        (e) => e.code === "failed-precondition",
+    );
+  }
+  assert.doesNotThrow(() => assertPlannable(ctx()));
 });
 
 test("a new item is labeled from the night and waits for its photo", () => {
