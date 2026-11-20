@@ -343,27 +343,44 @@ exports.cleanupEndedThread = onDocumentDeleted(
 );
 
 /**
- * Uids of accounts whose verified sign-in email is one of these. Unverified
- * emails never match: anyone can type someone else's address at sign-up.
- * @param {string[]} emails lowercased emails
- * @return {Promise<string[]>}
+ * Accounts whose verified sign-in number is one of these. Phone numbers on an
+ * Auth account are always SMS-verified, so every match is real.
+ * @param {string[]} phones E.164 numbers
+ * @return {Promise<{uid: string, phone: string}[]>}
  */
-async function lookupVerifiedEmails(emails) {
+async function lookupPhoneOwners(phones) {
   const auth = getAuth();
-  const uids = [];
-  for (let i = 0; i < emails.length; i += 100) {
-    const batch = emails.slice(i, i + 100).map((email) => ({email}));
-    const {users} = await auth.getUsers(batch);
-    for (const user of users) {
-      if (user.emailVerified && !user.disabled) uids.push(user.uid);
+  const batches = [];
+  for (let i = 0; i < phones.length; i += 100) {
+    batches.push(phones.slice(i, i + 100));
+  }
+  const owners = [];
+  for (let i = 0; i < batches.length; i += 5) {
+    const found = await Promise.all(batches.slice(i, i + 5).map((batch) =>
+      auth.getUsers(batch.map((phoneNumber) => ({phoneNumber})))));
+    for (const {users} of found) {
+      for (const user of users) {
+        if (user.disabled) continue;
+        owners.push({uid: user.uid, phone: user.phoneNumber});
+      }
     }
   }
-  return uids;
+  return owners;
 }
 
-// Contacts are matched here and dropped: nothing from the list is stored or
-// logged. Matched people may get a "@x is on TrackSip" push, so this one
-// carries the APNs key like the friend-request callables.
+/**
+ * Whether the caller has a verified number now. Reads the live account, not
+ * the token, so a removed number stops matching at once.
+ * @param {string} uid the caller
+ * @return {Promise<boolean>}
+ */
+async function callerHasPhone(uid) {
+  return Boolean((await getAuth().getUser(uid)).phoneNumber);
+}
+
+// Contacts are matched by phone number here and dropped: nothing from the list
+// is stored or logged. Matched people may get a "@x is on TrackSip" push, so
+// this one carries the APNs key like the friend-request callables.
 exports.matchContacts = onCall(
     {secrets: [apnsKey], timeoutSeconds: 60, enforceAppCheck: true},
     async (request) => {
@@ -377,7 +394,8 @@ exports.matchContacts = onCall(
           db,
           uid: request.auth.uid,
           data: request.data,
-          lookupEmails: lookupVerifiedEmails,
+          lookupPhones: lookupPhoneOwners,
+          hasPhone: callerHasPhone,
           notify: client ?
             social.notifyFromPushTokens({db, send: client.send}) :
             async () => {},

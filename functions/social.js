@@ -556,16 +556,16 @@ const SUGGEST_LIMIT = 20;
 // Friend lists read per call. Past this the ranking is from a sample, which is
 // fine for suggestions and keeps one call to a bounded number of reads.
 const SUGGEST_FRIENDS_SCANNED = 50;
-// Kept low so contact matching can't double as an email -> profile lookup.
-// A call may send more; only the first CONTACT_EMAILS_MAX clean ones are
+// Kept bounded so contact matching can't double as a number -> profile lookup.
+// A call may send more; only the first CONTACT_PHONES_MAX valid ones are
 // checked. Past CONTACT_PAYLOAD_MAX entries the payload is refused.
-const CONTACT_EMAILS_MAX = 500;
+const CONTACT_PHONES_MAX = 2000;
 const CONTACT_PAYLOAD_MAX = 5000;
 const CONTACT_CALLS_PER_DAY = 2;
 const CONTACT_PUSHES_PER_CALL = 30;
 const DAY_MS = 86400000;
 const NUDGE_SENDERS_KEPT = 50;
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const E164_PATTERN = /^\+[1-9]\d{6,14}$/;
 
 /**
  * The public card for a profile document.
@@ -651,26 +651,26 @@ async function suggestFriends({db, uid}) {
 }
 
 /**
- * Lowercased, trimmed, de-duplicated emails that look like emails, at most
- * CONTACT_EMAILS_MAX of them (the first ones).
+ * Trimmed, de-duplicated phone numbers in E.164 form, at most
+ * CONTACT_PHONES_MAX of them (the first ones).
  * @param {*} value the raw payload
  * @return {string[]}
  */
-function cleanEmails(value) {
+function cleanPhones(value) {
   if (!Array.isArray(value)) {
     throw new HttpsError("invalid-argument", "Missing contacts.");
   }
   if (value.length > CONTACT_PAYLOAD_MAX) {
     throw new HttpsError("invalid-argument", "Too many contacts.");
   }
-  const emails = new Set();
+  const phones = new Set();
   for (const raw of value) {
     if (typeof raw !== "string") continue;
-    const email = raw.trim().toLowerCase();
-    if (email.length <= 254 && EMAIL_PATTERN.test(email)) emails.add(email);
-    if (emails.size >= CONTACT_EMAILS_MAX) break;
+    const phone = raw.trim();
+    if (E164_PATTERN.test(phone)) phones.add(phone);
+    if (phones.size >= CONTACT_PHONES_MAX) break;
   }
-  return [...emails];
+  return [...phones];
 }
 
 /**
@@ -698,8 +698,9 @@ async function claimNudge(db, toUid, fromUid, now) {
 }
 
 /**
- * Finds which of the caller's contacts have TrackSip, by email. Nothing from
- * the contact list is stored or logged: the emails are matched and dropped.
+ * Finds which of the caller's contacts have TrackSip, by verified phone
+ * number. Nothing from the contact list is stored or logged: the numbers are
+ * matched and dropped.
  *
  * Contacts with a Social profile come back as results and are told the caller
  * is on TrackSip; those with an account but no profile are nudged to create
@@ -708,17 +709,24 @@ async function claimNudge(db, toUid, fromUid, now) {
  * @param {object} params
  * @param {object} params.db Firestore
  * @param {string} params.uid the caller
- * @param {{emails: string[]}} params.data the payload
- * @param {Function} params.lookupEmails (emails) => Promise<string[]> uids of
- *     accounts whose verified email is one of these
+ * @param {{phones: string[]}} params.data the payload, E.164 numbers
+ * @param {Function} params.lookupPhones (phones) => Promise<{uid, phone}[]>
+ *     accounts whose verified number is one of these
+ * @param {Function} params.hasPhone (uid) => Promise<boolean> whether the
+ *     caller has a verified number of their own
  * @param {Function} params.notify (toUid, kind, fromUsername) => Promise
  * @param {number} [params.now] clock, for tests
- * @return {Promise<{results: object[]}>}
+ * @return {Promise<{results: object[], on_tracksip: string[]}>} on_tracksip
+ *     is every matched number but the caller's own, blocked people included
  */
 async function matchContacts({
-  db, uid, data, lookupEmails, notify, now = Date.now(),
+  db, uid, data, lookupPhones, hasPhone, notify, now = Date.now(),
 }) {
-  const emails = cleanEmails(data && data.emails);
+  if (data && data.phones === undefined && data.emails !== undefined) {
+    throw new HttpsError("failed-precondition",
+        "Update TrackSip to find friends from your contacts.");
+  }
+  const phones = cleanPhones(data && data.phones);
   const [me, deleting] = await Promise.all([
     db.doc(`public_profiles/${uid}`).get(),
     db.doc(`account_deletions/${uid}`).get(),
@@ -726,6 +734,9 @@ async function matchContacts({
   assertNotDeleting(deleting);
   if (!me.exists) {
     throw new HttpsError("failed-precondition", "Pick a username first.");
+  }
+  if (!(await hasPhone(uid))) {
+    throw new HttpsError("failed-precondition", "Add your number first.");
   }
 
   const limitRef = db.doc(`contact_match_limits/${uid}`);
@@ -741,14 +752,16 @@ async function matchContacts({
       {window_start: now, count: 1} :
       {window_start: start, count: count + 1});
   });
-  if (emails.length === 0) return {results: []};
+  if (phones.length === 0) return {results: [], on_tracksip: []};
 
-  const [matched, friends, blocked] = await Promise.all([
-    lookupEmails(emails),
+  const [owners, friends, blocked] = await Promise.all([
+    lookupPhones(phones),
     idsIn(db, `friendships/${uid}/friends`),
     idsIn(db, `blocks/${uid}/blocked`),
   ]);
-  const candidates = [...new Set(matched)]
+  const others = owners.filter((o) => o.uid !== uid);
+  const onTrackSip = [...new Set(others.map((o) => o.phone))];
+  const candidates = [...new Set(others.map((o) => o.uid))]
       .filter((c) => c !== uid && !blocked.has(c));
 
   const [profiles, blocks] = await Promise.all([
@@ -779,6 +792,7 @@ async function matchContacts({
 
   return {
     results: onSocial.map((p) => ({...profileCard(p), in_contacts: true})),
+    on_tracksip: onTrackSip,
   };
 }
 
@@ -791,7 +805,7 @@ module.exports = {
   unregisterPushToken,
   notifyFromPushTokens,
   isValidId,
-  CONTACT_EMAILS_MAX,
+  CONTACT_PHONES_MAX,
   CONTACT_PAYLOAD_MAX,
   CONTACT_CALLS_PER_DAY,
   claimUsername,
