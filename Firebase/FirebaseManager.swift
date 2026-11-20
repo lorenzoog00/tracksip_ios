@@ -190,6 +190,14 @@ final class FirebaseManager: ObservableObject {
         phoneNumber = auth.currentUser?.phoneNumber
     }
 
+    /// Hands a remote notification to Firebase phone auth; true when it was
+    /// Firebase's silent push. Traps if Auth's phone-auth managers never came up,
+    /// which is what configuring Firebase in `App.init` did on iOS 26 (see
+    /// `FirebaseSetup`), so a test calls it to prove they are there.
+    func handlesAuthNotification(_ userInfo: [AnyHashable: Any]) -> Bool {
+        auth.canHandleNotification(userInfo)
+    }
+
     /// Re-reads the account so a number added, changed or removed on another
     /// device shows here too. Called once each time Social or Find friends
     /// appears; a failure (offline, say) keeps the number already shown.

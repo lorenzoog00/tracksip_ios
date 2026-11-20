@@ -77,4 +77,11 @@ struct PhoneAuthErrorTests {
         #expect(FirebaseManager.phoneErrorText(NSError(domain: "FIRAuthErrorDomain", code: Self.networkError))
             == "Connection error. Check your internet and try again.")
     }
+
+    /// TestFlight 1.0.9 crashed on launch: Firebase was configured in `App.init`,
+    /// Auth's phone-auth managers stayed nil, and the first APNs token handed to
+    /// it trapped. This traps the same way unless the managers came up.
+    @Test func firebasePhoneAuthIsWiredAfterLaunch() {
+        #expect(FirebaseManager.shared.handlesAuthNotification(["not": "firebase"]) == false)
+    }
 }
