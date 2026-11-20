@@ -1430,13 +1430,13 @@ test("interactions: reacting sets one reaction and counts", async () => {
 test("interactions: changing a reaction moves the count, same emoji removes", async () => {
   await reactionsSetup();
   await react("B", "beer");
-  await react("B", "fire");
+  await react("B", "water");
   let thread = await threadDoc();
   assert.equal(thread.reactions.beer || 0, 0);
-  assert.equal(thread.reactions.fire, 1);
-  assert.deepEqual(await react("B", "fire"), {emoji: null});
+  assert.equal(thread.reactions.water, 1);
+  assert.deepEqual(await react("B", "water"), {emoji: null});
   thread = await threadDoc();
-  assert.equal(thread.reactions.fire || 0, 0);
+  assert.equal(thread.reactions.water || 0, 0);
   assert.deepEqual(thread.reactors, []);
   assert.equal(await exists(`night_threads/A_${T}/reactions/B`), false);
 });
@@ -1454,7 +1454,22 @@ test("interactions: reaction counts never go negative", async () => {
   }
 });
 
-test("interactions: owner, ex-friends and blocked people cannot react", async () => {
+test("interactions: the owner reacts to their own night without a push", async () => {
+  await reactionsSetup();
+  const {calls, notify} = makeNotify();
+  assert.deepEqual(await react("A", "beer", {notify, now: 0}),
+      {emoji: "beer"});
+  const thread = await threadDoc();
+  assert.equal(thread.reactions.beer, 1);
+  assert.deepEqual(thread.reactors, ["A"]);
+  assert.deepEqual(thread.unpushed_reactors || [], []);
+  // A friend reacting later is not grouped with the owner as "1 other".
+  await react("B", "water", {notify, now: 1000});
+  assert.deepEqual(calls.map(([to, kind, p]) => [to, kind, p.others]),
+      [["A", "reaction", 0]]);
+});
+
+test("interactions: ex-friends and blocked people cannot react", async () => {
   await reactionsSetup();
   await claim("C", "carla");
   await claim("D", "dina");
@@ -1464,11 +1479,13 @@ test("interactions: owner, ex-friends and blocked people cannot react", async ()
   await befriend("A", "E");
   await db.doc("blocks/E/blocked/A").set({uid: "A", created_at: 1});
   const denied = (e) => e.code === "permission-denied";
-  await assert.rejects(react("A", "beer"), denied);
   await assert.rejects(react("C", "beer"), denied);
   await assert.rejects(react("D", "beer"), denied);
   await assert.rejects(react("E", "beer"), denied);
   await assert.rejects(react("B", "pizza"),
+      (e) => e.code === "invalid-argument");
+  // Only a beer or a water.
+  await assert.rejects(react("B", "fire"),
       (e) => e.code === "invalid-argument");
 });
 
@@ -1501,13 +1518,13 @@ test("interactions: reaction pushes are grouped", async () => {
     from: "bobby", owner: "A", ownerName: "alice", startedAt: T,
     emoji: "🍻", others: 0,
   }]]);
-  await react("C", "fire", {notify, now: minute});
+  await react("C", "water", {notify, now: minute});
   assert.equal(calls.length, 1);
-  await react("D", "laugh", {notify, now: 16 * minute});
+  await react("D", "beer", {notify, now: 16 * minute});
   assert.equal(calls.length, 2);
   assert.equal(calls[1][2].from, "dina");
   assert.equal(calls[1][2].others, 1);
-  await react("B", "heart", {notify, now: 40 * minute});
+  await react("B", "water", {notify, now: 40 * minute});
   assert.equal(calls.length, 2);
 });
 
@@ -1535,8 +1552,8 @@ test("interactions: others never counts the pusher or removed reactions", async 
   const minute = 60 * 1000;
   const first = makeNotify();
   await react("B", "beer", {notify: first.notify, now: 0});
-  await react("C", "fire", {notify: first.notify, now: minute});
-  await react("C", "laugh", {notify: first.notify, now: 20 * minute});
+  await react("C", "water", {notify: first.notify, now: minute});
+  await react("C", "beer", {notify: first.notify, now: 20 * minute});
   assert.equal(first.calls.length, 2);
   assert.equal(first.calls[1][2].from, "carla");
   assert.equal(first.calls[1][2].others, 0);
@@ -1544,9 +1561,9 @@ test("interactions: others never counts the pusher or removed reactions", async 
   await db.recursiveDelete(db.collection("night_threads"));
   const second = makeNotify();
   await react("B", "beer", {notify: second.notify, now: 0});
-  await react("C", "fire", {notify: second.notify, now: minute});
-  await react("C", "fire", {notify: second.notify, now: 2 * minute});
-  await react("D", "heart", {notify: second.notify, now: 20 * minute});
+  await react("C", "water", {notify: second.notify, now: minute});
+  await react("C", "water", {notify: second.notify, now: 2 * minute});
+  await react("D", "water", {notify: second.notify, now: 20 * minute});
   assert.equal(second.calls.length, 2);
   assert.equal(second.calls[1][2].from, "dina");
   assert.equal(second.calls[1][2].others, 0);
@@ -1599,7 +1616,7 @@ test("interactions: comments keep the reaction fields on the summary", async () 
   assert.equal(summary.reactions.beer, 1);
   assert.deepEqual(summary.reactors, ["B"]);
   assert.equal(summary.comment_count, 1);
-  await react("C", "fire");
+  await react("C", "water");
   assert.equal((await threadDoc()).comment_count, 1);
   assert.equal((await threadDoc()).latest_comments.length, 1);
 });
@@ -1800,13 +1817,13 @@ test("interactions: the thread is oldest first and hides blocks both ways", asyn
   await comment("C", "c1", {now: 5000});
   await comment("D", "d1", {now: 10000});
   await react("B", "beer", {now: 1});
-  await react("C", "fire", {now: 2});
-  await react("D", "heart", {now: 3});
+  await react("C", "water", {now: 2});
+  await react("D", "water", {now: 3});
 
   const mine = await thread("B");
   assert.deepEqual(mine.comments.map((c) => c.text), ["b1", "c1", "d1"]);
   assert.deepEqual(mine.reactions.map((r) => r.emoji),
-      ["beer", "fire", "heart"]);
+      ["beer", "water", "water"]);
   assert.deepEqual(Object.keys(mine.comments[0]).sort(),
       ["at", "id", "mentions", "text", "uid", "username"]);
   assert.deepEqual(Object.keys(mine.reactions[0]).sort(),
@@ -1833,17 +1850,17 @@ test("interactions: a thread outlives the expiry it was first written with", asy
   const night = (await db.doc("shared_nights/A").get()).data();
   // Past the expiry the first writes copied, the night is still live.
   const later = Date.now() + 2 * hour;
-  await react("C", "fire", {now: later});
+  await react("C", "water", {now: later});
   const second = await comment("C", "later", {now: later});
   let summary = await threadDoc();
-  assert.deepEqual(summary.reactions, {beer: 1, fire: 1});
+  assert.deepEqual(summary.reactions, {beer: 1, water: 1});
   assert.equal(summary.comment_count, 2);
   assert.equal(summary.expires_at.toMillis(), graceAfter(night));
   // Re-tapping a reaction made before the move toggles it, never counts it
   // twice.
   assert.deepEqual(await react("B", "beer", {now: later}), {emoji: null});
   summary = await threadDoc();
-  assert.deepEqual(summary.reactions, {beer: 0, fire: 1});
+  assert.deepEqual(summary.reactions, {beer: 0, water: 1});
   const read = await interactions.getNightThread({db, uid: "B",
     data: {owner: "A", startedAt: T}, now: later});
   assert.deepEqual(read.comments.map((c) => c.id), [first.id, second.id]);

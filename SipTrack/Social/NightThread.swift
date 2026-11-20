@@ -1,21 +1,18 @@
 import Foundation
 import FirebaseFirestore
 
-/// The six reactions. Stored and sent by key (`rawValue`), never by emoji, so a
-/// font change never breaks a stored value.
+/// The two reactions: a beer (cheers) or a water (have some water). Stored and sent
+/// by key (`rawValue`), never by emoji. Older keys (fire, laugh, woozy, heart) can
+/// still be in a summary's counts; they don't parse and are ignored.
 nonisolated enum Reaction: String, CaseIterable, Identifiable {
-    case beer, fire, laugh, woozy, water, heart
+    case beer, water
 
     var id: String { rawValue }
 
     var emoji: String {
         switch self {
         case .beer: return "🍻"
-        case .fire: return "🔥"
-        case .laugh: return "😂"
-        case .woozy: return "🥴"
         case .water: return "💧"
-        case .heart: return "❤️"
         }
     }
 }

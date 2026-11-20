@@ -9,10 +9,10 @@ from the feed itself.
 
 | # | Decision | Choice |
 |---|----------|--------|
-| 1 | Reactions | A fixed set of six: 🍻 🔥 😂 🥴 💧 ❤️. **One reaction per person per night.** Tapping another replaces it; tapping yours removes it. The owner cannot react to their own night |
+| 1 | Reactions | **Two: 🍻 and 💧** (revised 2026-11-20 from six). **One reaction per person per night.** Tapping another replaces it; tapping yours removes it. The owner can react to their own night (no push to themselves) |
 | 2 | Feed card | Each shared night is a **post card**: avatar, @username, Live · duration (or "Ended 5h ago · 4h 30m"), BAC now (or peak), mini BAC curve (live: dashed projection), **drink summary** as chips grouped by drink ("Beer ×3", "Tequila ×2", water count), "Last: Tequila · 12 min ago", reaction bar with counts and your reaction highlighted, comment count, and the latest comment |
-| 2b | Interaction from the feed | Tap an emoji on the card to react. Long-press (or the + button) fans out all six. Tap 💬 or the latest comment → **comment sheet**. Tap the rest of the card → the full night (Stats-style chart), which also shows reactions and comments |
-| 2c | Comment sheet | Six reactions on top with yours marked, "Reacted: @beto, @lu, you", flat comment list, input with Send. Swipe down to close |
+| 2b | Interaction from the feed | Both pills (🍻 / 💧) are always on the card; tap one to react. Tap 💬 or the latest comment → **comment sheet**. Tap the rest of the card → the full night (Stats-style chart), which also shows reactions and comments |
+| 2c | Comment sheet | The same two pills on top with yours marked, "Reacted: @beto, @lu, you", flat comment list, input with Send. Swipe down to close |
 | 3 | Comment pushes | The owner gets every comment. Anyone who has commented on that night gets later comments by others. Reactions reach the owner only, grouped, at most one push per night every 15 min ("@beto and 2 others reacted to your night") |
 | 4 | Comment rules | Text only, max 200 characters, no links or photos. Authors delete their own; the owner deletes any on their night. No editing. Long-press → Report (same reports pipeline). Blocks hide reactions and comments in both directions. Anyone who can see the night sees its comments. Everything expires with the night (24 h after close) |
 | 5 | Your own night | Lives **only at the top of your feed**, same card, labelled "You", while live and for 24 h after. You can comment on it, not react. **A tapped push opens that night's comment sheet** directly, yours or a friend's |

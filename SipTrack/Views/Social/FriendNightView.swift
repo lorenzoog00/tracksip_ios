@@ -98,7 +98,7 @@ struct FriendNightView: View {
         let blocked = Set(friends.blocked.map(\.uid))
         let latest = store.summary.latest.last { !blocked.contains($0.uid) }
         return VStack(alignment: .leading, spacing: 10) {
-            ReactionBar(store: store, canReact: !store.isOwnNight)
+            ReactionBar(store: store, canReact: true)
                 .zIndex(1)
             Button {
                 ReactionPickerFocus.dismiss(reduceMotion: reduceMotion)

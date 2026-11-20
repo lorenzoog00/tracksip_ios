@@ -151,7 +151,7 @@ final class NightThreadStore: ObservableObject {
     /// dropped by its error callback so the next summary snapshot can try again. The
     /// rules allow it while the night is visible, like the summary.
     private func attachReactionListener(generation g: Int) {
-        guard !isOwnNight, reactionListener == nil, generation == g else { return }
+        guard reactionListener == nil, generation == g else { return }
         reactionListener = thread.collection("reactions").document(myUid)
             .addSnapshotListener { [weak self] snap, error in
                 let failed = error != nil
@@ -184,7 +184,6 @@ final class NightThreadStore: ObservableObject {
 
     /// Tapping my reaction removes it; any other replaces it.
     func react(_ reaction: Reaction) async {
-        guard !isOwnNight else { return }
         let target: Reaction? = (myReaction == reaction) ? nil : reaction
         reactSeq &+= 1
         let seq = reactSeq

@@ -202,7 +202,7 @@ struct FeedPostCard: View {
     private var footer: some View {
         let count = store.summary.commentCount
         return HStack(alignment: .center, spacing: 8) {
-            ReactionBar(store: store, canReact: !isMine)
+            ReactionBar(store: store, canReact: true)
                 .layoutPriority(1)
             Spacer(minLength: 8)
             Button(action: openThread) {

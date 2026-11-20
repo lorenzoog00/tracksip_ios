@@ -122,7 +122,6 @@ struct NightThreadSheet: View {
 
     @State private var draft = ""
     /// The composer's cursor, so a mention is completed where it is typed.
-    @State private var selection: TextSelection?
     @FocusState private var composerFocused: Bool
     /// Names picked from the suggestions; the ones still in the draft show as pills.
     @State private var picked: [String] = []
@@ -213,18 +212,9 @@ struct NightThreadSheet: View {
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.isHeader)
 
-            if store.isOwnNight {
-                ownCounts
-            } else {
-                VStack(spacing: 2) {
-                    ReactionPicker(selected: store.myReaction) { reaction in
-                        react(reaction)
-                    }
-                    .overlay(alignment: .leading) { burstOverlay }
-                    .animation(changeAnimation, value: store.myReaction)
-                    yoursMarker
-                }
-            }
+            // The same 🍻 / 💧 pills as the card, counts included. Everyone can
+            // react, the night's owner too.
+            ReactionBar(store: store, canReact: true)
 
             reactedLine
         }
@@ -232,66 +222,6 @@ struct NightThreadSheet: View {
         .padding(.bottom, 12)
         .padding(.horizontal, 16)
         .frame(maxWidth: .infinity)
-    }
-
-    /// "yours" under my reaction; slides between slots when it changes.
-    private var yoursMarker: some View {
-        ZStack(alignment: .leading) {
-            Color.clear.frame(width: ReactionPickerMetrics.width, height: 14)
-            if let mine = store.myReaction, let index = Reaction.allCases.firstIndex(of: mine) {
-                Text("yours")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(AppColors.accent)
-                    .frame(width: ReactionPickerMetrics.item)
-                    .offset(x: Self.slotLeading(index))
-                    .transition(.opacity)
-            }
-        }
-        .animation(changeAnimation, value: store.myReaction)
-        .accessibilityHidden(true)
-    }
-
-    @ViewBuilder private var burstOverlay: some View {
-        if let burst, let index = Reaction.allCases.firstIndex(of: burst) {
-            ReactionBurst(color: burst.tint)
-                .id(burstID)
-                // The burst is 30 pt wide; centre it on the slot.
-                .offset(x: Self.slotLeading(index) + ReactionPickerMetrics.item / 2 - 15)
-                .allowsHitTesting(false)
-        }
-    }
-
-    /// Leading edge of reaction slot `index`, from the picker's leading edge.
-    private static func slotLeading(_ index: Int) -> CGFloat {
-        ReactionPickerMetrics.padding
-            + CGFloat(index) * (ReactionPickerMetrics.item + ReactionPickerMetrics.spacing)
-    }
-
-    /// My own night: what people sent, not tappable.
-    @ViewBuilder private var ownCounts: some View {
-        let used = Reaction.allCases.filter { (store.summary.counts[$0] ?? 0) > 0 }
-        if !used.isEmpty {
-            HStack(spacing: 6) {
-                ForEach(used) { reaction in
-                    let count = store.summary.counts[reaction] ?? 0
-                    HStack(spacing: 4) {
-                        Text(reaction.emoji).font(.system(size: 17))
-                        Text("\(count)")
-                            .font(.subheadline.weight(.semibold).monospacedDigit())
-                            .foregroundStyle(AppColors.text)
-                            .contentTransition(.numericText(value: Double(count)))
-                    }
-                    .padding(.horizontal, 10)
-                    .frame(height: 34)
-                    .background { Capsule().fill(Color.white.opacity(0.06)) }
-                    .overlay { Capsule().stroke(AppColors.border, lineWidth: 1) }
-                    .transition(reduceMotion ? .opacity : .scale(scale: 0.4).combined(with: .opacity))
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel("\(reaction.spokenName), \(count)")
-                }
-            }
-            .animation(changeAnimation, value: store.summary.counts)
-        }
     }
 
     /// "Reacted: @beto, @lu, you".
@@ -477,10 +407,12 @@ struct NightThreadSheet: View {
                     .transition(.opacity)
             }
             HStack(alignment: .bottom, spacing: 8) {
+                // No `selection:` binding: on iOS 18 the cursor-tracking TextField
+                // crashed the app as soon as the field was tapped. Mentions are
+                // completed at the end of the text instead, which is where people type.
                 TextField(
                     "Add a comment",
                     text: $draft,
-                    selection: $selection,
                     prompt: Text("Add a comment…").foregroundStyle(AppColors.textTertiary),
                     axis: .vertical
                 )
@@ -694,14 +626,8 @@ struct NightThreadSheet: View {
         return FriendProfile(uid: username, username: username, photoURL: nil, avatarColor: "")
     }
 
-    /// The composer's cursor as a character offset; the end of the text when the
-    /// field has no selection (not focused yet).
-    private var cursor: Int {
-        guard let selection, case .selection(let range) = selection.indices else { return draft.count }
-        let utf16 = min(max(0, range.upperBound.utf16Offset(in: draft)), draft.utf16.count)
-        let index = String.Index(utf16Offset: utf16, in: draft)
-        return draft[..<index].count
-    }
+    /// Where mentions are completed: the end of the text (see the TextField).
+    private var cursor: Int { draft.count }
 
     private var mentionSuggestions: [MentionCandidate] {
         guard composerFocused,
@@ -751,8 +677,6 @@ struct NightThreadSheet: View {
                 picked.append(name)
             }
         }
-        let offset = min(max(0, done.cursor), draft.count)
-        selection = TextSelection(insertionPoint: draft.index(draft.startIndex, offsetBy: offset))
     }
 
     private func send() {
@@ -761,7 +685,6 @@ struct NightThreadSheet: View {
         let mentioned = picked
         Haptics.shared.play(.light)
         draft = ""
-        selection = nil
         picked = []
         Task {
             let sent = await store.send(text)

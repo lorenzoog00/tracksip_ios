@@ -7,13 +7,11 @@ const {tokenIsDead} = require("./live-activity");
 // Night reactions and comments
 // ---------------------------------------------------------------------------
 
+// A beer or a water: cheers, or "drink some water". Older keys (fire, laugh,
+// woozy, heart) can still sit in a summary's counts; the app ignores them.
 const REACTIONS = {
   beer: "🍻",
-  fire: "🔥",
-  laugh: "😂",
-  woozy: "🥴",
   water: "💧",
-  heart: "❤️",
 };
 const REACTION_PUSH_GAP_MS = 15 * 60 * 1000;
 const MAX_TRACKED_UIDS = 50;
@@ -140,10 +138,6 @@ async function reactToNight({db, uid, data, notify, now = Date.now()}) {
   if (emoji != null && !Object.hasOwn(REACTIONS, emoji)) {
     throw new HttpsError("invalid-argument", "That reaction isn't allowed.");
   }
-  if (uid === owner) {
-    throw new HttpsError("permission-denied",
-        "You can't react to your own night.");
-  }
   const {night, ownerName, viewerName} =
       await loadNight({db, owner, startedAt, uid, now});
 
@@ -167,9 +161,12 @@ async function reactToNight({db, uid, data, notify, now = Date.now()}) {
     let reactors = (summary.reactors || []).filter((id) => id !== uid);
     if (next) reactors = capped([...reactors, uid]);
 
+    // The owner may react to their own night, but never pushes themselves and
+    // never counts as one of the "others" in a grouped push.
+    const isOwner = uid === owner;
     const pushed = summary.pushed_reactors || [];
     const lastPush = summary.last_reaction_push_at;
-    const mayPush = next !== null && !pushed.includes(uid) &&
+    const mayPush = !isOwner && next !== null && !pushed.includes(uid) &&
         (typeof lastPush !== "number" || now - lastPush >= REACTION_PUSH_GAP_MS);
     let waiting = (summary.unpushed_reactors || []).filter((id) => id !== uid);
     const update = {};
@@ -179,7 +176,7 @@ async function reactToNight({db, uid, data, notify, now = Date.now()}) {
       waiting = [];
       update.last_reaction_push_at = now;
       update.pushed_reactors = capped([...pushed, uid]);
-    } else if (next !== null && !pushed.includes(uid)) {
+    } else if (!isOwner && next !== null && !pushed.includes(uid)) {
       waiting = capped([...waiting, uid]);
     }
 

@@ -6,11 +6,7 @@ extension Reaction {
     var tint: Color {
         switch self {
         case .beer: return AppColors.accent
-        case .fire: return Color(hex: "#FF6B35")
-        case .laugh: return AppColors.accentWarm
-        case .woozy: return Color(hex: "#7BED9F")
         case .water: return AppColors.water
-        case .heart: return Color(hex: "#FF4D6D")
         }
     }
 
@@ -18,11 +14,7 @@ extension Reaction {
     var spokenName: String {
         switch self {
         case .beer: return "Cheers"
-        case .fire: return "Fire"
-        case .laugh: return "Laughing"
-        case .woozy: return "Woozy"
         case .water: return "Water"
-        case .heart: return "Love"
         }
     }
 }
@@ -231,13 +223,16 @@ struct ReactionBar: View {
     var body: some View {
         let counts = store.summary.counts
         let layout = ReactionBarLayout.visible(counts: counts, mine: store.myReaction)
+        // Just two reactions, so when you can react both are always there to tap:
+        // no picker to find them in.
+        let shown = canReact ? Reaction.allCases : layout.shown
         HStack(spacing: 0) {
-            ForEach(layout.shown) { reaction in
+            ForEach(shown) { reaction in
                 pill(reaction, count: counts[reaction] ?? 0)
                     .transition(pillTransition)
             }
             if canReact {
-                plusButton(hidden: layout.hidden)
+                EmptyView()
             } else if layout.hidden > 0 {
                 moreChip(hidden: layout.hidden)
             } else if layout.shown.isEmpty {
@@ -280,10 +275,12 @@ struct ReactionBar: View {
             Text(reaction.emoji)
                 .font(.system(size: 15))
                 .scaleEffect(popping == reaction ? 1.35 : 1)
-            Text("\(count)")
-                .font(.caption.weight(.semibold).monospacedDigit())
-                .foregroundStyle(mine ? AppColors.accent : AppColors.text)
-                .contentTransition(.numericText(value: Double(count)))
+            if count > 0 {
+                Text("\(count)")
+                    .font(.caption.weight(.semibold).monospacedDigit())
+                    .foregroundStyle(mine ? AppColors.accent : AppColors.text)
+                    .contentTransition(.numericText(value: Double(count)))
+            }
         }
         .lineLimit(1)
         .fixedSize()
@@ -306,16 +303,13 @@ struct ReactionBar: View {
         .padding(.horizontal, Self.pillHitInset)
         .frame(height: Self.hitHeight)
         .contentShape(Rectangle())
-        .gesture(fanGesture { react(reaction) }, including: canReact ? .all : .subviews)
+        .onTapGesture { if canReact { react(reaction) } }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(reaction.spokenName), \(count)")
         .accessibilityValue(mine ? "Your reaction" : "")
         .accessibilityAddTraits(canReact ? .isButton : [])
         .accessibilityAction {
             if canReact { react(reaction) }
-        }
-        .accessibilityAction(named: "More reactions") {
-            if canReact { openPicker() }
         }
     }
 
