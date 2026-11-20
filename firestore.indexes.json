@@ -16,6 +16,14 @@
       "indexes": []
     },
     {
+      "collectionGroup": "ended",
+      "fieldPath": "expires_at",
+      "ttl": true,
+      "indexes": [
+        {"order": "ASCENDING", "queryScope": "COLLECTION"}
+      ]
+    },
+    {
       "collectionGroup": "night_threads",
       "fieldPath": "expires_at",
       "ttl": true,
