@@ -27,6 +27,9 @@ const {
 } = require("./report-policy");
 const {lookupDrink} = require("./drink-lookup");
 const {buildPrompt} = require("./prompts");
+const {loadMorningContext, finalizePlan} = require("./recovery/morning");
+const {buildMorningPrompt} = require("./recovery/prompt");
+const {PLAN_JSON_SCHEMA, parsePlan} = require("./recovery/plan");
 const liveActivity = require("./live-activity");
 const social = require("./social");
 const interactions = require("./interactions");
@@ -52,6 +55,10 @@ const appleTeamId = defineString("APPLE_TEAM_ID", {default: "6T5DB8M42N"});
 const liveActivityTopic = defineString("LIVE_ACTIVITY_TOPIC", {
   default: "com.lorenzoog.siptrack.push-type.liveactivity",
 });
+// New library photos generated per UTC day across the whole app. They are an
+// app-wide cost, outside the per-user budget in report-policy.js; past the
+// cap a new item is saved without a photo and the plan shows an icon tile.
+const photoDailyCap = defineInt("PHOTO_DAILY_CAP", {default: 10});
 
 exports.requestReport = onCall(
     {
@@ -63,12 +70,19 @@ exports.requestReport = onCall(
       if (!request.auth) {
         throw new HttpsError("unauthenticated", "Please sign in.");
       }
-      const {kind: reportKind, payload} = validateRequest(request.data);
+      const {
+        kind: reportKind,
+        id: eventId,
+        payload,
+      } = validateRequest(request.data);
       // Before any quota is reserved: an oversized prompt is refused, so it
       // must not also cost the caller one of their reports. The guard inside
       // `generate` below is the billing boundary; this one is the fair one.
-      const preview = buildPrompt(reportKind, payload);
-      assertPromptFits(preview.system, preview.prompt);
+      // A morning prompt needs the database, so it is checked further down.
+      if (reportKind !== "morning") {
+        const preview = buildPrompt(reportKind, payload);
+        assertPromptFits(preview.system, preview.prompt);
+      }
       const db = getFirestore();
       if ((await db.doc(`account_deletions/${request.auth.uid}`).get()).exists) {
         throw new HttpsError(
@@ -87,6 +101,24 @@ exports.requestReport = onCall(
             allowSandbox: allowSandbox.value(),
           },
       );
+      // The morning prompt is built once, from the library and this user's
+      // last 30 days, and is exactly what `generate` sends, so this one guard
+      // is both the fair and the billing one. The schema travels with it and
+      // is priced with it.
+      let morning = null;
+      if (reportKind === "morning") {
+        const ctx = await loadMorningContext({
+          db,
+          uid: request.auth.uid,
+          payload,
+        });
+        const prompt = buildMorningPrompt(ctx);
+        assertPromptFits(
+            prompt.system + JSON.stringify(PLAN_JSON_SCHEMA),
+            prompt.prompt,
+        );
+        morning = {ctx, prompt};
+      }
       return generateReport({
         db,
         uid: request.auth.uid,
@@ -94,6 +126,41 @@ exports.requestReport = onCall(
         purchase,
         tester: isProTester(request.auth.uid, proTesters.value()),
         generate: async (kind, data) => {
+          if (morning) {
+            const client = new Anthropic({
+              apiKey: claudeKey.value(),
+              timeout: 25000,
+              maxRetries: 1,
+            });
+            const response = await client.messages.create({
+              // Same model, thinking and output cap as the reports below,
+              // for the same reasons.
+              model: "claude-haiku-5-5",
+              thinking: {type: "disabled"},
+              max_tokens: 700,
+              system: morning.prompt.system,
+              messages: [{role: "user", content: morning.prompt.prompt}],
+              // Structured output holds the reply to the plan's shape.
+              // parsePlan still checks every id and length; when it refuses
+              // a reply it throws, which is a failed attempt the app retries.
+              output_config: {
+                format: {type: "json_schema", schema: PLAN_JSON_SCHEMA},
+              },
+            });
+            const text = response.content
+                .filter((block) => block.type === "text")
+                .map((block) => block.text)
+                .join("\n");
+            return finalizePlan({
+              db,
+              uid: request.auth.uid,
+              eventId,
+              parsed: parsePlan(text, morning.ctx),
+              ctx: morning.ctx,
+              now: Date.now(),
+              dailyCap: photoDailyCap.value(),
+            });
+          }
           const prompt = buildPrompt(kind, data);
           // What we pay for is this prompt, not the payload it came
           // from; the two sizes are not the same.

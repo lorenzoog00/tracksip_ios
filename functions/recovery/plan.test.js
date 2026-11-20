@@ -42,6 +42,29 @@ test("the schema is plain JSON Schema with the icon enum and no $ref", () => {
       ["headline", "rightNow", "breakfast", "activities"]);
 });
 
+test("the schema only uses what structured outputs accepts", () => {
+  // The API wants `additionalProperties: false` on every object and has no
+  // array length limits, so either slip fails every plan at request time,
+  // which no emulator test sees: they never call the model.
+  const allowed = new Set([
+    "type", "properties", "required", "items", "enum", "description",
+    "additionalProperties",
+  ]);
+  const visit = (node, path) => {
+    for (const key of Object.keys(node)) {
+      assert.ok(allowed.has(key), `${path} uses ${key}`);
+    }
+    if (node.type === "object") {
+      assert.equal(node.additionalProperties, false, `${path} is open`);
+      for (const [key, child] of Object.entries(node.properties)) {
+        visit(child, `${path}.${key}`);
+      }
+    }
+    if (node.type === "array") visit(node.items, `${path}[]`);
+  };
+  visit(PLAN_JSON_SCHEMA, "plan");
+});
+
 test("a valid plan passes through unchanged", () => {
   assert.deepEqual(parse(plan()), plan());
 });
@@ -163,4 +186,22 @@ test("null or missing fallback and skip become null", () => {
   const out = parse(p);
   assert.equal(out.fallback, null);
   assert.equal(out.skip, null);
+});
+
+test("a blank fallback or skip becomes null, not an empty line", () => {
+  for (const [fallback, skip] of [
+    [{title: ""}, {title: "  ", why: "Upset stomach."}],
+    [{title: " \n "}, {title: "Coffee on empty", why: ""}],
+  ]) {
+    const out = parse(plan({fallback, skip}));
+    assert.equal(out.fallback, null);
+    assert.equal(out.skip, null);
+  }
+});
+
+test("a missing or blank breakfast time becomes soon", () => {
+  for (const when of [undefined, "", "   "]) {
+    const out = parse(plan({breakfast: {id: "b1", why: "Salty.", when}}));
+    assert.equal(out.breakfast.when, "soon");
+  }
 });

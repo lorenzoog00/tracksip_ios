@@ -12,56 +12,42 @@ const FALLBACK_ICON = "drop.fill";
 const MAX = {headline: 200, title: 60, why: 140, when: 60, name: 60};
 
 const text = {type: "string"};
-const pick = {
-  type: "object",
-  properties: {
-    id: text,
-    new: {
-      type: "object",
-      properties: {name: text, effort: {type: "string", enum: EFFORTS}},
-      required: ["name", "effort"],
-    },
-    why: text,
-  },
-  required: ["why"],
+// Structured outputs needs every object closed, so each one lists its keys.
+const object = (properties, required) =>
+  ({type: "object", properties, required, additionalProperties: false});
+const pickProperties = {
+  id: text,
+  new: object(
+      {name: text, effort: {type: "string", enum: EFFORTS}},
+      ["name", "effort"],
+  ),
+  why: text,
 };
 
-// What Task 4 hands the model. Exactly one of id/new is enforced by
-// `parsePlan`, because plain JSON Schema cannot say it without `oneOf`.
-const PLAN_JSON_SCHEMA = {
-  type: "object",
-  properties: {
-    headline: text,
-    rightNow: {
-      type: "array",
-      maxItems: 3,
-      items: {
-        type: "object",
-        properties: {
-          icon: {type: "string", enum: ICONS},
-          title: text,
-          why: text,
-        },
-        required: ["icon", "title", "why"],
-      },
-    },
-    breakfast: {
-      ...pick,
-      properties: {...pick.properties, when: text},
-      required: ["why", "when"],
-    },
-    fallback: {
-      type: "object", properties: {title: text}, required: ["title"],
-    },
-    activities: {type: "array", maxItems: 2, items: pick},
-    skip: {
-      type: "object",
-      properties: {title: text, why: text},
-      required: ["title", "why"],
-    },
+// What index.js hands the model as its structured output format. Exactly one
+// of id/new is enforced by `parsePlan`, because plain JSON Schema cannot say
+// it without `oneOf`. Structured outputs has no array length limits, so the
+// counts are in the descriptions and `parsePlan` cuts any extra.
+const PLAN_JSON_SCHEMA = object({
+  headline: text,
+  rightNow: {
+    type: "array",
+    description: "1 to 3 items.",
+    items: object({
+      icon: {type: "string", enum: ICONS},
+      title: text,
+      why: text,
+    }, ["icon", "title", "why"]),
   },
-  required: ["headline", "rightNow", "breakfast", "activities"],
-};
+  breakfast: object({...pickProperties, when: text}, ["why", "when"]),
+  fallback: object({title: text}, ["title"]),
+  activities: {
+    type: "array",
+    description: "1 or 2 items.",
+    items: object(pickProperties, ["why"]),
+  },
+  skip: object({title: text, why: text}, ["title", "why"]),
+}, ["headline", "rightNow", "breakfast", "activities"]);
 
 /**
  * Cuts text to `max` characters at a word boundary.
@@ -78,6 +64,15 @@ function clip(value, max) {
 }
 
 /**
+ * Whether a value is a string with something other than whitespace in it.
+ * @param {*} value The candidate.
+ * @return {boolean} True for non-blank text.
+ */
+function filled(value) {
+  return typeof value === "string" && value.trim() !== "";
+}
+
+/**
  * Requires a non-empty string and clips it.
  * @param {*} value The candidate.
  * @param {number} max The longest result allowed.
@@ -85,7 +80,7 @@ function clip(value, max) {
  * @return {string} The clipped text.
  */
 function str(value, max, label) {
-  if (typeof value !== "string" || !value.trim()) {
+  if (!filled(value)) {
     throw new Error(`plan ${label} is missing`);
   }
   return clip(value, max);
@@ -169,10 +164,13 @@ function parsePlan(raw, ctx) {
 
   const bPick = resolve(data.breakfast, breakfasts, "breakfast");
   if (!bPick) throw new Error("plan breakfast could not be resolved");
+  // A plan without a time is still worth showing; losing the whole plan to
+  // it, and a free attempt with it, is not.
   const breakfast = {
     ...bPick,
     why: str(data.breakfast.why, MAX.why, "breakfast why"),
-    when: str(data.breakfast.when, MAX.when, "breakfast when"),
+    when: filled(data.breakfast.when) ?
+      clip(data.breakfast.when, MAX.when) : "soon",
   };
 
   const activitiesIn = Array.isArray(data.activities) ? data.activities : [];
@@ -188,10 +186,10 @@ function parsePlan(raw, ctx) {
   }
   if (activities.length === 0) throw new Error("plan activities is empty");
 
-  const fallback = data.fallback && typeof data.fallback.title === "string" ?
+  // Optional lines: a blank one is left out rather than shown empty.
+  const fallback = filled(data.fallback?.title) ?
     {title: clip(data.fallback.title, MAX.title)} : null;
-  const skip = data.skip && typeof data.skip.title === "string" &&
-    typeof data.skip.why === "string" ?
+  const skip = filled(data.skip?.title) && filled(data.skip.why) ?
     {
       title: clip(data.skip.title, MAX.title),
       why: clip(data.skip.why, MAX.why),

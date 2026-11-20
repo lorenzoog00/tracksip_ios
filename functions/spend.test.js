@@ -11,6 +11,7 @@ const {
 } = require("./report-policy");
 const {buildPrompt} = require("./prompts");
 const {buildMorningPrompt} = require("./recovery/prompt");
+const {PLAN_JSON_SCHEMA} = require("./recovery/plan");
 const {MAX_OUTPUT_TOKENS: LOOKUP_MAX_OUTPUT_TOKENS} = require("./drink-lookup");
 
 // A user who hits every cap is the worst case we pay for. Nothing enforces a
@@ -180,7 +181,10 @@ test("the largest morning prompt still fits", () => {
       activities: Array.from({length: 10}, (_, i) => item("activity", i)),
     },
   });
-  const chars = assertPromptFits(system, prompt);
+  // index.js guards the prompt together with the output schema, which goes
+  // to the model with it.
+  const chars = assertPromptFits(
+      system + JSON.stringify(PLAN_JSON_SCHEMA), prompt);
   assert.ok(
       chars < MAX_PROMPT_CHARS * 0.9,
       `the largest morning prompt is ${chars} of ${MAX_PROMPT_CHARS} ` +
