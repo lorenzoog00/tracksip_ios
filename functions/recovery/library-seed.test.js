@@ -58,14 +58,16 @@ test("content rules hold", () => {
     "mcdonald", "red bull", "advil", "tylenol",
   ].join("|"), "i");
   const exercise = new RegExp([
-    "run", "gym", "workout", "weights", "hiit", "cycling", "bike ride",
-    "swim laps", "jog", "pilates", "jump rope", "spin",
-    "pickup soccer", "treadmill", "hike",
+    "(^|[^a-z])run", "gym", "workout", "weights", "hiit", "cycling", "bike ride",
+    "stationary bike", "swim laps", "(^|[^a-z])jog", "pilates", "jump rope",
+    "(^|[^a-z])spin([^a-z]|$)", "pickup soccer", "treadmill", "(^|[^a-z])hik(e|ing)", "stairs",
+    "yoga", "sun salutation",
   ].join("|"), "i");
   const greasy = new RegExp([
-    "fried", "greasy", "bacon", "sausage", "chorizo", "birria", "menudo",
-    "spicy", "chili", "hash browns", "biscuits and gravy", "deep",
+    "(^|[^a-z])fried", "greasy", "bacon", "sausage", "chorizo", "birria", "menudo",
+    "spicy", "chili", "hash browns", "biscuits and gravy", "(^|[^a-z])deep",
     "pork rind", "chicharron", "cheeseburger", "pizza", "donut", "wings",
+    "dorados", "sincronizada", "denver", "macaroni", "grilled cheese",
   ].join("|"), "i");
   for (const e of seed) {
     assert.ok(!banned.test(e.name), e.name);
@@ -73,6 +75,13 @@ test("content rules hold", () => {
       assert.ok(e.avoidWhen.includes("dizzy"), `${e.id} needs avoidWhen dizzy`);
       assert.ok(!e.severities.includes("heavy") &&
         !e.severities.includes("very_heavy"), `${e.id} too hard for heavy`);
+    }
+    if (/shower/i.test(e.name)) {
+      assert.ok(e.avoidWhen.includes("dizzy"), `${e.id} shower fall risk`);
+      assert.ok(!e.goodFor.includes("dizzy"), `${e.id} shower not for dizzy`);
+    }
+    if (e.kind === "activity") {
+      assert.ok(!/(^|[^a-z])your?([^a-z]|$)/i.test(e.name), `${e.id} names a person`);
     }
     if (greasy.test(e.name)) {
       assert.ok(e.avoidWhen.includes("nausea"), `${e.id} needs avoidWhen nausea`);
