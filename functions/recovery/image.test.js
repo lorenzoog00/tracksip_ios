@@ -1,0 +1,237 @@
+const {test} = require("node:test");
+const assert = require("node:assert/strict");
+const sharp = require("sharp");
+const {
+  PHOTO_STYLE,
+  photoPrompt,
+  generatePhoto,
+  completeLibraryPhoto,
+  withPhoto,
+} = require("./image");
+
+const PLAN_PATH = "users/u1/night_recoveries/e1";
+const NOW = 1700000000000;
+
+/**
+ * A tiny in-memory Firestore: doc(path).get/update, with the not-found
+ * error `update` raises for a missing doc.
+ * @param {object} docs path -> data
+ * @return {object}
+ */
+function fakeDb(docs) {
+  const updates = [];
+  return {
+    docs,
+    updates,
+    doc: (path) => ({
+      get: async () => ({
+        exists: path in docs,
+        data: () => docs[path],
+      }),
+      update: async (fields) => {
+        if (!(path in docs)) {
+          throw Object.assign(new Error("NOT_FOUND"), {code: 5});
+        }
+        updates.push(path);
+        docs[path] = {...docs[path], ...fields};
+      },
+    }),
+  };
+}
+
+/**
+ * @return {{saved: object[], name: string, file: Function}}
+ */
+function fakeBucket() {
+  const saved = [];
+  return {
+    name: "demo-bucket",
+    saved,
+    file: (path) => ({
+      save: async (buffer, options) => saved.push({path, buffer, options}),
+    }),
+  };
+}
+
+const libraryItem = (extra = {}) => ({
+  name: "Banana pancakes",
+  kind: "breakfast",
+  photoStatus: "generating",
+  photoUrl: null,
+  review: "pending",
+  pendingPlanPaths: [PLAN_PATH],
+  ...extra,
+});
+
+const planDoc = () => ({
+  type: "morning",
+  plan: {
+    headline: "h",
+    breakfast: {itemId: "other", name: "Toast", photoUrl: "https://t"},
+    activities: [
+      {itemId: "a1", name: "Walk", photoUrl: null},
+      {itemId: "item1", name: "Open window", photoUrl: null},
+    ],
+  },
+});
+
+const noWait = async () => {};
+
+test("photoPrompt carries the style and the name", () => {
+  const breakfast = photoPrompt({name: "Banana pancakes", kind: "breakfast"});
+  assert.equal(breakfast, `${PHOTO_STYLE} Subject: Banana pancakes.`);
+  const activity = photoPrompt({name: "A rumpled bed", kind: "activity"});
+  assert.equal(
+      activity,
+      `${PHOTO_STYLE} A scene or objects that show: A rumpled bed. No people.`,
+  );
+});
+
+test("withPhoto sets the matching entry only and leaves the input alone", () => {
+  const plan = planDoc().plan;
+  const next = withPhoto(plan, "item1", "https://p");
+  assert.equal(next.activities[1].photoUrl, "https://p");
+  assert.equal(next.activities[0].photoUrl, null);
+  assert.equal(next.breakfast.photoUrl, "https://t");
+  assert.equal(plan.activities[1].photoUrl, null);
+  const bf = withPhoto(plan, "other", "https://q");
+  assert.equal(bf.breakfast.photoUrl, "https://q");
+});
+
+test("generatePhoto asks for 4:3 at 1K and returns an 800 px JPEG", async () => {
+  const png = await sharp({
+    create: {width: 1200, height: 900, channels: 3, background: "#884422"},
+  }).png().toBuffer();
+  let request;
+  const genai = {
+    models: {
+      generateContent: async (req) => {
+        request = req;
+        return {candidates: [{content: {parts: [
+          {text: "here"},
+          {inlineData: {data: png.toString("base64"), mimeType: "image/png"}},
+        ]}}]};
+      },
+    },
+  };
+  const out = await generatePhoto(
+      {name: "Banana pancakes", kind: "breakfast"}, {genai, model: "m-1"});
+  assert.equal(request.model, "m-1");
+  assert.equal(request.contents, `${PHOTO_STYLE} Subject: Banana pancakes.`);
+  assert.equal(request.config.imageConfig.aspectRatio, "4:3");
+  assert.equal(request.config.imageConfig.imageSize, "1K");
+  const meta = await sharp(out).metadata();
+  assert.equal(meta.format, "jpeg");
+  assert.equal(meta.width, 800);
+});
+
+test("generatePhoto throws when the model returns no image", async () => {
+  const genai = {models: {generateContent: async () => ({
+    candidates: [{content: {parts: [{text: "I can't."}]}}],
+  })}};
+  await assert.rejects(generatePhoto(
+      {name: "x", kind: "breakfast"}, {genai, model: "m"}));
+});
+
+test("completeLibraryPhoto stores the photo and fills the waiting plan",
+    async () => {
+      const db = fakeDb({
+        "recovery_library/item1": libraryItem({name: "Open window",
+          kind: "activity"}),
+        [PLAN_PATH]: planDoc(),
+      });
+      const bucket = fakeBucket();
+      const jpeg = Buffer.from([0xff, 0xd8, 0xff]);
+      let asked;
+      await completeLibraryPhoto({
+        db, bucket, itemId: "item1", now: NOW, wait: noWait,
+        generate: async (item) => {
+          asked = item;
+          return jpeg;
+        },
+      });
+      assert.deepEqual(asked, {name: "Open window", kind: "activity"});
+      assert.equal(bucket.saved.length, 1);
+      const {path, buffer, options} = bucket.saved[0];
+      assert.equal(path, "recovery-library/item1.jpg");
+      assert.equal(buffer, jpeg);
+      assert.equal(options.metadata.contentType, "image/jpeg");
+      const token = options.metadata.metadata.firebaseStorageDownloadTokens;
+      assert.match(token, /^[0-9a-f-]{36}$/);
+      const item = db.docs["recovery_library/item1"];
+      assert.equal(item.photoStatus, "ready");
+      assert.equal(item.photoUrl,
+          "https://firebasestorage.googleapis.com/v0/b/demo-bucket/o/" +
+          "recovery-library%2Fitem1.jpg?alt=media&token=" + token +
+          "&v=" + NOW);
+      assert.deepEqual(item.pendingPlanPaths, []);
+      const plan = db.docs[PLAN_PATH].plan;
+      assert.equal(plan.activities[1].photoUrl, item.photoUrl);
+      assert.equal(plan.activities[0].photoUrl, null);
+      assert.equal(plan.breakfast.photoUrl, "https://t");
+    });
+
+test("a failed generation marks the item failed and leaves the plan",
+    async () => {
+      const db = fakeDb({
+        "recovery_library/item1": libraryItem(),
+        [PLAN_PATH]: planDoc(),
+      });
+      const bucket = fakeBucket();
+      await completeLibraryPhoto({
+        db, bucket, itemId: "item1", now: NOW, wait: noWait,
+        generate: async () => {
+          throw new Error("blocked");
+        },
+      });
+      const item = db.docs["recovery_library/item1"];
+      assert.equal(item.photoStatus, "failed");
+      assert.equal(item.photoUrl, null);
+      assert.deepEqual(item.pendingPlanPaths, []);
+      assert.equal(bucket.saved.length, 0);
+      assert.deepEqual(db.updates, ["recovery_library/item1"]);
+      assert.equal(db.docs[PLAN_PATH].plan.activities[1].photoUrl, null);
+    });
+
+test("a deleted plan doc is not recreated", async () => {
+  const db = fakeDb({"recovery_library/item1": libraryItem()});
+  const waits = [];
+  await completeLibraryPhoto({
+    db, bucket: fakeBucket(), itemId: "item1", now: NOW,
+    wait: async (ms) => waits.push(ms),
+    generate: async () => Buffer.from("x"),
+  });
+  assert.ok(!(PLAN_PATH in db.docs));
+  assert.deepEqual(waits, [5000]);
+  const item = db.docs["recovery_library/item1"];
+  assert.equal(item.photoStatus, "ready");
+  assert.deepEqual(item.pendingPlanPaths, []);
+});
+
+test("a plan doc written a moment late is filled on the retry", async () => {
+  const db = fakeDb({"recovery_library/item1": libraryItem()});
+  await completeLibraryPhoto({
+    db, bucket: fakeBucket(), itemId: "item1", now: NOW,
+    wait: async () => {
+      db.docs[PLAN_PATH] = planDoc();
+    },
+    generate: async () => Buffer.from("x"),
+  });
+  assert.ok(db.docs[PLAN_PATH].plan.activities[1].photoUrl);
+});
+
+test("an item that is not generating is left alone", async () => {
+  const db = fakeDb({
+    "recovery_library/item1": libraryItem({photoStatus: "ready"}),
+  });
+  let called = false;
+  await completeLibraryPhoto({
+    db, bucket: fakeBucket(), itemId: "item1", now: NOW, wait: noWait,
+    generate: async () => {
+      called = true;
+      return Buffer.from("x");
+    },
+  });
+  assert.equal(called, false);
+  assert.deepEqual(db.updates, []);
+});

@@ -26,6 +26,7 @@ const {getFirestore} = require("firebase-admin/firestore");
 const {generateReport} = require("../report-service");
 const {lookupDrink} = require("../drink-lookup");
 const {deleteAccount} = require("../accounts");
+const {completeLibraryPhoto} = require("../recovery/image");
 let env;
 let app;
 let db;
@@ -3000,4 +3001,81 @@ test("prefs rules: no prefs writes once account deletion has started", async () 
   const alice = env.authenticatedContext("alice").firestore();
   await assertFails(setDoc(doc(alice, "notification_prefs/alice"),
       {reactions: false}));
+});
+
+// completeLibraryPhoto against the real Firestore emulator. The bucket is an
+// in-memory fake: there is no Storage emulator here.
+const PHOTO_PLAN = "users/alice/night_recoveries/e1";
+const photoBucket = () => ({
+  name: "demo-bucket",
+  saved: [],
+  file(path) {
+    return {save: async (buffer, options) => {
+      this.saved.push({path, buffer, options});
+    }};
+  },
+});
+const seedPhotoItem = async () => {
+  await db.doc("recovery_library/item1").set({
+    name: "Open window", kind: "activity", photoStatus: "generating",
+    review: "pending", photoUrl: null, pendingPlanPaths: [PHOTO_PLAN],
+  });
+};
+
+test("library photo: the stored photo is filled into the waiting plan", async () => {
+  await seedPhotoItem();
+  await db.doc(PHOTO_PLAN).set({type: "morning", plan: {
+    breakfast: {itemId: "b1", name: "Toast", photoUrl: null},
+    activities: [
+      {itemId: "item1", name: "Open window", photoUrl: null},
+      {itemId: "a2", name: "Walk", photoUrl: null},
+    ],
+  }});
+  const bucket = photoBucket();
+  await completeLibraryPhoto({
+    db, bucket, itemId: "item1", now: 5,
+    generate: async () => Buffer.from([0xff, 0xd8, 0xff]),
+  });
+  assert.equal(bucket.saved[0].path, "recovery-library/item1.jpg");
+  const item = (await db.doc("recovery_library/item1").get()).data();
+  assert.equal(item.photoStatus, "ready");
+  assert.match(
+      item.photoUrl, /recovery-library%2Fitem1\.jpg\?alt=media&token=/);
+  assert.deepEqual(item.pendingPlanPaths, []);
+  const plan = (await db.doc(PHOTO_PLAN).get()).data().plan;
+  assert.equal(plan.activities[0].photoUrl, item.photoUrl);
+  assert.equal(plan.activities[1].photoUrl, null);
+  assert.equal(plan.breakfast.photoUrl, null);
+});
+
+test("library photo: a failed generation marks the item failed", async () => {
+  await seedPhotoItem();
+  await db.doc(PHOTO_PLAN).set({type: "morning", plan: {
+    breakfast: {itemId: "b1", name: "Toast", photoUrl: null},
+    activities: [{itemId: "item1", name: "Open window", photoUrl: null}],
+  }});
+  await completeLibraryPhoto({
+    db, bucket: photoBucket(), itemId: "item1", now: 5,
+    generate: async () => {
+      throw new Error("blocked");
+    },
+  });
+  const item = (await db.doc("recovery_library/item1").get()).data();
+  assert.equal(item.photoStatus, "failed");
+  assert.deepEqual(item.pendingPlanPaths, []);
+  const plan = (await db.doc(PHOTO_PLAN).get()).data().plan;
+  assert.equal(plan.activities[0].photoUrl, null);
+});
+
+test("library photo: a deleted plan doc is not recreated", async () => {
+  await seedPhotoItem();
+  await completeLibraryPhoto({
+    db, bucket: photoBucket(), itemId: "item1", now: 5,
+    wait: async () => {},
+    generate: async () => Buffer.from("x"),
+  });
+  assert.equal((await db.doc(PHOTO_PLAN).get()).exists, false);
+  const item = (await db.doc("recovery_library/item1").get()).data();
+  assert.equal(item.photoStatus, "ready");
+  assert.deepEqual(item.pendingPlanPaths, []);
 });

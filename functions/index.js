@@ -1,7 +1,10 @@
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const {setGlobalOptions} = require("firebase-functions/v2");
 const {onSchedule} = require("firebase-functions/v2/scheduler");
-const {onDocumentDeleted} = require("firebase-functions/v2/firestore");
+const {
+  onDocumentCreated,
+  onDocumentDeleted,
+} = require("firebase-functions/v2/firestore");
 const {
   defineSecret,
   defineString,
@@ -38,6 +41,7 @@ const liveActivity = require("./live-activity");
 const social = require("./social");
 const interactions = require("./interactions");
 const {setAvatar} = require("./avatar");
+const {generatePhoto, completeLibraryPhoto} = require("./recovery/image");
 
 initializeApp();
 setGlobalOptions({region: "us-central1", maxInstances: 10});
@@ -63,6 +67,12 @@ const liveActivityTopic = defineString("LIVE_ACTIVITY_TOPIC", {
 // app-wide cost, outside the per-user budget in report-policy.js; past the
 // cap a new item is saved without a photo and the plan shows an icon tile.
 const photoDailyCap = defineInt("PHOTO_DAILY_CAP", {default: 10});
+// Vertex AI image model for new recovery library photos. Confirm the id
+// before deploying: it is the newest Gemini image id the installed
+// @google/genai lists.
+const imageModel = defineString("IMAGE_MODEL", {
+  default: "gemini-3.1-flash-image",
+});
 
 exports.requestReport = onCall(
     {
@@ -491,6 +501,36 @@ exports.setAvatar = onCall(
         uid: request.auth.uid,
         data: request.data,
         safeSearch,
+      });
+    },
+);
+
+// A new library item needs a photo. The plan that proposed it is filled in by
+// the same run, so the plan is returned without waiting for the image.
+exports.generateLibraryPhoto = onDocumentCreated(
+    {
+      document: "recovery_library/{itemId}",
+      memory: "1GiB",
+      timeoutSeconds: 120,
+    },
+    async (event) => {
+      const item = event.data && event.data.data();
+      if (!item || item.photoStatus !== "generating") return;
+      // Built per run, not at load, so a cold start that never needs it
+      // does not pay for it.
+      const {GoogleGenAI} = require("@google/genai");
+      const genai = new GoogleGenAI({
+        vertexai: true,
+        project: process.env.GCLOUD_PROJECT,
+        location: "us-central1",
+      });
+      await completeLibraryPhoto({
+        db: getFirestore(),
+        bucket: getStorage().bucket(),
+        itemId: event.params.itemId,
+        now: Date.now(),
+        generate: (picked) =>
+          generatePhoto(picked, {genai, model: imageModel.value()}),
       });
     },
 );
