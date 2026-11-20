@@ -195,4 +195,13 @@ struct AuthSessionTests {
         )
         #expect(friendlyAuthError(error) == "Sign in with Apple was restarted. Please try again.")
     }
+
+    // MARK: - Starting a night from the Watch
+
+    @Test func watchStartsANightOnlyWhenSignedInWithNoneRunning() {
+        #expect(WatchBridge.mayStartNight(hasActiveNight: false, signedInUid: "u1"))
+        #expect(!WatchBridge.mayStartNight(hasActiveNight: true, signedInUid: "u1"))
+        #expect(!WatchBridge.mayStartNight(hasActiveNight: false, signedInUid: nil))
+        #expect(!WatchBridge.mayStartNight(hasActiveNight: true, signedInUid: nil))
+    }
 }
