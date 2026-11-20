@@ -1794,10 +1794,12 @@ test("social: suggestions are empty with no friends", async () => {
   assert.deepEqual(await social.suggestFriends({db, uid: "A"}), {results: []});
 });
 
-const contactsCall = (uid, emails, {lookup, notify, now = 1000} = {}) =>
+const contactsCall = (uid, phones,
+    {lookup, hasPhone, notify, now = 1000} = {}) =>
   social.matchContacts({
-    db, uid, data: {emails}, now,
-    lookupEmails: lookup || (async () => []),
+    db, uid, data: {phones}, now,
+    lookupPhones: lookup || (async () => []),
+    hasPhone: hasPhone || (async () => true),
     notify: notify || (async () => {}),
   });
 
@@ -1807,20 +1809,23 @@ test("social: contacts on Social come back; others are nudged, not shown", async
   await claim("C", "carla");
   await befriend("A", "C");
   const directory = {
-    "bob@x.com": "B", "carla@x.com": "C", "dan@x.com": "D", "me@x.com": "A",
+    "+525500000001": "B", "+525500000002": "C", "+525500000003": "D",
+    "+525500000004": "A",
   };
   const seen = [];
-  const lookup = async (emails) => {
-    seen.push(...emails);
-    return emails.map((e) => directory[e]).filter(Boolean);
+  const lookup = async (phones) => {
+    seen.push(...phones);
+    return phones.filter((p) => directory[p])
+        .map((phone) => ({uid: directory[phone], phone}));
   };
   const {calls, notify} = makeNotify();
 
   const {results} = await contactsCall("A",
-      [" Bob@X.com ", "bob@x.com", "carla@x.com", "dan@x.com", "me@x.com",
-        "not-an-email", 7],
+      [" +525500000001 ", "+525500000001", "+525500000002", "+525500000003",
+        "+525500000004", "5255000000", "not-a-number", "+0123456789", 7],
       {lookup, notify});
-  assert.deepEqual(seen, ["bob@x.com", "carla@x.com", "dan@x.com", "me@x.com"]);
+  assert.deepEqual(seen,
+      ["+525500000001", "+525500000002", "+525500000003", "+525500000004"]);
   // B is on Social and not a friend; C is already a friend; D has no profile
   // and is never revealed; A is the caller.
   assert.deepEqual(results.map((r) => [r.uid, r.in_contacts]), [["B", true]]);
@@ -1829,72 +1834,125 @@ test("social: contacts on Social come back; others are nudged, not shown", async
   // Nothing from the contact list is stored.
   const stored = JSON.stringify(
       (await db.collection("contact_nudges").get()).docs.map((d) => d.data()));
-  assert.ok(!stored.includes("@"));
+  assert.ok(!stored.includes("+5255"));
 });
 
-test("social: contact pushes are at most one a day and once per sender", async () => {
+test("social: contacts return the matched numbers, never no-profile uids", async () => {
   await claim("A", "alice");
-  await claim("E", "erika");
   await claim("B", "bobby");
-  const lookup = async () => ["B"];
-  const {calls, notify} = makeNotify();
-  await contactsCall("A", ["b@x.com"], {lookup, notify, now: 1000});
-  await contactsCall("E", ["b@x.com"], {lookup, notify, now: 2000});
-  await contactsCall("A", ["b@x.com"], {lookup, notify, now: 1000 + 2 * 86400000});
-  await contactsCall("E", ["b@x.com"], {lookup, notify, now: 1000 + 2 * 86400000});
-  assert.deepEqual(calls,
-      [["B", "contact", "alice"], ["B", "contact", "erika"]]);
-});
-
-test("social: contact matching needs a profile and is rate limited", async () => {
-  await assert.rejects(contactsCall("A", ["b@x.com"]),
-      (e) => e.code === "failed-precondition");
-  await claim("A", "alice");
-  assert.equal(social.CONTACT_CALLS_PER_DAY, 2);
-  for (let i = 0; i < 2; i++) await contactsCall("A", ["b@x.com"]);
-  await assert.rejects(contactsCall("A", ["b@x.com"]),
-      (e) => e.code === "resource-exhausted");
-  await contactsCall("A", ["b@x.com"], {now: 1000 + 86400000});
-  await assert.rejects(contactsCall("A", "b@x.com"),
-      (e) => e.code === "invalid-argument");
-});
-
-test("social: contact matching checks the first 500 clean emails", async () => {
-  await claim("A", "alice");
-  assert.equal(social.CONTACT_EMAILS_MAX, 500);
-  assert.equal(social.CONTACT_PAYLOAD_MAX, 5000);
-  const emails = (n) => Array.from({length: n}, (_, i) => `p${i}@x.com`);
-  const seen = [];
-  const lookup = async (list) => {
-    seen.push(list);
-    return [];
+  await claim("C", "carla");
+  await befriend("A", "B");
+  const phones = ["+525500000001", "+525500000002", "+525500000003",
+    "+525500000004"];
+  const owners = {
+    "+525500000001": "B", "+525500000002": "C", "+525500000003": "D",
+    "+525500000004": "A",
   };
-  // Junk and duplicates don't use up the 500.
-  await contactsCall("A", ["junk", "P0@x.com", ...emails(700)], {lookup});
-  assert.equal(seen[0].length, 500);
-  assert.equal(seen[0][0], "p0@x.com");
-  assert.equal(seen[0][499], "p499@x.com");
-  // A non-array or an absurd payload is still refused, before the daily
-  // limit is counted.
-  await assert.rejects(contactsCall("A", emails(5001), {lookup}),
-      (e) => e.code === "invalid-argument");
-  await assert.rejects(contactsCall("A", "p0@x.com", {lookup}),
-      (e) => e.code === "invalid-argument");
-  await contactsCall("A", emails(5000), {lookup});
-  assert.equal(seen[1].length, 500);
+  const lookup = async (list) =>
+    list.map((phone) => ({uid: owners[phone], phone}));
+  const {results, on_tracksip: onTrackSip} =
+    await contactsCall("A", phones, {lookup});
+  assert.deepEqual(results.map((r) => r.uid), ["C"]); // B is a friend
+  assert.deepEqual([...onTrackSip].sort(),
+      ["+525500000001", "+525500000002", "+525500000003"]); // not A's own
+  assert.ok(!JSON.stringify(results).includes("D"));
 });
 
-test("social: contacts hide anyone blocked in either direction", async () => {
+test("social: blocked people's numbers are in on_tracksip but not results", async () => {
   await claim("A", "alice");
   await claim("B", "bobby");
   await claim("C", "carla");
   await db.doc("blocks/A/blocked/B").set({uid: "B", created_at: 1});
   await db.doc("blocks/C/blocked/A").set({uid: "A", created_at: 1});
   const {calls, notify} = makeNotify();
-  const {results} = await contactsCall("A", ["b@x.com", "c@x.com"],
-      {lookup: async () => ["B", "C"], notify});
+  const lookup = async () => [
+    {uid: "B", phone: "+525500000001"}, {uid: "C", phone: "+525500000002"},
+  ];
+  const {results, on_tracksip: onTrackSip} = await contactsCall("A",
+      ["+525500000001", "+525500000002"], {lookup, notify});
   assert.deepEqual(results, []);
+  assert.deepEqual([...onTrackSip].sort(),
+      ["+525500000001", "+525500000002"]);
   assert.deepEqual(calls, []);
+});
+
+test("social: contact pushes are at most one a day and once per sender", async () => {
+  await claim("A", "alice");
+  await claim("E", "erika");
+  await claim("B", "bobby");
+  const lookup = async () => [{uid: "B", phone: "+525500000001"}];
+  const {calls, notify} = makeNotify();
+  const p = ["+525500000001"];
+  await contactsCall("A", p, {lookup, notify, now: 1000});
+  await contactsCall("E", p, {lookup, notify, now: 2000});
+  await contactsCall("A", p, {lookup, notify, now: 1000 + 2 * 86400000});
+  await contactsCall("E", p, {lookup, notify, now: 1000 + 2 * 86400000});
+  assert.deepEqual(calls,
+      [["B", "contact", "alice"], ["B", "contact", "erika"]]);
+});
+
+test("social: contact matching needs a profile and is rate limited", async () => {
+  const p = ["+525500000001"];
+  await assert.rejects(contactsCall("A", p),
+      (e) => e.code === "failed-precondition");
+  await claim("A", "alice");
+  assert.equal(social.CONTACT_CALLS_PER_DAY, 2);
+  for (let i = 0; i < 2; i++) await contactsCall("A", p);
+  await assert.rejects(contactsCall("A", p),
+      (e) => e.code === "resource-exhausted");
+  await contactsCall("A", p, {now: 1000 + 86400000});
+  await assert.rejects(contactsCall("A", "+525500000001"),
+      (e) => e.code === "invalid-argument");
+});
+
+test("social: contact matching needs a verified number", async () => {
+  await claim("A", "alice");
+  const p = ["+525512345678"];
+  await assert.rejects(contactsCall("A", p, {hasPhone: async () => false}),
+      (e) => e.code === "failed-precondition" &&
+        /Add your number first/.test(e.message));
+  // The refusal did not spend a check: both daily calls still succeed.
+  for (let i = 0; i < social.CONTACT_CALLS_PER_DAY; i++) {
+    await contactsCall("A", p);
+  }
+});
+
+test("social: old builds sending emails are told to update", async () => {
+  await claim("A", "alice");
+  await assert.rejects(
+      social.matchContacts({
+        db, uid: "A", data: {emails: ["a@x.com"]}, now: 1000,
+        lookupPhones: async () => [], hasPhone: async () => true,
+        notify: async () => {},
+      }),
+      (e) => e.code === "failed-precondition" &&
+        e.message === "Update TrackSip to find friends from your contacts.");
+});
+
+test("social: contact matching checks the first 2000 valid numbers", async () => {
+  await claim("A", "alice");
+  assert.equal(social.CONTACT_PHONES_MAX, 2000);
+  assert.equal(social.CONTACT_PAYLOAD_MAX, 5000);
+  const phones = (n) => Array.from({length: n},
+      (_, i) => `+52550${String(i).padStart(7, "0")}`);
+  const seen = [];
+  const lookup = async (list) => {
+    seen.push(list);
+    return [];
+  };
+  // Junk and duplicates don't use up the 2000.
+  await contactsCall("A", ["junk", "+525500000000", ...phones(2500)], {lookup});
+  assert.equal(seen[0].length, 2000);
+  assert.equal(seen[0][0], "+525500000000");
+  assert.equal(seen[0][1999], "+525500001999");
+  // A non-array or an absurd payload is still refused, before the daily
+  // limit is counted.
+  await assert.rejects(contactsCall("A", phones(5001), {lookup}),
+      (e) => e.code === "invalid-argument");
+  await assert.rejects(contactsCall("A", "+525500000000", {lookup}),
+      (e) => e.code === "invalid-argument");
+  await contactsCall("A", phones(5000), {lookup});
+  assert.equal(seen[1].length, 2000);
 });
 
 // interactions: reactions

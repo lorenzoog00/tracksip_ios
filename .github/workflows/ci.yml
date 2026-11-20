@@ -1,9 +1,11 @@
 name: CI
 
+# Runs on every PR into dev (feature work) or main (releases). There is no push
+# trigger: every push to main already runs this file as the TestFlight
+# workflow's `checks` job, so a second copy would only duplicate the macOS build.
 on:
-  push:
-    branches: [main]
   pull_request:
+    branches: [dev, main]
   workflow_dispatch:
   workflow_call:
 

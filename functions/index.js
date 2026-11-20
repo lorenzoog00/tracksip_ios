@@ -433,27 +433,28 @@ exports.cleanupEndedThread = onDocumentDeleted(
 );
 
 /**
- * Uids of accounts whose verified sign-in email is one of these. Unverified
- * emails never match: anyone can type someone else's address at sign-up.
- * @param {string[]} emails lowercased emails
- * @return {Promise<string[]>}
+ * Accounts whose verified sign-in number is one of these (see
+ * social.lookupPhoneOwners, which batches and skips a failed batch).
+ * @param {string[]} phones E.164 numbers
+ * @return {Promise<{uid: string, phone: string}[]>}
  */
-async function lookupVerifiedEmails(emails) {
-  const auth = getAuth();
-  const uids = [];
-  for (let i = 0; i < emails.length; i += 100) {
-    const batch = emails.slice(i, i + 100).map((email) => ({email}));
-    const {users} = await auth.getUsers(batch);
-    for (const user of users) {
-      if (user.emailVerified && !user.disabled) uids.push(user.uid);
-    }
-  }
-  return uids;
+function lookupPhoneOwners(phones) {
+  return social.lookupPhoneOwners({auth: getAuth(), phones});
 }
 
-// Contacts are matched here and dropped: nothing from the list is stored or
-// logged. Matched people may get a "@x is on TrackSip" push, so this one
-// carries the APNs key like the friend-request callables.
+/**
+ * Whether the caller has a verified number now. Reads the live account, not
+ * the token, so a removed number stops matching at once.
+ * @param {string} uid the caller
+ * @return {Promise<boolean>}
+ */
+async function callerHasPhone(uid) {
+  return Boolean((await getAuth().getUser(uid)).phoneNumber);
+}
+
+// Contacts are matched by phone number here and dropped: nothing from the list
+// is stored or logged. Matched people may get a "@x is on TrackSip" push, so
+// this one carries the APNs key like the friend-request callables.
 exports.matchContacts = onCall(
     {secrets: [apnsKey], timeoutSeconds: 60, enforceAppCheck: true},
     async (request) => {
@@ -467,7 +468,8 @@ exports.matchContacts = onCall(
           db,
           uid: request.auth.uid,
           data: request.data,
-          lookupEmails: lookupVerifiedEmails,
+          lookupPhones: lookupPhoneOwners,
+          hasPhone: callerHasPhone,
           notify: client ?
             social.notifyFromPushTokens({db, send: client.send}) :
             async () => {},

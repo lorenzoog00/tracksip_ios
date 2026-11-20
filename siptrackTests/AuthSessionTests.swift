@@ -53,6 +53,21 @@ struct AuthSessionTests {
                                                 isEmailVerified: true) == false)
     }
 
+    /// A linked phone number only finds friends. It never vouches for the
+    /// account the way Apple or Google do, so an unverified email account stays
+    /// locked out after adding one.
+    @Test func phoneDoesNotMakeAnUnverifiedPasswordAccountUsable() {
+        #expect(FirebaseManager.isUsableSession(providerIDs: ["password", "phone"], isEmailVerified: false) == false)
+        #expect(FirebaseManager.isUsableSession(providerIDs: ["apple.com", "phone"], isEmailVerified: false) == true)
+    }
+
+    /// Account deletion re-authenticates with the sign-in provider, never with
+    /// the phone: a password account still has to type its password.
+    @Test func phoneNeverChangesTheReauthMethod() {
+        #expect(FirebaseManager.requiresPasswordReauth(providerIDs: ["password", "phone"]) == true)
+        #expect(FirebaseManager.requiresPasswordReauth(providerIDs: ["apple.com", "phone"]) == false)
+    }
+
     // MARK: - Which form the user lands on
 
     /// "Create Account" on the signed-out home used to push the same bare
@@ -214,23 +229,29 @@ struct AuthSessionTests {
         #expect(!LogDeepLink.accepts(eventId: "", activeEventId: ""))
     }
 
-    // MARK: - Sign-out never waits on the push token call
+}
 
-    @Test func waitAtMostReturnsAtTheTimeoutWhileWorkHangs() async {
-        let clock = ContinuousClock()
-        let elapsed = await clock.measure {
-            await FirebaseManager.waitAtMost(.milliseconds(100)) {
-                try? await Task.sleep(for: .seconds(30))
-            }
-        }
-        #expect(elapsed < .seconds(5))
-    }
+// MARK: - Sign-out never waits on the push token call
 
-    @Test func waitAtMostReturnsWhenWorkFinishesFirst() async {
-        let clock = ContinuousClock()
-        let elapsed = await clock.measure {
-            await FirebaseManager.waitAtMost(.seconds(30)) {}
+// Nonisolated and outside the main-actor suite: measured on the main actor, the
+// clock also counted the time spent queueing behind other main-actor tests,
+// which on a loaded CI simulator reached 2+ minutes and failed the run. The
+// bound only has to prove the 30 s work is not awaited.
+
+@Test nonisolated func waitAtMostReturnsAtTheTimeoutWhileWorkHangs() async {
+    let clock = ContinuousClock()
+    let elapsed = await clock.measure {
+        await FirebaseManager.waitAtMost(.milliseconds(100)) {
+            try? await Task.sleep(for: .seconds(30))
         }
-        #expect(elapsed < .seconds(5))
     }
+    #expect(elapsed < .seconds(20))
+}
+
+@Test nonisolated func waitAtMostReturnsWhenWorkFinishesFirst() async {
+    let clock = ContinuousClock()
+    let elapsed = await clock.measure {
+        await FirebaseManager.waitAtMost(.seconds(30)) {}
+    }
+    #expect(elapsed < .seconds(20))
 }

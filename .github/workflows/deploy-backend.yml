@@ -51,6 +51,10 @@ jobs:
   deploy:
     name: Deploy to production
     needs: test
+    # A manual run can be started from any branch; only main deploys. The
+    # production environment also allows main only, so this skips the job
+    # cleanly instead of failing on the environment's branch rule.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: production
     permissions:

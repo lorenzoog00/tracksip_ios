@@ -16,6 +16,21 @@
 		5A7C1E3D9B2F4A60C8D1E7B1 /* SharedNightSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A7C1E3D9B2F4A60C8D1E7B2 /* SharedNightSync.swift */; };
 		5A7C1E3D9B2F4A60C8D1E7B3 /* SharedNightSyncTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A7C1E3D9B2F4A60C8D1E7B4 /* SharedNightSyncTests.swift */; };
 		5A7C1E3D9B2F4A60C8D1E703 /* FeedOrdering.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A7C1E3D9B2F4A60C8D1E704 /* FeedOrdering.swift */; };
+		2C30CB933200000000000002 /* PhoneNumbers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C30CB933200000000000001 /* PhoneNumbers.swift */; };
+		2C30CB933200000000000004 /* ContactPhones.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C30CB933200000000000003 /* ContactPhones.swift */; };
+		2C30CB933200000000000006 /* PhoneNumbersTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C30CB933200000000000005 /* PhoneNumbersTests.swift */; };
+		2C30CB933200000000000008 /* ContactPhonesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C30CB933200000000000007 /* ContactPhonesTests.swift */; };
+		2C30CB93320000000000000D /* PhoneAuthErrorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C30CB93320000000000000C /* PhoneAuthErrorTests.swift */; };
+		4D50E0A1F00000000000B001 /* PhonePrompt.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D50E0A1F00000000000A001 /* PhonePrompt.swift */; };
+		4D50E0A1F00000000000B002 /* CountryPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D50E0A1F00000000000A002 /* CountryPickerView.swift */; };
+		4D50E0A1F00000000000B003 /* AddPhoneView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D50E0A1F00000000000A003 /* AddPhoneView.swift */; };
+		4D50E0A1F00000000000B004 /* PhonePromptTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D50E0A1F00000000000A004 /* PhonePromptTests.swift */; };
+		7E5C0A110000000000000B01 /* ContactMatchCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E5C0A110000000000000A01 /* ContactMatchCache.swift */; };
+		7E5C0A110000000000000B02 /* Invite.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E5C0A110000000000000A02 /* Invite.swift */; };
+		7E5C0A110000000000000B03 /* MessageComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E5C0A110000000000000A03 /* MessageComposer.swift */; };
+		7E5C0A110000000000000B04 /* ContactMatchCacheTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E5C0A110000000000000A04 /* ContactMatchCacheTests.swift */; };
+		7E5C0A110000000000000B05 /* InviteTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E5C0A110000000000000A05 /* InviteTests.swift */; };
+		2C30CB93320000000000000B /* PhoneNumberKit in Frameworks */ = {isa = PBXBuildFile; productRef = 2C30CB93320000000000000A /* PhoneNumberKit */; };
 		5F1D0001000000000000B003 /* FriendLinkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F1D0001000000000000A003 /* FriendLinkTests.swift */; };
 		6A2E0000000000000000B003 /* NightThreadTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A2E0000000000000000A003 /* NightThreadTests.swift */; };
 		5A7C1E3D9B2F4A60C8D1E705 /* SharedNightTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A7C1E3D9B2F4A60C8D1E706 /* SharedNightTests.swift */; };
@@ -258,6 +273,20 @@
 		5A7C1E3D9B2F4A60C8D1E7B2 /* SharedNightSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedNightSync.swift; sourceTree = "<group>"; };
 		5A7C1E3D9B2F4A60C8D1E7B4 /* SharedNightSyncTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedNightSyncTests.swift; sourceTree = "<group>"; };
 		5A7C1E3D9B2F4A60C8D1E704 /* FeedOrdering.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedOrdering.swift; sourceTree = "<group>"; };
+		2C30CB933200000000000001 /* PhoneNumbers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneNumbers.swift; sourceTree = "<group>"; };
+		2C30CB933200000000000003 /* ContactPhones.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactPhones.swift; sourceTree = "<group>"; };
+		2C30CB933200000000000005 /* PhoneNumbersTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneNumbersTests.swift; sourceTree = "<group>"; };
+		2C30CB933200000000000007 /* ContactPhonesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactPhonesTests.swift; sourceTree = "<group>"; };
+		2C30CB93320000000000000C /* PhoneAuthErrorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneAuthErrorTests.swift; sourceTree = "<group>"; };
+		4D50E0A1F00000000000A001 /* PhonePrompt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhonePrompt.swift; sourceTree = "<group>"; };
+		4D50E0A1F00000000000A002 /* CountryPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CountryPickerView.swift; sourceTree = "<group>"; };
+		4D50E0A1F00000000000A003 /* AddPhoneView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddPhoneView.swift; sourceTree = "<group>"; };
+		4D50E0A1F00000000000A004 /* PhonePromptTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhonePromptTests.swift; sourceTree = "<group>"; };
+		7E5C0A110000000000000A01 /* ContactMatchCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactMatchCache.swift; sourceTree = "<group>"; };
+		7E5C0A110000000000000A02 /* Invite.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Invite.swift; sourceTree = "<group>"; };
+		7E5C0A110000000000000A03 /* MessageComposer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageComposer.swift; sourceTree = "<group>"; };
+		7E5C0A110000000000000A04 /* ContactMatchCacheTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactMatchCacheTests.swift; sourceTree = "<group>"; };
+		7E5C0A110000000000000A05 /* InviteTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InviteTests.swift; sourceTree = "<group>"; };
 		5F1D0001000000000000A003 /* FriendLinkTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FriendLinkTests.swift; sourceTree = "<group>"; };
 		6A2E0000000000000000A003 /* NightThreadTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NightThreadTests.swift; sourceTree = "<group>"; };
 		5A7C1E3D9B2F4A60C8D1E706 /* SharedNightTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedNightTests.swift; sourceTree = "<group>"; };
@@ -479,6 +508,7 @@
 				B15DA9B02FAC443C00345F64 /* FirebaseCrashlytics in Frameworks */,
 				B1CC00072FA00001000CCCCC /* SipTrackActivityKit in Frameworks */,
 				B164CFE92FA2CA5B00AA682B /* WatchConnectivity.framework in Frameworks */,
+				2C30CB93320000000000000B /* PhoneNumberKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -540,6 +570,11 @@
 				6A2E0000000000000000A002 /* NightThreadStore.swift */,
 				5A7C1E3D9B2F4A60C8D1E7B2 /* SharedNightSync.swift */,
 				5A7C1E3D9B2F4A60C8D1E704 /* FeedOrdering.swift */,
+				2C30CB933200000000000001 /* PhoneNumbers.swift */,
+				2C30CB933200000000000003 /* ContactPhones.swift */,
+				4D50E0A1F00000000000A001 /* PhonePrompt.swift */,
+				7E5C0A110000000000000A01 /* ContactMatchCache.swift */,
+				7E5C0A110000000000000A02 /* Invite.swift */,
 			);
 			path = Social;
 			sourceTree = "<group>";
@@ -817,6 +852,9 @@
 				5E1A0009000000000000A009 /* UserSearchView.swift */,
 				5F1D0001000000000000A002 /* FriendLinkSheet.swift */,
 				5E1A000A000000000000A00A /* FriendActionDialogs.swift */,
+				4D50E0A1F00000000000A002 /* CountryPickerView.swift */,
+				4D50E0A1F00000000000A003 /* AddPhoneView.swift */,
+				7E5C0A110000000000000A03 /* MessageComposer.swift */,
 			);
 			path = Social;
 			sourceTree = "<group>";
@@ -939,6 +977,12 @@
 				5A7C1E3D9B2F4A60C8D1E7B4 /* SharedNightSyncTests.swift */,
 				6B8D2F4E0C3A5B71D9E2F8C4 /* PushRegistrationTests.swift */,
 				5A7C1E3D9B2F4A60C8D1E7A2 /* IncognitoTests.swift */,
+				2C30CB933200000000000005 /* PhoneNumbersTests.swift */,
+				2C30CB933200000000000007 /* ContactPhonesTests.swift */,
+				2C30CB93320000000000000C /* PhoneAuthErrorTests.swift */,
+				4D50E0A1F00000000000A004 /* PhonePromptTests.swift */,
+				7E5C0A110000000000000A04 /* ContactMatchCacheTests.swift */,
+				7E5C0A110000000000000A05 /* InviteTests.swift */,
 			);
 			path = siptrackTests;
 			sourceTree = "<group>";
@@ -974,6 +1018,7 @@
 				B15DA98B2FAB9EED00345F64 /* GoogleSignIn */,
 				B15DA98D2FAB9EED00345F64 /* GoogleSignInSwift */,
 				B15DA9AF2FAC443C00345F64 /* FirebaseCrashlytics */,
+				2C30CB93320000000000000A /* PhoneNumberKit */,
 			);
 			productName = siptrack;
 			productReference = B101B4622F9C2B24009F7DDD /* siptrack.app */;
@@ -1165,6 +1210,7 @@
 				B15DA9882FAB9E3600345F64 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
 				AD7A00032FD0000000AD7A00 /* XCRemoteSwiftPackageReference "facebook-ios-sdk" */,
 				AD7A00042FD0000000AD7A00 /* XCRemoteSwiftPackageReference "tiktok-business-ios-sdk" */,
+				2C30CB933200000000000009 /* XCRemoteSwiftPackageReference "PhoneNumberKit" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = B101B4632F9C2B24009F7DDD /* Products */;
@@ -1291,6 +1337,11 @@
 				6A2E0000000000000000B002 /* NightThreadStore.swift in Sources */,
 				5A7C1E3D9B2F4A60C8D1E7B1 /* SharedNightSync.swift in Sources */,
 				5A7C1E3D9B2F4A60C8D1E703 /* FeedOrdering.swift in Sources */,
+				2C30CB933200000000000002 /* PhoneNumbers.swift in Sources */,
+				2C30CB933200000000000004 /* ContactPhones.swift in Sources */,
+				4D50E0A1F00000000000B001 /* PhonePrompt.swift in Sources */,
+				7E5C0A110000000000000B01 /* ContactMatchCache.swift in Sources */,
+				7E5C0A110000000000000B02 /* Invite.swift in Sources */,
 				B101B4EE2F9CD648009F7DDD /* CalendarView.swift in Sources */,
 				B101B4EF2F9CD648009F7DDD /* ChallengesView.swift in Sources */,
 				B101B4F02F9CD648009F7DDD /* DashboardView.swift in Sources */,
@@ -1339,6 +1390,9 @@
 				5E1B0002000000000000B002 /* ChooseUsernameView.swift in Sources */,
 				5E1B0003000000000000B003 /* AvatarView.swift in Sources */,
 				5E1B0004000000000000B004 /* SocialProfileView.swift in Sources */,
+				4D50E0A1F00000000000B002 /* CountryPickerView.swift in Sources */,
+				4D50E0A1F00000000000B003 /* AddPhoneView.swift in Sources */,
+				7E5C0A110000000000000B03 /* MessageComposer.swift in Sources */,
 				5E1B0005000000000000B005 /* SocialTabIcon.swift in Sources */,
 				B101B4D92F9CD5E0009F7DDD /* SipTrackApp.swift in Sources */,
 				B1CC00042FA00000000BBBBB /* LiveActivityManager.swift in Sources */,
@@ -1390,6 +1444,12 @@
 				8E3F7C2B5D4A6810C3F6A9B4 /* HapticSpecTests.swift in Sources */,
 				4D2A9E6B1C7F4053B8E1A6C2 /* CeilingCrossingTests.swift in Sources */,
 				D0F447A822F34B68A69C0401 /* WaterReminderTests.swift in Sources */,
+				2C30CB933200000000000006 /* PhoneNumbersTests.swift in Sources */,
+				2C30CB933200000000000008 /* ContactPhonesTests.swift in Sources */,
+				2C30CB93320000000000000D /* PhoneAuthErrorTests.swift in Sources */,
+				4D50E0A1F00000000000B004 /* PhonePromptTests.swift in Sources */,
+				7E5C0A110000000000000B04 /* ContactMatchCacheTests.swift in Sources */,
+				7E5C0A110000000000000B05 /* InviteTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1619,7 +1679,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.8;
+				MARKETING_VERSION = 1.0.9;
 				PRODUCT_BUNDLE_IDENTIFIER = com.lorenzoog.siptrack;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -1660,7 +1720,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.8;
+				MARKETING_VERSION = 1.0.9;
 				PRODUCT_BUNDLE_IDENTIFIER = com.lorenzoog.siptrack;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -1683,7 +1743,7 @@
 				DEVELOPMENT_TEAM = 6T5DB8M42N;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
-				MARKETING_VERSION = 1.0.8;
+				MARKETING_VERSION = 1.0.9;
 				PRODUCT_BUNDLE_IDENTIFIER = com.lorenzoog.siptrackTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -1705,7 +1765,7 @@
 				DEVELOPMENT_TEAM = 6T5DB8M42N;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
-				MARKETING_VERSION = 1.0.8;
+				MARKETING_VERSION = 1.0.9;
 				PRODUCT_BUNDLE_IDENTIFIER = com.lorenzoog.siptrackTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -1725,7 +1785,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 6T5DB8M42N;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.0.8;
+				MARKETING_VERSION = 1.0.9;
 				PRODUCT_BUNDLE_IDENTIFIER = com.lorenzoog.siptrackUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -1745,7 +1805,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 6T5DB8M42N;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.0.8;
+				MARKETING_VERSION = 1.0.9;
 				PRODUCT_BUNDLE_IDENTIFIER = com.lorenzoog.siptrackUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -1778,7 +1838,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.8;
+				MARKETING_VERSION = 1.0.9;
 				PRODUCT_BUNDLE_IDENTIFIER = com.lorenzoog.siptrack.watchkitapp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
@@ -1814,7 +1874,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.8;
+				MARKETING_VERSION = 1.0.9;
 				PRODUCT_BUNDLE_IDENTIFIER = com.lorenzoog.siptrack.watchkitapp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
@@ -1838,7 +1898,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 6T5DB8M42N;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.0.8;
+				MARKETING_VERSION = 1.0.9;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.lorenzoog.SipTrack-Watch-Watch-AppTests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
@@ -1861,7 +1921,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 6T5DB8M42N;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.0.8;
+				MARKETING_VERSION = 1.0.9;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.lorenzoog.SipTrack-Watch-Watch-AppTests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
@@ -1883,7 +1943,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 6T5DB8M42N;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.0.8;
+				MARKETING_VERSION = 1.0.9;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.lorenzoog.SipTrack-Watch-Watch-AppUITests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
@@ -1905,7 +1965,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 6T5DB8M42N;
 				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.0.8;
+				MARKETING_VERSION = 1.0.9;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.lorenzoog.SipTrack-Watch-Watch-AppUITests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
@@ -1938,7 +1998,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.0.8;
+				MARKETING_VERSION = 1.0.9;
 				PRODUCT_BUNDLE_IDENTIFIER = com.lorenzoog.siptrack.SipTrackWidgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -1969,7 +2029,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.0.8;
+				MARKETING_VERSION = 1.0.9;
 				PRODUCT_BUNDLE_IDENTIFIER = com.lorenzoog.siptrack.SipTrackWidgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -2107,6 +2167,14 @@
 				minimumVersion = 1.7.2;
 			};
 		};
+		2C30CB933200000000000009 /* XCRemoteSwiftPackageReference "PhoneNumberKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/PhoneNumberKit/PhoneNumberKit";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 5.0.14;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -2164,6 +2232,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = AD7A00042FD0000000AD7A00 /* XCRemoteSwiftPackageReference "tiktok-business-ios-sdk" */;
 			productName = TikTokBusinessSDK;
+		};
+		2C30CB93320000000000000A /* PhoneNumberKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 2C30CB933200000000000009 /* XCRemoteSwiftPackageReference "PhoneNumberKit" */;
+			productName = PhoneNumberKit;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

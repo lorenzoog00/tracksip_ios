@@ -30,6 +30,12 @@
 				<string>com.googleusercontent.apps.438688245872-jmvp0r68qc9r5hq7sn1unhejd49oi49o</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>app-1-438688245872-ios-e360fe5ba1ced830a86cb5</string>
+			</array>
+		</dict>
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
@@ -42,7 +48,11 @@
 	<key>NSPrivacyPolicyURL</key>
 	<string>https://tracksip.online/policy</string>
 	<key>NSContactsUsageDescription</key>
-	<string>Find friends who already use Tracksip. Only the email addresses in your contacts are checked, and they are not saved.</string>
+	<string>Find friends who already use TrackSip and invite the rest. Phone numbers are checked and never saved.</string>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>whatsapp</string>
+	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>Take photos during your night. Tracksip places them on your night's timeline with your BAC at that moment. Photos stay on this iPhone and are not uploaded.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
@@ -54,6 +64,7 @@
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>
+		<string>remote-notification</string>
 	</array>
 	<key>NSSupportsLiveActivities</key>
 	<true/>

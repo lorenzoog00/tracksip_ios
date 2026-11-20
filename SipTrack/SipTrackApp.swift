@@ -1,6 +1,7 @@
 import SwiftUI
 import FirebaseCore
 import FirebaseAppCheck
+import FirebaseAuth
 import GoogleSignIn
 import BackgroundTasks
 
@@ -114,6 +115,8 @@ struct SipTrackApp: App {
                     appState.syncSubscriptionFromStore()
                 }
                 .onOpenURL { url in
+                    // Phone auth's reCAPTCHA fallback returns through a URL.
+                    if Auth.auth().canHandle(url) { return }
                     if GIDSignIn.sharedInstance.handle(url) { return }
                     if let username = FriendLink.username(from: url) {
                         // The app-open ad would present on the same root as the sheet.
