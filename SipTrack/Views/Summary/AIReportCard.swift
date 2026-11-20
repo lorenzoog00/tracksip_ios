@@ -586,7 +586,8 @@ private struct AnalysisSectionRow: View {
 
 // MARK: - EKG Line
 
-private struct AnalysisEKGLine: View {
+/// Also the morning check-in's "building your plan" line.
+struct AnalysisEKGLine: View {
     let accentColor: Color
 
     var body: some View {
@@ -694,7 +695,127 @@ struct NightAnalysisCard: View {
         return RecoveryAnalysisParser.parse(text)
     }
 
+    /// Old nights (a night report or a recovery brief) keep today's card
+    /// exactly. New nights get the morning plan's one line instead, and never
+    /// the "Analyze this night" button: a night report made now would end that
+    /// night's check-in for good.
     var body: some View {
+        let row = appState.morningSummaryRow(eventId: eventId)
+        switch row {
+        case .oldReport:
+            oldNightCard
+        case .tomorrowMorning, .checkIn, .plan:
+            morningPlanRow(row)
+        case .hidden:
+            EmptyView()
+        }
+    }
+
+    // MARK: New nights
+
+    @ViewBuilder
+    private func morningPlanRow(_ row: MorningSummaryRow) -> some View {
+        switch row {
+        case .plan:
+            if let record = appState.morningPlans[eventId] {
+                NavigationLink {
+                    RecoveryPlanView(eventId: eventId)
+                } label: {
+                    morningRowShell(icon: "sunrise.fill",
+                                    tone: MorningPlanDisplay.isRecoveryMode(severity: record.severity)
+                                        ? AppColors.danger : AppColors.accent) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(MorningPlanDisplay.label(severity: record.severity))
+                                .font(.system(size: 11, weight: .black))
+                                .tracking(2)
+                                .foregroundStyle(MorningPlanDisplay.isRecoveryMode(severity: record.severity)
+                                                 ? AppColors.danger : AppColors.accent)
+                            Text(record.plan.headline)
+                                .font(.system(size: 16, design: .serif))
+                                .foregroundStyle(AppColors.text)
+                                .multilineTextAlignment(.leading)
+                                .lineLimit(3)
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+        case .checkIn:
+            if appState.userProfile.aiReportsEnabled != true {
+                enableAIRow
+            } else if appState.buildingMorningPlanFor == eventId {
+                analysisLoading(label: "BUILDING YOUR PLAN", color: AppColors.accent)
+                    .premiumCard(radius: 14)
+            } else {
+                Button {
+                    appState.openMorningCheckIn(eventId: eventId, preselected: nil)
+                } label: {
+                    morningRowShell(icon: "sunrise.fill", tone: AppColors.accent) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Recovery plan")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(AppColors.text)
+                            Text("Tell us how you feel to get yours.")
+                                .font(.system(size: 14))
+                                .foregroundStyle(AppColors.textSecondary)
+                        }
+                        Spacer(minLength: 8)
+                        Text("Check in")
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundStyle(.black)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(AppColors.accent, in: Capsule())
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+        case .tomorrowMorning:
+            if appState.userProfile.aiReportsEnabled != true {
+                enableAIRow
+            } else {
+                morningRowShell(icon: "moon.zzz.fill", tone: AppColors.accent) {
+                    Text(MorningPlanDisplay.tomorrowLine)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(AppColors.text)
+                }
+            }
+        case .oldReport, .hidden:
+            EmptyView()
+        }
+    }
+
+    private func morningRowShell<Content: View>(icon: String, tone: Color,
+                                                @ViewBuilder content: () -> Content) -> some View {
+        HStack(alignment: .center, spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(tone)
+                .frame(width: 40, height: 40)
+                .background(tone.opacity(0.12), in: RoundedRectangle(cornerRadius: 11))
+                .accessibilityHidden(true)
+            content()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .premiumCard(radius: 14)
+        .contentShape(RoundedRectangle(cornerRadius: 14))
+    }
+
+    private var enableAIRow: some View {
+        NavigationLink(value: Route.profile) {
+            Text(MorningPlanDisplay.enableAILine)
+                .font(.footnote)
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding()
+                .premiumCard(radius: 14)
+        }
+    }
+
+    // MARK: Old nights
+
+    private var oldNightCard: some View {
         VStack(alignment: .leading, spacing: 0) {
             cardHeader
             themeAccentRule

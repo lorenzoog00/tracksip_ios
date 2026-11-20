@@ -4,6 +4,16 @@ import Combine
 import UserNotifications
 import SipTrackActivityKit
 
+/// The check-in RootView presents: a night, and the tile a notification's quick
+/// answer pre-selects (nil for a plain tap). One sheet per night, so the night
+/// is the identity.
+struct PendingCheckIn: Identifiable, Equatable {
+    let eventId: String
+    let preselected: Symptom?
+
+    var id: String { eventId }
+}
+
 @MainActor
 final class AppState: ObservableObject {
 
@@ -56,9 +66,10 @@ final class AppState: ObservableObject {
     /// Nights the server had no plan for (nothing in the photo library fits
     /// that check-in): a friendly "no plan for this one", not an error.
     @Published var morningPlanUnavailable: Set<String> = []
-    /// A morning notification was tapped: RootView presents the check-in for
-    /// this night, with this tile pre-selected (nil for a plain tap).
-    @Published var pendingCheckIn: (eventId: String, preselected: Symptom?)? = nil
+    /// A morning notification was tapped (or the Home card, or the summary's
+    /// "Check in"): RootView presents the check-in for this night, with this
+    /// tile pre-selected (nil for a plain tap). Setting it back to nil closes it.
+    @Published var pendingCheckIn: PendingCheckIn? = nil
     /// `[UTC month: free plans left]`, read through `freeMorningPlansLeft`.
     @Published private var morningAllowance: [String: Int] = [:]
 
@@ -1080,7 +1091,7 @@ final class AppState: ObservableObject {
         guard hasPlan || morningCheckInEventId() == eventId else { return }
         // The app-open ad would present on the same root and knock the check-in out.
         AdManager.shared.suppressAppOpenAd(for: 30)
-        pendingCheckIn = (eventId: eventId, preselected: hasPlan ? nil : preselected)
+        pendingCheckIn = PendingCheckIn(eventId: eventId, preselected: hasPlan ? nil : preselected)
     }
 
     /// Builds a night's morning plan from the check-in. A plan is final once it

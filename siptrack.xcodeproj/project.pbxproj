@@ -34,6 +34,11 @@
 		4D0E9A110000000000000906 /* MorningPlanTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D0E9A110000000000000905 /* MorningPlanTests.swift */; };
 		4D0E9A110000000000000908 /* MorningCheckInTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D0E9A110000000000000907 /* MorningCheckInTests.swift */; };
 		4D0E9A110000000000000A02 /* MorningPlanFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D0E9A110000000000000A01 /* MorningPlanFlowTests.swift */; };
+		4D0E9A110000000000000B02 /* MorningCheckInCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D0E9A110000000000000B01 /* MorningCheckInCard.swift */; };
+		4D0E9A110000000000000B04 /* MorningCheckInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D0E9A110000000000000B03 /* MorningCheckInView.swift */; };
+		4D0E9A110000000000000B06 /* RecoveryPlanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D0E9A110000000000000B05 /* RecoveryPlanView.swift */; };
+		4D0E9A110000000000000B08 /* MorningPlanDisplay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D0E9A110000000000000B07 /* MorningPlanDisplay.swift */; };
+		4D0E9A110000000000000B0A /* MorningPlanDisplayTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D0E9A110000000000000B09 /* MorningPlanDisplayTests.swift */; };
 		E34D6123C210440E9E1B4411 /* DrinkLookup.swift in Sources */ = {isa = PBXBuildFile; fileRef = E34D6123C210440E9E1B4412 /* DrinkLookup.swift */; };
 		E34D6123C210440E9E1B4415 /* AppDates.swift in Sources */ = {isa = PBXBuildFile; fileRef = E34D6123C210440E9E1B4416 /* AppDates.swift */; };
 		E34D6123C210440E9E1B4413 /* DrinkLookupTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E34D6123C210440E9E1B4414 /* DrinkLookupTests.swift */; };
@@ -268,6 +273,11 @@
 		4D0E9A110000000000000905 /* MorningPlanTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningPlanTests.swift; sourceTree = "<group>"; };
 		4D0E9A110000000000000907 /* MorningCheckInTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningCheckInTests.swift; sourceTree = "<group>"; };
 		4D0E9A110000000000000A01 /* MorningPlanFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningPlanFlowTests.swift; sourceTree = "<group>"; };
+		4D0E9A110000000000000B01 /* MorningCheckInCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningCheckInCard.swift; sourceTree = "<group>"; };
+		4D0E9A110000000000000B03 /* MorningCheckInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningCheckInView.swift; sourceTree = "<group>"; };
+		4D0E9A110000000000000B05 /* RecoveryPlanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecoveryPlanView.swift; sourceTree = "<group>"; };
+		4D0E9A110000000000000B07 /* MorningPlanDisplay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningPlanDisplay.swift; sourceTree = "<group>"; };
+		4D0E9A110000000000000B09 /* MorningPlanDisplayTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningPlanDisplayTests.swift; sourceTree = "<group>"; };
 		E34D6123C210440E9E1B4412 /* DrinkLookup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrinkLookup.swift; sourceTree = "<group>"; };
 		E34D6123C210440E9E1B4416 /* AppDates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDates.swift; sourceTree = "<group>"; };
 		E34D6123C210440E9E1B4414 /* DrinkLookupTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrinkLookupTests.swift; sourceTree = "<group>"; };
@@ -750,6 +760,17 @@
 			path = Profile;
 			sourceTree = "<group>";
 		};
+		4D0E9A110000000000000B0B /* Recovery */ = {
+			isa = PBXGroup;
+			children = (
+				4D0E9A110000000000000B01 /* MorningCheckInCard.swift */,
+				4D0E9A110000000000000B03 /* MorningCheckInView.swift */,
+				4D0E9A110000000000000B07 /* MorningPlanDisplay.swift */,
+				4D0E9A110000000000000B05 /* RecoveryPlanView.swift */,
+			);
+			path = Recovery;
+			sourceTree = "<group>";
+		};
 		B101B4C32F9C2F32009F7DDD /* Subscription */ = {
 			isa = PBXGroup;
 			children = (
@@ -805,6 +826,7 @@
 				B101B4BB2F9C2F32009F7DDD /* Home */,
 				B101B4BE2F9C2F32009F7DDD /* Onboarding */,
 				B101B4C02F9C2F32009F7DDD /* Profile */,
+				4D0E9A110000000000000B0B /* Recovery */,
 				5E1C0001000000000000C001 /* Social */,
 				B101B4C32F9C2F32009F7DDD /* Subscription */,
 				B101B4C52F9C2F32009F7DDD /* Summary */,
@@ -884,6 +906,7 @@
 				4D0E9A110000000000000905 /* MorningPlanTests.swift */,
 				4D0E9A110000000000000907 /* MorningCheckInTests.swift */,
 				4D0E9A110000000000000A01 /* MorningPlanFlowTests.swift */,
+				4D0E9A110000000000000B09 /* MorningPlanDisplayTests.swift */,
 				E34D6123C210440E9E1B4414 /* DrinkLookupTests.swift */,
 				E34D6123C210440E9E1B4418 /* AppDatesTests.swift */,
 				A1B2C3D4E5F6A7B8C9D0E1F3 /* AIInsightsTests.swift */,
@@ -1224,6 +1247,10 @@
 				B101B4E12F9CD648009F7DDD /* BACCalculator.swift in Sources */,
 				E34D6123C210440E9E1B4401 /* ReportAlcoholDose.swift in Sources */,
 				4D0E9A110000000000000904 /* MorningCheckIn.swift in Sources */,
+				4D0E9A110000000000000B02 /* MorningCheckInCard.swift in Sources */,
+				4D0E9A110000000000000B04 /* MorningCheckInView.swift in Sources */,
+				4D0E9A110000000000000B06 /* RecoveryPlanView.swift in Sources */,
+				4D0E9A110000000000000B08 /* MorningPlanDisplay.swift in Sources */,
 				E34D6123C210440E9E1B4411 /* DrinkLookup.swift in Sources */,
 				E34D6123C210440E9E1B4415 /* AppDates.swift in Sources */,
 				8E3F7C2B5D4A6810C3F6A9B6 /* HapticSpec.swift in Sources */,
@@ -1327,6 +1354,7 @@
 				4D0E9A110000000000000906 /* MorningPlanTests.swift in Sources */,
 				4D0E9A110000000000000908 /* MorningCheckInTests.swift in Sources */,
 				4D0E9A110000000000000A02 /* MorningPlanFlowTests.swift in Sources */,
+				4D0E9A110000000000000B0A /* MorningPlanDisplayTests.swift in Sources */,
 				E34D6123C210440E9E1B4413 /* DrinkLookupTests.swift in Sources */,
 				E34D6123C210440E9E1B4417 /* AppDatesTests.swift in Sources */,
 				A1B2C3D4E5F6A7B8C9D0E1F2 /* AIInsightsTests.swift in Sources */,

@@ -110,15 +110,25 @@ struct SummaryView: View {
                     SummaryLogCard(review: review, drinkTypes: appState.allDrinkTypes)
                         .padding(.horizontal)
 
-                    DisclosureGroup {
+                    // Old nights keep the Night analysis disclosure. New nights
+                    // show the morning plan's one line in its place, or nothing.
+                    switch appState.morningSummaryRow(eventId: eventId) {
+                    case .oldReport:
+                        DisclosureGroup {
+                            NightAnalysisCard(eventId: eventId)
+                                .padding(.top, 8)
+                        } label: {
+                            Label("Night analysis", systemImage: "sparkles").font(.headline)
+                        }
+                        .padding(16)
+                        .premiumCard(radius: 14)
+                        .padding(.horizontal)
+                    case .tomorrowMorning, .checkIn, .plan:
                         NightAnalysisCard(eventId: eventId)
-                            .padding(.top, 8)
-                    } label: {
-                        Label("Night analysis", systemImage: "sparkles").font(.headline)
+                            .padding(.horizontal)
+                    case .hidden:
+                        EmptyView()
                     }
-                    .padding(16)
-                    .premiumCard(radius: 14)
-                    .padding(.horizontal)
 
                     // Notes
                     VStack(alignment: .leading, spacing: 8) {
