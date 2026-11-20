@@ -315,14 +315,17 @@ exports.deleteComment = socialCallable("deleteComment", interactions);
 exports.getNightThread = socialCallable("getNightThread", interactions);
 
 // Going incognito, deleting the shared night or the account deletes
-// shared_nights/{uid}; that owner's threads go with it. A TTL delete fires
+// shared_nights/{uid}; the thread of the night that doc held goes with it.
+// Only that one: earlier nights' threads stay on friends' feeds through their
+// ended copies (account deletion removes those itself). A TTL delete fires
 // this too, which is harmless: the rules hide a thread once its night has
 // expired, and its own docs would be collected by TTL two days later.
 exports.cleanupThreads = onDocumentDeleted(
     {document: "shared_nights/{uid}", timeoutSeconds: 120},
-    (event) => interactions.deleteThreadsFor({
+    (event) => interactions.deleteThreadOfNight({
       db: getFirestore(),
       uid: event.params.uid,
+      night: event.data && event.data.data(),
     }),
 );
 
