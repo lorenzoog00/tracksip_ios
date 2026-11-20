@@ -20,14 +20,26 @@ const NOW = 1700000000000;
  */
 function fakeDb(docs) {
   const updates = [];
+  // Like Firestore, transactions run one after another; plain reads yield
+  // first, so an unguarded read-modify-write interleaves.
+  let queue = Promise.resolve();
   return {
     docs,
     updates,
+    runTransaction: (fn) => {
+      const run = queue.then(() => fn({
+        get: (ref) => ref.get(),
+        update: (ref, fields) => ref.update(fields),
+      }));
+      queue = run.catch(() => {});
+      return run;
+    },
     doc: (path) => ({
-      get: async () => ({
-        exists: path in docs,
-        data: () => docs[path],
-      }),
+      get: async () => {
+        const copy = structuredClone(docs[path]);
+        await new Promise((resolve) => setTimeout(resolve, 1));
+        return {exists: path in docs, data: () => copy};
+      },
       update: async (fields) => {
         if (!(path in docs)) {
           throw Object.assign(new Error("NOT_FOUND"), {code: 5});
@@ -189,7 +201,7 @@ test("a failed generation marks the item failed and leaves the plan",
       assert.equal(item.photoUrl, null);
       assert.deepEqual(item.pendingPlanPaths, []);
       assert.equal(bucket.saved.length, 0);
-      assert.deepEqual(db.updates, ["recovery_library/item1"]);
+      assert.ok(db.updates.every((p) => p === "recovery_library/item1"));
       assert.equal(db.docs[PLAN_PATH].plan.activities[1].photoUrl, null);
     });
 
@@ -234,4 +246,69 @@ test("an item that is not generating is left alone", async () => {
   });
   assert.equal(called, false);
   assert.deepEqual(db.updates, []);
+});
+
+test("two items waiting on one plan both get their photo", async () => {
+  const db = fakeDb({
+    "recovery_library/item1": libraryItem({name: "Open window",
+      kind: "activity"}),
+    "recovery_library/item2": libraryItem({name: "Walk", kind: "activity"}),
+    [PLAN_PATH]: {plan: {
+      breakfast: {itemId: "b", name: "Toast", photoUrl: null},
+      activities: [
+        {itemId: "item1", name: "Open window", photoUrl: null},
+        {itemId: "item2", name: "Walk", photoUrl: null},
+      ],
+    }},
+  });
+  const run = (itemId) => completeLibraryPhoto({
+    db, bucket: fakeBucket(), itemId, now: NOW, wait: noWait,
+    generate: async () => Buffer.from("x"),
+  });
+  await Promise.all([run("item1"), run("item2")]);
+  const {activities} = db.docs[PLAN_PATH].plan;
+  assert.match(activities[0].photoUrl, /item1\.jpg|item1/);
+  assert.match(activities[1].photoUrl, /item2/);
+});
+
+test("a path added while the photo is made is filled, not erased", async () => {
+  const late = "users/u2/night_recoveries/e2";
+  const db = fakeDb({
+    "recovery_library/item1": libraryItem(),
+    [PLAN_PATH]: planDoc(),
+    [late]: planDoc(),
+  });
+  await completeLibraryPhoto({
+    db, bucket: fakeBucket(), itemId: "item1", now: NOW, wait: noWait,
+    generate: async () => {
+      db.docs["recovery_library/item1"].pendingPlanPaths.push(late);
+      return Buffer.from("x");
+    },
+  });
+  assert.ok(db.docs[late].plan.activities[1].photoUrl);
+  assert.deepEqual(db.docs["recovery_library/item1"].pendingPlanPaths, []);
+});
+
+test("a path added after the last check survives the clear", async () => {
+  const late = "users/u2/night_recoveries/e2";
+  const db = fakeDb({
+    "recovery_library/item1": libraryItem(),
+    [PLAN_PATH]: planDoc(),
+  });
+  const realTx = db.runTransaction;
+  let calls = 0;
+  db.runTransaction = (fn) => {
+    calls += 1;
+    // Call 1 fills the plan, call 2 clears the item: a plan registers just
+    // before the clear.
+    if (calls === 2) {
+      db.docs["recovery_library/item1"].pendingPlanPaths.push(late);
+    }
+    return realTx(fn);
+  };
+  await completeLibraryPhoto({
+    db, bucket: fakeBucket(), itemId: "item1", now: NOW, wait: noWait,
+    generate: async () => Buffer.from("x"),
+  });
+  assert.deepEqual(db.docs["recovery_library/item1"].pendingPlanPaths, [late]);
 });

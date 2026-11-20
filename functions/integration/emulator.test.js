@@ -3079,3 +3079,48 @@ test("library photo: a deleted plan doc is not recreated", async () => {
   assert.equal(item.photoStatus, "ready");
   assert.deepEqual(item.pendingPlanPaths, []);
 });
+
+test("library photo: two photos for one plan both land", async () => {
+  for (const id of ["item1", "item2"]) {
+    await db.doc(`recovery_library/${id}`).set({
+      name: id, kind: "activity", photoStatus: "generating",
+      review: "pending", photoUrl: null, pendingPlanPaths: [PHOTO_PLAN],
+    });
+  }
+  await db.doc(PHOTO_PLAN).set({type: "morning", plan: {
+    breakfast: {itemId: "b1", name: "Toast", photoUrl: null},
+    activities: [
+      {itemId: "item1", name: "One", photoUrl: null},
+      {itemId: "item2", name: "Two", photoUrl: null},
+    ],
+  }});
+  await Promise.all(["item1", "item2"].map((itemId) => completeLibraryPhoto({
+    db, bucket: photoBucket(), itemId, now: 5,
+    generate: async () => Buffer.from("x"),
+  })));
+  const {activities} = (await db.doc(PHOTO_PLAN).get()).data().plan;
+  assert.match(activities[0].photoUrl, /item1/);
+  assert.match(activities[1].photoUrl, /item2/);
+});
+
+test("library photo: a path added during generation is filled, not erased", async () => {
+  const late = "users/bob/night_recoveries/e9";
+  await seedPhotoItem();
+  const lateDoc = {type: "morning", plan: {
+    breakfast: {itemId: "b1", name: "Toast", photoUrl: null},
+    activities: [{itemId: "item1", name: "Open window", photoUrl: null}],
+  }};
+  await db.doc(late).set(lateDoc);
+  await completeLibraryPhoto({
+    db, bucket: photoBucket(), itemId: "item1", now: 5,
+    generate: async () => {
+      await db.doc("recovery_library/item1").update(
+          {pendingPlanPaths: [PHOTO_PLAN, late]});
+      return Buffer.from("x");
+    },
+  });
+  const plan = (await db.doc(late).get()).data().plan;
+  assert.ok(plan.activities[0].photoUrl);
+  const item = (await db.doc("recovery_library/item1").get()).data();
+  assert.deepEqual(item.pendingPlanPaths, []);
+});

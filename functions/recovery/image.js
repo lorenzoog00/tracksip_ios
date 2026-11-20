@@ -63,8 +63,10 @@ function withPhoto(plan, itemId, photoUrl) {
 }
 
 /**
- * One try at filling a plan's photo. Only ever `update`s, so a plan doc that
- * was deleted with its account is never recreated.
+ * One try at filling a plan's photo. The read and the write share a
+ * transaction, so two photos for one plan cannot overwrite each other, and
+ * only ever `update`s, so a plan doc deleted with its account is never
+ * recreated.
  * @param {object} db Firestore
  * @param {string} path The plan doc path.
  * @param {string} itemId
@@ -73,17 +75,18 @@ function withPhoto(plan, itemId, photoUrl) {
  */
 async function tryFillPlan(db, path, itemId, photoUrl) {
   const ref = db.doc(path);
-  const snap = await ref.get();
-  if (!snap.exists) return false;
-  const plan = snap.data().plan;
-  if (!plan) return true;
   try {
-    await ref.update({plan: withPhoto(plan, itemId, photoUrl)});
+    return await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      if (!snap.exists) return false;
+      const plan = snap.data().plan;
+      if (plan) tx.update(ref, {plan: withPhoto(plan, itemId, photoUrl)});
+      return true;
+    });
   } catch (error) {
     if (error.code === NOT_FOUND) return false;
     throw error;
   }
-  return true;
 }
 
 /**
@@ -100,6 +103,24 @@ async function fillPlan({db, path, itemId, photoUrl, wait}) {
   } catch (error) {
     console.error("recovery photo: plan update failed", path, error);
   }
+}
+
+/**
+ * Removes the processed paths from the item's pending list, keeping any a
+ * plan added in the meantime.
+ * @param {object} db Firestore
+ * @param {object} ref The library item.
+ * @param {Set<string>} done
+ * @return {Promise<void>}
+ */
+function clearPaths(db, ref, done) {
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists) return;
+    const left = (snap.data().pendingPlanPaths ?? [])
+        .filter((path) => !done.has(path));
+    tx.update(ref, {pendingPlanPaths: left});
+  });
 }
 
 /**
@@ -145,17 +166,24 @@ async function completeLibraryPhoto({
     });
   } catch (error) {
     console.error("recovery photo failed", itemId, error);
-    await ref.update({
-      photoStatus: "failed",
-      pendingPlanPaths: [],
-    });
+    await ref.update({photoStatus: "failed"});
+    await clearPaths(db, ref, new Set(paths));
     return;
   }
 
   await ref.update({photoStatus: "ready", photoUrl, photoPath});
-  await Promise.all(paths.map((path) =>
-    fillPlan({db, path, itemId, photoUrl, wait})));
-  await ref.update({pendingPlanPaths: []});
+  // Plans can register on this item while the image is being made, so the
+  // list is re-read until nothing new is waiting.
+  const done = new Set();
+  let waiting = paths;
+  while (waiting.length > 0) {
+    await Promise.all(waiting.map((path) =>
+      fillPlan({db, path, itemId, photoUrl, wait})));
+    waiting.forEach((path) => done.add(path));
+    const fresh = (await ref.get()).data().pendingPlanPaths ?? [];
+    waiting = fresh.filter((path) => !done.has(path));
+  }
+  await clearPaths(db, ref, done);
 }
 
 module.exports = {
