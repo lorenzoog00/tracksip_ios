@@ -732,21 +732,46 @@ async function deleteThreadsFor({db, uid}) {
  * Deletes the thread of the one night a deleted shared_nights doc held,
  * reactions, comments and rate limits included. Runs when that doc is
  * deleted (going incognito, deleting the night, TTL). Earlier nights'
- * threads stay: their ended copies keep them on friends' feeds.
+ * threads stay, and so does this night's while its unexpired ended copy
+ * keeps it on friends' feeds (a new incognito night deletes the main doc
+ * still holding the previous, ended night); deleting that copy later runs
+ * deleteThreadOfEndedCopy.
  * @param {object} params
  * @param {object} params.db Firestore
  * @param {string} params.uid the night owner
  * @param {object|undefined} params.night the deleted doc's data, if any
+ * @param {number} [params.now] current time in ms
  */
-async function deleteThreadOfNight({db, uid, night}) {
+async function deleteThreadOfNight({db, uid, night, now = Date.now()}) {
   const startedAt = night && night.started_at;
   if (!Number.isFinite(startedAt)) return;
+  const copy = await db.doc(`shared_nights/${uid}/ended/${startedAt}`).get();
+  const expiresAt = copy.exists && copy.data().expires_at &&
+    copy.data().expires_at.toMillis();
+  if (expiresAt > now) return;
   await db.recursiveDelete(
       db.doc(`night_threads/${nightKey(uid, startedAt)}`));
+}
+
+/**
+ * Deletes the thread of the night whose ended copy was deleted (that night
+ * deleted or made incognito, TTL, account deletion), unless the main
+ * shared_nights doc still holds that same night and so still shows it.
+ * @param {object} params
+ * @param {object} params.db Firestore
+ * @param {string} params.uid the night owner
+ * @param {string} params.started the copy's id: the night's started_at
+ */
+async function deleteThreadOfEndedCopy({db, uid, started}) {
+  if (!/^\d+$/.test(started)) return;
+  const main = await db.doc(`shared_nights/${uid}`).get();
+  if (main.exists && String(main.data().started_at) === started) return;
+  await db.recursiveDelete(db.doc(`night_threads/${uid}_${started}`));
 }
 
 module.exports = {
   REACTIONS, THREAD_GRACE_MS, nightKey, loadNight, visibleNight,
   reactToNight, addComment, deleteComment, getNightThread,
-  notifyThread, deleteThreadsFor, deleteThreadOfNight, removeFromThread,
+  notifyThread, deleteThreadsFor, deleteThreadOfNight,
+  deleteThreadOfEndedCopy, removeFromThread,
 };

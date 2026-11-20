@@ -17,6 +17,8 @@ const {
   collection,
   query,
   where,
+  orderBy,
+  limit,
   getDocs,
 } = require("firebase/firestore");
 const {initializeApp, deleteApp} = require("firebase-admin/app");
@@ -1051,11 +1053,12 @@ const seedEnded = (uid, started, expires) =>
   });
 // The query FriendsStore runs: only unexpired copies. The bound must be at
 // or after request.time (a bound at the client's own clock is denied), so
-// the app queries 10 minutes past its clock, as here.
+// the app queries 10 minutes past its clock, as here, newest 10 first.
 const unexpiredEnded = (fs, uid) => query(
     collection(fs, `shared_nights/${uid}/ended`),
     where("expires_at", ">",
-        Timestamp.fromMillis(Date.now() + 10 * 60 * 1000)));
+        Timestamp.fromMillis(Date.now() + 10 * 60 * 1000)),
+    orderBy("expires_at", "desc"), limit(10));
 
 test("ended copies: the owner writes a valid copy keyed by started_at", async () => {
   const alice = env.authenticatedContext("alice").firestore();
@@ -2201,6 +2204,56 @@ test("interactions: deleteThreadOfNight removes only the deleted night's thread"
   await interactions.deleteThreadOfNight({db, uid: "A", night: undefined});
   await interactions.deleteThreadOfNight({db, uid: "A", night: {x: 1}});
   assert.equal(await exists("night_threads/A_5"), true);
+});
+
+const seedEndedCopy = (owner, startedAt, expiresIn = 3600 * 1000) =>
+  db.doc(`shared_nights/${owner}/ended/${startedAt}`).set({
+    started_at: startedAt, ended_at: startedAt + 1, last_drink_at: startedAt,
+    samples: [], drinks: [], expires_at: inMs(expiresIn),
+  });
+const seedThreadDocs = async (key) => {
+  await db.doc(`night_threads/${key}`).set({owner: "A", started_at: 1});
+  await db.doc(`night_threads/${key}/comments/c1`).set({uid: "B"});
+};
+
+test("interactions: deleting the main doc keeps a thread its ended copy shows", async () => {
+  // A ended night T (main doc + copy, friends reacted); a new incognito
+  // night deletes the main doc still holding T.
+  await seedSharedNight("A", {started_at: T, ended_at: T + 1});
+  await seedEndedCopy("A", T);
+  await seedThreadDocs(`A_${T}`);
+  const night = (await db.doc("shared_nights/A").get()).data();
+  await db.doc("shared_nights/A").delete();
+  await interactions.deleteThreadOfNight({db, uid: "A", night});
+  assert.equal(await exists(`night_threads/A_${T}`), true);
+  assert.equal(await exists(`night_threads/A_${T}/comments/c1`), true);
+  // An expired copy no longer shows it: the thread goes.
+  await seedEndedCopy("A", T, -1000);
+  await interactions.deleteThreadOfNight({db, uid: "A", night});
+  assert.equal(await exists(`night_threads/A_${T}`), false);
+  assert.equal(await countDocs(`night_threads/A_${T}/comments`), 0);
+});
+
+test("interactions: deleting an ended copy takes its thread unless the main doc holds it", async () => {
+  await seedThreadDocs(`A_${T}`);
+  // The main doc is still night T: its card stays, so does the thread.
+  await seedSharedNight("A", {started_at: T, ended_at: T + 1});
+  await interactions.deleteThreadOfEndedCopy({db, uid: "A", started: `${T}`});
+  assert.equal(await exists(`night_threads/A_${T}`), true);
+  // The main doc moved on to night T + 10: the thread goes whole.
+  await seedSharedNight("A", {started_at: T + 10});
+  await seedThreadDocs(`A_${T + 10}`);
+  await interactions.deleteThreadOfEndedCopy({db, uid: "A", started: `${T}`});
+  assert.equal(await exists(`night_threads/A_${T}`), false);
+  assert.equal(await countDocs(`night_threads/A_${T}/comments`), 0);
+  assert.equal(await exists(`night_threads/A_${T + 10}`), true);
+  // No main doc at all: also deleted; a malformed id deletes nothing.
+  await db.doc("shared_nights/A").delete();
+  await seedThreadDocs(`A_${T}`);
+  await interactions.deleteThreadOfEndedCopy({db, uid: "A", started: `${T}`});
+  assert.equal(await exists(`night_threads/A_${T}`), false);
+  await interactions.deleteThreadOfEndedCopy({db, uid: "A", started: "x"});
+  assert.equal(await exists(`night_threads/A_${T + 10}`), true);
 });
 
 test("interactions: an ended copy keeps a replaced night open to reactions", async () => {
