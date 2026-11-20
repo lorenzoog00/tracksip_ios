@@ -2,11 +2,15 @@ import SwiftUI
 
 struct OnboardingView: View {
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var friends: FriendsStore
     @State private var sex: Sex         = .male
     @State private var weightKg: String = "70"
     @State private var heightCm: String = ""
     @State private var birthYear: String = ""
     @State private var showDisclaimer   = false
+    /// Set by the disclaimer's accept; the phone step opens once its sheet is gone.
+    @State private var disclaimerAcceptedAt: Date?
+    @State private var showAddPhone     = false
 
     var body: some View {
         ZStack {
@@ -120,10 +124,29 @@ struct OnboardingView: View {
                 }
             }
         }
-        .sheet(isPresented: $showDisclaimer) {
+        // Profile fields → disclaimer → Add your number → app. The phone step
+        // waits for the disclaimer sheet to finish closing: a second presentation
+        // started while the first is still animating away is dropped.
+        .sheet(isPresented: $showDisclaimer, onDismiss: {
+            if disclaimerAcceptedAt != nil { showAddPhone = true }
+        }) {
             DisclaimerView {
+                disclaimerAcceptedAt = Date()
+            }
+        }
+        // Full screen with no swipe-down, so the only ways on are "Not now" or a
+        // verified number. "Not now" stays on while a code is being sent, so a
+        // send that never comes back can't trap a new user here.
+        .fullScreenCover(isPresented: $showAddPhone) {
+            AddPhoneView { added in
+                // Answered here, so the Social tab doesn't ask again.
+                if let uid = FirebaseManager.shared.currentUserId() {
+                    PhonePrompt.markDismissed(uid: uid)
+                }
+                if added { friends.clearContactCache() }
                 completeOnboarding()
             }
+            .interactiveDismissDisabled()
         }
     }
 
@@ -149,9 +172,10 @@ struct OnboardingView: View {
         if let h = Double(heightCm), h >= 100, h <= 250 { profile.heightCm = h }
         let currentYear = Calendar.current.component(.year, from: Date())
         if let y = Int(birthYear), y > 1900, y < currentYear { profile.birthYear = y }
-        profile.disclaimerAcceptedAt = Date()
+        profile.disclaimerAcceptedAt = disclaimerAcceptedAt ?? Date()
         profile.onboardingComplete = true
         appState.updateUserProfile(profile)
         showDisclaimer = false
+        showAddPhone = false
     }
 }

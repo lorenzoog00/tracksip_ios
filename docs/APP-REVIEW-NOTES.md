@@ -67,9 +67,11 @@ TrackSip's account-based features are core to the app, not incidental:
    between accounts.
 
 We ask for as little as possible. Registration takes an email address and
-password, or Sign in with Apple, or Google — no phone number, no contacts, no
-social accounts. Sign in with Apple is offered first and works with Apple's
-private relay addresses. Body details used for the BAC estimate (sex, weight,
+password, or Sign in with Apple, or Google — no contacts and no
+social accounts are required. Sign in with Apple is offered first and works with Apple's
+private relay addresses. After the disclaimer the app offers to add a phone
+number so friends can find the user from their contacts; this is optional and
+"Not now" skips it, so it is never needed to create an account or use the app. Body details used for the BAC estimate (sex, weight,
 and optionally height and birth year) are entered after sign-in, are used only
 for that calculation, and are not required to create the account.
 
@@ -100,12 +102,20 @@ User-generated content safeguards (Guideline 1.2):
 - Friends can be removed at any time, and deleting the account removes all of
   the user's social data.
 - Contacts (optional): in Find friends, "Find friends from your contacts"
-  asks for Contacts access. Only the email addresses are sent, over HTTPS, to
-  check which belong to TrackSip accounts with a verified email; they are not
-  stored or logged, and the check takes at most 500 addresses and runs at most
-  twice a day. People found
-  this way may get one notification that the user is on TrackSip. Nothing is
-  read until the user taps the button and grants access.
+  asks for Contacts access. Only the phone numbers are sent, over HTTPS, to
+  check which belong to TrackSip accounts with a verified phone number; they
+  are not stored or logged, and the check takes at most 2,000 numbers and runs
+  at most twice a day (results are cached on the phone for 24 hours). Contacts
+  not on TrackSip appear in an Invite list that opens WhatsApp or Messages
+  (or the share sheet when neither is available) with a prefilled message the
+  user sends themselves; TrackSip sends nothing to them. People found this way may get one notification that the user is on
+  TrackSip. Nothing is read until the user taps the button and grants access.
+- Phone number (optional): added after the disclaimer in onboarding (with "Not
+  now"), once in Social for existing users, and changeable or removable in the
+  Social profile. It is verified by SMS code through Firebase Authentication
+  and used only so friends can find each other. It is never shown to other
+  users. The demo account works without
+  adding a number: skip the prompt with "Not now".
 - Reactions and comments on a night: reactions are a fixed set of two emojis (🍻 and 💧).
   Comments are text only, at most 200 characters, with no links or photos, and
   are rate-limited. Any comment can be reported with a long-press: the report

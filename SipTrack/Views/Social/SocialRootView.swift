@@ -4,6 +4,9 @@ import SwiftUI
 struct SocialRootView: View {
     @EnvironmentObject var friends: FriendsStore
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var firebase: FirebaseManager
+    /// The one-time "Add your number" ask (see `promptForPhoneIfNeeded`).
+    @State private var showPhonePrompt = false
     @State private var showSearch = false
     @State private var showFriends = false
     @State private var showProfile = false
@@ -40,10 +43,25 @@ struct SocialRootView: View {
                     .sheet(item: $pushedThread) { key in
                         NightThreadSheet(key: key, ownerName: pushedThreadOwnerName)
                     }
+                    // Any way it closes counts as answered, a swipe down included.
+                    .sheet(isPresented: $showPhonePrompt, onDismiss: { markPhonePromptAnswered() }) {
+                        AddPhoneView { added in
+                            markPhonePromptAnswered()
+                            showPhonePrompt = false
+                            if added { friends.clearContactCache() }
+                        }
+                    }
                     // A tapped reaction/comment push. Only here on the feed, so someone
                     // still choosing a username gets the sheet right after.
                     .onAppear(perform: openPendingThread)
                     .onChange(of: appState.pendingThread) { _, _ in openPendingThread() }
+                    // Once per appearance: re-read the number first, so one added
+                    // on another phone isn't asked for again here.
+                    .task {
+                        await firebase.refreshPhoneNumber()
+                        guard !Task.isCancelled else { return }
+                        promptForPhoneIfNeeded()
+                    }
             }
             }
             // On every Social root state, choosing a username included, so there is
@@ -80,7 +98,7 @@ struct SocialRootView: View {
         pushedThreadTask = nil
 
         let covered = wasWaiting || showSearch || showFriends || showProfile || feedCovered
-            || appState.pendingFriendLink != nil || pushedThread != nil
+            || appState.pendingFriendLink != nil || pushedThread != nil || showPhonePrompt
         guard covered else {
             pushedThreadOwnerName = name
             pushedThread = key
@@ -91,6 +109,7 @@ struct SocialRootView: View {
         showProfile = false
         feedCovered = false
         pushedThread = nil
+        showPhonePrompt = false
         appState.pendingFriendLink = nil
         stackID = UUID()
         pushedThreadTask = Task {
@@ -102,6 +121,29 @@ struct SocialRootView: View {
             pushedThread = key
             pushedThreadTask = nil
         }
+    }
+
+    /// Asks people who had a username before phone numbers existed, once per account
+    /// on this phone. Checked when the feed appears, never polled, and skipped while
+    /// a pushed thread or a friend link is showing or on its way, so it never stacks
+    /// on them. Also skipped while Social is hidden behind Home: the feed can first
+    /// appear there when the profile finishes loading after a tab switch.
+    private func promptForPhoneIfNeeded() {
+        guard appState.selectedTab == .social, !showPhonePrompt,
+              appState.pendingThread == nil, pushedThread == nil, pushedThreadTask == nil,
+              appState.pendingFriendLink == nil,
+              !showSearch, !showFriends, !showProfile, !feedCovered,
+              let uid = firebase.currentUserId() else { return }
+        if PhonePrompt.shouldPrompt(hasPhone: firebase.phoneNumber != nil,
+                                    hasUsername: friends.myProfile != nil,
+                                    dismissed: PhonePrompt.isDismissed(uid: uid)) {
+            showPhonePrompt = true
+        }
+    }
+
+    private func markPhonePromptAnswered() {
+        guard let uid = firebase.currentUserId() else { return }
+        PhonePrompt.markDismissed(uid: uid)
     }
 
     /// "" when the owner is neither me nor a loaded friend; the sheet copes.

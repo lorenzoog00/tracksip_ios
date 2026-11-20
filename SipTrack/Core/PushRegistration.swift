@@ -1,5 +1,6 @@
 import UIKit
 import UserNotifications
+import FirebaseAuth
 
 /// Where a tapped remote push leads. The server sends `route` (and `username`)
 /// beside `aps`; pushes from before that field existed are friend requests.
@@ -85,7 +86,8 @@ enum PushRegistration {
         }
     }
 
-    /// Launch and sign-in: never prompts, only refreshes the token when already allowed.
+    /// Sign-in: never prompts, only refreshes the token when already allowed.
+    /// Launch needs no call: it registers unconditionally (see `AppDelegate`).
     static func registerIfAuthorized() async {
         let status = await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
         if isAuthorized(status) { UIApplication.shared.registerForRemoteNotifications() }
@@ -100,14 +102,37 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         // The notification delegate must be in place before launch finishes or a
         // cold-start tap on a push is never delivered.
         _ = WaterReminderManager.shared
-        Task { await PushRegistration.registerIfAuthorized() }
+        // Firebase phone auth's silent check needs an APNs token. iOS hands one
+        // over without asking the user and shows nothing; our server only gets
+        // it once notifications are allowed (see below).
+        application.registerForRemoteNotifications()
         AdAttribution.start(application, launchOptions: launchOptions)
         return true
     }
 
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        // `.unknown`: Firebase reads sandbox or production from the provisioning profile.
+        Auth.auth().setAPNSToken(deviceToken, type: .unknown)
         let token = PushRegistration.hexString(deviceToken)
-        Task { await FirebaseManager.shared.registerPushToken(token) }
+        // Launch now registers without permission, for phone auth. Uploading only
+        // when allowed keeps things as they were: registering used to happen
+        // only after permission. Checked in the task so this callback never blocks.
+        Task {
+            let status = await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
+            guard PushRegistration.isAuthorized(status) else { return }
+            await FirebaseManager.shared.registerPushToken(token)
+        }
+    }
+
+    /// Firebase phone auth's silent push is the only one handled here. Friend
+    /// and thread pushes are visible ones, opened through `WaterReminderManager`.
+    func application(
+        _ application: UIApplication,
+        didReceiveRemoteNotification userInfo: [AnyHashable: Any],
+        fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
+    ) {
+        _ = Auth.auth().canHandleNotification(userInfo)
+        completionHandler(.noData)
     }
 
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {

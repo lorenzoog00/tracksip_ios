@@ -5,7 +5,12 @@ import PhotosUI
 struct SocialProfileView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var friends: FriendsStore
+    @EnvironmentObject var firebase: FirebaseManager
 
+    @State private var showAddPhone = false
+    @State private var confirmRemovePhone = false
+    @State private var isRemovingPhone = false
+    @State private var phoneError: String?
     @State private var pickerItem: PhotosPickerItem?
     @State private var showAvatarOptions = false
     @State private var showPicker = false
@@ -114,6 +119,8 @@ struct SocialProfileView: View {
                     .background(AppColors.surface)
                     .clipShape(RoundedRectangle(cornerRadius: 14))
 
+                    phoneSection
+
                     notificationsSection
                 }
                 .padding(20)
@@ -130,6 +137,16 @@ struct SocialProfileView: View {
             Button("Cancel", role: .cancel) {}
         }
         .photosPicker(isPresented: $showPicker, selection: $pickerItem, matching: .images)
+        .sheet(isPresented: $showAddPhone) {
+            AddPhoneView { added in
+                showAddPhone = false
+                // Answered here, so the feed doesn't ask again right after.
+                if let uid = firebase.currentUserId() {
+                    PhonePrompt.markDismissed(uid: uid)
+                }
+                if added { friends.clearContactCache() }
+            }
+        }
         .onChange(of: pickerItem) { _, item in
             guard let item else { return }
             Task {
@@ -141,6 +158,116 @@ struct SocialProfileView: View {
                     showSocialNotice(title: "Photo unavailable", message: "That photo couldn't be loaded. Try another one.")
                 }
             }
+        }
+    }
+
+    // MARK: - Phone number
+
+    /// Only ever shown here, on the owner's own profile.
+    private var phoneSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Phone number")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(AppColors.textSecondary)
+                .textCase(.uppercase)
+                .padding(.leading, 4)
+                .accessibilityAddTraits(.isHeader)
+
+            VStack(spacing: 0) {
+                if let number = firebase.phoneNumber {
+                    HStack {
+                        Text(PhoneNumbers.formatted(number))
+                            .foregroundStyle(AppColors.text)
+                        Spacer()
+                        if isRemovingPhone {
+                            ProgressView().tint(AppColors.accent)
+                        }
+                    }
+                    .padding(16)
+
+                    Divider().overlay(AppColors.border)
+
+                    HStack(spacing: 0) {
+                        Button {
+                            phoneError = nil
+                            showAddPhone = true
+                        } label: {
+                            Text("Change")
+                                .foregroundStyle(AppColors.accent)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                                .contentShape(Rectangle())
+                        }
+
+                        Divider().overlay(AppColors.border)
+
+                        Button {
+                            phoneError = nil
+                            confirmRemovePhone = true
+                        } label: {
+                            Text("Remove")
+                                .foregroundStyle(AppColors.danger)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                                .contentShape(Rectangle())
+                        }
+                    }
+                    .fixedSize(horizontal: false, vertical: true)
+                    .disabled(isRemovingPhone)
+                } else {
+                    Button {
+                        phoneError = nil
+                        showAddPhone = true
+                    } label: {
+                        HStack {
+                            Text("Add your number")
+                                .foregroundStyle(AppColors.text)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(AppColors.textTertiary)
+                        }
+                        .padding(16)
+                        .contentShape(Rectangle())
+                    }
+                }
+            }
+            .font(.system(size: 16))
+            .background(AppColors.surface)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .confirmationDialog("Remove your number?", isPresented: $confirmRemovePhone, titleVisibility: .visible) {
+                Button("Remove", role: .destructive) { removePhone() }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Friends won't find you from their contacts.")
+            }
+
+            if let phoneError {
+                Text(phoneError)
+                    .font(.system(size: 12))
+                    .foregroundStyle(AppColors.danger)
+                    .padding(.leading, 4)
+            } else {
+                Text("Never shown to anyone. It lets friends find you from their contacts.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(AppColors.textSecondary)
+                    .padding(.leading, 4)
+            }
+        }
+    }
+
+    private func removePhone() {
+        guard !isRemovingPhone else { return }
+        isRemovingPhone = true
+        phoneError = nil
+        Task {
+            do {
+                try await firebase.removePhoneNumber()
+                friends.clearContactCache()
+            } catch {
+                phoneError = FirebaseManager.phoneErrorText(error)
+            }
+            isRemovingPhone = false
         }
     }
 
