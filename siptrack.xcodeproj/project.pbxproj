@@ -16,6 +16,11 @@
 		5A7C1E3D9B2F4A60C8D1E7B1 /* SharedNightSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A7C1E3D9B2F4A60C8D1E7B2 /* SharedNightSync.swift */; };
 		5A7C1E3D9B2F4A60C8D1E7B3 /* SharedNightSyncTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A7C1E3D9B2F4A60C8D1E7B4 /* SharedNightSyncTests.swift */; };
 		5A7C1E3D9B2F4A60C8D1E703 /* FeedOrdering.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A7C1E3D9B2F4A60C8D1E704 /* FeedOrdering.swift */; };
+		2C30CB933200000000000002 /* PhoneNumbers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C30CB933200000000000001 /* PhoneNumbers.swift */; };
+		2C30CB933200000000000004 /* ContactPhones.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C30CB933200000000000003 /* ContactPhones.swift */; };
+		2C30CB933200000000000006 /* PhoneNumbersTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C30CB933200000000000005 /* PhoneNumbersTests.swift */; };
+		2C30CB933200000000000008 /* ContactPhonesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C30CB933200000000000007 /* ContactPhonesTests.swift */; };
+		2C30CB93320000000000000B /* PhoneNumberKit in Frameworks */ = {isa = PBXBuildFile; productRef = 2C30CB93320000000000000A /* PhoneNumberKit */; };
 		5F1D0001000000000000B003 /* FriendLinkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F1D0001000000000000A003 /* FriendLinkTests.swift */; };
 		6A2E0000000000000000B003 /* NightThreadTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A2E0000000000000000A003 /* NightThreadTests.swift */; };
 		5A7C1E3D9B2F4A60C8D1E705 /* SharedNightTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A7C1E3D9B2F4A60C8D1E706 /* SharedNightTests.swift */; };
@@ -245,6 +250,10 @@
 		5A7C1E3D9B2F4A60C8D1E7B2 /* SharedNightSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedNightSync.swift; sourceTree = "<group>"; };
 		5A7C1E3D9B2F4A60C8D1E7B4 /* SharedNightSyncTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedNightSyncTests.swift; sourceTree = "<group>"; };
 		5A7C1E3D9B2F4A60C8D1E704 /* FeedOrdering.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedOrdering.swift; sourceTree = "<group>"; };
+		2C30CB933200000000000001 /* PhoneNumbers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneNumbers.swift; sourceTree = "<group>"; };
+		2C30CB933200000000000003 /* ContactPhones.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactPhones.swift; sourceTree = "<group>"; };
+		2C30CB933200000000000005 /* PhoneNumbersTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneNumbersTests.swift; sourceTree = "<group>"; };
+		2C30CB933200000000000007 /* ContactPhonesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactPhonesTests.swift; sourceTree = "<group>"; };
 		5F1D0001000000000000A003 /* FriendLinkTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FriendLinkTests.swift; sourceTree = "<group>"; };
 		6A2E0000000000000000A003 /* NightThreadTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NightThreadTests.swift; sourceTree = "<group>"; };
 		5A7C1E3D9B2F4A60C8D1E706 /* SharedNightTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedNightTests.swift; sourceTree = "<group>"; };
@@ -453,6 +462,7 @@
 				B15DA9B02FAC443C00345F64 /* FirebaseCrashlytics in Frameworks */,
 				B1CC00072FA00001000CCCCC /* SipTrackActivityKit in Frameworks */,
 				B164CFE92FA2CA5B00AA682B /* WatchConnectivity.framework in Frameworks */,
+				2C30CB93320000000000000B /* PhoneNumberKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -514,6 +524,8 @@
 				6A2E0000000000000000A002 /* NightThreadStore.swift */,
 				5A7C1E3D9B2F4A60C8D1E7B2 /* SharedNightSync.swift */,
 				5A7C1E3D9B2F4A60C8D1E704 /* FeedOrdering.swift */,
+				2C30CB933200000000000001 /* PhoneNumbers.swift */,
+				2C30CB933200000000000003 /* ContactPhones.swift */,
 			);
 			path = Social;
 			sourceTree = "<group>";
@@ -892,6 +904,8 @@
 				5A7C1E3D9B2F4A60C8D1E7B4 /* SharedNightSyncTests.swift */,
 				6B8D2F4E0C3A5B71D9E2F8C4 /* PushRegistrationTests.swift */,
 				5A7C1E3D9B2F4A60C8D1E7A2 /* IncognitoTests.swift */,
+				2C30CB933200000000000005 /* PhoneNumbersTests.swift */,
+				2C30CB933200000000000007 /* ContactPhonesTests.swift */,
 			);
 			path = siptrackTests;
 			sourceTree = "<group>";
@@ -927,6 +941,7 @@
 				B15DA98B2FAB9EED00345F64 /* GoogleSignIn */,
 				B15DA98D2FAB9EED00345F64 /* GoogleSignInSwift */,
 				B15DA9AF2FAC443C00345F64 /* FirebaseCrashlytics */,
+				2C30CB93320000000000000A /* PhoneNumberKit */,
 			);
 			productName = siptrack;
 			productReference = B101B4622F9C2B24009F7DDD /* siptrack.app */;
@@ -1118,6 +1133,7 @@
 				B15DA9882FAB9E3600345F64 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
 				AD7A00032FD0000000AD7A00 /* XCRemoteSwiftPackageReference "facebook-ios-sdk" */,
 				AD7A00042FD0000000AD7A00 /* XCRemoteSwiftPackageReference "tiktok-business-ios-sdk" */,
+				2C30CB933200000000000009 /* XCRemoteSwiftPackageReference "PhoneNumberKit" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = B101B4632F9C2B24009F7DDD /* Products */;
@@ -1236,6 +1252,8 @@
 				6A2E0000000000000000B002 /* NightThreadStore.swift in Sources */,
 				5A7C1E3D9B2F4A60C8D1E7B1 /* SharedNightSync.swift in Sources */,
 				5A7C1E3D9B2F4A60C8D1E703 /* FeedOrdering.swift in Sources */,
+				2C30CB933200000000000002 /* PhoneNumbers.swift in Sources */,
+				2C30CB933200000000000004 /* ContactPhones.swift in Sources */,
 				B101B4EE2F9CD648009F7DDD /* CalendarView.swift in Sources */,
 				B101B4EF2F9CD648009F7DDD /* ChallengesView.swift in Sources */,
 				B101B4F02F9CD648009F7DDD /* DashboardView.swift in Sources */,
@@ -1330,6 +1348,8 @@
 				8E3F7C2B5D4A6810C3F6A9B4 /* HapticSpecTests.swift in Sources */,
 				4D2A9E6B1C7F4053B8E1A6C2 /* CeilingCrossingTests.swift in Sources */,
 				D0F447A822F34B68A69C0401 /* WaterReminderTests.swift in Sources */,
+				2C30CB933200000000000006 /* PhoneNumbersTests.swift in Sources */,
+				2C30CB933200000000000008 /* ContactPhonesTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2047,6 +2067,14 @@
 				minimumVersion = 1.7.2;
 			};
 		};
+		2C30CB933200000000000009 /* XCRemoteSwiftPackageReference "PhoneNumberKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/marmelroy/PhoneNumberKit";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 4.3.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -2104,6 +2132,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = AD7A00042FD0000000AD7A00 /* XCRemoteSwiftPackageReference "tiktok-business-ios-sdk" */;
 			productName = TikTokBusinessSDK;
+		};
+		2C30CB93320000000000000A /* PhoneNumberKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 2C30CB933200000000000009 /* XCRemoteSwiftPackageReference "PhoneNumberKit" */;
+			productName = PhoneNumberKit;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
