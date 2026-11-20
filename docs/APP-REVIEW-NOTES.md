@@ -107,13 +107,14 @@ User-generated content safeguards (Guideline 1.2):
   are not stored or logged, and the check takes at most 2,000 numbers and runs
   at most twice a day (results are cached on the phone for 24 hours). Contacts
   not on TrackSip appear in an Invite list that opens WhatsApp or Messages
-  with a prefilled message the user sends themselves; TrackSip sends nothing
-  to them. People found this way may get one notification that the user is on
+  (or the share sheet when neither is available) with a prefilled message the
+  user sends themselves; TrackSip sends nothing to them. People found this way may get one notification that the user is on
   TrackSip. Nothing is read until the user taps the button and grants access.
 - Phone number (optional): added after the disclaimer in onboarding (with "Not
   now"), once in Social for existing users, and changeable or removable in the
   Social profile. It is verified by SMS code through Firebase Authentication
-  and used only so friends can find each other. The demo account works without
+  and used only so friends can find each other. It is never shown to other
+  users. The demo account works without
   adding a number: skip the prompt with "Not now".
 - Reactions and comments on a night: reactions are a fixed set of two emojis (🍻 and 💧).
   Comments are text only, at most 200 characters, with no links or photos, and

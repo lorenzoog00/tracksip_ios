@@ -53,10 +53,12 @@ TrackSip yet in two taps.
   the first 10 SMS per day are free. Every SMS sent is billed, including
   resends and codes never typed. Twilio Verify came to roughly $0.20 per
   Mexican verification.
-- **All countries open.** No SMS region allowlist. Protection is App Check
-  (already enforced on our functions), Firebase's own silent-push check that
-  the request comes from a real iPhone, and the cost alert. If abuse shows up,
-  the owner blocks those regions in the Firebase console; no app update.
+- **All countries open.** No SMS region allowlist. App Check on our functions
+  does not protect SMS sending (`verifyPhoneNumber` calls Identity Toolkit
+  directly), so the only guard is Firebase's own APNs/reCAPTCHA check that
+  the request comes from a real iPhone, with the cost alert as the alarm. If
+  abuse shows up, the owner blocks those regions in the Firebase console or
+  turns on App Check enforcement for Firebase Authentication; no app update.
 - **Number entry:** a country picker with flags (all countries, searchable),
   then the national number. The digit count and format are checked per
   country (Mexico: 10 digits).

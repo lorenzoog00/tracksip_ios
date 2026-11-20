@@ -168,9 +168,13 @@ retried after signing in. Confirm the retry operationally in staging.
 ## Friends / social release checklist
 
 Friends v1 adds 11 callable functions, new Firestore rules and indexes, avatar
-uploads and a report alert. **CI never deploys functions or indexes**, so none of
-this ships with the app build: do every step below before distributing it. All of
-it is done by the developer with their own credentials.
+uploads and a report alert. None of this ships with the app build: do every step
+below before distributing it. This list predates the **Deploy backend** workflow:
+a merge to `main` that touches the backend now deploys rules, indexes, Storage
+and functions once you approve it (see "Validate and deploy"), so the
+`firebase deploy` commands below are the manual path for emergencies or an
+ordered rollout. The console steps are done by the developer with their own
+credentials.
 
 1. **Firebase project `device-streaming-8326abff`** (the live one, "Tracksip" in
    the console). In Google Cloud Console for that project, enable the **Cloud
@@ -263,8 +267,8 @@ it is done by the developer with their own credentials.
       ```
 
       Confirm `reactToNight`, `addComment`, `deleteComment`, `getNightThread`
-      and the `cleanupThreads` Firestore trigger are listed (CI never deploys
-      functions). The updated `reportUser` (comment reports) and
+      and the `cleanupThreads` Firestore trigger are listed (also after an
+      approved Deploy backend run). The updated `reportUser` (comment reports) and
       `registerPushToken` (the `threads` push feature) ship in the same deploy;
       until it is live, the new build's comment reports fail.
    4. **Then ship the build.** Thread pushes only go to an app that registered
@@ -312,55 +316,93 @@ it is done by the developer with their own credentials.
        until it exists sign-out still works but leaves the token behind.
        The same deploy makes `reactToNight` set (not toggle) the reaction
        the app sends; every build already sends `null` to remove, so older
-       builds keep working. Contact matching drops to 500 emails a call,
-       twice a day: an older build may send up to 2,000, and the server
-       checks the first 500 (it refuses only payloads over 5,000).
+       builds keep working. (This deploy also capped email contact matching
+       at 500 a call, twice a day. Superseded: matching is by phone now and
+       the server refuses emails; see "Phone friends — one-time setup".)
 
 ## Phone friends — one-time setup
 
 Friend finding by phone replaces email contact matching (spec:
-`docs/superpowers/specs/2026-11-20-phone-friends-design.md`). **CI never deploys
-functions**, so do these steps yourself, in order, before distributing the build.
+`docs/superpowers/specs/2026-11-20-phone-friends-design.md`). Steps 1–5 are
+yours, in the consoles; step 6 is the cutover, done by approving the Deploy
+backend run. Do them in order, before distributing the build.
 
 1. **Enable phone sign-in.** Firebase console → Authentication → Sign-in method
-   → Phone: Enable. Leave the SMS region policy unset (no region restriction).
+   → Phone: Enable. Leave the SMS region policy unset (no region restriction;
+   see "SMS abuse" below for what that leaves open).
 2. **APNs key for phone auth.** Firebase console → Project settings → Cloud
    Messaging → Apple app configuration: upload the APNs auth key (`.p8`) with
    its Key ID and Team ID. Firebase uses it to verify the device silently
    before falling back to a reCAPTCHA page.
-3. **Cost alert.** SMS is the one new cost that scales with sign-ups, and
-   budgets alert but do not stop spending. In Google Cloud Billing → Budgets &
-   alerts → Create budget: name "SMS phone auth", scope project
-   `device-streaming-8326abff`, $20 per month, email alerts at 50%, 90% and
-   100%. Or from a terminal with billing permissions:
+3. **Cost alert, scoped to SMS.** SMS is the one new cost that scales with
+   sign-ups, and budgets alert but do not stop spending. The budget covers the
+   SMS service only, so other spend can't hide an SMS spike or set it off. In
+   Google Cloud Billing → Budgets & alerts → Create budget: name "SMS phone
+   auth"; Scope → Projects: `device-streaming-8326abff`; Scope → Services:
+   **Identity Platform** (the service that carries phone-auth SMS charges);
+   $20 per month; email alerts at 50%, 90% and 100%. Or from a terminal with
+   billing permissions:
 
    ```powershell
-   gcloud billing budgets create --billing-account=<BILLING_ACCOUNT_ID> --display-name="SMS phone auth" --budget-amount=20USD --filter-projects=projects/device-streaming-8326abff --threshold-rule=percent=0.5 --threshold-rule=percent=0.9 --threshold-rule=percent=1.0
+   gcloud billing budgets create --billing-account=<BILLING_ACCOUNT_ID> --display-name="SMS phone auth" --budget-amount=20USD --filter-projects=projects/device-streaming-8326abff --filter-services=services/<SERVICE_ID> --threshold-rule=percent=0.5 --threshold-rule=percent=0.9 --threshold-rule=percent=1.0
    ```
 
    Find the billing account id with
    `gcloud billing projects describe device-streaming-8326abff` (the
    `billingAccountName` field reads `billingAccounts/XXXXXX-XXXXXX-XXXXXX`;
-   use the part after the slash).
+   use the part after the slash). gcloud has no command that lists billing
+   services, so find `<SERVICE_ID>` in the Cloud Billing Catalog API (the
+   `name` field reads `services/XXXX-XXXX-XXXX`; use the part after the
+   slash):
+
+   ```powershell
+   $token = gcloud auth print-access-token
+   (Invoke-RestMethod -Headers @{Authorization = "Bearer $token"} "https://cloudbilling.googleapis.com/v1/services?pageSize=5000").services | Where-Object displayName -like "*Identity Platform*" | Select-Object name, displayName
+   ```
+
+   The console's Services picker takes the name, so it needs no id. After the
+   first days of real SMS, open Billing → Reports filtered to the project: if
+   the SMS charges show under another service, scope the budget to that one.
 4. **App Store Connect privacy.** App Privacy → add **Phone Number**, linked to
    the user, not used for tracking, purpose App Functionality. Contacts stays
    "not collected": numbers are checked and never stored.
 5. **Privacy policy.** Update https://tracksip.online/policy (EMporium web
    repo): the phone number is collected for friend finding; contacts' numbers
    are checked over HTTPS and not stored.
-6. **Deploy order: functions first, then the app.**
+6. **Cutover: approve the Deploy backend run when the app build is ready.**
+   Merging this branch's PR into `main` touches `functions/`, so it queues the
+   **Deploy backend** workflow, which waits for your approval on the
+   `production` environment (see "Validate and deploy"). Approving it is the
+   cutover: once the new functions are live, email matching ends for every
+   installed build, with no transition period, and builds already in the field
+   get "Update TrackSip to find friends from your contacts." So approve only
+   when the app build is ready to submit (archived, privacy labels and policy
+   from steps 4 and 5 done), then submit it right after. Check the callables
+   once the run is green:
 
    ```powershell
-   cd functions
-   $env:FUNCTIONS_DISCOVERY_TIMEOUT=120
-   npx firebase deploy --only functions --project device-streaming-8326abff
    npx firebase functions:list --project device-streaming-8326abff
    ```
 
-   The email path is gone as soon as the functions are live, with no transition
-   period: builds already in the field get "Update TrackSip to find friends
-   from your contacts." Ship the app build right after, and update the privacy
-   labels and policy (steps 4 and 5) before submitting it for review.
+   A manual `firebase deploy` (the commands under "Validate and deploy") is for
+   emergencies only, such as the workflow being broken while a fix must ship.
+
+**SMS abuse (owner note).** All countries stay open: that decision stands. Be
+clear about what guards it, though. App Check is enforced on our functions, but
+`verifyPhoneNumber` calls Identity Toolkit directly, so App Check on our
+functions does not stand between an attacker and sending SMS. The only built-in
+guard is Firebase's own device check: a silent APNs push, falling back to
+reCAPTCHA. If SMS abuse shows up (the budget alert from step 3, or SMS counts in
+Authentication → Usage you can't explain), the options are, without an app
+update:
+
+- (a) **App Check enforcement for Firebase Authentication** (Firebase console →
+  App Check → APIs → Authentication). Watch its metrics first, the share of
+  verified requests, so turning it on doesn't lock out real users on builds
+  or devices that don't send a token.
+- (b) **An SMS region policy** allowlisting the countries real users come from
+  (Firebase console → Authentication → Settings → SMS region policy).
+- (c) **The SMS-scoped budget** from step 3, which is the alarm, not a stop.
 
 ## Dependencies
 

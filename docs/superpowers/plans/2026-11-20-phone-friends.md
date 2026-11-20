@@ -6,7 +6,7 @@
 
 **Architecture:** Firebase phone auth links a number to the existing account. `matchContacts` looks numbers up in Firebase Auth (`getUsers` with `phoneNumber`) and returns Social profiles plus the matched numbers. The phone normalizes contacts with PhoneNumberKit, caches the result for 24 h, and builds the Invite list locally.
 
-**Tech Stack:** SwiftUI (iOS 18), FirebaseAuth (firebase-ios-sdk 12.x), PhoneNumberKit 4.x (SPM), Contacts, MessageUI; Cloud Functions v2 (Node 24).
+**Tech Stack:** SwiftUI (iOS 18), FirebaseAuth (firebase-ios-sdk 12.x), PhoneNumberKit 5.x (SPM, github.com/PhoneNumberKit/PhoneNumberKit), Contacts, MessageUI; Cloud Functions v2 (Node 24).
 
 **Spec:** docs/superpowers/specs/2026-11-20-phone-friends-design.md
 
@@ -116,7 +116,7 @@ git commit -m "Match contacts by verified phone number instead of email"
 ### Task 2: Phone number normalization and contact loading (iOS)
 
 **Files:**
-- Modify: `siptrack.xcodeproj/project.pbxproj`: add the Swift package `https://github.com/marmelroy/PhoneNumberKit` (upToNextMajorVersion from `4.0.0`), product `PhoneNumberKit`, linked to the `siptrack` app target only. Follow the existing `firebase-ios-sdk` entries' shape: XCRemoteSwiftPackageReference, XCSwiftPackageProductDependency, PBXBuildFile in Frameworks, the target's `packageProductDependencies`, and the project's `packageReferences`.
+- Modify: `siptrack.xcodeproj/project.pbxproj`: add the Swift package `https://github.com/PhoneNumberKit/PhoneNumberKit` (PhoneNumberKit 5.x: upToNextMajorVersion from `5.0.14`, the maintained repo), product `PhoneNumberKit`, linked to the `siptrack` app target only. Follow the existing `firebase-ios-sdk` entries' shape: XCRemoteSwiftPackageReference, XCSwiftPackageProductDependency, PBXBuildFile in Frameworks, the target's `packageProductDependencies`, and the project's `packageReferences`.
 - Create: `SipTrack/Social/PhoneNumbers.swift`
 - Create: `SipTrack/Social/ContactPhones.swift`
 - Leave `enum ContactEmails` in `UserSearchView.swift` for now; Task 5 deletes it together with its callers.
@@ -196,7 +196,7 @@ git commit -m "Match contacts by verified phone number instead of email"
 
 - [ ] **Step 3: Implement `PhoneNumbers` in `SipTrack/Social/PhoneNumbers.swift`**
 
-- Use one shared `PhoneNumberUtility` (PhoneNumberKit 4.x).
+- Use one shared `PhoneNumberUtility` (PhoneNumberKit 5.x).
 - Mexico pre-pass before parsing: strip a leading `044`/`045` from national input; rewrite `+52 1` / `521` followed by 10 digits to `+52` plus the 10 digits.
 - Accept only numbers PhoneNumberKit validates. Flags come from regional-indicator scalars. Country names come from `Locale.current.localizedString(forRegionCode:)`.
 
