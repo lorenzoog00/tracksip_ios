@@ -316,6 +316,52 @@ it is done by the developer with their own credentials.
        twice a day: an older build may send up to 2,000, and the server
        checks the first 500 (it refuses only payloads over 5,000).
 
+## Phone friends — one-time setup
+
+Friend finding by phone replaces email contact matching (spec:
+`docs/superpowers/specs/2026-11-20-phone-friends-design.md`). **CI never deploys
+functions**, so do these steps yourself, in order, before distributing the build.
+
+1. **Enable phone sign-in.** Firebase console → Authentication → Sign-in method
+   → Phone: Enable. Leave the SMS region policy unset (no region restriction).
+2. **APNs key for phone auth.** Firebase console → Project settings → Cloud
+   Messaging → Apple app configuration: upload the APNs auth key (`.p8`) with
+   its Key ID and Team ID. Firebase uses it to verify the device silently
+   before falling back to a reCAPTCHA page.
+3. **Cost alert.** SMS is the one new cost that scales with sign-ups, and
+   budgets alert but do not stop spending. In Google Cloud Billing → Budgets &
+   alerts → Create budget: name "SMS phone auth", scope project
+   `device-streaming-8326abff`, $20 per month, email alerts at 50%, 90% and
+   100%. Or from a terminal with billing permissions:
+
+   ```powershell
+   gcloud billing budgets create --billing-account=<BILLING_ACCOUNT_ID> --display-name="SMS phone auth" --budget-amount=20USD --filter-projects=projects/device-streaming-8326abff --threshold-rule=percent=0.5 --threshold-rule=percent=0.9 --threshold-rule=percent=1.0
+   ```
+
+   Find the billing account id with
+   `gcloud billing projects describe device-streaming-8326abff` (the
+   `billingAccountName` field reads `billingAccounts/XXXXXX-XXXXXX-XXXXXX`;
+   use the part after the slash).
+4. **App Store Connect privacy.** App Privacy → add **Phone Number**, linked to
+   the user, not used for tracking, purpose App Functionality. Contacts stays
+   "not collected": numbers are checked and never stored.
+5. **Privacy policy.** Update https://tracksip.online/policy (EMporium web
+   repo): the phone number is collected for friend finding; contacts' numbers
+   are checked over HTTPS and not stored.
+6. **Deploy order: functions first, then the app.**
+
+   ```powershell
+   cd functions
+   $env:FUNCTIONS_DISCOVERY_TIMEOUT=120
+   npx firebase deploy --only functions --project device-streaming-8326abff
+   npx firebase functions:list --project device-streaming-8326abff
+   ```
+
+   The email path is gone as soon as the functions are live, with no transition
+   period: builds already in the field get "Update TrackSip to find friends
+   from your contacts." Ship the app build right after, and update the privacy
+   labels and policy (steps 4 and 5) before submitting it for review.
+
 ## Dependencies
 
 Apple's official server library is required to verify the certificate chain,
