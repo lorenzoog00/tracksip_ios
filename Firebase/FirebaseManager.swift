@@ -491,6 +491,29 @@ final class FirebaseManager: ObservableObject {
         return d["report"] as? String
     }
 
+    // MARK: - Morning recovery plan
+
+    /// Asks for a night's morning plan. The answer is the plan (with the free
+    /// plans left, nil for Pro), or `pending` while another request for the
+    /// same night is still being built. Server refusals throw with the
+    /// callable's status (see `MorningCheckIn.outcome`).
+    func requestMorningPlan(eventId: String, payload: [String: Any]) async throws
+        -> (record: MorningRecord?, pending: Bool, remaining: Int?) {
+        let result = try await requestReport(kind: "morning", id: eventId, payload: payload)
+        return try MorningCheckIn.response(from: result, eventId: eventId)
+    }
+
+    /// The stored plan doc (`night_recoveries/{eventId}`, `type: "morning"`),
+    /// or nil when it isn't there yet, is an old recovery brief, or can't be
+    /// read.
+    func fetchMorningPlan(eventId: String) async -> MorningRecord? {
+        guard let uid = currentUserId() else { return nil }
+        let doc = try? await db.collection("users").document(uid)
+            .collection("night_recoveries").document(eventId).getDocument()
+        guard let d = doc?.data(), d["type"] as? String == "morning" else { return nil }
+        return try? MorningRecord(eventId: eventId, serverJSON: MorningCheckIn.planFields(d))
+    }
+
     func deleteCoachReport(reportId: String) async throws {
         guard let uid = currentUserId() else { return }
         try await db.collection("users").document(uid)
@@ -569,8 +592,9 @@ final class FirebaseManager: ObservableObject {
         return UUID(uuidString: parts.joined(separator: "-"))
     }
 
+    @discardableResult
     private func requestReport(kind: String, id: String, payload: [String: Any],
-                               metadata: [String: Any] = [:]) async throws {
+                               metadata: [String: Any] = [:]) async throws -> [String: Any] {
         guard DataStore.shared.loadUserProfile().aiReportsEnabled == true else {
             throw NSError(domain: "FirebaseManager", code: 403,
                           userInfo: [NSLocalizedDescriptionKey: "Enable AI reports in Profile before sharing data with Anthropic."])
@@ -580,7 +604,7 @@ final class FirebaseManager: ObservableObject {
         if let signed = await signedProTransaction() {
             data["signedTransaction"] = signed
         }
-        _ = try await callFunction("requestReport", data: data)
+        return try await callFunction("requestReport", data: data)
     }
 
     /// Fill a new drink's numbers from a free-text description.

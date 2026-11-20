@@ -44,16 +44,32 @@ struct MorningCheckInTests {
 
     // MARK: - shouldNotify
 
-    private func notify(drinks: Double = 5, signedIn: Bool = true, ai: Bool = true,
+    private func notify(drinks: Double = 5, missing: Int = 0, signedIn: Bool = true, ai: Bool = true,
                         pro: Bool = false, left: Int = 3) -> Bool {
-        MorningCheckIn.shouldNotify(standardDrinks: drinks, signedIn: signedIn, aiEnabled: ai,
-                                    isPro: pro, freePlansLeft: left)
+        MorningCheckIn.shouldNotify(standardDrinks: drinks, missingServings: missing, signedIn: signedIn,
+                                    aiEnabled: ai, isPro: pro, freePlansLeft: left)
     }
 
     @Test func noNotificationBelowThreeStandardDrinks() {
         #expect(notify(drinks: 2.9) == false)
         #expect(notify(drinks: 0) == false)
         #expect(notify(drinks: 3) == true)
+        #expect(notify(drinks: Double.nan) == false)
+    }
+
+    @Test func aNightWithUnmeasuredServingsCountsAsHeavyEnough() {
+        // The server treats an incomplete dose as heavy, so the notification goes out.
+        #expect(notify(drinks: 0, missing: 1) == true)
+        #expect(notify(drinks: 1.2, missing: 2) == true)
+        #expect(notify(drinks: Double.nan, missing: 1) == true)
+        // ...but still only when a plan can be built.
+        #expect(notify(drinks: 0, missing: 1, ai: false) == false)
+        #expect(notify(drinks: 0, missing: 1, pro: false, left: 0) == false)
+    }
+
+    @Test func theDefaultMissingServingsSignatureStillWorks() {
+        #expect(MorningCheckIn.shouldNotify(standardDrinks: 4, signedIn: true, aiEnabled: true,
+                                            isPro: false, freePlansLeft: 1))
     }
 
     @Test func noNotificationWhenAIIsOffOrSignedOut() {
@@ -84,8 +100,8 @@ struct MorningCheckInTests {
     private var friday: NightEvent { night("friday", start: nov(20, 22), end: nov(21, 2, 40)) }
 
     private func checkIn(_ events: [NightEvent], now: Date, planned: Set<String> = [],
-                         drinks: Double = 5) -> String? {
-        MorningCheckIn.checkInEventId(events: events, standardDrinks: { _ in drinks },
+                         servings: Int = 5) -> String? {
+        MorningCheckIn.checkInEventId(events: events, loggedServings: { _ in servings },
                                       plannedIds: planned, now: now, calendar: Self.utc)
     }
 
@@ -122,16 +138,48 @@ struct MorningCheckInTests {
     }
 
     @Test func noCheckInForAZeroDrinkNight() {
-        #expect(checkIn([friday], now: nov(21, 10), drinks: 0) == nil)
+        #expect(checkIn([friday], now: nov(21, 10), servings: 0) == nil)
         #expect(checkIn([], now: nov(21, 10)) == nil)
+    }
+
+    @Test func aNightOfOnlyUnknownDrinksStillHasDrinks() {
+        // A drink type that is gone measures 0 standard drinks but is still a logged serving.
+        let unknown = DrinkEntry(id: "u1", eventId: "friday", drinkTypeId: "deleted-type", timestamp: nov(20, 23),
+                                 quantity: 2, comment: nil, volumeOverrideMl: nil, abvOverride: nil)
+        let dose = ReportAlcoholDose(entries: [unknown], drinkTypes: DrinkType.presets)
+        #expect(dose.standardDrinks == 0)
+        let id = MorningCheckIn.checkInEventId(
+            events: [friday],
+            loggedServings: { night in
+                ReportAlcoholDose(entries: [unknown].filter { $0.eventId == night.id },
+                                  drinkTypes: DrinkType.presets).loggedServings
+            },
+            plannedIds: [], now: nov(21, 10), calendar: Self.utc
+        )
+        #expect(id == "friday")
+    }
+
+    @Test func theCheckInLastsUntil48HoursAfterTheNightEnds() {
+        // Friday ended 02:40 Saturday.
+        #expect(checkIn([friday], now: nov(22, 20)) == "friday")
+        #expect(checkIn([friday], now: nov(23, 2, 39)) == "friday")
+        #expect(checkIn([friday], now: nov(23, 2, 40)) == nil)
+        #expect(checkIn([friday], now: nov(30, 12)) == nil)
+    }
+
+    @Test func checkInWindowIs48Hours() {
+        let end = nov(21, 2, 40)
+        #expect(MorningCheckIn.isWithinCheckInWindow(nightEnd: end, now: end))
+        #expect(MorningCheckIn.isWithinCheckInWindow(nightEnd: end, now: end.addingTimeInterval(48 * 3600 - 1)))
+        #expect(!MorningCheckIn.isWithinCheckInWindow(nightEnd: end, now: end.addingTimeInterval(48 * 3600)))
     }
 
     @Test func defaultCalendarSignatureWorks() {
         let end = Date(timeIntervalSince1970: 1_795_000_000)
         let ended = night("n", start: end.addingTimeInterval(-4 * 3600), end: end)
-        let soon = MorningCheckIn.checkInEventId(events: [ended], standardDrinks: { _ in 4 },
+        let soon = MorningCheckIn.checkInEventId(events: [ended], loggedServings: { _ in 4 },
                                                  plannedIds: [], now: end.addingTimeInterval(3600))
-        let nextDay = MorningCheckIn.checkInEventId(events: [ended], standardDrinks: { _ in 4 },
+        let nextDay = MorningCheckIn.checkInEventId(events: [ended], loggedServings: { _ in 4 },
                                                     plannedIds: [], now: end.addingTimeInterval(24 * 3600))
         #expect(soon == nil)
         #expect(nextDay == "n")
@@ -232,6 +280,16 @@ struct MorningCheckInTests {
         #expect(drinks.count == 1)
         #expect(drinks.first?["name"] as? String == "Tequila")
         #expect(JSONSerialization.isValidJSONObject(payload))
+    }
+
+    @Test func aBrokenBacNowEstimateErrsTowardTheDontDriveLine() {
+        // estimatedBacNow > 0 is what shows "Don't drive this morning", so bad data must not hide it.
+        #expect(MorningCheckIn.safeBacNow(Double.nan) == 0.01)
+        #expect(MorningCheckIn.safeBacNow(Double.infinity) == 0.01)
+        #expect(MorningCheckIn.safeBacNow(-Double.infinity) == 0.01)
+        #expect(MorningCheckIn.safeBacNow(-0.02) == 0)
+        #expect(MorningCheckIn.safeBacNow(0) == 0)
+        #expect(MorningCheckIn.safeBacNow(0.034) == 0.034)
     }
 
     @Test func fineIsNeverSentAlongsideOtherSymptoms() {
