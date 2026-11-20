@@ -42,7 +42,11 @@ const social = require("./social");
 const interactions = require("./interactions");
 const {setAvatar} = require("./avatar");
 const {generatePhoto, completeLibraryPhoto} = require("./recovery/image");
-const {isAdmin, listPendingPhotos, reviewPhoto} = require("./recovery/review");
+const {
+  requireAdmin,
+  listPendingPhotos,
+  reviewPhoto,
+} = require("./recovery/review");
 
 initializeApp();
 setGlobalOptions({region: "us-central1", maxInstances: 10});
@@ -511,9 +515,10 @@ exports.setAvatar = onCall(
 /**
  * Generates and stores one library photo, with the genai client built per run.
  * @param {string} itemId
+ * @param {object} [options] `{versioned}`: regeneration writes a new path.
  * @return {Promise<void>}
  */
-async function runLibraryPhoto(itemId) {
+async function runLibraryPhoto(itemId, {versioned = false} = {}) {
   // Built per run, not at load, so a cold start that never needs it
   // does not pay for it.
   const {GoogleGenAI} = require("@google/genai");
@@ -527,6 +532,7 @@ async function runLibraryPhoto(itemId) {
     bucket: getStorage().bucket(),
     itemId,
     now: Date.now(),
+    versioned,
     generate: (picked) =>
       generatePhoto(picked, {genai, model: imageModel.value()}),
   });
@@ -547,23 +553,10 @@ exports.generateLibraryPhoto = onDocumentCreated(
     },
 );
 
-/**
- * Rejects callers that are not signed in admins.
- * @param {object} request The callable request.
- */
-function requireAdmin(request) {
-  if (!request.auth) {
-    throw new HttpsError("unauthenticated", "Please sign in.");
-  }
-  if (!isAdmin(request.auth.uid, adminUids.value())) {
-    throw new HttpsError("permission-denied", "Admins only.");
-  }
-}
-
 exports.listPendingPhotos = onCall(
     {enforceAppCheck: true},
     async (request) => {
-      requireAdmin(request);
+      requireAdmin(request.auth, adminUids.value());
       return listPendingPhotos({db: getFirestore()});
     },
 );
@@ -571,10 +564,11 @@ exports.listPendingPhotos = onCall(
 exports.reviewPhoto = onCall(
     {enforceAppCheck: true, memory: "1GiB", timeoutSeconds: 120},
     async (request) => {
-      requireAdmin(request);
+      requireAdmin(request.auth, adminUids.value());
       const {itemId, action} = request.data ?? {};
       return reviewPhoto({
-        db: getFirestore(), itemId, action, regenerate: runLibraryPhoto,
+        db: getFirestore(), itemId, action,
+        regenerate: (id) => runLibraryPhoto(id, {versioned: true}),
       });
     },
 );

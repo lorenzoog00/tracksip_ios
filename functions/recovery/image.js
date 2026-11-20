@@ -133,11 +133,13 @@ function clearPaths(db, ref, done) {
  * @param {string} args.itemId
  * @param {Function} args.generate ({name, kind}) => Promise<Buffer>
  * @param {number|Date} args.now
+ * @param {boolean} [args.versioned] Write to a new path so photo URLs
+ *   already copied into plans keep working (used by regeneration).
  * @param {Function} [args.wait] (ms) => Promise, for tests.
  * @return {Promise<void>}
  */
 async function completeLibraryPhoto({
-  db, bucket, itemId, generate, now,
+  db, bucket, itemId, generate, now, versioned = false,
   wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
 }) {
   const ref = db.doc(`recovery_library/${itemId}`);
@@ -152,7 +154,9 @@ async function completeLibraryPhoto({
   let photoPath;
   try {
     const buffer = await generate({name: item.name, kind: item.kind});
-    photoPath = `recovery-library/${itemId}.jpg`;
+    photoPath = versioned ?
+      `recovery-library/${itemId}-${Number(now)}.jpg` :
+      `recovery-library/${itemId}.jpg`;
     const token = crypto.randomUUID();
     await bucket.file(photoPath).save(buffer, {
       // Custom metadata only counts under metadata.metadata, as for avatars.

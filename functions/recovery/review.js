@@ -17,6 +17,18 @@ function isAdmin(uid, raw) {
 }
 
 /**
+ * Throws unless the caller is a signed-in admin.
+ * @param {{uid: string}|undefined} auth The callable's `request.auth`.
+ * @param {string} raw The ADMIN_UIDS value.
+ */
+function requireAdmin(auth, raw) {
+  if (!auth) throw new HttpsError("unauthenticated", "Please sign in.");
+  if (!isAdmin(auth.uid, raw)) {
+    throw new HttpsError("permission-denied", "Admins only.");
+  }
+}
+
+/**
  * Milliseconds of a stored `createdAt` (number, Date or Timestamp).
  * @param {*} value
  * @return {number}
@@ -51,7 +63,8 @@ async function listPendingPhotos({db}) {
  * @param {string} args.itemId
  * @param {string} args.action "approve" | "reject" | "regenerate"
  * @param {Function} [args.regenerate] (itemId) => Promise, runs generation.
- * @return {Promise<{ok: boolean}>}
+ * @return {Promise<object>} `{ok: true}`; regenerate also returns the final
+ *   `photoStatus` and `photoUrl`. A failed photo is reported, not thrown.
  */
 async function reviewPhoto({db, itemId, action, regenerate}) {
   if (typeof itemId !== "string" || itemId.length === 0 ||
@@ -71,8 +84,17 @@ async function reviewPhoto({db, itemId, action, regenerate}) {
   } else {
     await ref.update({photoStatus: "generating"});
     await regenerate(itemId);
+    const after = (await ref.get()).data();
+    return {ok: true, photoStatus: after.photoStatus,
+      photoUrl: after.photoUrl ?? null};
   }
   return {ok: true};
 }
 
-module.exports = {isAdmin, listPendingPhotos, reviewPhoto, MAX_PENDING};
+module.exports = {
+  isAdmin,
+  requireAdmin,
+  listPendingPhotos,
+  reviewPhoto,
+  MAX_PENDING,
+};

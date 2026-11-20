@@ -2,6 +2,7 @@ const {test} = require("node:test");
 const assert = require("node:assert/strict");
 const {
   isAdmin,
+  requireAdmin,
   listPendingPhotos,
   reviewPhoto,
 } = require("./review");
@@ -53,6 +54,16 @@ test("isAdmin parses comma and whitespace lists", () => {
   assert.equal(isAdmin(undefined, "a"), false);
 });
 
+test("requireAdmin maps auth to the right error", () => {
+  assert.throws(() => requireAdmin(undefined, "a"),
+      {code: "unauthenticated"});
+  assert.throws(() => requireAdmin({uid: "x"}, "a,b"),
+      {code: "permission-denied"});
+  assert.throws(() => requireAdmin({uid: "a"}, ""),
+      {code: "permission-denied"});
+  assert.doesNotThrow(() => requireAdmin({uid: "b"}, "a,b"));
+});
+
 test("listPendingPhotos returns pending only, newest first, max 50", async () => {
   const docs = {
     "recovery_library/old": item({name: "Old", createdAt: 1}),
@@ -99,7 +110,8 @@ test("regenerate marks generating then runs the generation", async () => {
         seen.push([id, db.docs["recovery_library/a"].photoStatus]);
       },
     });
-    assert.deepEqual(out, {ok: true});
+    assert.deepEqual(out,
+        {ok: true, photoStatus: "generating", photoUrl: "u"});
     assert.deepEqual(seen, [["a", "generating"]]);
   }
 });
@@ -115,4 +127,16 @@ test("bad action and unknown item are refused", async () => {
   await assert.rejects(
       reviewPhoto({db, itemId: "zzz", action: "approve"}),
       {code: "not-found"});
+});
+
+test("a failed regeneration reports failed without throwing", async () => {
+  const db = fakeDb({"recovery_library/a": item()});
+  const out = await reviewPhoto({
+    db, itemId: "a", action: "regenerate",
+    regenerate: async () => {
+      db.docs["recovery_library/a"].photoStatus = "failed";
+    },
+  });
+  assert.equal(out.ok, true);
+  assert.equal(out.photoStatus, "failed");
 });

@@ -312,3 +312,23 @@ test("a path added after the last check survives the clear", async () => {
   });
   assert.deepEqual(db.docs["recovery_library/item1"].pendingPlanPaths, [late]);
 });
+
+test("a regeneration writes a new path and keeps the old photo URL",
+    async () => {
+      const oldUrl = "https://old/recovery-library%2Fitem1.jpg?token=old";
+      const db = fakeDb({
+        "recovery_library/item1": libraryItem({
+          pendingPlanPaths: [], photoUrl: oldUrl,
+        }),
+      });
+      const bucket = fakeBucket();
+      await completeLibraryPhoto({
+        db, bucket, itemId: "item1", now: NOW, wait: noWait, versioned: true,
+        generate: async () => Buffer.from([1]),
+      });
+      assert.equal(bucket.saved.length, 1);
+      assert.equal(bucket.saved[0].path, `recovery-library/item1-${NOW}.jpg`);
+      const stored = db.docs["recovery_library/item1"];
+      assert.notEqual(stored.photoUrl, oldUrl);
+      assert.ok(stored.photoUrl.includes(`item1-${NOW}.jpg`.replace("/", "%2F")));
+    });
