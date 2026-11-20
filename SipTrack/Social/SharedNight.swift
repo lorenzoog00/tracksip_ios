@@ -161,7 +161,11 @@ nonisolated struct SharedNight: Equatable {
         )
     }
 
-    private static func ms(_ date: Date) -> Int64 {
+    /// The start in ms: `started_at` in Firestore, the id of the night's ended copy
+    /// (`shared_nights/{uid}/ended/{startedAtMs}`) and the second half of its `NightKey`.
+    var startedAtMs: Int64 { SharedNight.ms(startedAt) }
+
+    static func ms(_ date: Date) -> Int64 {
         Int64((date.timeIntervalSince1970 * 1000).rounded())
     }
 

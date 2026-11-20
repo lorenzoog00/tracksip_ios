@@ -33,7 +33,7 @@ nonisolated struct NightKey: Hashable, Identifiable {
 
     /// Rounded exactly like `SharedNight` writes `started_at`.
     init(owner: String, night: SharedNight) {
-        self.init(owner: owner, startedAt: Int64((night.startedAt.timeIntervalSince1970 * 1000).rounded()))
+        self.init(owner: owner, startedAt: night.startedAtMs)
     }
 }
 
