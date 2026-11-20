@@ -58,7 +58,10 @@ struct NightBACChartData {
 
     var yMax: Double {
         let peak = max(history.map(\.bac).max() ?? 0, projection.map(\.bac).max() ?? 0)
-        return max(peak * 1.18, 0.04)
+        let top = peak * 1.18
+        // `0...yMax` traps on NaN; a bad value falls back to the minimum height.
+        guard top.isFinite else { return 0.04 }
+        return max(top, 0.04)
     }
 
     func bac(at date: Date) -> Double {

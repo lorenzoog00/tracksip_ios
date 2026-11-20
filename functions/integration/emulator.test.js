@@ -858,6 +858,13 @@ const pastTs = () => Timestamp.fromMillis(Date.now() - 60 * 1000);
 const NIGHT = {
   started_at: 1, last_drink_at: 2, samples: [], drinks: [],
 };
+// Client writes go through validNight, which wants real times: between
+// 2020-01-01 and now + 2 days, the last drink and end not before the start.
+// (Seeded docs above bypass the rules and keep the short started_at 1.)
+const S = Date.now() - 3600 * 1000;
+const LIVE = {
+  started_at: S, last_drink_at: S + 60000, samples: [], drinks: [],
+};
 const seedFriendship = (owner, friend) =>
   env.withSecurityRulesDisabled(async (ctx) => {
     await setDoc(
@@ -916,10 +923,10 @@ test("friendship is directional for the night read", async () => {
 test("owner writes a valid shared night but nothing outside the allowlist or limits", async () => {
   const alice = env.authenticatedContext("alice").firestore();
   const ref = doc(alice, "shared_nights/alice");
-  const good = {...NIGHT, ended_at: 3, expires_at: futureTs()};
+  const good = {...LIVE, ended_at: S + 120000, expires_at: futureTs()};
   await assertSucceeds(setDoc(ref, good));
   await assertSucceeds(setDoc(ref, {...good, samples: [{t: 1, bac: 0.01}]}));
-  await assertSucceeds(updateDoc(ref, {last_drink_at: 5}));
+  await assertSucceeds(updateDoc(ref, {last_drink_at: S + 5}));
   await assertFails(setDoc(ref, {...good, notes: "secret"}));
   await assertFails(setDoc(ref, {...good, driving_mode: true}));
   await assertFails(setDoc(ref, {...good, bac_limit: 0.05}));
@@ -1025,7 +1032,7 @@ test("request inbox queries succeed with a party filter, unfiltered list fails",
 test("shared night expires_at is capped near 24 h", async () => {
   const alice = env.authenticatedContext("alice").firestore();
   const at = (ms) => ({
-    ...NIGHT, expires_at: Timestamp.fromMillis(Date.now() + ms),
+    ...LIVE, expires_at: Timestamp.fromMillis(Date.now() + ms),
   });
   const ref = doc(alice, "shared_nights/alice");
   await assertSucceeds(setDoc(ref, at(24 * 3600 * 1000)));
@@ -1062,16 +1069,17 @@ const unexpiredEnded = (fs, uid) => query(
 
 test("ended copies: the owner writes a valid copy keyed by started_at", async () => {
   const alice = env.authenticatedContext("alice").firestore();
-  const good = {...ENDED, expires_at: futureTs()};
-  const ref = doc(alice, "shared_nights/alice/ended/1");
+  const good = {...LIVE, ended_at: S + 120000, expires_at: futureTs()};
+  const ref = doc(alice, `shared_nights/alice/ended/${S}`);
   await assertSucceeds(setDoc(ref, good));
-  await assertSucceeds(setDoc(ref, {...good, last_drink_at: 4}));
+  await assertSucceeds(setDoc(ref, {...good, last_drink_at: S + 4}));
   await assertSucceeds(getDoc(ref));
   // The id must be the night's started_at.
-  await assertFails(setDoc(doc(alice, "shared_nights/alice/ended/2"), good));
+  await assertFails(setDoc(doc(alice, `shared_nights/alice/ended/${S + 1}`),
+      good));
   await assertFails(setDoc(doc(alice, "shared_nights/alice/ended/x"), good));
   // Only ended nights, with the main doc's allowlist and limits.
-  await assertFails(setDoc(ref, {...NIGHT, expires_at: futureTs()}));
+  await assertFails(setDoc(ref, {...LIVE, expires_at: futureTs()}));
   await assertFails(setDoc(ref, {...good, ended_at: "x"}));
   await assertFails(setDoc(ref, {...good, notes: "secret"}));
   await assertFails(setDoc(ref, {...good, samples: new Array(301).fill(0)}));
@@ -1079,6 +1087,37 @@ test("ended copies: the owner writes a valid copy keyed by started_at", async ()
     ...good, expires_at: Timestamp.fromMillis(Date.now() + 30 * 3600 * 1000),
   }));
   await assertSucceeds(deleteDoc(ref));
+});
+
+test("shared nights: absurd or inverted times are rejected, main and ended", async () => {
+  const alice = env.authenticatedContext("alice").firestore();
+  const main = doc(alice, "shared_nights/alice");
+  const good = {...LIVE, ended_at: S + 120000, expires_at: futureTs()};
+  await assertSucceeds(setDoc(main, good));
+  const tooLate = Date.now() + 3 * 86400 * 1000;
+  for (const bad of [1e300, -1e300, NaN, Infinity, -Infinity, -1, 1,
+    1577836800000, tooLate]) {
+    await assertFails(setDoc(main, {...good, started_at: bad}));
+    await assertFails(setDoc(main, {...good, last_drink_at: bad}));
+    await assertFails(setDoc(main, {...good, ended_at: bad}));
+  }
+  // The last drink or the end before the start.
+  await assertFails(setDoc(main, {...good, last_drink_at: S - 1}));
+  await assertFails(setDoc(main, {...good, ended_at: S - 1}));
+  // A live night (no ended_at) is still fine.
+  await assertSucceeds(setDoc(main, {...LIVE, expires_at: futureTs()}));
+
+  const ref = doc(alice, `shared_nights/alice/ended/${S}`);
+  await assertSucceeds(setDoc(ref, good));
+  for (const bad of [1e300, NaN, Infinity, -Infinity, -1, tooLate]) {
+    await assertFails(setDoc(ref, {...good, last_drink_at: bad}));
+    await assertFails(setDoc(ref, {...good, ended_at: bad}));
+  }
+  await assertFails(setDoc(ref, {...good, last_drink_at: S - 1}));
+  await assertFails(setDoc(ref, {...good, ended_at: S - 1}));
+  // A bad started_at can't even name its copy, but is rejected regardless.
+  await assertFails(setDoc(doc(alice, "shared_nights/alice/ended/1"),
+      {...good, started_at: 1}));
 });
 
 test("ended copies: nobody else writes or deletes them", async () => {
