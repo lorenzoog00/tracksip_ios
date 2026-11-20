@@ -20,6 +20,7 @@
 		2C30CB933200000000000004 /* ContactPhones.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C30CB933200000000000003 /* ContactPhones.swift */; };
 		2C30CB933200000000000006 /* PhoneNumbersTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C30CB933200000000000005 /* PhoneNumbersTests.swift */; };
 		2C30CB933200000000000008 /* ContactPhonesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C30CB933200000000000007 /* ContactPhonesTests.swift */; };
+		2C30CB93320000000000000D /* PhoneAuthErrorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C30CB93320000000000000C /* PhoneAuthErrorTests.swift */; };
 		2C30CB93320000000000000B /* PhoneNumberKit in Frameworks */ = {isa = PBXBuildFile; productRef = 2C30CB93320000000000000A /* PhoneNumberKit */; };
 		5F1D0001000000000000B003 /* FriendLinkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F1D0001000000000000A003 /* FriendLinkTests.swift */; };
 		6A2E0000000000000000B003 /* NightThreadTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A2E0000000000000000A003 /* NightThreadTests.swift */; };
@@ -254,6 +255,7 @@
 		2C30CB933200000000000003 /* ContactPhones.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactPhones.swift; sourceTree = "<group>"; };
 		2C30CB933200000000000005 /* PhoneNumbersTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneNumbersTests.swift; sourceTree = "<group>"; };
 		2C30CB933200000000000007 /* ContactPhonesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactPhonesTests.swift; sourceTree = "<group>"; };
+		2C30CB93320000000000000C /* PhoneAuthErrorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneAuthErrorTests.swift; sourceTree = "<group>"; };
 		5F1D0001000000000000A003 /* FriendLinkTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FriendLinkTests.swift; sourceTree = "<group>"; };
 		6A2E0000000000000000A003 /* NightThreadTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NightThreadTests.swift; sourceTree = "<group>"; };
 		5A7C1E3D9B2F4A60C8D1E706 /* SharedNightTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedNightTests.swift; sourceTree = "<group>"; };
@@ -906,6 +908,7 @@
 				5A7C1E3D9B2F4A60C8D1E7A2 /* IncognitoTests.swift */,
 				2C30CB933200000000000005 /* PhoneNumbersTests.swift */,
 				2C30CB933200000000000007 /* ContactPhonesTests.swift */,
+				2C30CB93320000000000000C /* PhoneAuthErrorTests.swift */,
 			);
 			path = siptrackTests;
 			sourceTree = "<group>";
@@ -1350,6 +1353,7 @@
 				D0F447A822F34B68A69C0401 /* WaterReminderTests.swift in Sources */,
 				2C30CB933200000000000006 /* PhoneNumbersTests.swift in Sources */,
 				2C30CB933200000000000008 /* ContactPhonesTests.swift in Sources */,
+				2C30CB93320000000000000D /* PhoneAuthErrorTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

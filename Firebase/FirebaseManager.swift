@@ -20,6 +20,10 @@ final class FirebaseManager: ObservableObject {
 
     @Published var isSignedIn = false
     @Published var userEmail: String? = nil
+    /// The SMS-verified number linked to this account (E.164), used only to find
+    /// friends from contacts. Set in `applySession` and after every link, update
+    /// or unlink, since none of those fire the auth state listener.
+    @Published private(set) var phoneNumber: String? = nil
 
     /// Fires only when the *user* ends their session — Sign Out or Delete Account.
     /// The verification flow signs in and out behind the scenes (see `signUp`);
@@ -47,9 +51,11 @@ final class FirebaseManager: ObservableObject {
     /// Email/password accounts stay unusable until the verification link is
     /// clicked; Apple and Google vouch for the address themselves, and Firebase
     /// reports `isEmailVerified == false` for Apple's private relay addresses.
+    /// A linked phone number vouches for nothing: it is only there to find
+    /// friends, so an unverified password account stays unusable with one.
     nonisolated static func isUsableSession(providerIDs: [String], isEmailVerified: Bool) -> Bool {
         guard !providerIDs.isEmpty else { return false }
-        if providerIDs.contains(where: { $0 != "password" }) { return true }
+        if providerIDs.contains(where: { $0 != "password" && $0 != "phone" }) { return true }
         return isEmailVerified
     }
 
@@ -60,6 +66,7 @@ final class FirebaseManager: ObservableObject {
         )
         isSignedIn = usable
         userEmail = usable ? user?.email : nil
+        phoneNumber = usable ? user?.phoneNumber : nil
     }
 
     func currentUserId() -> String? {
@@ -137,6 +144,65 @@ final class FirebaseManager: ObservableObject {
         Crashlytics.crashlytics().setUserID(result.user.uid)
     }
 
+    // MARK: - Phone number (finding friends)
+
+    /// Texts a code to `e164` and returns the verification id that
+    /// `confirmPhoneCode` needs. Firebase tries a silent APNs check first and
+    /// falls back to a reCAPTCHA page it presents itself.
+    func sendPhoneCode(to e164: String) async throws -> String {
+        try await PhoneAuthProvider.provider().verifyPhoneNumber(e164, uiDelegate: nil)
+    }
+
+    /// Adds the number to the signed-in account, or replaces the one it has. A
+    /// phone is never a way to sign in here, only a second identity on the
+    /// Apple, Google or email account.
+    func confirmPhoneCode(_ code: String, verificationID: String) async throws {
+        guard let user = auth.currentUser else {
+            throw NSError(domain: "FirebaseManager", code: 401,
+                          userInfo: [NSLocalizedDescriptionKey: "Please sign in and try again."])
+        }
+        let credential = PhoneAuthProvider.provider().credential(
+            withVerificationID: verificationID, verificationCode: code
+        )
+        if user.phoneNumber == nil {
+            try await user.link(with: credential)
+        } else {
+            try await user.updatePhoneNumber(credential)
+        }
+        phoneNumber = auth.currentUser?.phoneNumber
+        // A fresh token carries the new number. The number is already linked at
+        // this point, so a failed refresh must not report the whole step as
+        // failed: retrying would only spend the used code and fail for real.
+        _ = try? await user.getIDToken(forcingRefresh: true)
+    }
+
+    func removePhoneNumber() async throws {
+        guard let user = auth.currentUser else {
+            throw NSError(domain: "FirebaseManager", code: 401,
+                          userInfo: [NSLocalizedDescriptionKey: "Please sign in and try again."])
+        }
+        _ = try await user.unlink(fromProvider: PhoneAuthProvider.id)
+        phoneNumber = auth.currentUser?.phoneNumber
+    }
+
+    /// Copy for the phone screens, keyed by `AuthErrorCode` raw value. Nil means
+    /// the error is not phone-specific: show `friendlyAuthError` instead.
+    nonisolated static func phoneErrorMessage(code: Int) -> String? {
+        switch code {
+        case AuthErrorCode.invalidVerificationCode.rawValue:
+            return "That code isn't right. Check the SMS and try again."
+        case AuthErrorCode.sessionExpired.rawValue:
+            return "That code expired. Tap Resend for a new code."
+        case AuthErrorCode.credentialAlreadyInUse.rawValue:
+            return "This number already belongs to another TrackSip account. If it's your other account, sign in there and remove it under Social → Phone number."
+        case AuthErrorCode.tooManyRequests.rawValue:
+            return "Too many tries. Try again later."
+        case AuthErrorCode.invalidPhoneNumber.rawValue:
+            return "That number doesn't look right."
+        default:
+            return nil
+        }
+    }
 
     // MARK: - Firestore helpers
 
@@ -782,7 +848,8 @@ final class FirebaseManager: ObservableObject {
     // decides whether the user gets an interactive prompt or a password field.
     // Every failure path here throws — a silent `return` left auth_time stale
     // and the backend then refused the delete with advice the user could not
-    // act on from that screen.
+    // act on from that screen. A linked phone number ("phone") is never the
+    // re-auth method: only the sign-in providers below are matched.
     /// Returns Apple's authorisation code when the account is an Apple one, for
     /// the caller to revoke **after** the account has actually been deleted.
     /// Revoking here would cut the session out from under the request that does

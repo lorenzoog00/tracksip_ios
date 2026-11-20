@@ -30,6 +30,12 @@
 				<string>com.googleusercontent.apps.438688245872-jmvp0r68qc9r5hq7sn1unhejd49oi49o</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>app-1-438688245872-ios-e360fe5ba1ced830a86cb5</string>
+			</array>
+		</dict>
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
@@ -54,6 +60,7 @@
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>
+		<string>remote-notification</string>
 	</array>
 	<key>NSSupportsLiveActivities</key>
 	<true/>

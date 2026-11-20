@@ -53,6 +53,21 @@ struct AuthSessionTests {
                                                 isEmailVerified: true) == false)
     }
 
+    /// A linked phone number only finds friends. It never vouches for the
+    /// account the way Apple or Google do, so an unverified email account stays
+    /// locked out after adding one.
+    @Test func phoneDoesNotMakeAnUnverifiedPasswordAccountUsable() {
+        #expect(FirebaseManager.isUsableSession(providerIDs: ["password", "phone"], isEmailVerified: false) == false)
+        #expect(FirebaseManager.isUsableSession(providerIDs: ["apple.com", "phone"], isEmailVerified: false) == true)
+    }
+
+    /// Account deletion re-authenticates with the sign-in provider, never with
+    /// the phone: a password account still has to type its password.
+    @Test func phoneNeverChangesTheReauthMethod() {
+        #expect(FirebaseManager.requiresPasswordReauth(providerIDs: ["password", "phone"]) == true)
+        #expect(FirebaseManager.requiresPasswordReauth(providerIDs: ["apple.com", "phone"]) == false)
+    }
+
     // MARK: - Which form the user lands on
 
     /// "Create Account" on the signed-out home used to push the same bare
