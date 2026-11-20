@@ -64,3 +64,6 @@ tracksip_ios/
 *.mobileprovision
 !functions/certificates/AppleRootCA-G2.cer
 !functions/certificates/AppleRootCA-G3.cer
+
+# Generated recovery library photos
+output/
