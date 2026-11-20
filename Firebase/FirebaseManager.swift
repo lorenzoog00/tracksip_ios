@@ -215,7 +215,10 @@ final class FirebaseManager: ObservableObject {
         }
         // Signed out or switched account meanwhile: the auth listener owns that.
         guard isSignedIn, auth.currentUser?.uid == user.uid else { return }
-        phoneNumber = auth.currentUser?.phoneNumber
+        // Only a real change is published, so the observers don't all re-render
+        // each time Social or Find friends appears.
+        let current = auth.currentUser?.phoneNumber
+        if current != phoneNumber { phoneNumber = current }
     }
 
     /// Copy for the phone screens, keyed by `AuthErrorCode` raw value. Nil means
