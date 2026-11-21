@@ -18,6 +18,9 @@ struct SocialRootView: View {
     /// Waits for the stack to reset before presenting `pushedThread`; replaced and
     /// cancelled by every newer push, so an older one can never land last.
     @State private var pushedThreadTask: Task<Void, Never>?
+    /// Holds a friend link back while the phone prompt animates away (see
+    /// `holdFriendLinkWhilePromptCloses`).
+    @State private var friendLinkTask: Task<Void, Never>?
     /// Changing this rebuilds the navigation stack: every pushed screen pops and
     /// every sheet presented inside it closes.
     @State private var stackID = UUID()
@@ -55,6 +58,22 @@ struct SocialRootView: View {
                     // still choosing a username gets the sheet right after.
                     .onAppear(perform: openPendingThread)
                     .onChange(of: appState.pendingThread) { _, _ in openPendingThread() }
+                    // A friend link while the phone prompt is up: close the prompt (that
+                    // counts as answered) and present the link once it has gone, so the
+                    // two sheets never collide. The hold starts here too, in the same
+                    // update, so the render that sees the prompt closing doesn't
+                    // already present the link.
+                    .onChange(of: appState.pendingFriendLink) { _, name in
+                        guard name != nil, showPhonePrompt else { return }
+                        markPhonePromptAnswered()
+                        holdFriendLinkWhilePromptCloses()
+                        showPhonePrompt = false
+                    }
+                    // However the prompt closes ("Not now", a finished add, a swipe, the
+                    // link above), a link arriving while it animates away waits for it.
+                    .onChange(of: showPhonePrompt) { _, up in
+                        if !up { holdFriendLinkWhilePromptCloses() }
+                    }
                     // Once per appearance: re-read the number first, so one added
                     // on another phone isn't asked for again here.
                     .task {
@@ -75,9 +94,10 @@ struct SocialRootView: View {
     }
 
     /// Attached to the feed only, so a user still choosing a username sees the sheet after.
+    /// Held back while the phone prompt is up or still closing.
     private var friendLinkBinding: Binding<Bool> {
         Binding(
-            get: { appState.pendingFriendLink != nil },
+            get: { appState.pendingFriendLink != nil && !showPhonePrompt && friendLinkTask == nil },
             set: { if !$0 { appState.pendingFriendLink = nil } }
         )
     }
@@ -92,10 +112,13 @@ struct SocialRootView: View {
         // Also here: if this runs before RootView's handler, that one sees nil.
         appState.selectedTab = .social
         let name = ownerName(for: key.owner)
-        // An earlier open still waiting means the reset it started may still be animating.
-        let wasWaiting = pushedThreadTask != nil
+        // An earlier open still waiting means the reset it started may still be
+        // animating; a friend link still waiting means the phone prompt is.
+        let wasWaiting = pushedThreadTask != nil || friendLinkTask != nil
         pushedThreadTask?.cancel()
         pushedThreadTask = nil
+        friendLinkTask?.cancel()
+        friendLinkTask = nil
 
         let covered = wasWaiting || showSearch || showFriends || showProfile || feedCovered
             || appState.pendingFriendLink != nil || pushedThread != nil || showPhonePrompt
@@ -138,6 +161,18 @@ struct SocialRootView: View {
                                     hasUsername: friends.myProfile != nil,
                                     dismissed: PhonePrompt.isDismissed(uid: uid)) {
             showPhonePrompt = true
+        }
+    }
+
+    /// Keeps `friendLinkBinding` false until the closing phone prompt has gone;
+    /// restarted by every close.
+    private func holdFriendLinkWhilePromptCloses() {
+        friendLinkTask?.cancel()
+        friendLinkTask = Task {
+            // Let the dismissal finish, or the new sheet is dropped.
+            try? await Task.sleep(for: .milliseconds(650))
+            guard !Task.isCancelled else { return }
+            friendLinkTask = nil
         }
     }
 

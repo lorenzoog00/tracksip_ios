@@ -360,6 +360,9 @@ backend run. Do them in order, before distributing the build.
    (Invoke-RestMethod -Headers @{Authorization = "Bearer $token"} "https://cloudbilling.googleapis.com/v1/services?pageSize=5000").services | Where-Object displayName -like "*Identity Platform*" | Select-Object name, displayName
    ```
 
+   If nothing prints, the list is paged: re-run with
+   `&pageToken=<nextPageToken>` from the previous response.
+
    The console's Services picker takes the name, so it needs no id. After the
    first days of real SMS, open Billing → Reports filtered to the project: if
    the SMS charges show under another service, scope the budget to that one.
