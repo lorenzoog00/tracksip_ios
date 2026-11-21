@@ -96,10 +96,14 @@ test("photoPrompt carries the style and the name", () => {
   const breakfast = photoPrompt({name: "Banana pancakes", kind: "breakfast"});
   assert.equal(breakfast, `${PHOTO_STYLE} Subject: Banana pancakes.`);
   const activity = photoPrompt({name: "A rumpled bed", kind: "activity"});
-  assert.equal(
-      activity,
-      `${PHOTO_STYLE} A scene or objects that show: A rumpled bed. No people.`,
-  );
+  // Activities are real-size scenes: never "on a table" (which shrank
+  // places into dioramas) and never with readable words.
+  assert.match(activity, /Scene: A rumpled bed\.$/);
+  assert.match(activity, /full-size/);
+  assert.match(activity, /Not a miniature, model, diorama or toy/);
+  assert.match(activity, /No readable words/);
+  assert.match(activity, /No people/);
+  assert.doesNotMatch(activity, /stone table/);
 });
 
 test("loading the module does not load sharp", () => {

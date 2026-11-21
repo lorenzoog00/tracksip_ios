@@ -9,6 +9,15 @@ const PHOTO_STYLE = "Overhead shot at about 45 degrees on a dark stone " +
   "table, warm morning window light, shallow depth of field. No people or " +
   "faces, no text, no logos or brands.";
 
+// Activities are places and things at real size. Putting them "on a stone
+// table" made the model shrink pools, parks, stairs and bedrooms into toy
+// dioramas, and books, maps and weights came back with readable words.
+const ACTIVITY_STYLE = "A real, full-size photograph of the scene itself, " +
+  "as a person would see it in warm morning light, shallow depth of field. " +
+  "Not a miniature, model, diorama or toy. No people, faces or hands. No " +
+  "readable words, letters, numbers, labels, logos or brands anywhere, " +
+  "including on books, maps, screens, packaging and equipment.";
+
 const NOT_FOUND = 5;
 // The library item is created a moment before the plan doc is written.
 const PLAN_RETRY_MS = 5000;
@@ -20,7 +29,7 @@ const PLAN_RETRY_MS = 5000;
  */
 function photoPrompt({name, kind}) {
   return kind === "activity" ?
-    `${PHOTO_STYLE} A scene or objects that show: ${name}. No people.` :
+    `${ACTIVITY_STYLE} Scene: ${name}.` :
     `${PHOTO_STYLE} Subject: ${name}.`;
 }
 
