@@ -203,6 +203,14 @@ final class FirebaseManager: ObservableObject {
         auth.canHandleNotification(userInfo)
     }
 
+    /// DIAGNOSTIC (temporary): which of Auth's phone-auth managers are set.
+    func authManagerState() -> String {
+        Mirror(reflecting: auth).children
+            .filter { ["tokenManager", "notificationManager", "appCredentialManager"].contains($0.label ?? "") }
+            .map { "\($0.label ?? "?")=\(String(describing: $0.value) == "nil" ? "nil" : "set")" }
+            .joined(separator: " ")
+    }
+
     /// Re-reads the account so a number added, changed or removed on another
     /// device shows here too. Called once each time Social or Find friends
     /// appears; a failure (offline, say) keeps the number already shown.

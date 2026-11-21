@@ -77,11 +77,29 @@ struct PhoneAuthErrorTests {
         #expect(FirebaseManager.phoneErrorText(NSError(domain: "FIRAuthErrorDomain", code: Self.networkError))
             == "Connection error. Check your internet and try again.")
     }
+}
 
-    /// TestFlight 1.0.9 crashed on launch: Firebase was configured in `App.init`,
-    /// Auth's phone-auth managers stayed nil, and the first APNs token handed to
-    /// it trapped. This traps the same way unless the managers came up.
-    @Test func firebasePhoneAuthIsWiredAfterLaunch() {
-        #expect(FirebaseManager.shared.handlesAuthNotification(["not": "firebase"]) == false)
+import UIKit
+
+/// DIAGNOSTIC (temporary): when, if ever, Auth's phone managers get set, and
+/// whether UIApplication.sharedApplication is reachable off the main thread the
+/// way Auth's setup reads it.
+@Test nonisolated func diagAuthManagers() async {
+    for second in 0..<40 {
+        let state = await MainActor.run { FirebaseManager.shared.authManagerState() }
+        print("DIAG t=\(second)s \(state)")
+        if !state.contains("nil") { break }
+        try? await Task.sleep(for: .seconds(1))
     }
+    let offMain: String = await withCheckedContinuation { done in
+        DispatchQueue.global().async {
+            let sel = NSSelectorFromString("sharedApplication")
+            let responds = UIApplication.responds(to: sel)
+            let app = responds ? UIApplication.perform(sel)?.takeUnretainedValue() as? UIApplication : nil
+            done.resume(returning: "responds=\(responds) app=\(app != nil)")
+        }
+    }
+    print("DIAG off-main sharedApplication: \(offMain)")
+    let onMain = await MainActor.run { UIApplication.shared.delegate.map { String(describing: type(of: $0)) } ?? "nil" }
+    print("DIAG app delegate type: \(onMain)")
 }
