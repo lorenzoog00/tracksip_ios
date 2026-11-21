@@ -170,6 +170,14 @@ exports.requestReport = onCall(
                 format: {type: "json_schema", schema: PLAN_JSON_SCHEMA},
               },
             });
+            // A cut-off reply (max_tokens) or a refusal fails parsePlan
+            // below; logging why first tells the two apart from a bad plan.
+            if (response.stop_reason !== "end_turn") {
+              console.warn("morning plan: model stopped early", {
+                stopReason: response.stop_reason,
+                outputTokens: response.usage?.output_tokens,
+              });
+            }
             const text = response.content
                 .filter((block) => block.type === "text")
                 .map((block) => block.text)

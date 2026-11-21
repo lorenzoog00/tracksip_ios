@@ -17,6 +17,8 @@ const SYSTEM = [
   "- Never suggest alcohol. Never say to drink less or moralize. Never " +
   "recap stats.",
   "- Never claim anything sobers you up faster or flushes alcohol out.",
+  "- Never say or imply they're OK to drive, and never estimate when the " +
+  "alcohol will be gone; the app adds its own driving line.",
   "- Medicines: general guidance only, no doses. Prefer ibuprofen over " +
   "acetaminophen after drinking. Take ibuprofen with food, and skip it " +
   "when the stomach is upset.",
@@ -37,6 +39,20 @@ function oneLine(value, max) {
 }
 
 /**
+ * A number rounded for the prompt, so float noise like 354.87999 ml never
+ * reaches the model. Anything that is not a finite number prints as 0.
+ * @param {*} value The raw value.
+ * @param {number} digits Decimal places to keep.
+ * @return {number} The rounded number.
+ */
+function rounded(value, digits) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  const scale = 10 ** digits;
+  return Math.round(n * scale) / scale;
+}
+
+/**
  * Builds the morning prompt.
  * @param {object} ctx `{payload, severity, symptoms, country, timeOfDay,
  *     isWorkday, shortlist}`.
@@ -45,11 +61,13 @@ function oneLine(value, max) {
 function buildMorningPrompt(ctx) {
   const {payload, shortlist} = ctx;
   const drinks = (payload.drinks || []).slice(0, 6)
-      .map((d) => `${oneLine(d.name, 60)} ${d.abv}%` +
+      .map((d) => `${oneLine(d.name, 60)} ${rounded(d.abv, 1)}%` +
         (d.quantity > 1 ? ` x${d.quantity}` : ""))
       .join("; ");
+  // The short display title when there is one: it is what the user reads,
+  // and the id is what the model answers with.
   const items = (list) => list
-      .map((i) => `${i.id} | ${oneLine(i.name, 60)} | ${i.effort}`)
+      .map((i) => `${i.id} | ${oneLine(i.title ?? i.name, 60)} | ${i.effort}`)
       .join("\n");
 
   const facts = [
@@ -59,16 +77,16 @@ function buildMorningPrompt(ctx) {
       `morning (${payload.checkInHour}:00)`,
     `Today is a ${ctx.isWorkday ? "workday" : "weekend day"}`,
     `Drinks: ${drinks || "none logged"}`,
-    `Water: ${payload.waterMl ?? 0} ml; food entries: ` +
-      `${payload.foodEntryCount ?? 0}; stomach: ` +
+    `Water: ${rounded(payload.waterMl, 0)} ml; food entries: ` +
+      `${rounded(payload.foodEntryCount, 0)}; stomach: ` +
       `${oneLine(payload.stomachState, 30) || "unknown"}`,
   ].join("\n");
 
   const prompt = [
     facts,
-    "Breakfast shortlist (id | name | effort):",
+    "Breakfast shortlist (id | title | effort):",
     items(shortlist.breakfasts),
-    "Activity shortlist (id | name | effort):",
+    "Activity shortlist (id | title | effort):",
     items(shortlist.activities),
     "Give: headline; rightNow 1-3 {icon,title,why}; breakfast {id or new," +
     "why,when}; fallback {title} or null; activities 1-2 {id or new,why}; " +

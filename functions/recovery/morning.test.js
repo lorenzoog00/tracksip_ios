@@ -108,6 +108,7 @@ test("a new item is labeled from the night and waits for its photo", () => {
   );
   assert.deepEqual(item, {
     name: "Tacos de canasta",
+    title: "Tacos de canasta",
     kind: "breakfast",
     countries: ["MX"],
     goodFor: ["headache", "nausea"],
@@ -167,6 +168,30 @@ test("picks get their name and photo from the library", () => {
       skip: null,
     },
   });
+});
+
+test("a pick's name is the item's display title, not its photo subject", () => {
+  const titled = ctx();
+  titled.shortlist.breakfasts[1] = {
+    ...titled.shortlist.breakfasts[1],
+    name: "Molletes with beans, melted cheese and pico de gallo",
+    title: "Molletes with pico de gallo",
+  };
+  titled.shortlist.activities[0] = {
+    ...titled.shortlist.activities[0],
+    name: "A quiet tree-lined street at sunrise for a slow walk",
+    title: "Slow walk around the block",
+  };
+  const out = assemblePlan(parsed(), titled, null);
+  assert.equal(out.plan.breakfast.name, "Molletes with pico de gallo");
+  assert.equal(out.plan.activities[0].name, "Slow walk around the block");
+  const added = assemblePlan(parsed({
+    breakfast: {new: {name: "tacos", effort: "buy"}, why: "W", when: "now"},
+  }), ctx(), {
+    id: "new-1", name: "Tacos de canasta with salsa verde", title: "Tacos de canasta",
+    photoUrl: null,
+  });
+  assert.equal(added.plan.breakfast.name, "Tacos de canasta");
 });
 
 test("the new pick becomes the item it was saved as", () => {

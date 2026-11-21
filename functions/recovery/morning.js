@@ -130,7 +130,10 @@ function photoSlot(counter, now, dailyCap) {
  */
 function libraryItem({name, effort, kind}, ctx, {planPath, now, capped}) {
   return {
+    // The model's name is short already (parsePlan clips it), so it is both
+    // the photo subject and the title users read until a review renames it.
     name,
+    title: name,
     kind,
     countries: [ctx.country],
     goodFor: ctx.symptoms.filter((symptom) => symptom !== "fine"),
@@ -149,10 +152,22 @@ function libraryItem({name, effort, kind}, ctx, {planPath, now, capped}) {
 }
 
 /**
- * The stored plan body, with names and photos from the library.
+ * What the app shows as an item's name: its short display title, or the
+ * detailed name (the photo subject) for an item saved before titles.
+ * @param {object} item A library item.
+ * @return {string} The display name.
+ */
+function displayName(item) {
+  return item.title ?? item.name;
+}
+
+/**
+ * The stored plan body, with names and photos from the library. A pick's
+ * `name` is the item's display title; the app shows it as is.
  * @param {object} parsed `parsePlan` output.
  * @param {object} ctx The morning context.
- * @param {object|null} added `{id, name, photoUrl}` for the one `new` pick.
+ * @param {object|null} added `{id, name, title, photoUrl}` for the one `new`
+ *     pick.
  * @return {object} symptoms, severity, safety and plan.
  */
 function assemblePlan(parsed, ctx, added) {
@@ -168,7 +183,7 @@ function assemblePlan(parsed, ctx, added) {
     // A proposal can turn out to be an item that is already in the plan.
     if (activities.some((activity) => activity.itemId === item.id)) continue;
     activities.push({
-      itemId: item.id, name: item.name, why: pick.why,
+      itemId: item.id, name: displayName(item), why: pick.why,
       photoUrl: item.photoUrl ?? null,
     });
   }
@@ -181,7 +196,7 @@ function assemblePlan(parsed, ctx, added) {
       rightNow: parsed.rightNow,
       breakfast: {
         itemId: breakfast.id,
-        name: breakfast.name,
+        name: displayName(breakfast),
         why: parsed.breakfast.why,
         when: parsed.breakfast.when,
         photoUrl: breakfast.photoUrl ?? null,
@@ -201,7 +216,7 @@ function assemblePlan(parsed, ctx, added) {
  * @param {object} proposal `{name, effort, kind}`.
  * @param {object} ctx The morning context.
  * @param {object} meta `{planPath, now, dailyCap}`.
- * @return {Promise<object>} `{id, name, photoUrl}` for the plan.
+ * @return {Promise<object>} `{id, name, title, photoUrl}` for the plan.
  */
 function addToLibrary(db, proposal, ctx, {planPath, now, dailyCap}) {
   const library = db.collection("recovery_library");
@@ -220,6 +235,7 @@ function addToLibrary(db, proposal, ctx, {planPath, now, dailyCap}) {
       return {
         id: existing.id,
         name: existing.name,
+        title: displayName(existing),
         photoUrl: existing.review === "approved" ?
           existing.photoUrl ?? null : null,
       };
@@ -230,7 +246,9 @@ function addToLibrary(db, proposal, ctx, {planPath, now, dailyCap}) {
       planPath, now, capped: slot.capped,
     }));
     if (!slot.capped) tx.set(counter, slot.next);
-    return {id: ref.id, name: proposal.name, photoUrl: null};
+    return {
+      id: ref.id, name: proposal.name, title: proposal.name, photoUrl: null,
+    };
   });
 }
 

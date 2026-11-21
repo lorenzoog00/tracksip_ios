@@ -1,6 +1,6 @@
 const {test} = require("node:test");
 const assert = require("node:assert/strict");
-const {parsePlan, ICONS, PLAN_JSON_SCHEMA} = require("./plan");
+const {parsePlan, ICONS, ALCOHOL, PLAN_JSON_SCHEMA} = require("./plan");
 
 const lib = (kind, n) => Array.from({length: n}, (_, i) => ({
   id: `${kind[0]}${i + 1}`, name: `${kind} ${i + 1}`, kind, effort: "buy",
@@ -69,12 +69,95 @@ test("a valid plan passes through unchanged", () => {
   assert.deepEqual(parse(plan()), plan());
 });
 
-test("an id outside the shortlist throws", () => {
+test("an id outside the shortlist becomes the first unused item of its kind", () => {
+  const out = parse(plan({breakfast: {id: "zzz", why: "x", when: "y"}}));
+  assert.deepEqual(out.breakfast, {id: "b1", why: "x", when: "y"});
+  // The breakfast keeps b1, so the made-up second breakfast gets b2.
+  const twice = parse(plan({
+    breakfast: {id: "b1", why: "x", when: "y"},
+    activities: [{id: "nope", why: "Air."}],
+  }));
+  assert.deepEqual(twice.activities, [{id: "a1", why: "Air."}]);
+});
+
+test("an id of the wrong kind becomes the first unused item of the right kind", () => {
+  const out = parse(plan({
+    breakfast: {id: "a1", why: "x", when: "y"},
+    activities: [{id: "b1", why: "Walk."}, {id: "a2", why: "Nap."}],
+  }));
+  assert.equal(out.breakfast.id, "b1");
+  // a2 was named by the model, so the repair takes a1, not a2.
+  assert.deepEqual(out.activities.map((a) => a.id), ["a1", "a2"]);
+  assert.equal(out.activities[0].why, "Walk.");
+});
+
+test("a repaired pick never knocks out an id the model named later", () => {
+  const out = parse(plan({
+    activities: [{id: "zzz", why: "x"}, {id: "a1", why: "y"}],
+  }));
+  assert.deepEqual(out.activities, [{id: "a2", why: "x"}, {id: "a1", why: "y"}]);
+});
+
+test("a bad id with nothing left to swap in throws", () => {
+  const noBreakfasts = {
+    shortlist: {breakfasts: [], activities: lib("activity", 3)},
+  };
   assert.throws(
-      () => parse(plan({breakfast: {id: "zzz", why: "x", when: "y"}})),
-      /shortlist/);
-  assert.throws(() => parse(plan({activities: [{id: "b1", why: "x"}]})),
-      /shortlist/);
+      () => parse(plan({breakfast: {id: "zzz", why: "x", when: "y"}}),
+          noBreakfasts),
+      /breakfast could not be resolved/);
+  const noActivities = {
+    shortlist: {breakfasts: lib("breakfast", 3), activities: []},
+  };
+  assert.throws(
+      () => parse(plan({activities: [{id: "b1", why: "x"}]}), noActivities),
+      /activities is empty/);
+});
+
+test("the alcohol list matches whole words only", () => {
+  for (const name of [
+    "Michelada", "A cold beer", "Bloody Mary", "Hair of the dog",
+    "Tequila shot", "Red wine", "Whisky sour", "Mezcal", "Cerveza",
+  ]) {
+    assert.ok(ALCOHOL.test(name), name);
+  }
+  for (const name of [
+    "Ginger tea", "Rumbling stomach walk", "Root vegetables", "Swine",
+    "Shower", "Begin slowly", "Ginseng",
+  ]) {
+    assert.ok(!ALCOHOL.test(name), name);
+  }
+});
+
+test("a proposed drink becomes the first unused item of its kind", () => {
+  const out = parse(plan({
+    breakfast: {
+      new: {name: "Michelada with clamato", effort: "buy"}, why: "w",
+      when: "n",
+    },
+  }));
+  assert.deepEqual(out.breakfast, {id: "b1", why: "w", when: "n"});
+  // The swap does not use up the one new item.
+  const later = parse(plan({
+    breakfast: {new: {name: "Hair of the dog", effort: "buy"}, why: "w",
+      when: "n"},
+    activities: [{new: {name: "Sauna", effort: "none"}, why: "Heat."}],
+  }));
+  assert.equal(later.breakfast.id, "b1");
+  assert.deepEqual(later.activities[0].new, {name: "Sauna", effort: "none"});
+});
+
+test("a proposed drink with nothing to swap in is dropped", () => {
+  const c = {
+    shortlist: {breakfasts: lib("breakfast", 1), activities: lib("activity", 1)},
+  };
+  const out = parse(plan({
+    activities: [
+      {id: "a1", why: "Air."},
+      {new: {name: "Beer and a walk", effort: "none"}, why: "a"},
+    ],
+  }), c);
+  assert.deepEqual(out.activities, [{id: "a1", why: "Air."}]);
 });
 
 test("a missing breakfast throws", () => {

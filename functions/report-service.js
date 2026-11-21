@@ -66,6 +66,15 @@ async function generateReport({
           "Sync this night before requesting a report.",
       );
     }
+    // An old build still asks for the recovery brief, and the brief would
+    // replace the night's morning plan in the same doc. Refused before any
+    // quota is reserved: the plan stays and nothing is spent.
+    if (kind === "recovery" && result.data()?.type === "morning") {
+      throw new HttpsError(
+          "failed-precondition",
+          "This night already has a morning recovery plan.",
+      );
+    }
     if (kind === "morning" && result.data()?.plan) {
       return {morning: result.data()};
     }
@@ -124,6 +133,13 @@ async function generateReport({
         (kind === "night" && !result.exists)
       ) {
         throw new HttpsError("aborted", "Report request was cancelled.");
+      }
+      // A morning plan saved while this brief was being written still wins.
+      if (kind === "recovery" && result.data()?.type === "morning") {
+        throw new HttpsError(
+            "failed-precondition",
+            "This night already has a morning recovery plan.",
+        );
       }
       if (kind === "night") {
         tx.update(target, {ai_report: report});

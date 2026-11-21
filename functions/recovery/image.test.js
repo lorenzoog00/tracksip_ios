@@ -1,8 +1,11 @@
 const {test} = require("node:test");
 const assert = require("node:assert/strict");
+const path = require("node:path");
+const {execFileSync} = require("node:child_process");
 const sharp = require("sharp");
 const {
   PHOTO_STYLE,
+  PHOTO_CACHE_CONTROL,
   photoPrompt,
   generatePhoto,
   completeLibraryPhoto,
@@ -99,6 +102,20 @@ test("photoPrompt carries the style and the name", () => {
   );
 });
 
+test("loading the module does not load sharp", () => {
+  // index.js requires this file, so a top-level sharp would load its native
+  // module on every function's cold start. This file loads sharp itself, so
+  // the check runs in a fresh process.
+  const script = `require(${JSON.stringify(path.join(__dirname, "image.js"))});` +
+    "const loaded = Object.keys(require.cache)" +
+    ".some((p) => /[\\\\/]node_modules[\\\\/]sharp[\\\\/]/.test(p));" +
+    "process.stdout.write(String(loaded));";
+  const out = execFileSync(process.execPath, ["-e", script], {
+    encoding: "utf8",
+  });
+  assert.equal(out, "false");
+});
+
 test("withPhoto sets the matching entry only and leaves the input alone", () => {
   const plan = planDoc().plan;
   const next = withPhoto(plan, "item1", "https://p");
@@ -168,8 +185,15 @@ test("completeLibraryPhoto stores the photo and fills the waiting plan",
       assert.equal(path, "recovery-library/item1.jpg");
       assert.equal(buffer, jpeg);
       assert.equal(options.metadata.contentType, "image/jpeg");
+      // Cached for a year: each path and token is never reused for another
+      // photo. The token stays custom metadata, or the URL stops working.
+      assert.equal(options.metadata.cacheControl,
+          "public, max-age=31536000, immutable");
+      assert.equal(PHOTO_CACHE_CONTROL, options.metadata.cacheControl);
       const token = options.metadata.metadata.firebaseStorageDownloadTokens;
       assert.match(token, /^[0-9a-f-]{36}$/);
+      assert.deepEqual(Object.keys(options.metadata.metadata),
+          ["firebaseStorageDownloadTokens"]);
       const item = db.docs["recovery_library/item1"];
       assert.equal(item.photoStatus, "ready");
       assert.equal(item.photoUrl,

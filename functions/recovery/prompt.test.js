@@ -62,7 +62,46 @@ test("carries the content rules", () => {
 
 test("leaves the driving and medical-help lines to the code", () => {
   const {system, prompt} = buildMorningPrompt(ctx());
-  assert.doesNotMatch(system + prompt, /driv|medical help|emergency/i);
+  // The app renders these two lines itself from the server's safety flags.
+  for (const appLine of [
+    "Alcohol may still be in your system. Don't drive this morning.",
+    "Can't keep water down for hours, or confused and hard to wake? " +
+      "Get medical help.",
+  ]) {
+    assert.ok(!(system + prompt).includes(appLine), appLine);
+  }
+});
+
+test("forbids saying they can drive or when the alcohol will be gone", () => {
+  const {system} = buildMorningPrompt(ctx());
+  assert.ok(system.includes(
+      "Never say or imply they're OK to drive, and never estimate when " +
+      "the alcohol will be gone; the app adds its own driving line."));
+});
+
+test("shortlist lines show the display title when an item has one", () => {
+  const c = ctx();
+  c.shortlist.breakfasts[0] = {
+    ...c.shortlist.breakfasts[0],
+    name: "Chilaquiles verdes with crema, onion and a fried egg on top",
+    title: "Chilaquiles verdes with a fried egg",
+  };
+  const {prompt} = buildMorningPrompt(c);
+  assert.match(prompt, /b1 \| Chilaquiles verdes with a fried egg \| order/);
+  assert.doesNotMatch(prompt, /on top/);
+});
+
+test("numbers are rounded before they reach the model", () => {
+  const c = ctx();
+  c.payload.waterMl = 354.87999999;
+  c.payload.drinks[0].abv = 4.6000000001;
+  const {prompt} = buildMorningPrompt(c);
+  assert.match(prompt, /Water: 355 ml/);
+  assert.match(prompt, /Cantarito 4\.6% x3/);
+  assert.doesNotMatch(prompt, /\d\.\d{3,}/);
+  const missing = ctx();
+  delete missing.payload.waterMl;
+  assert.match(buildMorningPrompt(missing).prompt, /Water: 0 ml/);
 });
 
 test("drink names cannot break out of their line", () => {

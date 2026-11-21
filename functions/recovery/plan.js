@@ -11,6 +11,17 @@ const EFFORTS = ["cook", "buy", "order", "none"];
 const FALLBACK_ICON = "drop.fill";
 const MAX = {headline: 200, title: 60, why: 140, when: 60, name: 60};
 
+// Drinks that never belong in a recovery plan, matched as whole words (the
+// "\\b" is a regex word boundary, not a backspace). A proposed item that
+// names one is swapped for a shortlist item. The seed test holds the starter
+// library to the same list.
+const ALCOHOL = new RegExp("\\b(" + [
+  "beers?", "cervezas?", "chelas?", "micheladas?", "caguamas?", "mimosas?",
+  "bloody marys?", "tequilas?", "mezcal", "vodka", "rum", "whiske?y",
+  "bourbon", "wines?", "liquor", "shots?", "hair of the dog", "cocktails?",
+  "champagne", "prosecco", "sangria", "gin", "brandy", "pulque", "booze",
+].join("|") + ")\\b", "i");
+
 const text = {type: "string"};
 // Structured outputs needs every object closed, so each one lists its keys.
 const object = (properties, required) =>
@@ -119,11 +130,27 @@ function extractJson(raw) {
 function parsePlan(raw, ctx) {
   const data = extractJson(raw);
   const {breakfasts, activities: activityPool} = ctx.shortlist;
+  const activitiesIn = Array.isArray(data.activities) ? data.activities : [];
   const used = new Set();
   let newUsed = false;
+  const inPool = (pool, id) => pool.some((item) => item.id === id);
+  // Shortlist ids the model picked in the right slot. A repair takes an item
+  // it did not pick first, so swapping one pick never knocks out a later one
+  // as a repeat.
+  const named = new Set([
+    ...[data.breakfast].filter((entry) => inPool(breakfasts, entry?.id)),
+    ...activitiesIn.filter((entry) => inPool(activityPool, entry?.id)),
+  ].map((entry) => entry.id));
+  const spareIn = (pool) =>
+    pool.find((item) => !used.has(item.id) && !named.has(item.id)) ??
+    pool.find((item) => !used.has(item.id));
 
-  // Resolves one pick against its pool. Returns null when it is a repeat or
-  // a spare `new` with nothing to swap in, so the caller can drop it.
+  // Resolves one pick against its pool. A pick the app cannot show as asked
+  // (an id outside this kind's shortlist, a second `new`, or a `new` that
+  // names a drink) is repaired with the first unused shortlist item of the
+  // same kind, so a near-miss reply does not cost the user an attempt.
+  // Returns null when it is a repeat or there is nothing left to swap in,
+  // so the caller can drop it.
   const resolve = (entry, pool, label) => {
     if (entry === null || typeof entry !== "object") {
       throw new Error(`plan ${label} is missing`);
@@ -133,22 +160,23 @@ function parsePlan(raw, ctx) {
     if (hasId === hasNew) {
       throw new Error(`plan ${label} needs exactly one of id or new`);
     }
-    if (hasId) {
-      if (!pool.some((item) => item.id === entry.id)) {
-        throw new Error(`plan ${label} id is not in the shortlist`);
-      }
+    if (hasId && inPool(pool, entry.id)) {
       if (used.has(entry.id)) return null;
       used.add(entry.id);
       return {id: entry.id};
     }
-    if (!newUsed) {
-      newUsed = true;
-      return {new: {
-        name: str(entry.new.name, MAX.name, `${label} name`),
-        effort: EFFORTS.includes(entry.new.effort) ? entry.new.effort : "buy",
-      }};
+    if (hasNew && !newUsed) {
+      const name = str(entry.new.name, MAX.name, `${label} name`);
+      if (!ALCOHOL.test(name)) {
+        newUsed = true;
+        return {new: {
+          name,
+          effort: EFFORTS.includes(entry.new.effort) ?
+            entry.new.effort : "buy",
+        }};
+      }
     }
-    const spare = pool.find((item) => !used.has(item.id));
+    const spare = spareIn(pool);
     if (!spare) return null;
     used.add(spare.id);
     return {id: spare.id};
@@ -173,7 +201,6 @@ function parsePlan(raw, ctx) {
       clip(data.breakfast.when, MAX.when) : "soon",
   };
 
-  const activitiesIn = Array.isArray(data.activities) ? data.activities : [];
   const activities = [];
   for (const entry of activitiesIn) {
     if (activities.length === 2) break;
@@ -201,4 +228,4 @@ function parsePlan(raw, ctx) {
   };
 }
 
-module.exports = {ICONS, PLAN_JSON_SCHEMA, parsePlan};
+module.exports = {ICONS, ALCOHOL, PLAN_JSON_SCHEMA, parsePlan};

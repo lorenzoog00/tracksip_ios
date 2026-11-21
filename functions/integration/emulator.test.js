@@ -716,7 +716,8 @@ test("morning: a new breakfast joins the library once, waiting for a photo", asy
   const {createdAt, ...labels} = item.data();
   assert.equal(typeof createdAt, "number");
   assert.deepEqual(labels, {
-    name: "Tacos de canasta", kind: "breakfast", countries: ["MX"],
+    name: "Tacos de canasta", title: "Tacos de canasta", kind: "breakfast",
+    countries: ["MX"],
     goodFor: ["headache"], avoidWhen: [], severities: ["light"],
     effort: "buy", timeOfDay: ["early"], normalizedName: "tacos de canasta",
     photoUrl: null, photoStatus: "generating", review: "pending",
@@ -838,10 +839,9 @@ test("morning: a check-in nothing fits is refused without spending a plan", asyn
 
 test("morning: a reply that fails validation is a failed attempt, retried", async () => {
   await seedLibrary();
-  await assert.rejects(
-      planWith({breakfast: {id: "not-on-the-list", why: "W", when: "now"}}),
-      /try again/,
-  );
+  // An id off the list is repaired now; a plan with nothing to do right
+  // now cannot be.
+  await assert.rejects(planWith({rightNow: []}), /try again/);
   const jobs = await db.collection("users/alice/report_jobs").get();
   assert.equal(jobs.docs[0].data().status, "failed");
   assert.equal(
@@ -851,6 +851,34 @@ test("morning: a reply that fails validation is a failed attempt, retried", asyn
   const retried = await planWith();
   assert.equal(retried.morning.type, "morning");
   assert.equal((await jobs.docs[0].ref.get()).data().attempts, 2);
+});
+
+test("morning: an old build's recovery request never replaces a morning plan", async () => {
+  await seedLibrary();
+  const {morning: saved} = await planWith();
+  const before = (await db.doc("users/alice/report_usage/current").get())
+      .data();
+  let calls = 0;
+  await assert.rejects(
+      generateReport({
+        db,
+        uid: "alice",
+        data: {kind: "recovery", id: "e1", payload: {peakBac: 0.08}},
+        purchase: null,
+        generate: async () => {
+          calls++;
+          return "A recovery brief.";
+        },
+      }),
+      (e) => e.code === "failed-precondition",
+  );
+  assert.equal(calls, 0);
+  assert.deepEqual(
+      (await db.doc("users/alice/night_recoveries/e1").get()).data(), saved);
+  // Nothing spent, and no job left behind: only the morning plan's own.
+  assert.deepEqual(
+      (await db.doc("users/alice/report_usage/current").get()).data(), before);
+  assert.equal((await db.collection("users/alice/report_jobs").get()).size, 1);
 });
 
 // social: usernames

@@ -1,6 +1,9 @@
 const crypto = require("node:crypto");
-const sharp = require("sharp");
 const {avatarUrl} = require("../avatar");
+
+// Each photo lives at its own path with its own download token, and a new
+// photo always gets a new path or token, so a cached copy can never go stale.
+const PHOTO_CACHE_CONTROL = "public, max-age=31536000, immutable";
 
 const PHOTO_STYLE = "Overhead shot at about 45 degrees on a dark stone " +
   "table, warm morning window light, shallow depth of field. No people or " +
@@ -39,6 +42,9 @@ async function generatePhoto(item, {genai, model}) {
   const parts = response.candidates?.[0]?.content?.parts ?? [];
   const image = parts.find((part) => part.inlineData?.data);
   if (!image) throw new Error("The image model returned no image.");
+  // Loaded here, not at the top: index.js requires this file, and sharp's
+  // native module would otherwise load on every function's cold start.
+  const sharp = require("sharp");
   return sharp(Buffer.from(image.inlineData.data, "base64"))
       .resize({width: 800})
       .jpeg({quality: 80})
@@ -162,6 +168,7 @@ async function completeLibraryPhoto({
       // Custom metadata only counts under metadata.metadata, as for avatars.
       metadata: {
         contentType: "image/jpeg",
+        cacheControl: PHOTO_CACHE_CONTROL,
         metadata: {firebaseStorageDownloadTokens: token},
       },
     });
@@ -192,6 +199,7 @@ async function completeLibraryPhoto({
 
 module.exports = {
   PHOTO_STYLE,
+  PHOTO_CACHE_CONTROL,
   photoPrompt,
   generatePhoto,
   completeLibraryPhoto,
