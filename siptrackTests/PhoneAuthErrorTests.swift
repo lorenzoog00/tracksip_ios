@@ -123,4 +123,13 @@ struct PhoneAuthErrorTests {
     @Test func authNotificationNeverTraps() {
         #expect(FirebaseManager.shared.handlesAuthNotification(["not": "firebase"]) == false)
     }
+
+    /// In this test host, as on iPhone, the main Firebase app is configured too
+    /// early for phone auth; the late "phone-auth" app must come up with working
+    /// managers, or adding a number can never send an SMS.
+    @Test func phoneAuthComesUpAfterLaunch() async {
+        let phoneAuth = await FirebaseManager.shared.preparePhoneAuth()
+        #expect(phoneAuth != nil)
+        if let phoneAuth { #expect(FirebaseManager.managersReady(in: phoneAuth as Any)) }
+    }
 }

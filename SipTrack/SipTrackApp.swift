@@ -16,9 +16,8 @@ struct SipTrackApp: App {
     @StateObject private var firebase  = FirebaseManager.shared
     @StateObject private var countryDetector = LocationCountryDetector()
 
-    /// Nothing here may touch Firebase (see `FirebaseSetup`). The autoclosures
-    /// only run when the scene first reads them, after the app delegate's
-    /// `didFinishLaunching` has configured Firebase and built `AppServices`.
+    /// The autoclosures run when SwiftUI first builds the state objects, which
+    /// configures Firebase and builds `AppServices` (see `FirebaseSetup`).
     init() {
         _store    = StateObject(wrappedValue: AppServices.shared.store)
         _appState = StateObject(wrappedValue: AppServices.shared.appState)
@@ -69,7 +68,7 @@ struct SipTrackApp: App {
                 }
                 .onOpenURL { url in
                     // Phone auth's reCAPTCHA fallback returns through a URL.
-                    if Auth.auth().canHandle(url) { return }
+                    if firebase.handlesAuthURL(url) { return }
                     if GIDSignIn.sharedInstance.handle(url) { return }
                     if let username = FriendLink.username(from: url) {
                         // The app-open ad would present on the same root as the sheet.
@@ -151,11 +150,11 @@ private final class ProductionAppCheckProviderFactory: NSObject, AppCheckProvide
     }
 }
 
-/// Firebase is configured from the app delegate's `didFinishLaunching`, never in
-/// `App.init`. Firebase Auth is created the moment Firebase is configured and
-/// sets up its phone-auth managers right then; from `App.init` on iOS 26 they
-/// stayed nil, and the first APNs token handed to Auth crashed every launch of
-/// TestFlight 1.0.9 (firebase-ios-sdk #16273: configure in didFinishLaunching).
+/// Configures Firebase once, from whichever comes first: SwiftUI building the
+/// app's state objects (which, on iOS 26, happens before `didFinishLaunching`)
+/// or the app delegate. That is too early for Firebase Auth's phone-auth
+/// managers, so phone verification runs on a second Firebase app configured
+/// later (see `FirebaseManager.preparePhoneAuth`); everything else is fine.
 enum FirebaseSetup {
     /// A flag, not `FirebaseApp.app() == nil`: asking Firebase before it is
     /// configured logs an error on every cold launch.
