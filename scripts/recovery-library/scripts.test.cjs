@@ -52,6 +52,65 @@ test("import refuses without --confirm-production", () => {
   assert.strictEqual(ok.dryRun, true);
 });
 
+test("a dry run needs no --confirm-production", () => {
+  const dry = imp.parseArgs(["--bucket", "x", "--dry-run"]);
+  assert.strictEqual(dry.dryRun, true);
+  assert.throws(() => imp.parseArgs(["--dry-run"]), /bucket/);
+});
+
+test("import refuses while flagged.json lists a photo", () => {
+  const out = fs.mkdtempSync(path.join(os.tmpdir(), "recovery-flags-"));
+  const file = path.join(out, "flagged.json");
+  // No file, or an empty list: the review is done.
+  assert.doesNotThrow(() => imp.assertNoFlags(out));
+  fs.writeFileSync(file, "[]");
+  assert.doesNotThrow(() => imp.assertNoFlags(out));
+  fs.writeFileSync(file, JSON.stringify([{id: "mx-a", reason: "text"}]));
+  assert.throws(() => imp.assertNoFlags(out), /still flagged.*mx-a/);
+  fs.writeFileSync(file, "{not json");
+  assert.throws(() => imp.assertNoFlags(out), /not valid JSON/);
+  fs.writeFileSync(file, JSON.stringify({id: "mx-a"}));
+  assert.throws(() => imp.assertNoFlags(out), /must be a list/);
+  fs.rmSync(out, {recursive: true, force: true});
+});
+
+test("the import script stops on flags before loading the SDK", () => {
+  const out = fs.mkdtempSync(path.join(os.tmpdir(), "recovery-flags-run-"));
+  fs.writeFileSync(path.join(out, "flagged.json"),
+      JSON.stringify([{id: "mx-a", reason: "warped fork"}]));
+  // A preload that fails the run if firebase-admin is ever required.
+  const hook = path.join(out, "no-sdk.cjs");
+  fs.writeFileSync(hook, [
+    "const Module = require(\"node:module\");",
+    "const load = Module._load;",
+    "Module._load = function(request, ...rest) {",
+    "  if (request === \"firebase-admin\") throw new Error(\"SDK loaded\");",
+    "  return load.call(this, request, ...rest);",
+    "};",
+  ].join("\n"));
+  for (const mode of ["--dry-run", "--confirm-production"]) {
+    const run = spawnSync(process.execPath,
+        ["--require", hook, path.join(__dirname, "import-library.cjs"), mode,
+          "--bucket", "b", "--out", out], {encoding: "utf8"});
+    assert.notStrictEqual(run.status, 0, mode);
+    assert.match(run.stderr, /still flagged/, mode);
+    assert.doesNotMatch(run.stderr, /SDK loaded/, mode);
+    assert.doesNotMatch(run.stdout, /DRY RUN|imported/, mode);
+  }
+  fs.rmSync(out, {recursive: true, force: true});
+});
+
+test("photo uploads cache for a year and keep the download token", () => {
+  const meta = imp.uploadMetadata("tok");
+  assert.deepStrictEqual(meta, {
+    contentType: "image/jpeg",
+    cacheControl: "public, max-age=31536000, immutable",
+    metadata: {firebaseStorageDownloadTokens: "tok"},
+  });
+  const {PHOTO_CACHE_CONTROL} = require("../../functions/recovery/image");
+  assert.strictEqual(imp.PHOTO_CACHE_CONTROL, PHOTO_CACHE_CONTROL);
+});
+
 test("buildDoc has the required fields", () => {
   const doc = imp.buildDoc(seed[0], {bucket: "bk", token: "tok", now: 5});
   assert.strictEqual(doc.review, "approved");
@@ -59,6 +118,12 @@ test("buildDoc has the required fields", () => {
   assert.deepStrictEqual(doc.pendingPlanPaths, []);
   assert.strictEqual(doc.createdAt, 5);
   assert.strictEqual(doc.name, "A");
+  // Without a title the name is shown; with one, the title is.
+  assert.strictEqual(doc.title, "A");
+  const titled = imp.buildDoc({...seed[0], name: "A long photo subject",
+    title: "Short title"}, {bucket: "bk", token: "tok", now: 5});
+  assert.strictEqual(titled.title, "Short title");
+  assert.strictEqual(titled.name, "A long photo subject");
   assert.strictEqual(doc.photoUrl,
       "https://firebasestorage.googleapis.com/v0/b/bk/o/" +
       "recovery-library%2Fa.jpg?alt=media&token=tok&v=5");
