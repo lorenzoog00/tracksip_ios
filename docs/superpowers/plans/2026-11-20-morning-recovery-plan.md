@@ -34,7 +34,7 @@
   - Medical line `Can't keep water down for hours, or confused and hard to wake? Get medical help.`
 - `SipTrack/` and `siptrackTests/` are **not** synchronized Xcode groups. Every new Swift file must be added to `siptrack.xcodeproj/project.pbxproj` (file reference, group entry, and Sources build phase), or it never compiles or runs.
 - Swift compiles only in the macOS CI job, which runs on pull requests. Open a draft PR at the first iOS task and push after each iOS task to get a CI result.
-- CI never deploys Cloud Functions. Deploy by hand (Task 13).
+- Cloud Functions deploy through CI, not by hand: `.github/workflows/deploy-backend.yml` deploys on a push to `main` that touches the backend, after the owner approves the `production` environment, with params from the `FUNCTIONS_ENV` secret. Everything the deploy needs (library, Vertex AI, params) has to be in place before dev is merged to main; Task 13 has the order.
 - Production Firebase project: `device-streaming-8326abff`. Anything that writes to it (photo import, deploy) or spends money (bulk generation) needs the owner's explicit go-ahead in chat first.
 
 ## Review Focus
@@ -103,9 +103,9 @@
   - `shortlist(items, {country, symptoms, severity, timeOfDay, isWorkday}, historyByWindow: {30: Set, 14: Set}, rng = Math.random) -> {breakfasts: Item[], activities: Item[]}`
   - `findDuplicate(items, name, country) -> Item|null`
 
-**Library item** (Firestore `recovery_library/{id}`; `id` is the doc id):
+**Library item** (Firestore `recovery_library/{id}`; `id` is the doc id). `name` is the detailed photo subject and the de-duplication key (`normalizedName`); `title` is the short line the plan shows (at most 8 words, what to eat or do, no "you/your"). A plan pick's `name` is `title ?? name`. An item the model proposes gets `title = name`.
 ```
-{name, kind: "breakfast"|"activity", countries: ["MX"]|["US"]|["*"], goodFor: Symptom[],
+{title, name, kind: "breakfast"|"activity", countries: ["MX"]|["US"]|["*"], goodFor: Symptom[],
  avoidWhen: Symptom[], severities: Severity[], effort: "cook"|"buy"|"order"|"none",
  timeOfDay: ("early"|"late")[], normalizedName, photoUrl: string|null,
  photoStatus: "generating"|"ready"|"failed"|"capped", review: "pending"|"approved"|"rejected",
@@ -307,7 +307,7 @@
 - CLI:
   - `node scripts/recovery-library/generate-photos.cjs [--only id1,id2] [--concurrency 4]` writes `output/recovery-library/{id}.jpg`, skips existing files unless they are in `--only`, and uses ADC with project `device-streaming-8326abff`. If the model supports Vertex batch prediction, use it.
   - `node scripts/recovery-library/contact-sheet.cjs` writes `output/recovery-library/contact-sheet.html`: a grid of image, id, name and country, with flagged ids from `flagged.json` outlined in red.
-  - `node scripts/recovery-library/import-library.cjs --confirm-production` uploads each photo to `recovery-library/{id}.jpg` with a download token and writes `recovery_library/{id}` with `review: "approved"`, `photoStatus: "ready"` and `photoUrl`. It refuses to run without the flag.
+  - `node scripts/recovery-library/import-library.cjs --confirm-production` uploads each photo to `recovery-library/{id}.jpg` with a download token and writes `recovery_library/{id}` with `review: "approved"`, `photoStatus: "ready"` and `photoUrl` (uploads carry `cacheControl: public, max-age=31536000, immutable`). It refuses to write without the flag; `--dry-run` only lists the writes and needs no flag. Either way it refuses while `flagged.json` is a non-empty list.
 
 - [ ] **Step 1:** Write the three scripts. Test `--only` and skip logic on 2 seed items with `generatePhoto` stubbed by an env var `RECOVERY_FAKE_IMAGES=1` that writes a solid-color JPEG.
 - [ ] **Step 2: Cost gate.** Tell the owner the count (~300) and estimate (~$20 at $0.067 per 1K image, before redos), and wait for a "go" in chat.
@@ -480,13 +480,17 @@
 
 ### Task 13: Deploy and verify
 
-- [ ] **Step 1: Owner go-ahead.** Ask for the go-ahead to deploy to production.
-- [ ] **Step 2: Set up Vertex AI.** Enable the Vertex AI API in `device-streaming-8326abff` (`gcloud services enable aiplatform.googleapis.com --project device-streaming-8326abff`). Grant the functions' runtime service account `roles/aiplatform.user`.
-- [ ] **Step 3: Set params** in `functions/.env.device-streaming-8326abff`: `IMAGE_MODEL`, `PHOTO_DAILY_CAP=10`, `ADMIN_UIDS=<owner uid>`.
-- [ ] **Step 4: Deploy.** Run `cd functions && npx firebase deploy --only functions --project device-streaming-8326abff`, then `npx firebase functions:list --project device-streaming-8326abff`. Expected: `requestReport`, `generateLibraryPhoto`, `listPendingPhotos` and `reviewPhoto` are listed.
-- [ ] **Step 5: Smoke test** with the owner's account on a TestFlight build:
+Functions are not deployed by hand. `.github/workflows/deploy-backend.yml` starts on a push to `main` that touches `functions/**`, the rules, the indexes, `firebase.json` or the smoke-test script. Its `test` job runs lint, unit and emulator tests. Its `deploy` job runs in the `production` environment, which waits for the owner's approval (Actions → the run → Review deployments → Approve), authenticates through Workload Identity Federation, writes the `FUNCTIONS_ENV` secret to `functions/.env.device-streaming-8326abff`, deploys `firestore:rules,firestore:indexes,storage,functions`, and runs `scripts/smoke-test-functions.cjs`. The moment dev is merged to main the new code is one approval away from production, so every gate below comes first, in this order.
+
+- [ ] **Step 1: Owner go-ahead.** Ask for the go-ahead to write to production (library import, IAM, params) and to deploy.
+- [ ] **Step 2: Import the library** (Task 8, Step 6: `import-library.cjs --bucket <bucket> --confirm-production`, after a `--dry-run`). It refuses while `output/recovery-library/flagged.json` still lists a photo. Verify a Firestore count of `recovery_library` where `review == "approved"` ≈ seed size. Without it every check-in is refused as "not available yet".
+- [ ] **Step 3: Set up Vertex AI.** Enable the Vertex AI API in `device-streaming-8326abff` (`gcloud services enable aiplatform.googleapis.com --project device-streaming-8326abff`). Grant the functions' runtime service account `roles/aiplatform.user`.
+- [ ] **Step 4: Set params in the `FUNCTIONS_ENV` secret** on the `production` environment (not a local file: the deploy writes the secret over `functions/.env.device-streaming-8326abff`, so keep every line already in it). Add `ADMIN_UIDS=<owner uid>`, plus `IMAGE_MODEL` or `PHOTO_DAILY_CAP` only if they change from the defaults (`gemini-3.1-flash-image`, `10`).
+- [ ] **Step 5: Merge dev → main and approve the run.** The owner merges (auto-merge is blocked), then approves the deploy-backend run once its tests pass. Expected: the deploy and the callable smoke test go green.
+- [ ] **Step 6: Verify.** Run `npx firebase functions:list --project device-streaming-8326abff`. Expected: `requestReport`, `generateLibraryPhoto`, `listPendingPhotos` and `reviewPhoto` are listed. Then an end-to-end morning smoke test with the owner's account on the owner's own device:
   - end a test night;
   - check in with nausea;
-  - the plan arrives in under ~5 s with photos from the library;
+  - the plan arrives in under ~5 s with photos from the library, and titles that read as dishes and things to do;
   - a second check-in on another night doesn't repeat items.
-- [ ] **Step 6: Finish the branch.** Use superpowers:finishing-a-development-branch. Auto-merge is blocked, so the owner merges the PR.
+- [ ] **Step 7: Only then distribute the TestFlight build** to testers.
+- [ ] **Step 8: Finish the branch.** Use superpowers:finishing-a-development-branch.
