@@ -32,6 +32,11 @@ struct PhoneNumbersTests {
         #expect(PhoneNumbers.normalize("00 1 415 555 2671", defaultRegion: "MX") == "+14155552671")
     }
 
+    @Test func oldLongDistancePrefixIsMexicanOnlyInMexico() {
+        // 01 + ten digits is Mexico's retired national form; elsewhere it isn't rewritten to +52.
+        #expect(PhoneNumbers.normalize("01 55 1234 5678", defaultRegion: "US") != "+525512345678")
+    }
+
     @Test func usNumbersNormalize() {
         #expect(PhoneNumbers.normalize("(415) 555-2671", defaultRegion: "US") == "+14155552671")
         #expect(PhoneNumbers.normalize("+1 415 555 2671", defaultRegion: "MX") == "+14155552671")
