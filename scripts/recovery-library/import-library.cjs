@@ -44,12 +44,25 @@ function parseArgs(argv) {
 
 /**
  * Refuses while the photo review still has flagged photos: importing would
- * publish them. A missing file or an empty list passes.
- * @param {string} dir The output dir that holds flagged.json.
+ * publish them. Reads every `flagged*.json` in the output dir (a review run
+ * in batches writes flagged-batch1.json, flagged-batch2.json, ...). Missing
+ * files or empty lists pass.
+ * @param {string} dir The output dir that holds the flag files.
  */
 function assertNoFlags(dir) {
-  const file = path.join(dir, "flagged.json");
-  if (!fs.existsSync(file)) return;
+  if (!fs.existsSync(dir)) return;
+  const files = fs.readdirSync(dir)
+      .filter((name) => /^flagged.*\.json$/.test(name))
+      .sort()
+      .map((name) => path.join(dir, name));
+  for (const file of files) assertNoFlagsIn(file);
+}
+
+/**
+ * Refuses while one flag file still lists a photo.
+ * @param {string} file A flagged*.json file.
+ */
+function assertNoFlagsIn(file) {
   let flagged;
   try {
     flagged = JSON.parse(fs.readFileSync(file, "utf8"));
@@ -163,10 +176,15 @@ async function main(argv) {
         `(${doc.review}, ${doc.photoStatus})`);
     }
   } else {
-    const admin = requireFromFunctions("firebase-admin");
-    admin.initializeApp({projectId: PROJECT_ID, storageBucket: args.bucket});
-    const bucket = admin.storage().bucket();
-    const db = admin.firestore();
+    // firebase-admin 14 removed the namespaced API (admin.storage(),
+    // admin.firestore()); use each service's modular entry point, as
+    // functions/index.js does.
+    const {initializeApp} = requireFromFunctions("firebase-admin/app");
+    const {getStorage} = requireFromFunctions("firebase-admin/storage");
+    const {getFirestore} = requireFromFunctions("firebase-admin/firestore");
+    initializeApp({projectId: PROJECT_ID, storageBucket: args.bucket});
+    const bucket = getStorage().bucket();
+    const db = getFirestore();
     for (const doc of docs) {
       try {
         const token = new URL(doc.photoUrl).searchParams.get("token");

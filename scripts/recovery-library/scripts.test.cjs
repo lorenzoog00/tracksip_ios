@@ -76,15 +76,20 @@ test("import refuses while flagged.json lists a photo", () => {
 
 test("the import script stops on flags before loading the SDK", () => {
   const out = fs.mkdtempSync(path.join(os.tmpdir(), "recovery-flags-run-"));
-  fs.writeFileSync(path.join(out, "flagged.json"),
+  // A batched review writes flagged-batchN.json, not flagged.json.
+  fs.writeFileSync(path.join(out, "flagged-batch2.json"),
       JSON.stringify([{id: "mx-a", reason: "warped fork"}]));
-  // A preload that fails the run if firebase-admin is ever required.
+  // A preload that fails the run if firebase-admin (or any of its modular
+  // entry points) is ever required.
   const hook = path.join(out, "no-sdk.cjs");
   fs.writeFileSync(hook, [
     "const Module = require(\"node:module\");",
     "const load = Module._load;",
     "Module._load = function(request, ...rest) {",
-    "  if (request === \"firebase-admin\") throw new Error(\"SDK loaded\");",
+    "  if (/^firebase-admin(\\/|$)/.test(request) || " +
+      "/[\\\\/]firebase-admin[\\\\/]/.test(request)) {",
+    "    throw new Error(\"SDK loaded\");",
+    "  }",
     "  return load.call(this, request, ...rest);",
     "};",
   ].join("\n"));
