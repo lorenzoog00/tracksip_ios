@@ -464,16 +464,27 @@ struct UserSearchView: View {
     private func loadSuggestions(refresh: Bool) async {
         loadingSuggestions = true
         let contactsTask = Task {
-            // What this phone already has first, so a fresh saved check shows
-            // without waiting for the network (and a tap on the card meanwhile
-            // can't spend a check).
-            await showContacts(refresh: refresh)
-            // Then the first load of each visit re-reads the number: it may have
-            // been added, changed or removed on another phone. A change lands in
-            // the `firebase.phoneNumber` handler, which clears the old number's
-            // check and shows the new one's; doing that here too could start a
-            // second check, spending both of the day's.
-            if !refresh { await firebase.refreshPhoneNumber() }
+            // The first load of each visit re-reads the number: it may have been
+            // added, changed or removed on another phone. A change lands in the
+            // `firebase.phoneNumber` handler, which clears the old number's check
+            // and shows the new one's.
+            if !refresh, friends.cachedContactMatches() == nil {
+                // Nothing saved, so showing contacts means a new check: re-read
+                // first, or a number changed elsewhere would spend one check on
+                // the old number and another on the new.
+                let before = firebase.phoneNumber
+                await firebase.refreshPhoneNumber()
+                // Changed: the handler owns it. Showing here too could set
+                // .checking before the handler's reset, which would then start
+                // a second check.
+                guard firebase.phoneNumber == before else { return }
+                await showContacts(refresh: false)
+            } else {
+                // A fresh saved check shows without waiting for the network (and
+                // a tap on the card meanwhile can't spend a check), then the re-read.
+                await showContacts(refresh: refresh)
+                if !refresh { await firebase.refreshPhoneNumber() }
+            }
         }
         do {
             suggestions = try await friends.suggestions()
@@ -529,9 +540,17 @@ struct UserSearchView: View {
         }
         let shown = contacts
         contacts = .checking
+        // A stale answer is dropped. A changed number's handler has reset the
+        // card; with the same number (only the account changed) put back what
+        // was showing, or the card would stay on "Checking…".
+        func droppedAsStale() -> Bool {
+            guard isStale() else { return false }
+            if contacts == .checking, firebase.phoneNumber == phone { contacts = shown }
+            return true
+        }
         do {
             let read = try await Self.readContacts(ownPhone: phone)
-            guard !isStale() else { return }
+            if droppedAsStale() { return }
             entries = read
             contactsReadFailed = false
             let phones = ContactPhones.phonesToCheck(read, ownPhone: phone)
@@ -541,11 +560,11 @@ struct UserSearchView: View {
                 result = ContactMatchResult(profiles: [], onTrackSip: [])
             } else {
                 result = try await friends.contactMatches(phones: phones)
-                guard !isStale() else { return }
+                if droppedAsStale() { return }
             }
             contacts = .done(result)
         } catch let error where FirebaseManager.isContactCheckLimit(error) {
-            guard !isStale() else { return }
+            if droppedAsStale() { return }
             // Never the server's own sentence: the saved check, else ours.
             if let cached = friends.cachedContactMatches() {
                 contacts = .done(cached)
@@ -555,7 +574,7 @@ struct UserSearchView: View {
                 contacts = .limitReached
             }
         } catch {
-            guard !isStale() else { return }
+            if droppedAsStale() { return }
             if case .done = shown {
                 // A failed refresh keeps what was on screen.
                 contacts = shown
