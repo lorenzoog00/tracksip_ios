@@ -169,7 +169,24 @@ enum FirebaseSetup {
         #else
         AppCheck.setAppCheckProviderFactory(ProductionAppCheckProviderFactory())
         #endif
+        // DIAGNOSTIC (temporary)
+        let stack = Thread.callStackSymbols.prefix(10).map { String($0.split(separator: " ", omittingEmptySubsequences: true).dropFirst(3).prefix(3).joined(separator: " ")) }
+        let appState = UIApplication.shared.applicationState.rawValue
+        DispatchQueue.global().sync {
+            let sel = NSSelectorFromString("sharedApplication")
+            let responds = UIApplication.responds(to: sel)
+            let app = responds ? UIApplication.perform(sel)?.takeUnretainedValue() as? UIApplication : nil
+            NSLog("DIAG2 configure: main=%@ appState=%ld offMainResponds=%@ offMainApp=%@ stack=%@",
+                  Thread.isMainThread ? "y" : "n", appState, responds ? "y" : "n", app != nil ? "y" : "n",
+                  stack.joined(separator: " | "))
+        }
         FirebaseApp.configure()
+        Task { @MainActor in
+            for delay in [0.0, 0.5, 2.0, 5.0] {
+                try? await Task.sleep(for: .seconds(delay))
+                NSLog("DIAG2 +%.1fs managers: %@", delay, FirebaseManager.shared.authManagerState())
+            }
+        }
     }
 }
 

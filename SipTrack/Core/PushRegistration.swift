@@ -102,6 +102,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         // First, before anything reads Firebase: configuring it any earlier (in
         // App.init) left phone auth half set up and crashed 1.0.9 on launch. The
         // stores come right after, so push taps and lock-screen intents find them.
+        NSLog("DIAG2 didFinishLaunching start")
         FirebaseSetup.configureIfNeeded()
         _ = AppServices.shared
         // The notification delegate must be in place before launch finishes or a

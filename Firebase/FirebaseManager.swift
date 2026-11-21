@@ -221,6 +221,14 @@ final class FirebaseManager: ObservableObject {
     /// That trap crashed TestFlight 1.0.9 on every launch, so nothing here calls
     /// one of those unless this is true. Read by reflection: Firebase exposes no
     /// such check. If the names ever change, this says false (no SMS, no crash).
+    /// DIAGNOSTIC (temporary)
+    func authManagerState() -> String {
+        Mirror(reflecting: auth).children
+            .filter { Self.phoneAuthManagerNames.contains($0.label ?? "") }
+            .map { "\($0.label ?? "?")=\(String(describing: $0.value) == "nil" ? "nil" : "set")" }
+            .joined(separator: " ")
+    }
+
     var phoneAuthReady: Bool {
         Self.managersReady(in: auth)
     }
