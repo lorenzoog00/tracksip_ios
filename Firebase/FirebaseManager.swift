@@ -728,6 +728,52 @@ final class FirebaseManager: ObservableObject {
         return d["report"] as? String
     }
 
+    // MARK: - Morning recovery plan
+
+    /// Asks for a night's morning plan. The answer is the plan (with the free
+    /// plans left, nil for Pro), or `pending` while another request for the
+    /// same night is still being built. Server refusals throw with the
+    /// callable's status (see `MorningCheckIn.outcome`).
+    func requestMorningPlan(eventId: String, payload: [String: Any]) async throws
+        -> (record: MorningRecord?, pending: Bool, remaining: Int?) {
+        let result = try await requestReport(kind: "morning", id: eventId, payload: payload)
+        return try MorningCheckIn.response(from: result, eventId: eventId)
+    }
+
+    /// The stored plan doc (`night_recoveries/{eventId}`, `type: "morning"`),
+    /// or nil when it isn't there yet, is an old recovery brief, or can't be
+    /// read.
+    func fetchMorningPlan(eventId: String) async -> MorningRecord? {
+        guard let uid = currentUserId() else { return nil }
+        let doc = try? await db.collection("users").document(uid)
+            .collection("night_recoveries").document(eventId).getDocument()
+        guard let d = doc?.data() else { return nil }
+        return MorningCheckIn.restoredPlan(eventId: eventId, doc: d)
+    }
+
+    /// This account's morning plans created since `since`, for a phone that
+    /// doesn't have them yet (a reinstall or a new device). The query is a
+    /// single-field range on `created_at`, so it needs no composite index;
+    /// old recovery briefs in the same collection are dropped here, the way
+    /// the server does. Empty when `uid` isn't signed in or the read fails.
+    func pullMorningPlans(uid: String, since: Date) async -> [MorningRecord] {
+        guard currentUserId() == uid else { return [] }
+        let snap = try? await db.collection("users").document(uid)
+            .collection("night_recoveries")
+            .whereField("created_at", isGreaterThanOrEqualTo: since.timeIntervalSince1970 * 1000)
+            .getDocuments()
+        return snap?.documents.compactMap { doc in
+            MorningCheckIn.restoredPlan(eventId: doc.documentID, doc: doc.data())
+        } ?? []
+    }
+
+    /// Deletes a night's `night_recoveries/{eventId}` doc with the night: a
+    /// morning plan holds that morning's symptoms. The rules let the owner
+    /// delete it; a missing doc is not an error.
+    func deleteNightRecovery(eventId: String) async throws {
+        try await col("night_recoveries")?.document(eventId).delete()
+    }
+
     func deleteCoachReport(reportId: String) async throws {
         guard let uid = currentUserId() else { return }
         try await db.collection("users").document(uid)
@@ -806,8 +852,9 @@ final class FirebaseManager: ObservableObject {
         return UUID(uuidString: parts.joined(separator: "-"))
     }
 
+    @discardableResult
     private func requestReport(kind: String, id: String, payload: [String: Any],
-                               metadata: [String: Any] = [:]) async throws {
+                               metadata: [String: Any] = [:]) async throws -> [String: Any] {
         guard DataStore.shared.loadUserProfile().aiReportsEnabled == true else {
             throw NSError(domain: "FirebaseManager", code: 403,
                           userInfo: [NSLocalizedDescriptionKey: "Enable AI reports in Profile before sharing data with Anthropic."])
@@ -817,7 +864,7 @@ final class FirebaseManager: ObservableObject {
         if let signed = await signedProTransaction() {
             data["signedTransaction"] = signed
         }
-        _ = try await callFunction("requestReport", data: data)
+        return try await callFunction("requestReport", data: data)
     }
 
     /// Fill a new drink's numbers from a free-text description.
@@ -836,6 +883,26 @@ final class FirebaseManager: ObservableObject {
         }
         let payload = try await callFunction("lookupDrink", data: data)
         return try DrinkLookup.parse(payload)
+    }
+
+    // MARK: - Recovery photo review (admin)
+
+    /// Library photos awaiting review, newest first, at most 50. The server
+    /// answers `permission-denied` unless this uid is in its `ADMIN_UIDS`.
+    func listPendingPhotos() async throws -> [PendingPhoto] {
+        let result = try await callFunction("listPendingPhotos", data: [:])
+        return PendingPhoto.list(from: result)
+    }
+
+    /// Approves, rejects or regenerates one library photo. A regeneration
+    /// waits for the new photo (up to about two minutes) and returns what it
+    /// left; a failed photo comes back as `photoStatus: "failed"`, not as an
+    /// error. Nil for approve and reject.
+    @discardableResult
+    func reviewPhoto(id: String, action: PhotoReviewAction) async throws -> PhotoRegeneration? {
+        let result = try await callFunction("reviewPhoto", data: ["itemId": id, "action": action.rawValue])
+        guard action == .regenerate else { return nil }
+        return PhotoRegeneration(result: result)
     }
 
     /// The JWS for an active Pro entitlement, which the server re-verifies

@@ -4,6 +4,16 @@ import Combine
 import UserNotifications
 import SipTrackActivityKit
 
+/// The check-in RootView presents: a night, and the tile a notification's quick
+/// answer pre-selects (nil for a plain tap). One sheet per night, so the night
+/// is the identity.
+struct PendingCheckIn: Identifiable, Equatable {
+    let eventId: String
+    let preselected: Symptom?
+
+    var id: String { eventId }
+}
+
 @MainActor
 final class AppState: ObservableObject {
 
@@ -43,6 +53,25 @@ final class AppState: ObservableObject {
     @Published var generatingRecoveryForEventId: String? = nil
     @Published var failedRecoveryEventIds: Set<String> = []
     @Published var reportErrorMessage: String? = nil
+
+    /// Each night's morning recovery plan, keyed by event id. Final once made.
+    @Published var morningPlans: [String: MorningRecord] = [:]
+    /// The night whose morning plan is being built right now.
+    @Published var buildingMorningPlanFor: String? = nil
+    /// Nights whose plan request failed (a retry is allowed).
+    @Published var morningPlanFailed: Set<String> = []
+    /// Nights a free user checked in for with no plans left this month: the
+    /// check-in shows the blurred sample and the upgrade button.
+    @Published var morningPlanLocked: Set<String> = []
+    /// Nights the server had no plan for (nothing in the photo library fits
+    /// that check-in): a friendly "no plan for this one", not an error.
+    @Published var morningPlanUnavailable: Set<String> = []
+    /// A morning notification was tapped (or the Home card, or the summary's
+    /// "Check in"): RootView presents the check-in for this night, with this
+    /// tile pre-selected (nil for a plain tap). Setting it back to nil closes it.
+    @Published var pendingCheckIn: PendingCheckIn? = nil
+    /// `[UTC month: free plans left]`, read through `freeMorningPlansLeft`.
+    @Published private var morningAllowance: [String: Int] = [:]
 
     /// Fires every 10 s while an event is active. All views that show live BAC
     /// read `_ = appState.bacTick` so they recompute in sync.
@@ -95,6 +124,13 @@ final class AppState: ObservableObject {
 
     var canGenerateNightReport: Bool {
         isPro || freeAiReportsUsedThisMonth < Self.freeMonthlyReportLimit
+    }
+
+    /// Free morning plans left this month (of `MorningCheckIn.freeMonthlyPlans`).
+    /// A local count for the UI; the server is the authority, and its
+    /// `remaining` overwrites this whenever it sends one.
+    var freeMorningPlansLeft: Int {
+        MorningCheckIn.freePlansLeft(allowance: morningAllowance, now: Date())
     }
 
     /// Whether a recovery brief may be requested from the model.
@@ -151,6 +187,10 @@ final class AppState: ObservableObject {
         self.store = store
         currentUserId = FirebaseManager.shared.currentUserId()
         loadAll()
+        // A tapped morning notification (WaterReminderManager) opens the check-in.
+        MorningCheckIn.onOpen = { [weak self] eventId, preselected in
+            self?.openMorningCheckIn(eventId: eventId, preselected: preselected)
+        }
         refreshWaterReminder()
         if let active = activeEvent {
             startBACRefreshTimer(for: active.id)
@@ -192,9 +232,12 @@ final class AppState: ObservableObject {
 
     private func resetProfile() {
         WaterReminderManager.shared.cancel()
+        cancelMorningNotifications()
         DataStore.shared.clearAllData()
         events = []; entries = []; waterEntries = []; foodEntries = []
         customDrinkTypes = []; challenges = []; coachReports = []; nightRecoveries = []
+        morningPlans = [:]; morningAllowance = [:]; pendingCheckIn = nil
+        morningPlanFailed = []; morningPlanLocked = []; morningPlanUnavailable = []
         userProfile = UserProfile()
         // Bypasses updateUserProfile, so hand Haptics the reset value directly.
         Haptics.shared.setEnabled(userProfile.hapticsEnabled)
@@ -212,6 +255,8 @@ final class AppState: ObservableObject {
         challenges       = ds.loadChallenges()
         coachReports     = ds.loadCoachReports()
         nightRecoveries  = ds.loadNightRecoveries()
+        morningPlans     = ds.loadMorningPlans()
+        morningAllowance = ds.loadMorningAllowance()
         // First-launch locale seed — only runs once, before user sets a country.
         if userProfile.countryCode == nil, let detected = LegalBACLimits.detectFromLocale() {
             userProfile.countryCode = detected.countryCode
@@ -290,8 +335,10 @@ final class AppState: ObservableObject {
                     // failed — "is this someone new?" is now answerable.
                     endCloudRestore()
                     checkAndGenerateAutoReports()
-                    checkAndGenerateRecoveries()
+                    // Old nights' pending briefs only; new nights get a morning
+                    // plan from the check-in instead of an automatic brief.
                     syncPendingRecoveries()
+                    restoreMorningPlans(uid: uid)
                 }
             }
             if cloudPullQueued {
@@ -315,6 +362,8 @@ final class AppState: ObservableObject {
     ) -> NightEvent {
         // The night friends see until this one replaces it.
         ensureEndedCopy(of: sharedNightEvent())
+        // A new night ends the previous night's check-in, notification included.
+        cancelMorningNotifications()
         var event = DataStore.shared.createEvent(name: name, drivingMode: drivingMode, bacLimit: bacLimit, userId: currentUserId, startTime: startTime)
         event.incognito = Self.resolveIncognito(incognito, profileDefault: userProfile.incognitoByDefault)
         event.stomachState = stomachState
@@ -680,8 +729,9 @@ final class AppState: ObservableObject {
         if #available(iOS 16.2, *) { LiveActivityManager.shared.end() }
         refreshWaterReminder()
         WatchBridge.shared.pushState()
-        generateAiReport(for: id)
-        generateRecoveryBrief(for: id)
+        // No night report or recovery brief any more: the morning check-in
+        // builds a recovery plan instead.
+        scheduleMorningNotification(for: id)
         syncSharedNight()
     }
 
@@ -976,19 +1026,6 @@ final class AppState: ObservableObject {
         }
     }
 
-    func checkAndGenerateRecoveries() {
-        let cutoff = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date()
-        let recent = events.filter {
-            guard let end = $0.endTime else { return false }
-            return end >= cutoff
-        }
-        for event in recent {
-            if !nightRecoveries.contains(where: { $0.id == event.id }) {
-                generateRecoveryBrief(for: event.id)
-            }
-        }
-    }
-
     func syncPendingRecoveries() {
         let pending = nightRecoveries.filter { $0.report == nil }
         guard !pending.isEmpty else { return }
@@ -1023,6 +1060,187 @@ final class AppState: ObservableObject {
         UNUserNotificationCenter.current().add(req)
     }
 
+    // MARK: - Morning recovery plan
+
+    /// The night the Home check-in card is for, or nil: `MorningCheckIn.checkInEventId`
+    /// over this account's nights, with every night that already has a morning plan,
+    /// an old night report or an old recovery brief folded into `plannedIds`, so a
+    /// morning plan never overwrites an old brief.
+    func morningCheckInEventId(now: Date = Date()) -> String? {
+        guard let uid = currentUserId else { return nil }
+        let mine = events.filter { $0.userId == uid }
+        var planned = Set(morningPlans.keys)
+        planned.formUnion(nightRecoveries.map(\.id))
+        planned.formUnion(mine.filter { $0.aiReport != nil }.map(\.id))
+        return MorningCheckIn.checkInEventId(
+            events: mine,
+            loggedServings: { night in
+                ReportAlcoholDose(entries: self.entries.filter { $0.eventId == night.id },
+                                  drinkTypes: self.allDrinkTypes).loggedServings
+            },
+            plannedIds: planned, now: now
+        )
+    }
+
+    /// A morning notification was tapped or answered: opens that night's check-in
+    /// with the tile pre-selected. Only for the night the Home card is for, or a
+    /// night whose plan already exists (the check-in then shows the plan). An old
+    /// notification for any other night (a newer night started, or more than 48 h
+    /// went by) just opens the app.
+    func openMorningCheckIn(eventId: String, preselected: Symptom?) {
+        let hasPlan = morningPlans[eventId] != nil
+        guard hasPlan || morningCheckInEventId() == eventId else { return }
+        // The app-open ad would present on the same root and knock the check-in out.
+        AdManager.shared.suppressAppOpenAd(for: 30)
+        pendingCheckIn = PendingCheckIn(eventId: eventId, preselected: hasPlan ? nil : preselected)
+    }
+
+    /// Builds a night's morning plan from the check-in. A plan is final once it
+    /// exists, and one request runs at a time.
+    func requestMorningPlan(eventId: String, symptoms: Set<Symptom>) {
+        guard buildingMorningPlanFor == nil, morningPlans[eventId] == nil, !symptoms.isEmpty,
+              let event = events.first(where: { $0.id == eventId }), event.endTime != nil else { return }
+        let payload = MorningCheckIn.payload(
+            event: event, entries: entries, waters: waterEntries, foods: foodEntries,
+            drinkTypes: allDrinkTypes, profile: userProfile, symptoms: symptoms, now: Date()
+        )
+        buildingMorningPlanFor = eventId
+        morningPlanFailed.remove(eventId)
+        morningPlanLocked.remove(eventId)
+        morningPlanUnavailable.remove(eventId)
+        Task {
+            defer { buildingMorningPlanFor = nil }
+            var response: MorningCheckIn.Response?
+            var failure: Error?
+            do {
+                response = try await FirebaseManager.shared.requestMorningPlan(eventId: eventId, payload: payload)
+            } catch {
+                failure = error
+            }
+            switch MorningCheckIn.outcome(for: failure, response: response) {
+            case .ready(let record):
+                storeMorningPlan(record)
+                spendFreeMorningPlan(remaining: response?.remaining)
+            case .poll:
+                // Another request for this night is still being built.
+                for _ in 0..<15 {
+                    try? await Task.sleep(nanoseconds: 3_000_000_000)
+                    if let record = await FirebaseManager.shared.fetchMorningPlan(eventId: eventId) {
+                        storeMorningPlan(record)
+                        spendFreeMorningPlan(remaining: nil)
+                        return
+                    }
+                }
+                morningPlanFailed.insert(eventId)
+            case .locked:
+                if isPro {
+                    // Pro has no free allowance to run out of. A refusal then is
+                    // the shared monthly budget: a failure, never the paywall.
+                    morningPlanFailed.insert(eventId)
+                } else {
+                    setFreeMorningPlansLeft(0)
+                    morningPlanLocked.insert(eventId)
+                }
+            case .unavailable:
+                morningPlanUnavailable.insert(eventId)
+            case .failed:
+                morningPlanFailed.insert(eventId)
+            }
+        }
+    }
+
+    /// Re-reads a night's plan doc, e.g. to pick up a photo that was still being
+    /// generated when the plan arrived.
+    func refreshMorningPlan(eventId: String) async {
+        guard let record = await FirebaseManager.shared.fetchMorningPlan(eventId: eventId) else { return }
+        // Stored dates lose their milliseconds, so compare what can change.
+        if let stored = morningPlans[eventId], stored.plan == record.plan, stored.safety == record.safety {
+            return
+        }
+        storeMorningPlan(record)
+    }
+
+    /// Brings back this account's recent plans after a reinstall or on a new
+    /// phone. `morningPlans` lives on the device only, so without this past
+    /// plans vanish and the latest night can offer its check-in again. Runs
+    /// after the full pull has merged the nights; a plan already here stays.
+    private func restoreMorningPlans(uid: String) {
+        Task {
+            let window = TimeInterval(MorningCheckIn.restoreWindowDays) * 24 * 60 * 60
+            let cloud = await FirebaseManager.shared.pullMorningPlans(
+                uid: uid, since: Date().addingTimeInterval(-window))
+            // Another account's plans must never land in this one.
+            guard currentUserId == uid, !cloud.isEmpty else { return }
+            let merged = MorningCheckIn.mergedPlans(
+                local: morningPlans, cloud: cloud, nights: Set(events.map(\.id)))
+            guard merged.count > morningPlans.count else { return }
+            morningPlans = merged
+            DataStore.shared.saveMorningPlans(morningPlans)
+        }
+    }
+
+    private func storeMorningPlan(_ record: MorningRecord) {
+        morningPlans[record.id] = record
+        DataStore.shared.saveMorningPlans(morningPlans)
+        morningPlanFailed.remove(record.id)
+        morningPlanLocked.remove(record.id)
+        morningPlanUnavailable.remove(record.id)
+        cancelMorningNotification(eventId: record.id)
+    }
+
+    /// After a plan arrives: the server's count wins when it sends one;
+    /// otherwise a free user has one plan fewer.
+    private func spendFreeMorningPlan(remaining: Int?) {
+        if let remaining {
+            setFreeMorningPlansLeft(remaining)
+        } else if !isPro {
+            setFreeMorningPlansLeft(freeMorningPlansLeft - 1)
+        }
+    }
+
+    private func setFreeMorningPlansLeft(_ left: Int) {
+        morningAllowance = MorningCheckIn.allowance(left: left, now: Date())
+        DataStore.shared.saveMorningAllowance(morningAllowance)
+    }
+
+    /// Schedules the morning notification for a night that just ended, only when
+    /// a plan can really be built and the night wasn't light
+    /// (`MorningCheckIn.shouldNotify`).
+    private func scheduleMorningNotification(for eventId: String) {
+        guard let event = events.first(where: { $0.id == eventId }), let end = event.endTime,
+              MorningCheckIn.notificationDate(nightEnd: end, now: Date()) != nil else { return }
+        let dose = ReportAlcoholDose(entries: entries.filter { $0.eventId == eventId }, drinkTypes: allDrinkTypes)
+        guard MorningCheckIn.shouldNotify(
+            standardDrinks: dose.standardDrinks, missingServings: dose.missingServings,
+            signedIn: currentUserId != nil, aiEnabled: userProfile.aiReportsEnabled == true,
+            isPro: isPro, freePlansLeft: freeMorningPlansLeft
+        ) else { return }
+        UNUserNotificationCenter.current().add(MorningCheckIn.notificationRequest(eventId: eventId, nightEnd: end))
+    }
+
+    /// Removes one night's morning notification, queued or already delivered.
+    private func cancelMorningNotification(eventId: String) {
+        let id = MorningCheckIn.notificationId(eventId: eventId)
+        let center = UNUserNotificationCenter.current()
+        center.removePendingNotificationRequests(withIdentifiers: [id])
+        center.removeDeliveredNotifications(withIdentifiers: [id])
+    }
+
+    /// Removes every morning notification, queued or delivered: a new night
+    /// started (or the account changed), so no earlier night gets a check-in.
+    private func cancelMorningNotifications() {
+        Task {
+            let center = UNUserNotificationCenter.current()
+            let prefix = MorningCheckIn.notificationPrefix
+            let pending = await center.pendingNotificationRequests()
+                .map(\.identifier).filter { $0.hasPrefix(prefix) }
+            if !pending.isEmpty { center.removePendingNotificationRequests(withIdentifiers: pending) }
+            let delivered = await center.deliveredNotifications()
+                .map(\.request.identifier).filter { $0.hasPrefix(prefix) }
+            if !delivered.isEmpty { center.removeDeliveredNotifications(withIdentifiers: delivered) }
+        }
+    }
+
     // MARK: - AI Coach
 
     func setAIReportsEnabled(_ enabled: Bool) {
@@ -1030,7 +1248,13 @@ final class AppState: ObservableObject {
         var profile = userProfile
         profile.aiReportsEnabled = enabled
         updateUserProfile(profile)
-        if enabled { checkAndGenerateAutoReports() }
+        if enabled {
+            checkAndGenerateAutoReports()
+        } else {
+            // A queued morning notification would invite them to a plan that
+            // AI is now off for.
+            cancelMorningNotifications()
+        }
     }
 
     func checkAndGenerateAutoReports() {
@@ -1601,8 +1825,17 @@ final class AppState: ObservableObject {
         entries.removeAll { $0.eventId == id }
         waterEntries.removeAll { $0.eventId == id }
         foodEntries.removeAll { $0.eventId == id }
+        if morningPlans.removeValue(forKey: id) != nil { DataStore.shared.saveMorningPlans(morningPlans) }
+        if nightRecoveries.contains(where: { $0.id == id }) {
+            nightRecoveries.removeAll { $0.id == id }
+            DataStore.shared.saveNightRecoveries(nightRecoveries)
+        }
+        cancelMorningNotification(eventId: id)
         refreshWaterReminder()
         push { try await FirebaseManager.shared.deleteEvent(id) }
+        // The night's plan doc (or old brief) goes with it: a plan holds that
+        // morning's symptoms, and a reinstall would otherwise restore it.
+        push { try await FirebaseManager.shared.deleteNightRecovery(eventId: id) }
         // Its ended copy goes whether or not it was still the shared night: an earlier
         // night can still be on friends' feeds through it.
         if let deleted { deleteEndedSharedNightRemotely(deleted) }
@@ -1975,6 +2208,9 @@ final class AppState: ObservableObject {
         if !store.isPro {
             profile.subscriptionStartedAt = nil
             cancelPendingRecoveryNotifications()
+            // A lapsed subscriber with no free plans left can't open a plan, so
+            // a morning notification queued while Pro must not invite them to.
+            if freeMorningPlansLeft == 0 { cancelMorningNotifications() }
         } else if !wasPro {
             profile.subscriptionStartedAt = Date()
         }

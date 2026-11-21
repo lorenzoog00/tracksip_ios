@@ -26,6 +26,7 @@ const {getFirestore} = require("firebase-admin/firestore");
 const {generateReport} = require("../report-service");
 const {lookupDrink} = require("../drink-lookup");
 const {deleteAccount} = require("../accounts");
+const {completeLibraryPhoto} = require("../recovery/image");
 let env;
 let app;
 let db;
@@ -539,6 +540,345 @@ test("a purchase bound to another account cannot grant paid quotas", async () =>
       (await db.doc("users/alice/report_usage/current").get()).exists,
       false,
   );
+});
+
+// --- Morning recovery plans -------------------------------------------------
+const {
+  loadMorningContext,
+  assertPlannable,
+  finalizePlan,
+  resetLibraryCache,
+} = require("../recovery/morning");
+const {parsePlan} = require("../recovery/plan");
+const {normalizeName} = require("../recovery/library");
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+// Two beers, computed the way validateAlcoholDose checks them.
+const BEER_GRAMS = 355 * (5 / 100) * 2 * 0.789;
+const BEER = {
+  name: "Beer", quantity: 2, volumeMlPerServing: 355, abv: 5,
+  grams: BEER_GRAMS, standardDrinks: BEER_GRAMS / 14,
+};
+// A Tuesday check-in at 9 in Mexico: a light night, early, a workday.
+const MORNING = {
+  symptoms: ["headache"], checkInHour: 9, endHour: 2, weekday: 3,
+  country: "MX", estimatedBacNow: 0, drinks: [BEER],
+  alcoholDose: {
+    grams: BEER_GRAMS, standardDrinks: BEER_GRAMS / 14, loggedServings: 2,
+    missingServings: 0, otherGroups: 0, otherGrams: 0, largestEntry: BEER,
+  },
+};
+const LIBRARY_ITEM = {
+  countries: ["MX"], goodFor: ["headache"], avoidWhen: [],
+  severities: ["light", "moderate"], timeOfDay: ["early"], effort: "buy",
+  review: "approved", photoStatus: "ready", createdAt: 1,
+  pendingPlanPaths: [],
+};
+const today = () => new Date().toISOString().slice(0, 10);
+
+// Four of each kind, so dropping one already-seen item still leaves the
+// three the shortlist needs before it widens its window.
+// eslint-disable-next-line require-jsdoc
+async function seedLibrary() {
+  resetLibraryCache();
+  for (const [id, kind, name] of [
+    ["b1", "breakfast", "Huevos rancheros"],
+    ["b2", "breakfast", "Chilaquiles Verdes"],
+    ["b3", "breakfast", "Molletes"],
+    ["b4", "breakfast", "Caldo de pollo"],
+    ["a1", "activity", "Short walk"],
+    ["a2", "activity", "Cold shower"],
+    ["a3", "activity", "Nap"],
+    ["a4", "activity", "Stretch"],
+  ]) {
+    await db.doc(`recovery_library/${id}`).set({
+      ...LIBRARY_ITEM, kind, name, normalizedName: normalizeName(name),
+      photoUrl: `https://photos.test/${id}.jpg`,
+    });
+  }
+}
+
+// What Claude answers, picking the first item it was shown of each kind.
+const reply = (ctx, over) => ({
+  headline: "Two beers and a 2am finish: go gentle this morning.",
+  rightNow: [{
+    icon: "drop.fill", title: "Big glass of water",
+    why: "You logged no water last night.",
+  }],
+  breakfast: {
+    id: ctx.shortlist.breakfasts[0].id,
+    why: "Salty and warm for the headache.", when: "within the hour",
+  },
+  fallback: {title: "Plain toast"},
+  activities: [{
+    id: ctx.shortlist.activities[0].id, why: "Fresh air helps the head.",
+  }],
+  skip: {title: "Coffee on empty", why: "Eat first, then coffee."},
+  ...over,
+});
+
+// What requestReport does for a morning: the context first, then a
+// `generate` that parses the model's JSON and finalizes the plan. `over`
+// replaces parts of the model's answer.
+// eslint-disable-next-line require-jsdoc
+async function planWith(over = {}, {id = "e1", onCall, ...rest} = {}) {
+  const ctx = await loadMorningContext({
+    db, uid: "alice", payload: MORNING, rng: () => 0,
+  });
+  assertPlannable(ctx);
+  return generateReport({
+    db,
+    uid: "alice",
+    data: {kind: "morning", id, payload: MORNING},
+    purchase: null,
+    generate: async () => {
+      if (onCall) onCall();
+      return finalizePlan({
+        db, uid: "alice", eventId: id, ctx, now: Date.now(), dailyCap: 10,
+        parsed: parsePlan(JSON.stringify(reply(ctx, over)), ctx),
+      });
+    },
+    ...rest,
+  });
+}
+
+test("morning: a plan is saved per night, reused, and spent once", async () => {
+  await seedLibrary();
+  let calls = 0;
+  const onCall = () => calls++;
+  const results = await Promise.all(
+      [1, 2, 3].map(() => planWith({}, {onCall})),
+  );
+  assert.equal(calls, 1);
+  const saved = (await db.doc("users/alice/night_recoveries/e1").get()).data();
+  assert.equal(saved.type, "morning");
+  assert.equal(saved.version, 2);
+  assert.equal(typeof saved.created_at, "number");
+  assert.deepEqual(saved.symptoms, ["headache"]);
+  assert.equal(saved.severity, "light");
+  assert.deepEqual(saved.safety, {dontDrive: false, medicalHelp: false});
+  assert.deepEqual(saved.plan.breakfast, {
+    itemId: "b1", name: "Huevos rancheros",
+    why: "Salty and warm for the headache.", when: "within the hour",
+    photoUrl: "https://photos.test/b1.jpg",
+  });
+  assert.deepEqual(saved.plan.activities, [{
+    itemId: "a1", name: "Short walk", why: "Fresh air helps the head.",
+    photoUrl: "https://photos.test/a1.jpg",
+  }]);
+  assert.deepEqual(saved.plan.fallback, {title: "Plain toast"});
+  // One caller built it; the others waited on it or read it back.
+  const built = results.filter((r) => r.remaining !== undefined);
+  assert.deepEqual(built, [{morning: saved, remaining: 2}]);
+  for (const other of results.filter((r) => r.remaining === undefined)) {
+    assert.ok(other.pending === true || other.morning, JSON.stringify(other));
+  }
+  assert.deepEqual(await planWith({}, {onCall}), {morning: saved});
+  assert.equal(calls, 1);
+  assert.equal(
+      (await db.doc("users/alice/report_usage/current").get()).data()
+          .counts.morning,
+      1,
+  );
+});
+
+test("morning: three free plans a month, counted down, then refused", async () => {
+  await seedLibrary();
+  for (const [i, left] of [2, 1, 0].entries()) {
+    const result = await planWith({}, {id: `e${i + 1}`});
+    assert.equal(result.morning.type, "morning");
+    assert.equal(result.remaining, left);
+  }
+  await assert.rejects(
+      planWith({}, {id: "e4"}),
+      (e) => e.code === "resource-exhausted",
+  );
+  assert.equal(
+      (await db.doc("users/alice/night_recoveries/e4").get()).exists,
+      false,
+  );
+  // Billed as paid: past the free three, with no allowance to show.
+  const tester = await planWith({}, {id: "e5", tester: true});
+  assert.equal(tester.morning.type, "morning");
+  assert.equal(tester.remaining, null);
+});
+
+test("morning: a new breakfast joins the library once, waiting for a photo", async () => {
+  await seedLibrary();
+  const result = await planWith({breakfast: {
+    new: {name: "Tacos de canasta", effort: "buy"},
+    why: "Soft and salty.", when: "on the way to work",
+  }});
+  const pending = await db.collection("recovery_library")
+      .where("review", "==", "pending").get();
+  assert.equal(pending.size, 1);
+  const item = pending.docs[0];
+  const {createdAt, ...labels} = item.data();
+  assert.equal(typeof createdAt, "number");
+  assert.deepEqual(labels, {
+    name: "Tacos de canasta", title: "Tacos de canasta", kind: "breakfast",
+    countries: ["MX"],
+    goodFor: ["headache"], avoidWhen: [], severities: ["light"],
+    effort: "buy", timeOfDay: ["early"], normalizedName: "tacos de canasta",
+    photoUrl: null, photoStatus: "generating", review: "pending",
+    pendingPlanPaths: ["users/alice/night_recoveries/e1"],
+  });
+  assert.deepEqual(result.morning.plan.breakfast, {
+    itemId: item.id, name: "Tacos de canasta", why: "Soft and salty.",
+    when: "on the way to work", photoUrl: null,
+  });
+  const saved = (await db.doc("users/alice/night_recoveries/e1").get()).data();
+  assert.deepEqual(saved.plan.breakfast, result.morning.plan.breakfast);
+  assert.equal((await db.collection("recovery_library").get()).size, 9);
+  assert.deepEqual(
+      (await db.doc("recovery_meta/photos").get()).data(),
+      {day: today(), count: 1},
+  );
+});
+
+test("morning: a new item named like one in the library reuses it", async () => {
+  await seedLibrary();
+  // Someone else's proposal, not reviewed yet: it is matched, but its photo
+  // reaches nobody else before the owner approves it.
+  await db.doc("recovery_library/p1").set({
+    ...LIBRARY_ITEM, kind: "activity", name: "Sauna", normalizedName: "sauna",
+    review: "pending", photoUrl: "https://photos.test/p1.jpg",
+  });
+  const first = await planWith({breakfast: {
+    new: {name: "chilaquiles verdes!", effort: "cook"}, why: "W", when: "now",
+  }});
+  assert.deepEqual(first.morning.plan.breakfast, {
+    itemId: "b2", name: "Chilaquiles Verdes", why: "W", when: "now",
+    photoUrl: "https://photos.test/b2.jpg",
+  });
+  const second = await planWith({activities: [
+    {new: {name: "The Sauna", effort: "none"}, why: "Heat."},
+  ]}, {id: "e2"});
+  assert.deepEqual(second.morning.plan.activities, [
+    {itemId: "p1", name: "Sauna", why: "Heat.", photoUrl: null},
+  ]);
+  assert.equal((await db.collection("recovery_library").get()).size, 9);
+  assert.equal((await db.doc("recovery_meta/photos").get()).exists, false);
+});
+
+test("morning: past the daily photo cap a new item is capped and the plan still saves", async () => {
+  await seedLibrary();
+  await db.doc("recovery_meta/photos").set({day: today(), count: 10});
+  const result = await planWith({breakfast: {
+    new: {name: "Tamales", effort: "buy"}, why: "W", when: "now",
+  }});
+  const found = await db.collection("recovery_library")
+      .where("normalizedName", "==", "tamales").get();
+  assert.equal(found.size, 1);
+  const item = found.docs[0];
+  assert.equal(item.data().photoStatus, "capped");
+  assert.equal(item.data().review, "pending");
+  assert.deepEqual(
+      item.data().pendingPlanPaths,
+      ["users/alice/night_recoveries/e1"],
+  );
+  assert.equal(result.morning.plan.breakfast.itemId, item.id);
+  assert.equal(result.morning.plan.breakfast.photoUrl, null);
+  const saved = (await db.doc("users/alice/night_recoveries/e1").get()).data();
+  assert.equal(saved.plan.breakfast.itemId, item.id);
+  assert.deepEqual(
+      (await db.doc("recovery_meta/photos").get()).data(),
+      {day: today(), count: 10},
+  );
+});
+
+test("morning: what a plan picked 10 days ago is left out of the next shortlist", async () => {
+  await seedLibrary();
+  const now = Date.now();
+  const record = (daysAgo, breakfast, activity) => ({
+    type: "morning", version: 2, created_at: now - daysAgo * DAY_MS,
+    plan: {
+      breakfast: {itemId: breakfast}, activities: [{itemId: activity}],
+    },
+  });
+  await db.doc("users/alice/night_recoveries/n1").set(record(10, "b1", "a1"));
+  await db.doc("users/alice/night_recoveries/n2").set(record(40, "b2", "a2"));
+  await db.doc("users/alice/night_recoveries/n3").set({
+    type: "recovery", created_at: now - DAY_MS, report: "Old brief.",
+  });
+  const ctx = await loadMorningContext({
+    db, uid: "alice", payload: MORNING, now, rng: () => 0,
+  });
+  const ids = (items) => items.map((item) => item.id).sort();
+  assert.deepEqual(ids(ctx.shortlist.breakfasts), ["b2", "b3", "b4"]);
+  assert.deepEqual(ids(ctx.shortlist.activities), ["a2", "a3", "a4"]);
+});
+
+test("morning: a check-in nothing fits is refused without spending a plan", async () => {
+  // A library with nothing for Mexico, then one with breakfasts only.
+  await seedLibrary();
+  for (const id of ["b1", "b2", "b3", "b4", "a1", "a2", "a3", "a4"]) {
+    await db.doc(`recovery_library/${id}`).update({countries: ["US"]});
+  }
+  resetLibraryCache();
+  let calls = 0;
+  const onCall = () => calls++;
+  await assert.rejects(
+      planWith({}, {onCall}),
+      (e) => e.code === "failed-precondition",
+  );
+  await db.doc("recovery_library/b1").update({countries: ["MX"]});
+  resetLibraryCache();
+  await assert.rejects(
+      planWith({}, {onCall}),
+      (e) => e.code === "failed-precondition",
+  );
+  assert.equal(calls, 0);
+  assert.equal(
+      (await db.doc("users/alice/report_usage/current").get()).exists,
+      false,
+  );
+  assert.equal((await db.collection("users/alice/report_jobs").get()).empty,
+      true);
+});
+
+test("morning: a reply that fails validation is a failed attempt, retried", async () => {
+  await seedLibrary();
+  // An id off the list is repaired now; a plan with nothing to do right
+  // now cannot be.
+  await assert.rejects(planWith({rightNow: []}), /try again/);
+  const jobs = await db.collection("users/alice/report_jobs").get();
+  assert.equal(jobs.docs[0].data().status, "failed");
+  assert.equal(
+      (await db.doc("users/alice/night_recoveries/e1").get()).exists,
+      false,
+  );
+  const retried = await planWith();
+  assert.equal(retried.morning.type, "morning");
+  assert.equal((await jobs.docs[0].ref.get()).data().attempts, 2);
+});
+
+test("morning: an old build's recovery request never replaces a morning plan", async () => {
+  await seedLibrary();
+  const {morning: saved} = await planWith();
+  const before = (await db.doc("users/alice/report_usage/current").get())
+      .data();
+  let calls = 0;
+  await assert.rejects(
+      generateReport({
+        db,
+        uid: "alice",
+        data: {kind: "recovery", id: "e1", payload: {peakBac: 0.08}},
+        purchase: null,
+        generate: async () => {
+          calls++;
+          return "A recovery brief.";
+        },
+      }),
+      (e) => e.code === "failed-precondition",
+  );
+  assert.equal(calls, 0);
+  assert.deepEqual(
+      (await db.doc("users/alice/night_recoveries/e1").get()).data(), saved);
+  // Nothing spent, and no job left behind: only the morning plan's own.
+  assert.deepEqual(
+      (await db.doc("users/alice/report_usage/current").get()).data(), before);
+  assert.equal((await db.collection("users/alice/report_jobs").get()).size, 1);
 });
 
 // social: usernames
@@ -2747,4 +3087,126 @@ test("prefs rules: no prefs writes once account deletion has started", async () 
   const alice = env.authenticatedContext("alice").firestore();
   await assertFails(setDoc(doc(alice, "notification_prefs/alice"),
       {reactions: false}));
+});
+
+// completeLibraryPhoto against the real Firestore emulator. The bucket is an
+// in-memory fake: there is no Storage emulator here.
+const PHOTO_PLAN = "users/alice/night_recoveries/e1";
+const photoBucket = () => ({
+  name: "demo-bucket",
+  saved: [],
+  file(path) {
+    return {save: async (buffer, options) => {
+      this.saved.push({path, buffer, options});
+    }};
+  },
+});
+const seedPhotoItem = async () => {
+  await db.doc("recovery_library/item1").set({
+    name: "Open window", kind: "activity", photoStatus: "generating",
+    review: "pending", photoUrl: null, pendingPlanPaths: [PHOTO_PLAN],
+  });
+};
+
+test("library photo: the stored photo is filled into the waiting plan", async () => {
+  await seedPhotoItem();
+  await db.doc(PHOTO_PLAN).set({type: "morning", plan: {
+    breakfast: {itemId: "b1", name: "Toast", photoUrl: null},
+    activities: [
+      {itemId: "item1", name: "Open window", photoUrl: null},
+      {itemId: "a2", name: "Walk", photoUrl: null},
+    ],
+  }});
+  const bucket = photoBucket();
+  await completeLibraryPhoto({
+    db, bucket, itemId: "item1", now: 5,
+    generate: async () => Buffer.from([0xff, 0xd8, 0xff]),
+  });
+  assert.equal(bucket.saved[0].path, "recovery-library/item1.jpg");
+  const item = (await db.doc("recovery_library/item1").get()).data();
+  assert.equal(item.photoStatus, "ready");
+  assert.match(
+      item.photoUrl, /recovery-library%2Fitem1\.jpg\?alt=media&token=/);
+  assert.deepEqual(item.pendingPlanPaths, []);
+  const plan = (await db.doc(PHOTO_PLAN).get()).data().plan;
+  assert.equal(plan.activities[0].photoUrl, item.photoUrl);
+  assert.equal(plan.activities[1].photoUrl, null);
+  assert.equal(plan.breakfast.photoUrl, null);
+});
+
+test("library photo: a failed generation marks the item failed", async () => {
+  await seedPhotoItem();
+  await db.doc(PHOTO_PLAN).set({type: "morning", plan: {
+    breakfast: {itemId: "b1", name: "Toast", photoUrl: null},
+    activities: [{itemId: "item1", name: "Open window", photoUrl: null}],
+  }});
+  await completeLibraryPhoto({
+    db, bucket: photoBucket(), itemId: "item1", now: 5,
+    generate: async () => {
+      throw new Error("blocked");
+    },
+  });
+  const item = (await db.doc("recovery_library/item1").get()).data();
+  assert.equal(item.photoStatus, "failed");
+  assert.deepEqual(item.pendingPlanPaths, []);
+  const plan = (await db.doc(PHOTO_PLAN).get()).data().plan;
+  assert.equal(plan.activities[0].photoUrl, null);
+});
+
+test("library photo: a deleted plan doc is not recreated", async () => {
+  await seedPhotoItem();
+  await completeLibraryPhoto({
+    db, bucket: photoBucket(), itemId: "item1", now: 5,
+    wait: async () => {},
+    generate: async () => Buffer.from("x"),
+  });
+  assert.equal((await db.doc(PHOTO_PLAN).get()).exists, false);
+  const item = (await db.doc("recovery_library/item1").get()).data();
+  assert.equal(item.photoStatus, "ready");
+  assert.deepEqual(item.pendingPlanPaths, []);
+});
+
+test("library photo: two photos for one plan both land", async () => {
+  for (const id of ["item1", "item2"]) {
+    await db.doc(`recovery_library/${id}`).set({
+      name: id, kind: "activity", photoStatus: "generating",
+      review: "pending", photoUrl: null, pendingPlanPaths: [PHOTO_PLAN],
+    });
+  }
+  await db.doc(PHOTO_PLAN).set({type: "morning", plan: {
+    breakfast: {itemId: "b1", name: "Toast", photoUrl: null},
+    activities: [
+      {itemId: "item1", name: "One", photoUrl: null},
+      {itemId: "item2", name: "Two", photoUrl: null},
+    ],
+  }});
+  await Promise.all(["item1", "item2"].map((itemId) => completeLibraryPhoto({
+    db, bucket: photoBucket(), itemId, now: 5,
+    generate: async () => Buffer.from("x"),
+  })));
+  const {activities} = (await db.doc(PHOTO_PLAN).get()).data().plan;
+  assert.match(activities[0].photoUrl, /item1/);
+  assert.match(activities[1].photoUrl, /item2/);
+});
+
+test("library photo: a path added during generation is filled, not erased", async () => {
+  const late = "users/bob/night_recoveries/e9";
+  await seedPhotoItem();
+  const lateDoc = {type: "morning", plan: {
+    breakfast: {itemId: "b1", name: "Toast", photoUrl: null},
+    activities: [{itemId: "item1", name: "Open window", photoUrl: null}],
+  }};
+  await db.doc(late).set(lateDoc);
+  await completeLibraryPhoto({
+    db, bucket: photoBucket(), itemId: "item1", now: 5,
+    generate: async () => {
+      await db.doc("recovery_library/item1").update(
+          {pendingPlanPaths: [PHOTO_PLAN, late]});
+      return Buffer.from("x");
+    },
+  });
+  const plan = (await db.doc(late).get()).data().plan;
+  assert.ok(plan.activities[0].photoUrl);
+  const item = (await db.doc("recovery_library/item1").get()).data();
+  assert.deepEqual(item.pendingPlanPaths, []);
 });

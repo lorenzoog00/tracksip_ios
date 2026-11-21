@@ -267,7 +267,7 @@ struct ProView: View {
     private var proFeaturesGrid: some View {
         let items: [(String, String)] = [
             ("calendar",             "Unlimited history"),
-            ("brain.head.profile",   "Expanded AI reports"),
+            ("sunrise.fill",         "Unlimited morning recovery plans"),
             ("chart.bar.fill",       "Full analytics & trends"),
             ("calendar.badge.clock", "Calendar heatmap"),
             ("trophy.fill",          "Challenges & goals"),
@@ -329,7 +329,7 @@ struct ProView: View {
 
     private var pricingBlock: some View {
         VStack(spacing: 14) {
-            Text("Pro includes up to 300 AI reports per month, with a daily limit of 30. AI reports require your consent in Profile.")
+            Text("Free includes \(MorningCheckIn.freeMonthlyPlans) morning recovery plans a month. With Pro, recovery plans and AI reports are unlimited within fair-use limits. AI features require your consent in Profile.")
                 .font(.footnote)
                 .foregroundStyle(AppColors.textSecondary)
                 .multilineTextAlignment(.center)
@@ -473,7 +473,7 @@ struct ProView: View {
     private var proInventoryCard: some View {
         let items: [(String, String)] = [
             ("calendar",             "Unlimited history"),
-            ("brain.head.profile",   "Expanded AI reports"),
+            ("sunrise.fill",         "Unlimited morning recovery plans"),
             ("chart.bar.fill",       "Full analytics"),
             ("calendar.badge.clock", "Calendar heatmap"),
             ("trophy.fill",          "Challenges & goals"),

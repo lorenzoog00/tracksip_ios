@@ -249,6 +249,13 @@ struct HomeView: View {
 
     @ViewBuilder
     private var signedInContent: some View {
+        // The morning after: from the night's morning time until the next
+        // night starts, for the latest night with no plan yet.
+        if let checkInId = appState.morningCheckInEventId() {
+            MorningCheckInCard(eventId: checkInId)
+                .padding(.horizontal)
+        }
+
         if let active = appState.activeEvent {
             NavigationLink(value: Route.event(active.id)) {
                 ActiveEventCard(event: active)

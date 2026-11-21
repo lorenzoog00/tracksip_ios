@@ -1,7 +1,10 @@
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const {setGlobalOptions} = require("firebase-functions/v2");
 const {onSchedule} = require("firebase-functions/v2/scheduler");
-const {onDocumentDeleted} = require("firebase-functions/v2/firestore");
+const {
+  onDocumentCreated,
+  onDocumentDeleted,
+} = require("firebase-functions/v2/firestore");
 const {
   defineSecret,
   defineString,
@@ -27,10 +30,23 @@ const {
 } = require("./report-policy");
 const {lookupDrink} = require("./drink-lookup");
 const {buildPrompt} = require("./prompts");
+const {
+  loadMorningContext,
+  assertPlannable,
+  finalizePlan,
+} = require("./recovery/morning");
+const {buildMorningPrompt} = require("./recovery/prompt");
+const {PLAN_JSON_SCHEMA, parsePlan} = require("./recovery/plan");
 const liveActivity = require("./live-activity");
 const social = require("./social");
 const interactions = require("./interactions");
 const {setAvatar} = require("./avatar");
+const {generatePhoto, completeLibraryPhoto} = require("./recovery/image");
+const {
+  requireAdmin,
+  listPendingPhotos,
+  reviewPhoto,
+} = require("./recovery/review");
 
 initializeApp();
 setGlobalOptions({region: "us-central1", maxInstances: 10});
@@ -44,6 +60,8 @@ const allowSandbox = defineBoolean("APPLE_ALLOW_SANDBOX", {default: false});
 // a sandbox one and cannot be verified while allowSandbox is false, which
 // left our own testers on the free tier. Server configuration only.
 const proTesters = defineString("PRO_TESTER_UIDS", {default: ""});
+// Uids allowed to review recovery photos. Empty denies everyone.
+const adminUids = defineString("ADMIN_UIDS", {default: ""});
 // APNs auth key (.p8) for lock-screen pushes. Separate from the App Store
 // Connect key above: Apple issues push keys under Certificates, IDs & Profiles.
 const apnsKey = defineSecret("APNS_AUTH_KEY");
@@ -51,6 +69,16 @@ const apnsKeyId = defineString("APNS_KEY_ID");
 const appleTeamId = defineString("APPLE_TEAM_ID", {default: "6T5DB8M42N"});
 const liveActivityTopic = defineString("LIVE_ACTIVITY_TOPIC", {
   default: "com.lorenzoog.siptrack.push-type.liveactivity",
+});
+// New library photos generated per UTC day across the whole app. They are an
+// app-wide cost, outside the per-user budget in report-policy.js; past the
+// cap a new item is saved without a photo and the plan shows an icon tile.
+const photoDailyCap = defineInt("PHOTO_DAILY_CAP", {default: 10});
+// Vertex AI image model for new recovery library photos. Confirm the id
+// before deploying: it is the newest Gemini image id the installed
+// @google/genai lists.
+const imageModel = defineString("IMAGE_MODEL", {
+  default: "gemini-3.1-flash-image",
 });
 
 exports.requestReport = onCall(
@@ -63,12 +91,19 @@ exports.requestReport = onCall(
       if (!request.auth) {
         throw new HttpsError("unauthenticated", "Please sign in.");
       }
-      const {kind: reportKind, payload} = validateRequest(request.data);
+      const {
+        kind: reportKind,
+        id: eventId,
+        payload,
+      } = validateRequest(request.data);
       // Before any quota is reserved: an oversized prompt is refused, so it
       // must not also cost the caller one of their reports. The guard inside
       // `generate` below is the billing boundary; this one is the fair one.
-      const preview = buildPrompt(reportKind, payload);
-      assertPromptFits(preview.system, preview.prompt);
+      // A morning prompt needs the database, so it is checked further down.
+      if (reportKind !== "morning") {
+        const preview = buildPrompt(reportKind, payload);
+        assertPromptFits(preview.system, preview.prompt);
+      }
       const db = getFirestore();
       if ((await db.doc(`account_deletions/${request.auth.uid}`).get()).exists) {
         throw new HttpsError(
@@ -87,6 +122,26 @@ exports.requestReport = onCall(
             allowSandbox: allowSandbox.value(),
           },
       );
+      // The morning prompt is built once, from the library and this user's
+      // last 30 days, and is exactly what `generate` sends, so this one guard
+      // is both the fair and the billing one. The schema travels with it and
+      // is priced with it.
+      let morning = null;
+      if (reportKind === "morning") {
+        const ctx = await loadMorningContext({
+          db,
+          uid: request.auth.uid,
+          payload,
+        });
+        const prompt = buildMorningPrompt(ctx);
+        assertPromptFits(
+            prompt.system + JSON.stringify(PLAN_JSON_SCHEMA),
+            prompt.prompt,
+        );
+        // Also a certain refusal, so also before any quota is reserved.
+        assertPlannable(ctx);
+        morning = {ctx, prompt};
+      }
       return generateReport({
         db,
         uid: request.auth.uid,
@@ -94,6 +149,49 @@ exports.requestReport = onCall(
         purchase,
         tester: isProTester(request.auth.uid, proTesters.value()),
         generate: async (kind, data) => {
+          if (morning) {
+            const client = new Anthropic({
+              apiKey: claudeKey.value(),
+              timeout: 25000,
+              maxRetries: 1,
+            });
+            const response = await client.messages.create({
+              // Same model, thinking and output cap as the reports below,
+              // for the same reasons.
+              model: "claude-haiku-5-5",
+              thinking: {type: "disabled"},
+              max_tokens: 700,
+              system: morning.prompt.system,
+              messages: [{role: "user", content: morning.prompt.prompt}],
+              // Structured output holds the reply to the plan's shape.
+              // parsePlan still checks every id and length; when it refuses
+              // a reply it throws, which is a failed attempt the app retries.
+              output_config: {
+                format: {type: "json_schema", schema: PLAN_JSON_SCHEMA},
+              },
+            });
+            // A cut-off reply (max_tokens) or a refusal fails parsePlan
+            // below; logging why first tells the two apart from a bad plan.
+            if (response.stop_reason !== "end_turn") {
+              console.warn("morning plan: model stopped early", {
+                stopReason: response.stop_reason,
+                outputTokens: response.usage?.output_tokens,
+              });
+            }
+            const text = response.content
+                .filter((block) => block.type === "text")
+                .map((block) => block.text)
+                .join("\n");
+            return finalizePlan({
+              db,
+              uid: request.auth.uid,
+              eventId,
+              parsed: parsePlan(text, morning.ctx),
+              ctx: morning.ctx,
+              now: Date.now(),
+              dailyCap: photoDailyCap.value(),
+            });
+          }
           const prompt = buildPrompt(kind, data);
           // What we pay for is this prompt, not the payload it came
           // from; the two sizes are not the same.
@@ -420,6 +518,69 @@ exports.setAvatar = onCall(
         uid: request.auth.uid,
         data: request.data,
         safeSearch,
+      });
+    },
+);
+
+/**
+ * Generates and stores one library photo, with the genai client built per run.
+ * @param {string} itemId
+ * @param {object} [options] `{versioned}`: regeneration writes a new path.
+ * @return {Promise<void>}
+ */
+async function runLibraryPhoto(itemId, {versioned = false} = {}) {
+  // Built per run, not at load, so a cold start that never needs it
+  // does not pay for it.
+  const {GoogleGenAI} = require("@google/genai");
+  const genai = new GoogleGenAI({
+    vertexai: true,
+    project: process.env.GCLOUD_PROJECT,
+    // The Gemini 3.x image models answer only on the global endpoint;
+    // us-central1 returns 404 "publisher model not found" for them.
+    location: "global",
+  });
+  await completeLibraryPhoto({
+    db: getFirestore(),
+    bucket: getStorage().bucket(),
+    itemId,
+    now: Date.now(),
+    versioned,
+    generate: (picked) =>
+      generatePhoto(picked, {genai, model: imageModel.value()}),
+  });
+}
+
+// A new library item needs a photo. The plan that proposed it is filled in by
+// the same run, so the plan is returned without waiting for the image.
+exports.generateLibraryPhoto = onDocumentCreated(
+    {
+      document: "recovery_library/{itemId}",
+      memory: "1GiB",
+      timeoutSeconds: 120,
+    },
+    async (event) => {
+      const item = event.data && event.data.data();
+      if (!item || item.photoStatus !== "generating") return;
+      await runLibraryPhoto(event.params.itemId);
+    },
+);
+
+exports.listPendingPhotos = onCall(
+    {enforceAppCheck: true},
+    async (request) => {
+      requireAdmin(request.auth, adminUids.value());
+      return listPendingPhotos({db: getFirestore()});
+    },
+);
+
+exports.reviewPhoto = onCall(
+    {enforceAppCheck: true, memory: "1GiB", timeoutSeconds: 120},
+    async (request) => {
+      requireAdmin(request.auth, adminUids.value());
+      const {itemId, action} = request.data ?? {};
+      return reviewPhoto({
+        db: getFirestore(), itemId, action,
+        regenerate: (id) => runLibraryPhoto(id, {versioned: true}),
       });
     },
 );

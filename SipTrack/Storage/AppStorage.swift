@@ -227,7 +227,32 @@ final class DataStore {
     }
 
     func saveNightRecoveries(_ recoveries: [NightRecovery]) {
-        save(recoveries, key: "siptrack_night_recoveries") 
+        save(recoveries, key: "siptrack_night_recoveries")
+    }
+
+    // MARK: - Morning plans
+
+    // This file is also compiled into the Watch app, which doesn't have
+    // MorningRecord, so the plans are iPhone only.
+    #if os(iOS)
+    /// Each night's morning plan, keyed by event id.
+    func loadMorningPlans() -> [String: MorningRecord] {
+        load([String: MorningRecord].self, key: "siptrack_morning_plans") ?? [:]
+    }
+
+    func saveMorningPlans(_ plans: [String: MorningRecord]) {
+        save(plans, key: "siptrack_morning_plans")
+    }
+    #endif
+
+    /// Free morning plans left, as `[UTC month: count]` for the current month
+    /// only (see `MorningCheckIn.freePlansLeft`).
+    func loadMorningAllowance() -> [String: Int] {
+        load([String: Int].self, key: "siptrack_morning_allowance") ?? [:]
+    }
+
+    func saveMorningAllowance(_ allowance: [String: Int]) {
+        save(allowance, key: "siptrack_morning_allowance")
     }
 
     // MARK: - Ceiling Crossings
@@ -323,7 +348,7 @@ final class DataStore {
     }
 
     func clearAllData() {
-        let keys = ["siptrack_events","siptrack_entries","siptrack_water","siptrack_drink_types","siptrack_challenges","siptrack_profile","siptrack_coach_reports","siptrack_night_recoveries","siptrack_food","siptrack_ceiling_crossed","siptrack_night_stories"]
+        let keys = ["siptrack_events","siptrack_entries","siptrack_water","siptrack_drink_types","siptrack_challenges","siptrack_profile","siptrack_coach_reports","siptrack_night_recoveries","siptrack_morning_plans","siptrack_morning_allowance","siptrack_food","siptrack_ceiling_crossed","siptrack_night_stories"]
         for key in keys {
             try? FileManager.default.removeItem(at: url(key: key))
         }

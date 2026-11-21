@@ -54,12 +54,13 @@ TrackSip's account-based features are core to the app, not incidental:
    they sign in on another device or after reinstalling. Drinking history is the
    product; losing it with the device would make the app useless.
 
-2. Server-generated AI reports. Night reports, next-morning recovery briefs,
-   weekly/monthly reviews and night-to-night comparisons are produced by our
-   authenticated backend (a Firebase Cloud Function calling Anthropic's Claude
-   API), not on the device. The function rejects unauthenticated calls, and the
-   monthly free-report allowance is metered per account on the server. There is
-   no way to offer this feature without an identified account.
+2. Server-generated AI. The morning recovery plan (built from a morning
+   check-in), weekly/monthly reviews and night-to-night comparisons are
+   produced by our authenticated backend (a Firebase Cloud Function calling
+   Anthropic's Claude API), not on the device. The function rejects
+   unauthenticated calls, and the free monthly allowance (3 morning plans a
+   month) is metered per account on the server. There is no way to offer this
+   feature without an identified account.
 
 3. Subscription entitlement. TrackSip Pro is bound to the account: the signed
    App Store transaction is verified server-side against the signed-in user, so
@@ -77,6 +78,37 @@ for that calculation, and are not required to create the account.
 
 Users can delete their account and all associated cloud data from inside the
 app: Profile → Account → Delete Account.
+
+MORNING CHECK-IN AND RECOVERY PLAN (AI)
+
+The morning after a night with a few drinks, TrackSip offers a check-in: a
+local notification (about 7 hours after the night ends, never before 8 AM, and
+only if notifications are allowed) and a card on the home screen. The user
+taps how they feel (headache, nausea, wrecked, dizzy, anxious, or fine) and
+gets a short recovery plan: a few things to do right now, a breakfast and one
+or two activities for the day, each with a photo and a one-line reason, and at
+most one myth to skip. This replaces the night reports and next-morning
+recovery briefs of earlier versions; nights that already have one keep
+showing it. Free accounts get 3 plans a month; Pro is unlimited within
+fair-use limits.
+
+- Consent: a plan is only built when the user has turned on AI reports in
+  Profile → AI Reports, whose text says that drink logs, BAC estimates, body
+  measurements, night details and how they feel the morning after are sent to
+  Anthropic. The check-in repeats this in one line under the tiles, at the
+  moment of sending. The symptoms the user taps go to Anthropic under that
+  consent, and to no one else.
+- Photos: breakfast and activity photos come from a library we generate with
+  Google's Gemini image model on Vertex AI. Only the dish or scene name and a
+  fixed style description are sent to Google, never user data. New photos are
+  reviewed by the developer before other users see them.
+- No medical advice: the plan gives no medical advice or dosing. There is no
+  diagnosis, and where it mentions a common painkiller it does so in general
+  terms only, never with a dose. It never suggests more alcohol and never
+  claims anything sobers you up faster. Two safety lines are added by the app
+  itself, not by the AI: "don't drive this morning" whenever the BAC estimate
+  is still above zero, and "get medical help" (with the warning signs) after a
+  very heavy night.
 
 SOCIAL (FRIENDS)
 

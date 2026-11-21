@@ -1,6 +1,10 @@
 const {randomUUID, createHash} = require("node:crypto");
 const {HttpsError} = require("firebase-functions/v2/https");
-const {validateRequest, reserveQuota} = require("./report-policy");
+const {
+  validateRequest,
+  reserveQuota,
+  remainingQuota,
+} = require("./report-policy");
 const {formatAlcoholLog, ALCOHOL_LOG_HEADING} = require("./prompts");
 
 // eslint-disable-next-line require-jsdoc
@@ -22,10 +26,12 @@ async function generateReport({
       .doc(createHash("sha256").update(`${kind}:${id}`).digest("hex"));
   const usage = root.collection("report_usage").doc("current");
   const owner = purchase ? db.doc(`purchase_owners/${purchase.key}`) : null;
+  const pro = !!purchase || tester;
+  // A morning plan takes the place of the night's recovery brief.
   const collection =
     kind === "night" ?
       "night_events" :
-      kind === "recovery" ?
+      kind === "recovery" || kind === "morning" ?
         "night_recoveries" :
         "ai_coach_reports";
   const target = root.collection(collection).doc(id);
@@ -60,7 +66,21 @@ async function generateReport({
           "Sync this night before requesting a report.",
       );
     }
-    const report = result.data()?.[kind === "night" ? "ai_report" : "report"];
+    // An old build still asks for the recovery brief, and the brief would
+    // replace the night's morning plan in the same doc. Refused before any
+    // quota is reserved: the plan stays and nothing is spent.
+    if (kind === "recovery" && result.data()?.type === "morning") {
+      throw new HttpsError(
+          "failed-precondition",
+          "This night already has a morning recovery plan.",
+      );
+    }
+    if (kind === "morning" && result.data()?.plan) {
+      return {morning: result.data()};
+    }
+    // A morning request never answers with an old brief's text.
+    const report = kind === "morning" ? null :
+      result.data()?.[kind === "night" ? "ai_report" : "report"];
     const currentReport = typeof report === "string" &&
       report.startsWith(ALCOHOL_LOG_HEADING);
     if (report && (!doseVersion || currentReport)) {
@@ -78,8 +98,8 @@ async function generateReport({
           "This report could not be completed after three attempts.",
       );
     }
-    tx.set(usage, reserveQuota(
-        counters.data() || {}, kind, !!purchase || tester, now()));
+    const reserved = reserveQuota(counters.data() || {}, kind, pro, now());
+    tx.set(usage, reserved);
     if (owner) tx.set(owner, {uid});
     tx.set(job, {
       status: "processing",
@@ -88,15 +108,19 @@ async function generateReport({
       doseVersion,
       leaseUntil: now() + 150000,
     });
-    return {claimed: true};
+    return {claimed: true, counts: reserved.counts};
   });
   if (!claim.claimed) return claim;
   try {
     const body = await generate(kind, payload);
-    if (typeof body !== "string" || !body.trim() || body.length > 12000) {
+    // A morning plan comes back as the doc body; every other kind as text.
+    if (kind === "morning" ?
+      body === null || typeof body !== "object" || !body.plan :
+      typeof body !== "string" || !body.trim() || body.length > 12000) {
       throw new Error("Invalid model response");
     }
     const report = doseVersion ? `${formatAlcoholLog(payload)}\n\n${body}` : body;
+    let morning;
     await db.runTransaction(async (tx) => {
       const [deleted, current, result] = await Promise.all([
         tx.get(deletion),
@@ -110,8 +134,18 @@ async function generateReport({
       ) {
         throw new HttpsError("aborted", "Report request was cancelled.");
       }
+      // A morning plan saved while this brief was being written still wins.
+      if (kind === "recovery" && result.data()?.type === "morning") {
+        throw new HttpsError(
+            "failed-precondition",
+            "This night already has a morning recovery plan.",
+        );
+      }
       if (kind === "night") {
         tx.update(target, {ai_report: report});
+      } else if (kind === "morning") {
+        morning = {...body, type: "morning", version: 2, created_at: now()};
+        tx.set(target, morning);
       } else {
         const metadata = {};
         for (const key of [
@@ -128,6 +162,9 @@ async function generateReport({
       }
       tx.update(job, {status: "complete", leaseUntil: 0});
     });
+    if (kind === "morning") {
+      return {morning, remaining: remainingQuota(claim.counts, kind, pro)};
+    }
     return {report};
   } catch (error) {
     await db.runTransaction(async (tx) => {

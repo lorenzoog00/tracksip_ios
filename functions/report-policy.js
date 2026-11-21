@@ -1,4 +1,5 @@
 const {HttpsError} = require("firebase-functions/v2/https");
+const {SYMPTOMS} = require("./recovery/severity");
 
 const PRODUCTS = new Set([
   "com.lorenzoog.siptrack.pro.monthly",
@@ -14,6 +15,7 @@ const REPORT_KINDS = new Set([
   "weekly",
   "monthly",
   "comparison",
+  "morning",
 ]);
 const FREE_LIMITS = {
   night: 5,
@@ -21,6 +23,7 @@ const FREE_LIMITS = {
   weekly: 5,
   monthly: 1,
   comparison: 5,
+  morning: 3,
   lookup: 5,
 };
 // Paid access has no per-kind ceiling at all, drink lookups included: what a
@@ -232,7 +235,28 @@ function validateRequest(data) {
     validateAlcoholDose(payload.eventA);
     validateAlcoholDose(payload.eventB);
   }
+  if (data.kind === "morning") validateMorning(payload);
   return data;
+}
+
+// eslint-disable-next-line require-jsdoc
+function validateMorning(payload) {
+  const hour = (value) => Number.isInteger(value) && value >= 0 && value <= 23;
+  const symptoms = payload.symptoms;
+  if (
+    !Array.isArray(symptoms) || symptoms.length < 1 || symptoms.length > 6 ||
+    new Set(symptoms).size !== symptoms.length ||
+    !symptoms.every((s) => SYMPTOMS.includes(s)) ||
+    (symptoms.includes("fine") && symptoms.length > 1) ||
+    !hour(payload.checkInHour) || !hour(payload.endHour) ||
+    !Number.isInteger(payload.weekday) ||
+    payload.weekday < 1 || payload.weekday > 7 ||
+    (payload.country !== undefined &&
+      !/^[A-Z]{2}$/.test(String(payload.country))) ||
+    payload.alcoholDose === undefined
+  ) {
+    throw new HttpsError("invalid-argument", "Invalid morning check-in.");
+  }
 }
 
 // eslint-disable-next-line require-jsdoc
