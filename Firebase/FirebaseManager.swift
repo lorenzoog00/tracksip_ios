@@ -13,7 +13,12 @@ import StoreKit
 
 @MainActor
 final class FirebaseManager: ObservableObject {
-    static let shared = FirebaseManager()
+    /// Configures Firebase first if nothing has yet: `auth` below calls `Auth.auth()`
+    /// as the instance is built. The app delegate normally configured it already.
+    static let shared: FirebaseManager = {
+        FirebaseSetup.configureIfNeeded()
+        return FirebaseManager()
+    }()
 
     private let auth = Auth.auth()
     private let db = Firestore.firestore()

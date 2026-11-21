@@ -157,8 +157,13 @@ private final class ProductionAppCheckProviderFactory: NSObject, AppCheckProvide
 /// stayed nil, and the first APNs token handed to Auth crashed every launch of
 /// TestFlight 1.0.9 (firebase-ios-sdk #16273: configure in didFinishLaunching).
 enum FirebaseSetup {
+    /// A flag, not `FirebaseApp.app() == nil`: asking Firebase before it is
+    /// configured logs an error on every cold launch.
+    private static var configured = false
+
     static func configureIfNeeded() {
-        guard FirebaseApp.app() == nil else { return }
+        guard !configured else { return }
+        configured = true
         #if DEBUG
         AppCheck.setAppCheckProviderFactory(AppCheckDebugProviderFactory())
         #else
