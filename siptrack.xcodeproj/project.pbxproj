@@ -2155,24 +2155,24 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/facebook/facebook-ios-sdk";
 			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 19.0.1;
+				kind = exactVersion;
+				version = 19.0.1;
 			};
 		};
 		AD7A00042FD0000000AD7A00 /* XCRemoteSwiftPackageReference "tiktok-business-ios-sdk" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/tiktok/tiktok-business-ios-sdk";
 			requirement = {
-				kind = upToNextMinorVersion;
-				minimumVersion = 1.7.2;
+				kind = exactVersion;
+				version = 1.7.2;
 			};
 		};
 		2C30CB933200000000000009 /* XCRemoteSwiftPackageReference "PhoneNumberKit" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/PhoneNumberKit/PhoneNumberKit";
 			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 5.0.14;
+				kind = exactVersion;
+				version = 5.0.15;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */

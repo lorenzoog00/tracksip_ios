@@ -236,7 +236,8 @@ struct AuthSessionTests {
 // No wall-clock bounds: a stalled CI simulator (every test reporting 60+ s)
 // failed timing asserts that had nothing to do with the code. Each test instead
 // gives one side a deadline no stall reaches, so returning at all proves which
-// side won; the time limit only stops a real hang from blocking the run.
+// side won. The 10-minute limit only stops a real hang from blocking the run;
+// stalled runs have had tests report 200+ s, so anything tighter is a coin toss.
 
 /// Set once the work closure finishes; read after `waitAtMost` returns.
 private final class Flag: @unchecked Sendable {
@@ -246,7 +247,7 @@ private final class Flag: @unchecked Sendable {
     var isSet: Bool { lock.lock(); defer { lock.unlock() }; return value }
 }
 
-@Test(.timeLimit(.minutes(1)))
+@Test(.timeLimit(.minutes(10)))
 nonisolated func waitAtMostReturnsAtTheTimeoutWhileWorkHangs() async {
     let finished = Flag()
     // The work takes an hour; only the 100 ms timeout can end the wait.
@@ -257,7 +258,7 @@ nonisolated func waitAtMostReturnsAtTheTimeoutWhileWorkHangs() async {
     #expect(!finished.isSet)
 }
 
-@Test(.timeLimit(.minutes(1)))
+@Test(.timeLimit(.minutes(10)))
 nonisolated func waitAtMostReturnsWhenWorkFinishesFirst() async {
     let finished = Flag()
     // The timeout is an hour; only the work finishing can end the wait.

@@ -48,7 +48,7 @@
 	<key>NSPrivacyPolicyURL</key>
 	<string>https://tracksip.online/policy</string>
 	<key>NSContactsUsageDescription</key>
-	<string>Find friends who already use TrackSip and invite the rest. Phone numbers are checked and never saved.</string>
+	<string>Find friends who already use TrackSip and invite the rest. Phone numbers are checked and never stored on our servers.</string>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>whatsapp</string>
@@ -78,6 +78,10 @@
 	<string>32643d684ecc6c1f12f6607d2596a305</string>
 	<key>FacebookDisplayName</key>
 	<string>Tracksip</string>
+	<key>FBSDKAutoLogMetaDataEnabled</key>
+	<false/>
+	<key>FBSDKAutoLogProductImprovementEnabled</key>
+	<false/>
 	<key>FacebookAutoLogAppEventsEnabled</key>
 	<true/>
 	<key>FacebookAdvertiserIDCollectionEnabled</key>

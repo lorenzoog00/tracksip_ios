@@ -199,7 +199,19 @@ final class FirebaseManager: ObservableObject {
         if user.phoneNumber == nil {
             try await user.link(with: credential)
         } else {
-            try await user.updatePhoneNumber(credential)
+            do {
+                try await user.updatePhoneNumber(credential)
+            } catch let error as NSError
+                where error.domain == AuthErrors.domain
+                   && error.code == AuthErrorCode.requiresRecentLogin.rawValue {
+                // Replacing a number needs a sign-in from the last few minutes, and
+                // sessions last weeks. Removing and adding need none, and the code
+                // the user just typed is still unused: swap the numbers that way
+                // instead of asking them to sign in again (and paying another SMS).
+                _ = try await user.unlink(fromProvider: PhoneAuthProvider.id)
+                phoneNumber = nil
+                try await user.link(with: credential)
+            }
         }
         phoneNumber = auth.currentUser?.phoneNumber
         // A fresh token carries the new number. The number is already linked at
@@ -342,6 +354,8 @@ final class FirebaseManager: ObservableObject {
             return "This number already belongs to another TrackSip account. If it's your other account, sign in there and remove it under Social → Phone number."
         case AuthErrorCode.tooManyRequests.rawValue:
             return "Too many tries. Try again later."
+        case AuthErrorCode.requiresRecentLogin.rawValue:
+            return "To change your number, remove it under Social → Phone number, then add the new one."
         case AuthErrorCode.invalidPhoneNumber.rawValue:
             return "That number doesn't look right."
         // The project's SMS quota, or phone auth itself being off or not set up
