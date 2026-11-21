@@ -126,7 +126,9 @@ function makeGenerator({model}) {
   const {GoogleGenAI} = requireFromFunctions("@google/genai");
   const {generatePhoto} = require("../../functions/recovery/image");
   const genai = new GoogleGenAI({
-    vertexai: true, project: PROJECT_ID, location: "us-central1",
+    // Same endpoint as the runtime trigger: Gemini 3.x image models are
+    // served only from "global".
+    vertexai: true, project: PROJECT_ID, location: "global",
   });
   return (item) => generatePhoto(item, {genai, model});
 }

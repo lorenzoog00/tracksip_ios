@@ -535,7 +535,9 @@ async function runLibraryPhoto(itemId, {versioned = false} = {}) {
   const genai = new GoogleGenAI({
     vertexai: true,
     project: process.env.GCLOUD_PROJECT,
-    location: "us-central1",
+    // The Gemini 3.x image models answer only on the global endpoint;
+    // us-central1 returns 404 "publisher model not found" for them.
+    location: "global",
   });
   await completeLibraryPhoto({
     db: getFirestore(),
