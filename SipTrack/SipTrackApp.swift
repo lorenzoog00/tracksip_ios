@@ -157,6 +157,8 @@ private final class ProductionAppCheckProviderFactory: NSObject, AppCheckProvide
 /// stayed nil, and the first APNs token handed to Auth crashed every launch of
 /// TestFlight 1.0.9 (firebase-ios-sdk #16273: configure in didFinishLaunching).
 enum FirebaseSetup {
+    /// DIAGNOSTIC (temporary)
+    static var diagLog: [String] = []
     /// A flag, not `FirebaseApp.app() == nil`: asking Firebase before it is
     /// configured logs an error on every cold launch.
     private static var configured = false
@@ -172,19 +174,23 @@ enum FirebaseSetup {
         // DIAGNOSTIC (temporary)
         let stack = Thread.callStackSymbols.prefix(10).map { String($0.split(separator: " ", omittingEmptySubsequences: true).dropFirst(3).prefix(3).joined(separator: " ")) }
         let appState = UIApplication.shared.applicationState.rawValue
+        var offMain = ""
         DispatchQueue.global().sync {
             let sel = NSSelectorFromString("sharedApplication")
             let responds = UIApplication.responds(to: sel)
             let app = responds ? UIApplication.perform(sel)?.takeUnretainedValue() as? UIApplication : nil
-            NSLog("DIAG2 configure: main=%@ appState=%ld offMainResponds=%@ offMainApp=%@ stack=%@",
-                  Thread.isMainThread ? "y" : "n", appState, responds ? "y" : "n", app != nil ? "y" : "n",
-                  stack.joined(separator: " | "))
+            offMain = "offMainResponds=\(responds) offMainApp=\(app != nil)"
         }
+        let line = "configure: main=\(Thread.isMainThread) appState=\(appState) \(offMain) stack=\(stack.joined(separator: " | "))"
+        NSLog("DIAG2 %@", line)
+        diagLog.append(line)
         FirebaseApp.configure()
         Task { @MainActor in
             for delay in [0.0, 0.5, 2.0, 5.0] {
                 try? await Task.sleep(for: .seconds(delay))
-                NSLog("DIAG2 +%.1fs managers: %@", delay, FirebaseManager.shared.authManagerState())
+                let line = "+\(delay)s managers: \(FirebaseManager.shared.authManagerState())"
+                NSLog("DIAG2 %@", line)
+                FirebaseSetup.diagLog.append(line)
             }
         }
     }

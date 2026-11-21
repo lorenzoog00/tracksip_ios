@@ -124,3 +124,12 @@ struct PhoneAuthErrorTests {
         #expect(FirebaseManager.shared.handlesAuthNotification(["not": "firebase"]) == false)
     }
 }
+
+/// DIAGNOSTIC (temporary): surfaces the launch log through a recorded issue so
+/// it shows in the CI log.
+@Test func diagLaunchLog() async {
+    try? await Task.sleep(for: .seconds(8))
+    let log = await MainActor.run { FirebaseSetup.diagLog }
+    for line in log { Issue.record("DIAG2 \(line)") }
+    if log.isEmpty { Issue.record("DIAG2 empty log") }
+}

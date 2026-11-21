@@ -1,6 +1,7 @@
 import UIKit
 import UserNotifications
 import FirebaseAuth
+import FirebaseCore
 
 /// Where a tapped remote push leads. The server sends `route` (and `username`)
 /// beside `aps`; pushes from before that field existed are friend requests.
@@ -103,6 +104,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         // App.init) left phone auth half set up and crashed 1.0.9 on launch. The
         // stores come right after, so push taps and lock-screen intents find them.
         NSLog("DIAG2 didFinishLaunching start")
+        FirebaseSetup.diagLog.append("didFinishLaunching start configuredAlready=\(FirebaseApp.app() != nil)")
         FirebaseSetup.configureIfNeeded()
         _ = AppServices.shared
         // The notification delegate must be in place before launch finishes or a
