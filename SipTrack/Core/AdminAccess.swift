@@ -4,8 +4,8 @@ import Foundation
 /// convenience only: the review callables check the server's `ADMIN_UIDS`
 /// on every call and refuse anyone else with `permission-denied`.
 enum AdminAccess {
-    /// The owner's Firebase uid goes here (the same uid as the server's `ADMIN_UIDS`).
-    static let uids: Set<String> = []
+    /// The owner's Firebase uid (the same uid as the server's `ADMIN_UIDS`).
+    static let uids: Set<String> = ["zmlidDcLE4VZnnE99d3m5diCEIJ2"]
 
     /// Whether this signed-in user gets the Review photos row.
     static func canReviewPhotos(uid: String?, admins: Set<String> = AdminAccess.uids) -> Bool {
