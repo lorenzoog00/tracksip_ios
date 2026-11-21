@@ -12,9 +12,29 @@ import Foundation
 struct PhoneNumbersTests {
     @Test func mexicanFormsAllNormalizeToTheSameNumber() {
         for raw in ["55 1234 5678", "5512345678", "+52 55 1234 5678", "+52 1 55 1234 5678",
-                    "044 55 1234 5678", "045 55 1234 5678", "(55) 1234-5678", "+521 5512345678"] {
+                    "044 55 1234 5678", "045 55 1234 5678", "(55) 1234-5678", "+521 5512345678",
+                    "00 52 55 1234 5678", "00 52 1 55 1234 5678", "011 52 55 1234 5678",
+                    "011 52 1 55 1234 5678", "01 55 1234 5678"] {
             #expect(PhoneNumbers.normalize(raw, defaultRegion: "MX") == "+525512345678", "\(raw)")
         }
+    }
+
+    @Test func internationalPrefixDialingMexicoNormalizesInAnyRegion() {
+        for raw in ["00 52 55 1234 5678", "00 52 1 55 1234 5678", "011 52 55 1234 5678",
+                    "011 52 1 55 1234 5678"] {
+            #expect(PhoneNumbers.normalize(raw, defaultRegion: "US") == "+525512345678", "\(raw)")
+        }
+    }
+
+    @Test func internationalPrefixDialingAnotherCountryIsLeftToPhoneNumberKit() {
+        // 011 is the US international prefix and 00 Mexico's; only 52 after them is rewritten.
+        #expect(PhoneNumbers.normalize("011 1 415 555 2671", defaultRegion: "US") == "+14155552671")
+        #expect(PhoneNumbers.normalize("00 1 415 555 2671", defaultRegion: "MX") == "+14155552671")
+    }
+
+    @Test func oldLongDistancePrefixIsMexicanOnlyInMexico() {
+        // 01 + ten digits is Mexico's retired national form; elsewhere it isn't rewritten to +52.
+        #expect(PhoneNumbers.normalize("01 55 1234 5678", defaultRegion: "US") != "+525512345678")
     }
 
     @Test func usNumbersNormalize() {
@@ -43,6 +63,7 @@ struct PhoneNumbersTests {
 
     @Test func e164FromNationalChecksTheCountry() {
         #expect(PhoneNumbers.e164(national: "5512345678", region: "MX") == "+525512345678")
+        #expect(PhoneNumbers.e164(national: "01 55 1234 5678", region: "MX") == "+525512345678")
         #expect(PhoneNumbers.e164(national: "551234567", region: "MX") == nil)   // 9 digits
     }
 

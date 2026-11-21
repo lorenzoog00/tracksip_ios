@@ -65,6 +65,16 @@ struct PhoneAuthErrorTests {
         #expect(FirebaseManager.phoneErrorText(ours) == "Please sign in and try again.")
     }
 
+    /// The SMS is written in the language part of the phone's first preferred
+    /// language; no preferred language leaves Firebase's default alone.
+    @Test func smsLanguageIsTheFirstPreferredLanguage() {
+        #expect(FirebaseManager.smsLanguageCode(preferred: ["es-MX", "en-US"]) == "es")
+        #expect(FirebaseManager.smsLanguageCode(preferred: ["en-US"]) == "en")
+        #expect(FirebaseManager.smsLanguageCode(preferred: ["pt-BR"]) == "pt")
+        #expect(FirebaseManager.smsLanguageCode(preferred: []) == nil)
+        #expect(FirebaseManager.smsLanguageCode(preferred: ["zh-Hans-CN"]) == "zh")
+    }
+
     /// "FIRAuthErrorDomain" is `AuthErrors.domain` in firebase-ios-sdk 12.13.0.
     @Test func phoneErrorTextChecksTheDomain() {
         #expect(FirebaseManager.phoneErrorText(NSError(domain: "FIRAuthErrorDomain", code: Self.invalidVerificationCode))
@@ -76,5 +86,57 @@ struct PhoneAuthErrorTests {
         // No phone copy: the app's usual offline message.
         #expect(FirebaseManager.phoneErrorText(NSError(domain: "FIRAuthErrorDomain", code: Self.networkError))
             == "Connection error. Check your internet and try again.")
+    }
+
+    /// Replacing a number falls back to remove-then-add; if even that is refused
+    /// for a stale sign-in (17014), the copy says what to do on this screen.
+    @Test func staleSignInOnChangeSaysRemoveThenAdd() {
+        #expect(FirebaseManager.phoneErrorMessage(code: 17014)
+            == "To change your number, remove it under Social → Phone number, then add the new one.")
+    }
+
+    // MARK: - Phone auth readiness (TestFlight 1.0.9 launch crash)
+
+    /// Stand-ins for Firebase Auth's implicitly unwrapped managers.
+    final class FakeAuth {
+        var tokenManager: NSObject! = NSObject()
+        var notificationManager: NSObject! = NSObject()
+        var appCredentialManager: NSObject! = NSObject()
+    }
+
+    final class RenamedAuth {
+        var apnsManager: NSObject! = NSObject()
+    }
+
+    @Test func managersReadyOnlyWhenAllThreeExist() {
+        let ready = FakeAuth()
+        #expect(FirebaseManager.managersReady(in: ready))
+
+        let missingToken = FakeAuth()
+        missingToken.tokenManager = nil
+        #expect(!FirebaseManager.managersReady(in: missingToken))
+
+        let missingNotifications = FakeAuth()
+        missingNotifications.notificationManager = nil
+        #expect(!FirebaseManager.managersReady(in: missingNotifications))
+    }
+
+    @Test func renamedManagersCountAsNotReady() {
+        #expect(!FirebaseManager.managersReady(in: RenamedAuth()))
+    }
+
+    /// The call that crashed 1.0.9 (through `canHandleNotification`) must
+    /// never trap, ready or not, and a payload that isn't Firebase's is not handled.
+    @Test func authNotificationNeverTraps() {
+        #expect(FirebaseManager.shared.handlesAuthNotification(["not": "firebase"]) == false)
+    }
+
+    /// In this test host, as on iPhone, the main Firebase app is configured too
+    /// early for phone auth; the late "phone-auth" app must come up with working
+    /// managers, or adding a number can never send an SMS.
+    @Test func phoneAuthComesUpAfterLaunch() async {
+        let phoneAuth = await FirebaseManager.shared.preparePhoneAuth()
+        #expect(phoneAuth != nil)
+        if let phoneAuth { #expect(FirebaseManager.managersReady(in: phoneAuth as Any)) }
     }
 }

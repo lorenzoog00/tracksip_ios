@@ -274,6 +274,22 @@ struct RootView: View {
                             .onAppear { socialVisited = true }
                     }
                 }
+                // The morning check-in (a tapped morning notification, the Home
+                // card or the summary's "Check in"). The binding is read on
+                // every render rather than watched with onChange, so a cold
+                // launch from the notification, which sets `pendingCheckIn`
+                // before this view exists, still presents it once the stored
+                // session is restored. It never covers the update wall.
+                .sheet(item: Binding<PendingCheckIn?>(
+                    get: {
+                        guard firebase.isSignedIn, !updateRequired else { return nil }
+                        return appState.pendingCheckIn
+                    },
+                    set: { appState.pendingCheckIn = $0 }
+                )) { pending in
+                    MorningCheckInSheet(pending: pending,
+                                        opensOnPlan: appState.morningPlans[pending.eventId] != nil)
+                }
             }
         }
         .preferredColorScheme(.dark)

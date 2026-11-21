@@ -323,8 +323,8 @@ credentials.
 ## Phone friends — one-time setup
 
 Friend finding by phone replaces email contact matching (spec:
-`docs/superpowers/specs/2026-11-20-phone-friends-design.md`). Steps 1–5 are
-yours, in the consoles; step 6 is the cutover, done by approving the Deploy
+`docs/superpowers/specs/2026-11-20-phone-friends-design.md`). Steps 1–6 are
+yours, in the consoles; step 7 is the cutover, done by approving the Deploy
 backend run. Do them in order, before distributing the build.
 
 1. **Enable phone sign-in.** Firebase console → Authentication → Sign-in method
@@ -360,6 +360,9 @@ backend run. Do them in order, before distributing the build.
    (Invoke-RestMethod -Headers @{Authorization = "Bearer $token"} "https://cloudbilling.googleapis.com/v1/services?pageSize=5000").services | Where-Object displayName -like "*Identity Platform*" | Select-Object name, displayName
    ```
 
+   If nothing prints, the list is paged: re-run with
+   `&pageToken=<nextPageToken>` from the previous response.
+
    The console's Services picker takes the name, so it needs no id. After the
    first days of real SMS, open Billing → Reports filtered to the project: if
    the SMS charges show under another service, scope the budget to that one.
@@ -369,7 +372,12 @@ backend run. Do them in order, before distributing the build.
 5. **Privacy policy.** Update https://tracksip.online/policy (EMporium web
    repo): the phone number is collected for friend finding; contacts' numbers
    are checked over HTTPS and not stored.
-6. **Cutover: approve the Deploy backend run when the app build is ready.**
+6. **Test number for App Review.** If there isn't one yet, add it in Firebase
+   console → Authentication → Sign-in method → Phone → Phone numbers for
+   testing (a number with a fixed six-digit code; no SMS goes out). Put the
+   Firebase test phone number and its code in App Store Connect → App Review
+   Information → Notes (never in this repo).
+7. **Cutover: approve the Deploy backend run when the app build is ready.**
    Merging this branch's PR into `main` touches `functions/`, so it queues the
    **Deploy backend** workflow, which waits for your approval on the
    `production` environment (see "Validate and deploy"). Approving it is the

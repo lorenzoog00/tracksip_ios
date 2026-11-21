@@ -44,6 +44,19 @@
 		D77C112605A0000000000014 /* NightStoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D77C112605A0000000000013 /* NightStoryTests.swift */; };
 		E34D6123C210440E9E1B4401 /* ReportAlcoholDose.swift in Sources */ = {isa = PBXBuildFile; fileRef = E34D6123C210440E9E1B4402 /* ReportAlcoholDose.swift */; };
 		E34D6123C210440E9E1B4403 /* ReportAlcoholDoseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E34D6123C210440E9E1B4404 /* ReportAlcoholDoseTests.swift */; };
+		4D0E9A110000000000000902 /* MorningPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D0E9A110000000000000901 /* MorningPlan.swift */; };
+		4D0E9A110000000000000904 /* MorningCheckIn.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D0E9A110000000000000903 /* MorningCheckIn.swift */; };
+		4D0E9A110000000000000906 /* MorningPlanTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D0E9A110000000000000905 /* MorningPlanTests.swift */; };
+		4D0E9A110000000000000908 /* MorningCheckInTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D0E9A110000000000000907 /* MorningCheckInTests.swift */; };
+		4D0E9A110000000000000A02 /* MorningPlanFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D0E9A110000000000000A01 /* MorningPlanFlowTests.swift */; };
+		4D0E9A110000000000000B02 /* MorningCheckInCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D0E9A110000000000000B01 /* MorningCheckInCard.swift */; };
+		4D0E9A110000000000000B04 /* MorningCheckInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D0E9A110000000000000B03 /* MorningCheckInView.swift */; };
+		4D0E9A110000000000000B06 /* RecoveryPlanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D0E9A110000000000000B05 /* RecoveryPlanView.swift */; };
+		4D0E9A110000000000000B08 /* MorningPlanDisplay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D0E9A110000000000000B07 /* MorningPlanDisplay.swift */; };
+		4D0E9A110000000000000B0A /* MorningPlanDisplayTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D0E9A110000000000000B09 /* MorningPlanDisplayTests.swift */; };
+		4D0E9A110000000000000C02 /* AdminAccess.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D0E9A110000000000000C01 /* AdminAccess.swift */; };
+		4D0E9A110000000000000C04 /* PhotoReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D0E9A110000000000000C03 /* PhotoReviewView.swift */; };
+		4D0E9A110000000000000C06 /* PhotoReviewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D0E9A110000000000000C05 /* PhotoReviewTests.swift */; };
 		E34D6123C210440E9E1B4411 /* DrinkLookup.swift in Sources */ = {isa = PBXBuildFile; fileRef = E34D6123C210440E9E1B4412 /* DrinkLookup.swift */; };
 		E34D6123C210440E9E1B4415 /* AppDates.swift in Sources */ = {isa = PBXBuildFile; fileRef = E34D6123C210440E9E1B4416 /* AppDates.swift */; };
 		E34D6123C210440E9E1B4413 /* DrinkLookupTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E34D6123C210440E9E1B4414 /* DrinkLookupTests.swift */; };
@@ -287,6 +300,19 @@
 		D77C112605A0000000000013 /* NightStoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NightStoryTests.swift; sourceTree = "<group>"; };
 		E34D6123C210440E9E1B4402 /* ReportAlcoholDose.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportAlcoholDose.swift; sourceTree = "<group>"; };
 		E34D6123C210440E9E1B4404 /* ReportAlcoholDoseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportAlcoholDoseTests.swift; sourceTree = "<group>"; };
+		4D0E9A110000000000000901 /* MorningPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningPlan.swift; sourceTree = "<group>"; };
+		4D0E9A110000000000000903 /* MorningCheckIn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningCheckIn.swift; sourceTree = "<group>"; };
+		4D0E9A110000000000000905 /* MorningPlanTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningPlanTests.swift; sourceTree = "<group>"; };
+		4D0E9A110000000000000907 /* MorningCheckInTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningCheckInTests.swift; sourceTree = "<group>"; };
+		4D0E9A110000000000000A01 /* MorningPlanFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningPlanFlowTests.swift; sourceTree = "<group>"; };
+		4D0E9A110000000000000B01 /* MorningCheckInCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningCheckInCard.swift; sourceTree = "<group>"; };
+		4D0E9A110000000000000B03 /* MorningCheckInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningCheckInView.swift; sourceTree = "<group>"; };
+		4D0E9A110000000000000B05 /* RecoveryPlanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecoveryPlanView.swift; sourceTree = "<group>"; };
+		4D0E9A110000000000000B07 /* MorningPlanDisplay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningPlanDisplay.swift; sourceTree = "<group>"; };
+		4D0E9A110000000000000B09 /* MorningPlanDisplayTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningPlanDisplayTests.swift; sourceTree = "<group>"; };
+		4D0E9A110000000000000C01 /* AdminAccess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminAccess.swift; sourceTree = "<group>"; };
+		4D0E9A110000000000000C03 /* PhotoReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoReviewView.swift; sourceTree = "<group>"; };
+		4D0E9A110000000000000C05 /* PhotoReviewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoReviewTests.swift; sourceTree = "<group>"; };
 		E34D6123C210440E9E1B4412 /* DrinkLookup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrinkLookup.swift; sourceTree = "<group>"; };
 		E34D6123C210440E9E1B4416 /* AppDates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDates.swift; sourceTree = "<group>"; };
 		E34D6123C210440E9E1B4414 /* DrinkLookupTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrinkLookupTests.swift; sourceTree = "<group>"; };
@@ -623,6 +649,8 @@
 				D77C112605A0000000000005 /* NightStory.swift */,
 				D77C112605A0000000000007 /* StoryVideoExporter.swift */,
 				E34D6123C210440E9E1B4402 /* ReportAlcoholDose.swift */,
+				4D0E9A110000000000000903 /* MorningCheckIn.swift */,
+				4D0E9A110000000000000C01 /* AdminAccess.swift */,
 				E34D6123C210440E9E1B4412 /* DrinkLookup.swift */,
 				E34D6123C210440E9E1B4416 /* AppDates.swift */,
 				B101B4992F9C2F32009F7DDD /* ChallengeUtils.swift */,
@@ -649,6 +677,7 @@
 				B101B49F2F9C2F32009F7DDD /* NightEvent.swift */,
 				A0E98F63CB724D4CB75A1270 /* FoodEntry.swift */,
 				A5E1F2C3D4B5009F7DDE0001 /* NightRecovery.swift */,
+				4D0E9A110000000000000901 /* MorningPlan.swift */,
 				B101B4A02F9C2F32009F7DDD /* UserProfile.swift */,
 			);
 			path = Models;
@@ -768,9 +797,21 @@
 				B15DA9AB2FAC184E00345F64 /* ForgotPasswordView.swift */,
 				B15DA9A92FAC149800345F64 /* EmailVerificationView.swift */,
 				B101B4BF2F9C2F32009F7DDD /* ProfileView.swift */,
+				4D0E9A110000000000000C03 /* PhotoReviewView.swift */,
 				CC1A2B3D4E5F6A7B8C9D0E10 /* LearnView.swift */,
 			);
 			path = Profile;
+			sourceTree = "<group>";
+		};
+		4D0E9A110000000000000B0B /* Recovery */ = {
+			isa = PBXGroup;
+			children = (
+				4D0E9A110000000000000B01 /* MorningCheckInCard.swift */,
+				4D0E9A110000000000000B03 /* MorningCheckInView.swift */,
+				4D0E9A110000000000000B07 /* MorningPlanDisplay.swift */,
+				4D0E9A110000000000000B05 /* RecoveryPlanView.swift */,
+			);
+			path = Recovery;
 			sourceTree = "<group>";
 		};
 		B101B4C32F9C2F32009F7DDD /* Subscription */ = {
@@ -831,6 +872,7 @@
 				B101B4BB2F9C2F32009F7DDD /* Home */,
 				B101B4BE2F9C2F32009F7DDD /* Onboarding */,
 				B101B4C02F9C2F32009F7DDD /* Profile */,
+				4D0E9A110000000000000B0B /* Recovery */,
 				5E1C0001000000000000C001 /* Social */,
 				B101B4C32F9C2F32009F7DDD /* Subscription */,
 				B101B4C52F9C2F32009F7DDD /* Summary */,
@@ -907,6 +949,11 @@
 				05D89EE3EAB14D6EB6AF92BD /* BACCalculatorFoodTests.swift */,
 				94366D3F8A174A8A9ED74019 /* BACCalculatorCoreTests.swift */,
 				E34D6123C210440E9E1B4404 /* ReportAlcoholDoseTests.swift */,
+				4D0E9A110000000000000905 /* MorningPlanTests.swift */,
+				4D0E9A110000000000000907 /* MorningCheckInTests.swift */,
+				4D0E9A110000000000000A01 /* MorningPlanFlowTests.swift */,
+				4D0E9A110000000000000B09 /* MorningPlanDisplayTests.swift */,
+				4D0E9A110000000000000C05 /* PhotoReviewTests.swift */,
 				E34D6123C210440E9E1B4414 /* DrinkLookupTests.swift */,
 				E34D6123C210440E9E1B4418 /* AppDatesTests.swift */,
 				A1B2C3D4E5F6A7B8C9D0E1F3 /* AIInsightsTests.swift */,
@@ -1254,6 +1301,13 @@
 				B101B4E02F9CD648009F7DDD /* Analytics.swift in Sources */,
 				B101B4E12F9CD648009F7DDD /* BACCalculator.swift in Sources */,
 				E34D6123C210440E9E1B4401 /* ReportAlcoholDose.swift in Sources */,
+				4D0E9A110000000000000904 /* MorningCheckIn.swift in Sources */,
+				4D0E9A110000000000000C02 /* AdminAccess.swift in Sources */,
+				4D0E9A110000000000000C04 /* PhotoReviewView.swift in Sources */,
+				4D0E9A110000000000000B02 /* MorningCheckInCard.swift in Sources */,
+				4D0E9A110000000000000B04 /* MorningCheckInView.swift in Sources */,
+				4D0E9A110000000000000B06 /* RecoveryPlanView.swift in Sources */,
+				4D0E9A110000000000000B08 /* MorningPlanDisplay.swift in Sources */,
 				E34D6123C210440E9E1B4411 /* DrinkLookup.swift in Sources */,
 				E34D6123C210440E9E1B4415 /* AppDates.swift in Sources */,
 				8E3F7C2B5D4A6810C3F6A9B6 /* HapticSpec.swift in Sources */,
@@ -1269,6 +1323,7 @@
 				B101B4E62F9CD648009F7DDD /* DrinkType.swift in Sources */,
 				B101B4E72F9CD648009F7DDD /* NightEvent.swift in Sources */,
 				0B600C73A34541F49740B136 /* FoodEntry.swift in Sources */,
+				4D0E9A110000000000000902 /* MorningPlan.swift in Sources */,
 				B101B4E82F9CD648009F7DDD /* UserProfile.swift in Sources */,
 				B101B4E92F9CD648009F7DDD /* Route.swift in Sources */,
 				B101B4EA2F9CD648009F7DDD /* AppState.swift in Sources */,
@@ -1361,6 +1416,11 @@
 				EFB0728D3D5C4E0EB8F0A888 /* BACCalculatorFoodTests.swift in Sources */,
 				19A3D1F4240845CD897E3D12 /* BACCalculatorCoreTests.swift in Sources */,
 				E34D6123C210440E9E1B4403 /* ReportAlcoholDoseTests.swift in Sources */,
+				4D0E9A110000000000000906 /* MorningPlanTests.swift in Sources */,
+				4D0E9A110000000000000908 /* MorningCheckInTests.swift in Sources */,
+				4D0E9A110000000000000A02 /* MorningPlanFlowTests.swift in Sources */,
+				4D0E9A110000000000000B0A /* MorningPlanDisplayTests.swift in Sources */,
+				4D0E9A110000000000000C06 /* PhotoReviewTests.swift in Sources */,
 				E34D6123C210440E9E1B4413 /* DrinkLookupTests.swift in Sources */,
 				E34D6123C210440E9E1B4417 /* AppDatesTests.swift in Sources */,
 				A1B2C3D4E5F6A7B8C9D0E1F2 /* AIInsightsTests.swift in Sources */,
@@ -2095,24 +2155,24 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/facebook/facebook-ios-sdk";
 			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 19.0.1;
+				kind = exactVersion;
+				version = 19.0.1;
 			};
 		};
 		AD7A00042FD0000000AD7A00 /* XCRemoteSwiftPackageReference "tiktok-business-ios-sdk" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/tiktok/tiktok-business-ios-sdk";
 			requirement = {
-				kind = upToNextMinorVersion;
-				minimumVersion = 1.7.2;
+				kind = exactVersion;
+				version = 1.7.2;
 			};
 		};
 		2C30CB933200000000000009 /* XCRemoteSwiftPackageReference "PhoneNumberKit" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/PhoneNumberKit/PhoneNumberKit";
 			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 5.0.14;
+				kind = exactVersion;
+				version = 5.0.15;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */

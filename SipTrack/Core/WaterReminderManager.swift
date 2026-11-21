@@ -27,7 +27,11 @@ private struct SystemWaterReminderNotifications: WaterReminderNotifications {
 final class WaterReminderManager: NSObject, UNUserNotificationCenterDelegate {
     static let shared: WaterReminderManager = {
         let manager = WaterReminderManager(notifications: SystemWaterReminderNotifications())
-        UNUserNotificationCenter.current().delegate = manager
+        let center = UNUserNotificationCenter.current()
+        center.delegate = manager
+        // The morning notification's four quick answers. Registered at launch
+        // (AppDelegate touches `shared`), before any response can arrive.
+        center.setNotificationCategories([MorningCheckIn.category()])
         return manager
     }()
 
@@ -132,15 +136,29 @@ final class WaterReminderManager: NSObject, UNUserNotificationCenterDelegate {
     /// A tap on a remote push opens where its `route` says (PushRoute). Remote pushes are
     /// told apart by their trigger type, not their text: a body match would break on any
     /// copy change. Local notifications never have a push trigger.
+    ///
+    /// The morning notification (category `siptrack.morning`), tapped or answered with
+    /// one of its quick answers, opens that night's check-in through `MorningCheckIn.onOpen`.
     nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
-        let isRemote = response.notification.request.trigger is UNPushNotificationTrigger
-        let isTap = response.actionIdentifier == UNNotificationDefaultActionIdentifier
+        let request = response.notification.request
+        let isRemote = request.trigger is UNPushNotificationTrigger
+        let actionId = response.actionIdentifier
+        let isTap = actionId == UNNotificationDefaultActionIdentifier
         if isRemote && isTap {
-            let route = PushRoute(userInfo: response.notification.request.content.userInfo)
+            let route = PushRoute(userInfo: request.content.userInfo)
             Task { @MainActor in PushRegistration.onOpen?(route) }
+        } else if !isRemote {
+            // Plain values only cross to the main actor; userInfo isn't Sendable.
+            let category = request.content.categoryIdentifier
+            let eventId = request.content.userInfo["eventId"] as? String
+            Task { @MainActor in
+                guard let open = MorningCheckIn.checkInRequest(categoryId: category, eventId: eventId,
+                                                               actionId: actionId) else { return }
+                MorningCheckIn.onOpen?(open.eventId, open.preselected)
+            }
         }
         completionHandler()
     }

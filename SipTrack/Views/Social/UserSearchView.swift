@@ -27,6 +27,8 @@ struct UserSearchView: View {
     @State private var entries: [ContactEntry] = []
     /// Contacts to invite, sorted by name. Rebuilt when `entries` or the check change.
     @State private var invitable: [ContactEntry] = []
+    /// The address book couldn't be read for a saved check's Invite list.
+    @State private var contactsReadFailed = false
     /// Contact ids invited from this account in the last 7 days.
     @State private var invited: Set<String> = []
     @State private var inviteQuery = ""
@@ -129,8 +131,15 @@ struct UserSearchView: View {
             sent.subtract(ids)
         }
         .onChange(of: firebase.phoneNumber) { _, phone in
-            // Removed (here or elsewhere): nothing from contacts stays on screen.
-            if phone == nil { forgetContacts() }
+            // Added, changed or removed (here or on another phone): nothing from
+            // the old number's check stays on screen, and a new number shows its
+            // own (saved check, else a new one when contacts are allowed). One
+            // added in the sheet above is checked by the sheet's handler once it
+            // closes; starting one here too could spend both of the day's checks.
+            forgetContacts()
+            if phone != nil, !showAddPhone {
+                Task { await showContacts(refresh: false) }
+            }
         }
         .onDisappear { searchTask?.cancel() }
         .task { await loadSuggestions(refresh: false) }
@@ -166,15 +175,16 @@ struct UserSearchView: View {
         contactResult != nil && !invitable.isEmpty
     }
 
+    /// A saved check is on screen but the address book couldn't be read, so
+    /// there is no Invite list to show.
+    private var showsContactsReadError: Bool {
+        contactResult != nil && invitable.isEmpty && contactsReadFailed
+    }
+
     private var filteredInvites: [ContactEntry] {
         let q = inviteQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !q.isEmpty else { return invitable }
         return invitable.filter { $0.name.localizedStandardContains(q) }
-    }
-
-    private var shownInvites: [ContactEntry] {
-        let matching = filteredInvites
-        return showAllInvites ? matching : Array(matching.prefix(Self.invitePageSize))
     }
 
     private var youMightKnow: some View {
@@ -214,9 +224,16 @@ struct UserSearchView: View {
             }
             .listRowBackground(AppColors.surface)
 
-            if showsInviteList {
+            if showsInviteList || showsContactsReadError {
                 Section {
-                    inviteRows
+                    if showsInviteList {
+                        // Filtered once per render, here, and handed down.
+                        inviteRows(filteredInvites)
+                    } else {
+                        Text("Couldn't read your contacts.")
+                            .font(.system(size: 13))
+                            .foregroundStyle(AppColors.textSecondary)
+                    }
                 } header: {
                     sectionHeader("Invite to TrackSip")
                 }
@@ -251,7 +268,7 @@ struct UserSearchView: View {
                     Task { await checkContacts() }
                 } label: {
                     cardLabel("Find friends from your contacts",
-                              subtitle: contactsFailureText ?? "Only phone numbers are checked, and nothing is saved.",
+                              subtitle: contactsFailureText ?? "Only phone numbers are checked, and nothing is stored on our servers.",
                               subtitleIsError: contactsFailureText != nil)
                 }
                 .buttonStyle(.plain)
@@ -338,8 +355,9 @@ struct UserSearchView: View {
 
     // MARK: - Invite list
 
+    /// `invites` is `filteredInvites`, computed once by the caller for this render.
     @ViewBuilder
-    private var inviteRows: some View {
+    private func inviteRows(_ invites: [ContactEntry]) -> some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(AppColors.textSecondary)
@@ -349,19 +367,20 @@ struct UserSearchView: View {
                 .autocorrectionDisabled()
                 .submitLabel(.search)
         }
-        if filteredInvites.isEmpty {
+        if invites.isEmpty {
             Text("No contacts match \"\(inviteQuery.trimmingCharacters(in: .whitespacesAndNewlines))\".")
                 .font(.system(size: 15))
                 .foregroundStyle(AppColors.textSecondary)
         } else {
-            ForEach(shownInvites) { entry in
+            let shown: [ContactEntry] = showAllInvites ? invites : Array(invites.prefix(Self.invitePageSize))
+            ForEach(shown) { entry in
                 inviteRow(entry)
             }
-            if !showAllInvites && filteredInvites.count > Self.invitePageSize {
+            if !showAllInvites && invites.count > Self.invitePageSize {
                 Button {
                     showAllInvites = true
                 } label: {
-                    Text("Show all (\(filteredInvites.count))")
+                    Text("Show all (\(invites.count))")
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(AppColors.accent)
                         .frame(maxWidth: .infinity)
@@ -373,6 +392,8 @@ struct UserSearchView: View {
 
     private func inviteRow(_ entry: ContactEntry) -> some View {
         let isInvited = invited.contains(entry.id)
+        // The invite text carries my username; without one there is nothing to send.
+        let hasUsername = friends.myProfile?.username != nil
         return HStack(spacing: 12) {
             Text(Self.initial(of: entry.name))
                 .font(.system(size: 16, weight: .semibold))
@@ -394,11 +415,11 @@ struct UserSearchView: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 7)
                     .foregroundStyle(isInvited ? AppColors.textSecondary : Color.black)
-                    .background(isInvited ? AppColors.border : AppColors.accent)
+                    .background(isInvited ? AppColors.border : AppColors.accent.opacity(hasUsername ? 1 : 0.4))
                     .clipShape(Capsule())
             }
             .buttonStyle(.borderless)
-            .disabled(isInvited)
+            .disabled(isInvited || !hasUsername)
         }
     }
 
@@ -443,11 +464,27 @@ struct UserSearchView: View {
     private func loadSuggestions(refresh: Bool) async {
         loadingSuggestions = true
         let contactsTask = Task {
-            // The first load of each visit re-reads the number before deciding
-            // whether there is one: it may have been added, changed or removed
-            // on another phone.
-            if !refresh { await firebase.refreshPhoneNumber() }
-            await showContacts(refresh: refresh)
+            // The first load of each visit re-reads the number: it may have been
+            // added, changed or removed on another phone. A change lands in the
+            // `firebase.phoneNumber` handler, which clears the old number's check
+            // and shows the new one's.
+            if !refresh, friends.cachedContactMatches() == nil {
+                // Nothing saved, so showing contacts means a new check: re-read
+                // first, or a number changed elsewhere would spend one check on
+                // the old number and another on the new.
+                let before = firebase.phoneNumber
+                await firebase.refreshPhoneNumber()
+                // Changed: the handler owns it. Showing here too could set
+                // .checking before the handler's reset, which would then start
+                // a second check.
+                guard firebase.phoneNumber == before else { return }
+                await showContacts(refresh: false)
+            } else {
+                // A fresh saved check shows without waiting for the network (and
+                // a tap on the card meanwhile can't spend a check), then the re-read.
+                await showContacts(refresh: refresh)
+                if !refresh { await firebase.refreshPhoneNumber() }
+            }
         }
         do {
             suggestions = try await friends.suggestions()
@@ -480,12 +517,20 @@ struct UserSearchView: View {
 
     private func checkContacts() async {
         guard contacts != .checking, let phone = firebase.phoneNumber else { return }
+        let uid = friends.currentUid
+        // Signed out, switched account or changed number since this check began:
+        // the answer belongs to no one on screen. The `firebase.phoneNumber`
+        // handler resets the card (and may start a new check).
+        func isStale() -> Bool {
+            friends.currentUid != uid || firebase.phoneNumber != phone
+        }
         switch CNContactStore.authorizationStatus(for: .contacts) {
         case .denied, .restricted:
             contacts = .denied
             return
         case .notDetermined:
             let granted = (try? await CNContactStore().requestAccess(for: .contacts)) ?? false
+            guard !isStale() else { return }
             guard granted else {
                 contacts = .denied
                 return
@@ -495,9 +540,19 @@ struct UserSearchView: View {
         }
         let shown = contacts
         contacts = .checking
+        // A stale answer is dropped. A changed number's handler has reset the
+        // card; with the same number (only the account changed) put back what
+        // was showing, or the card would stay on "Checking…".
+        func droppedAsStale() -> Bool {
+            guard isStale() else { return false }
+            if contacts == .checking, firebase.phoneNumber == phone { contacts = shown }
+            return true
+        }
         do {
             let read = try await Self.readContacts(ownPhone: phone)
+            if droppedAsStale() { return }
             entries = read
+            contactsReadFailed = false
             let phones = ContactPhones.phonesToCheck(read, ownPhone: phone)
             let result: ContactMatchResult
             if phones.isEmpty {
@@ -505,9 +560,11 @@ struct UserSearchView: View {
                 result = ContactMatchResult(profiles: [], onTrackSip: [])
             } else {
                 result = try await friends.contactMatches(phones: phones)
+                if droppedAsStale() { return }
             }
             contacts = .done(result)
         } catch let error where FirebaseManager.isContactCheckLimit(error) {
+            if droppedAsStale() { return }
             // Never the server's own sentence: the saved check, else ours.
             if let cached = friends.cachedContactMatches() {
                 contacts = .done(cached)
@@ -517,6 +574,7 @@ struct UserSearchView: View {
                 contacts = .limitReached
             }
         } catch {
+            if droppedAsStale() { return }
             if case .done = shown {
                 // A failed refresh keeps what was on screen.
                 contacts = shown
@@ -528,10 +586,20 @@ struct UserSearchView: View {
         rebuildInvitable()
     }
 
-    /// Reads the address book for the Invite list when showing a saved check. No server call.
+    /// Reads the address book for the Invite list when showing a saved check. No
+    /// server call. A failed read keeps the saved check and says so in the Invite
+    /// section. Dropped if the number changed or was removed meanwhile.
     private func loadEntries(ownPhone: String) async {
         if entries.isEmpty {
-            entries = (try? await Self.readContacts(ownPhone: ownPhone)) ?? []
+            do {
+                let read = try await Self.readContacts(ownPhone: ownPhone)
+                guard firebase.phoneNumber == ownPhone else { return }
+                entries = read
+                contactsReadFailed = false
+            } catch {
+                guard firebase.phoneNumber == ownPhone else { return }
+                contactsReadFailed = true
+            }
         }
         rebuildInvitable()
     }
@@ -555,7 +623,8 @@ struct UserSearchView: View {
         invited = friends.currentUid.map { uid in Invite.invitedContactIDs(uid: uid, now: Date()) } ?? []
     }
 
-    /// No number: nothing read from contacts stays in memory or on screen.
+    /// No number, or a different one: nothing read from contacts for the old one
+    /// stays in memory or on screen.
     private func forgetContacts() {
         contacts = .idle
         entries = []
@@ -563,6 +632,7 @@ struct UserSearchView: View {
         invited = []
         inviteQuery = ""
         showAllInvites = false
+        contactsReadFailed = false
     }
 
     private func hint(_ text: String) -> some View {

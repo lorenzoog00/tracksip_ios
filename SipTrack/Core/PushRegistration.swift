@@ -99,6 +99,10 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
+        // Usually already done by SwiftUI building the state objects; kept so push
+        // taps and lock-screen intents always find Firebase and the stores.
+        FirebaseSetup.configureIfNeeded()
+        _ = AppServices.shared
         // The notification delegate must be in place before launch finishes or a
         // cold-start tap on a push is never delivered.
         _ = WaterReminderManager.shared
@@ -111,8 +115,9 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     }
 
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
-        // `.unknown`: Firebase reads sandbox or production from the provisioning profile.
-        Auth.auth().setAPNSToken(deviceToken, type: .unknown)
+        // Never straight to Auth: if its phone-auth setup didn't run, this traps
+        // (TestFlight 1.0.9's launch crash). FirebaseManager waits until it's ready.
+        FirebaseManager.shared.setAPNSToken(deviceToken)
         let token = PushRegistration.hexString(deviceToken)
         // Launch now registers without permission, for phone auth. Uploading only
         // when allowed keeps things as they were: registering used to happen
@@ -131,7 +136,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         didReceiveRemoteNotification userInfo: [AnyHashable: Any],
         fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
     ) {
-        _ = Auth.auth().canHandleNotification(userInfo)
+        _ = FirebaseManager.shared.handlesAuthNotification(userInfo)
         completionHandler(.noData)
     }
 

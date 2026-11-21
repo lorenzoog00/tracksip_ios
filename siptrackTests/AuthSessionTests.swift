@@ -229,23 +229,41 @@ struct AuthSessionTests {
         #expect(!LogDeepLink.accepts(eventId: "", activeEventId: ""))
     }
 
-    // MARK: - Sign-out never waits on the push token call
+}
 
-    @Test func waitAtMostReturnsAtTheTimeoutWhileWorkHangs() async {
-        let clock = ContinuousClock()
-        let elapsed = await clock.measure {
-            await FirebaseManager.waitAtMost(.milliseconds(100)) {
-                try? await Task.sleep(for: .seconds(30))
-            }
-        }
-        #expect(elapsed < .seconds(5))
-    }
+// MARK: - Sign-out never waits on the push token call
 
-    @Test func waitAtMostReturnsWhenWorkFinishesFirst() async {
-        let clock = ContinuousClock()
-        let elapsed = await clock.measure {
-            await FirebaseManager.waitAtMost(.seconds(30)) {}
-        }
-        #expect(elapsed < .seconds(5))
+// No wall-clock bounds: a stalled CI simulator (every test reporting 60+ s)
+// failed timing asserts that had nothing to do with the code. Each test instead
+// gives one side a deadline no stall reaches, so returning at all proves which
+// side won. The 10-minute limit only stops a real hang from blocking the run;
+// stalled runs have had tests report 200+ s, so anything tighter is a coin toss.
+
+/// Set once the work closure finishes; read after `waitAtMost` returns.
+private final class Flag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = false
+    func set() { lock.lock(); value = true; lock.unlock() }
+    var isSet: Bool { lock.lock(); defer { lock.unlock() }; return value }
+}
+
+@Test(.timeLimit(.minutes(10)))
+nonisolated func waitAtMostReturnsAtTheTimeoutWhileWorkHangs() async {
+    let finished = Flag()
+    // The work takes an hour; only the 100 ms timeout can end the wait.
+    await FirebaseManager.waitAtMost(.milliseconds(100)) {
+        try? await Task.sleep(for: .seconds(3600))
+        finished.set()
     }
+    #expect(!finished.isSet)
+}
+
+@Test(.timeLimit(.minutes(10)))
+nonisolated func waitAtMostReturnsWhenWorkFinishesFirst() async {
+    let finished = Flag()
+    // The timeout is an hour; only the work finishing can end the wait.
+    await FirebaseManager.waitAtMost(.seconds(3600)) {
+        finished.set()
+    }
+    #expect(finished.isSet)
 }

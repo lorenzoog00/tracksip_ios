@@ -160,3 +160,63 @@ test("reject malformed input and document path traversal before spending", () =>
     assert.throws(() => validateRequest({...valid, ...change}));
   }
 });
+
+const morningPayload = (over = {}) => ({
+  symptoms: ["headache", "nausea"],
+  country: "MX",
+  checkInHour: 9,
+  weekday: 2,
+  endHour: 3,
+  durationMinutes: 240,
+  alcoholDose: {
+    grams: 0,
+    standardDrinks: 0,
+    loggedServings: 0,
+    missingServings: 0,
+    otherGroups: 0,
+    otherGrams: 0,
+  },
+  drinks: [],
+  peakBac: 0,
+  estimatedBacNow: 0,
+  waterMl: 500,
+  foodEntryCount: 1,
+  stomachState: "full",
+  userSex: "Male",
+  ...over,
+});
+const morning = (over) => ({kind: "morning", id: "e1", payload: morningPayload(over)});
+
+test("a morning request with a valid payload is accepted", () => {
+  assert.doesNotThrow(() => validateRequest(morning()));
+  assert.doesNotThrow(() => validateRequest(morning({country: undefined})));
+});
+
+test("a morning request rejects bad symptoms, dose and hours", () => {
+  const bad = [
+    {symptoms: ["hangry"]},
+    {symptoms: []},
+    {symptoms: ["fine", "nausea"]},
+    {alcoholDose: undefined},
+    {checkInHour: 24},
+    {endHour: -1},
+    {weekday: 0},
+    {country: "mex"},
+  ];
+  for (const over of bad) {
+    assert.throws(() => validateRequest(morning(over)),
+        {code: "invalid-argument"}, JSON.stringify(over));
+  }
+});
+
+test("free users get 3 morning plans a month and Pro is not capped by kind",
+    () => {
+      const now = Date.UTC(2026, 10, 20);
+      let usage = {};
+      for (let i = 0; i < 3; i++) usage = reserveQuota(usage, "morning", false, now);
+      assert.throws(() => reserveQuota(usage, "morning", false, now),
+          {code: "resource-exhausted"});
+      assert.equal(remainingQuota(usage.counts, "morning", false), 0);
+      assert.equal(remainingQuota(usage.counts, "morning", true), null);
+      assert.doesNotThrow(() => reserveQuota(usage, "morning", true, now));
+    });

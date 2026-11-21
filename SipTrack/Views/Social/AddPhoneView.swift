@@ -42,6 +42,8 @@ struct AddPhoneView: View {
     @State private var checkShown = false
     /// Guards `onFinish` so it never runs twice.
     @State private var finished = false
+    /// The saved code (see `restorePendingCode`) is looked for once per screen.
+    @State private var restoreChecked = false
     @FocusState private var focus: Field?
 
     private var country: PhoneCountry? {
@@ -72,6 +74,7 @@ struct AddPhoneView: View {
             .scrollDismissesKeyboard(.interactively)
         }
         .animation(.easeInOut(duration: 0.2), value: step)
+        .onAppear { restorePendingCode() }
         .sheet(isPresented: $showCountryPicker) {
             CountryPickerView(selected: region) { picked in
                 region = picked.region
@@ -131,7 +134,14 @@ struct AddPhoneView: View {
 
             messages
 
-            primaryButton("Send code", enabled: e164 != nil) { sendCode() }
+            VStack(spacing: 10) {
+                primaryButton("Send code", enabled: e164 != nil) { sendCode() }
+
+                Text("We'll text you a code. Carrier rates may apply.")
+                    .font(.system(size: 14))
+                    .foregroundStyle(AppColors.textTertiary)
+                    .multilineTextAlignment(.center)
+            }
 
             notNowButton
         }
@@ -272,17 +282,23 @@ struct AddPhoneView: View {
         text.filter { character in character.isASCII && character.isWholeNumber }
     }
 
+    /// The country and national digits of an E.164 number, when the country is
+    /// one the picker offers: "+525512345678" → ("MX", "5512345678").
+    private static func parts(ofE164 number: String) -> (region: String, digits: String)? {
+        guard let detected = PhoneNumbers.region(ofE164: number),
+              let match = PhoneNumbers.countries.first(where: { $0.region == detected }) else { return nil }
+        return (detected, String(number.dropFirst(1 + String(match.dialCode).count)))
+    }
+
     /// Formats as typed. A pasted or autofilled number that carries its country
     /// code ("+52 55 1234 5678") switches the country to match.
     private func numberChanged(_ newValue: String) {
         errorMessage = nil
         if newValue.hasPrefix("+"),
            let full = PhoneNumbers.normalize(newValue, defaultRegion: region),
-           let detected = PhoneNumbers.region(ofE164: full),
-           let match = PhoneNumbers.countries.first(where: { $0.region == detected }) {
-            let nationalDigits = String(full.dropFirst(1 + String(match.dialCode).count))
-            region = detected
-            national = PhoneNumbers.formattedPartial(nationalDigits, region: detected)
+           let parts = Self.parts(ofE164: full) {
+            region = parts.region
+            national = PhoneNumbers.formattedPartial(parts.digits, region: parts.region)
             return
         }
         let digits = Self.digits(newValue)
@@ -329,11 +345,13 @@ struct AddPhoneView: View {
                 let id = try await FirebaseManager.shared.sendPhoneCode(to: number)
                 // "Not now" while the code was on its way: the screen is closing.
                 guard !finished else { return }
+                let sentAt = Date()
                 sentTo = number
                 verificationID = id
                 code = ""
-                resendAt = Date().addingTimeInterval(Self.resendDelay)
+                resendAt = sentAt.addingTimeInterval(Self.resendDelay)
                 step = .code
+                savePending(e164: number, verificationID: id, sentAt: sentAt)
             } catch {
                 guard !finished else { return }
                 errorMessage = FirebaseManager.phoneErrorText(error)
@@ -351,10 +369,12 @@ struct AddPhoneView: View {
             do {
                 let id = try await FirebaseManager.shared.sendPhoneCode(to: number)
                 guard !finished else { return }
+                let sentAt = Date()
                 verificationID = id
                 code = ""
-                resendAt = Date().addingTimeInterval(Self.resendDelay)
+                resendAt = sentAt.addingTimeInterval(Self.resendDelay)
                 notice = "We sent you a new code."
+                savePending(e164: number, verificationID: id, sentAt: sentAt)
             } catch {
                 guard !finished else { return }
                 errorMessage = FirebaseManager.phoneErrorText(error)
@@ -411,6 +431,45 @@ struct AddPhoneView: View {
     private func finish(_ added: Bool) {
         guard !finished else { return }
         finished = true
+        PendingPhoneVerification.clear()
         onFinish(added)
+    }
+
+    // MARK: - Code kept across app restarts
+
+    /// Kept on the phone so the code survives iOS closing the app while the
+    /// user fetches the SMS (see `restorePendingCode`).
+    private func savePending(e164 number: String, verificationID id: String, sentAt: Date) {
+        guard let uid = FirebaseManager.shared.currentUserId() else { return }
+        PendingPhoneVerification.save(
+            PendingPhoneVerification(uid: uid, e164: number, verificationID: id, sentAt: sentAt)
+        )
+    }
+
+    /// Back on the code step for a code this account was texted under ten
+    /// minutes ago, instead of another billed SMS. Once per screen, and only
+    /// before anything is typed; a saved code that can't come back is removed.
+    private func restorePendingCode() {
+        guard !restoreChecked else { return }
+        restoreChecked = true
+        guard step == .number, national.isEmpty, sentTo == nil else { return }
+        let firebase = FirebaseManager.shared
+        guard let pending = PendingPhoneVerification.load(),
+              PendingPhoneVerification.isRestorable(pending, uid: firebase.currentUserId(),
+                                                    accountPhone: firebase.phoneNumber, now: Date()) else {
+            PendingPhoneVerification.clear()
+            return
+        }
+        // The field shows the number again, for "Change number". A country the
+        // picker doesn't offer leaves it empty; the code step works without it.
+        if let parts = Self.parts(ofE164: pending.e164) {
+            region = parts.region
+            national = PhoneNumbers.formattedPartial(parts.digits, region: parts.region)
+        }
+        sentTo = pending.e164
+        verificationID = pending.verificationID
+        code = ""
+        resendAt = pending.sentAt.addingTimeInterval(Self.resendDelay)
+        step = .code
     }
 }

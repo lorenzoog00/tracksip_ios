@@ -116,17 +116,34 @@ enum PhoneNumbers {
         return try? utility.parse(input, withRegion: known ? region : "US", ignoreType: false)
     }
 
-    /// Mexico's retired dialing forms, which PhoneNumberKit's metadata no longer
-    /// accepts: the mobile "1" after the country code (+52 1 55 1234 5678) and the
-    /// 044/045 mobile prefixes in front of a national number (044 55 1234 5678).
-    /// Returns "+52" plus the ten-digit number, or nil when neither form applies.
+    /// Mexican numbers in forms PhoneNumberKit's metadata doesn't accept: the
+    /// retired mobile "1" after the country code (+52 1 55 1234 5678), the retired
+    /// 044/045 mobile and 01 long-distance prefixes in front of a national number
+    /// (044 55 1234 5678, 01 55 1234 5678), and an international prefix in place
+    /// of "+": 00 (Mexico's, and most countries') or 011 (the US and Canada's),
+    /// with or without the mobile "1" (00 52 1 55 1234 5678, 011 52 55 1234 5678).
+    /// Returns "+52" plus the ten-digit number, or nil when no form applies.
     private nonisolated static func mexicanRewrite(digits: String, hasPlus: Bool, defaultRegion: String) -> String? {
-        guard digits.count == 13 else { return nil }
         let isMexico = defaultRegion.uppercased() == "MX"
-        if digits.hasPrefix("521"), hasPlus || isMexico {
+        if !hasPlus {
+            // Only when what follows the prefix dials Mexico: 011 1 415 555 2671
+            // and the like are left to PhoneNumberKit.
+            let dialed: Substring? = digits.hasPrefix("00") ? digits.dropFirst(2)
+                : digits.hasPrefix("011") ? digits.dropFirst(3)
+                : nil
+            if let dialed, dialed.hasPrefix("52"),
+               dialed.count == 12 || (dialed.count == 13 && dialed.hasPrefix("521")) {
+                return "+52" + String(dialed.suffix(10))
+            }
+        }
+        if digits.count == 13, digits.hasPrefix("521"), hasPlus || isMexico {
             return "+52" + String(digits.suffix(10))
         }
-        if !hasPlus, isMexico, digits.hasPrefix("044") || digits.hasPrefix("045") {
+        guard !hasPlus, isMexico else { return nil }
+        if digits.count == 13, digits.hasPrefix("044") || digits.hasPrefix("045") {
+            return "+52" + String(digits.suffix(10))
+        }
+        if digits.count == 12, digits.hasPrefix("01") {
             return "+52" + String(digits.suffix(10))
         }
         return nil

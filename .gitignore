@@ -48,6 +48,9 @@ node_modules/
 .env
 .env.*
 !.env.example
+# Non-secret Cloud Functions params only (see the file's header). Secrets and
+# per-project values stay in the FUNCTIONS_ENV secret (.env.<project>).
+!functions/.env
 .secret.local
 .superpowers/
 functions/certificates/*.cer
@@ -64,3 +67,6 @@ tracksip_ios/
 *.mobileprovision
 !functions/certificates/AppleRootCA-G2.cer
 !functions/certificates/AppleRootCA-G3.cer
+
+# Generated recovery library photos
+output/

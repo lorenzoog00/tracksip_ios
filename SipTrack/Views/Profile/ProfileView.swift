@@ -546,7 +546,7 @@ struct ProfileView: View {
                         ))
                         .padding()
                         .guideHighlight(guideTarget == .analysis)
-                        Text("When enabled, your drink logs, BAC estimates, body measurements and night details are sent to Anthropic to create reports. Reports may be generated automatically. You can turn this off at any time. AI reports can be wrong and do not provide medical advice.")
+                        Text("When enabled, your drink logs, BAC estimates, body measurements, night details and how you feel the morning after are sent to Anthropic to create reports. Reports may be generated automatically. You can turn this off at any time. AI reports can be wrong and do not provide medical advice.")
                             .font(.footnote)
                             .foregroundStyle(AppColors.textSecondary)
                             .padding(.horizontal)
@@ -567,6 +567,8 @@ struct ProfileView: View {
                     ProfileSection(title: "About Alcohol & BAC", icon: "book.closed.fill") {
                         learnRow
                     }
+
+                    adminSection
 
                     // MARK: Legal
                     ProfileSection(title: "Legal", icon: "doc.text.fill") {
@@ -717,6 +719,30 @@ struct ProfileView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("App version \(AppVersion.current). Double tap to copy.")
+    }
+
+    /// Hidden admin tools, shown only to `AdminAccess.uids`. The server checks
+    /// its own admin list on every call, so this only hides the row.
+    @ViewBuilder
+    private var adminSection: some View {
+        if AdminAccess.canReviewPhotos(uid: appState.currentUserId) {
+            ProfileSection(title: "Admin", icon: "checkmark.seal.fill") {
+                NavigationLink {
+                    PhotoReviewView()
+                } label: {
+                    HStack(spacing: 12) {
+                        Text("Review photos")
+                            .font(.system(size: 17))
+                            .foregroundStyle(AppColors.text)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(AppColors.textTertiary)
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+        }
     }
 
     private var learnRow: some View {
