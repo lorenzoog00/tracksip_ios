@@ -16,60 +16,12 @@ struct SipTrackApp: App {
     @StateObject private var firebase  = FirebaseManager.shared
     @StateObject private var countryDetector = LocationCountryDetector()
 
+    /// The autoclosures run when SwiftUI first builds the state objects, which
+    /// configures Firebase and builds `AppServices` (see `FirebaseSetup`).
     init() {
-        #if DEBUG
-        AppCheck.setAppCheckProviderFactory(AppCheckDebugProviderFactory())
-        #else
-        AppCheck.setAppCheckProviderFactory(ProductionAppCheckProviderFactory())
-        #endif
-        FirebaseApp.configure()
-        let s = StoreManager()
-        let state = AppState(store: s)
-        _store    = StateObject(wrappedValue: s)
-        _appState = StateObject(wrappedValue: state)
-        _friends  = StateObject(wrappedValue: FriendsStore(appState: state))
-        WatchBridge.shared.appState = state
-        PushRegistration.onOpen = { [weak state] route in
-            guard let state else { return }
-            switch route {
-            case .friends:
-                state.pendingOpenFriends = true
-            case .add(let username):
-                // The same add sheet a shared profile link opens.
-                AdManager.shared.suppressAppOpenAd(for: 30)
-                state.pendingFriendLink = username
-            case .social:
-                state.selectedTab = .social
-            case .thread(let owner, let startedAt):
-                // RootView switches to Social (after a cold-launch sign-in restore) and
-                // the feed opens the comment sheet.
-                AdManager.shared.suppressAppOpenAd(for: 30)
-                state.pendingThread = NightKey(owner: owner, startedAt: startedAt)
-            }
-        }
-        // Lock-screen buttons. iOS runs these in a background launch and ends it
-        // when the intent returns, so each one waits for the lock screen and the
-        // push server to hear about the change first.
-        LiveActivityActions.openCamera = { [weak state] eventId in
-            // The app-open ad would present on the same root and knock the camera out.
-            AdManager.shared.suppressAppOpenAd(for: 30)
-            state?.cameraRequest = CameraRequest(eventId: eventId)
-        }
-        LiveActivityActions.addDrink = { [weak state] eventId, drinkTypeId in
-            guard let state else { return }
-            let name = state.allDrinkTypes.first { $0.id == drinkTypeId }?.name ?? "Drink"
-            LiveActivityManager.shared.alertOnNextUpdate("\(name) added")
-            state.addDrink(eventId: eventId, drinkTypeId: drinkTypeId)
-            await LiveActivityManager.shared.flush()
-            await LiveActivityActions.showActionBriefly()
-        }
-        LiveActivityActions.addWater = { [weak state] eventId in
-            guard let state else { return }
-            LiveActivityManager.shared.alertOnNextUpdate("Water added")
-            state.addWater(eventId: eventId)
-            await LiveActivityManager.shared.flush()
-            await LiveActivityActions.showActionBriefly()
-        }
+        _store    = StateObject(wrappedValue: AppServices.shared.store)
+        _appState = StateObject(wrappedValue: AppServices.shared.appState)
+        _friends  = StateObject(wrappedValue: AppServices.shared.friends)
     }
 
     var body: some Scene {
@@ -116,7 +68,7 @@ struct SipTrackApp: App {
                 }
                 .onOpenURL { url in
                     // Phone auth's reCAPTCHA fallback returns through a URL.
-                    if Auth.auth().canHandle(url) { return }
+                    if firebase.handlesAuthURL(url) { return }
                     if GIDSignIn.sharedInstance.handle(url) { return }
                     if let username = FriendLink.username(from: url) {
                         // The app-open ad would present on the same root as the sheet.
@@ -195,5 +147,90 @@ enum LiveActivityRefresh {
 private final class ProductionAppCheckProviderFactory: NSObject, AppCheckProviderFactory {
     func createProvider(with app: FirebaseApp) -> AppCheckProvider? {
         AppAttestProvider(app: app)
+    }
+}
+
+/// Configures Firebase once, from whichever comes first: SwiftUI building the
+/// app's state objects (which, on iOS 26, happens before `didFinishLaunching`)
+/// or the app delegate. That is too early for Firebase Auth's phone-auth
+/// managers, so phone verification runs on a second Firebase app configured
+/// later (see `FirebaseManager.preparePhoneAuth`); everything else is fine.
+enum FirebaseSetup {
+    /// A flag, not `FirebaseApp.app() == nil`: asking Firebase before it is
+    /// configured logs an error on every cold launch.
+    private static var configured = false
+
+    static func configureIfNeeded() {
+        guard !configured else { return }
+        configured = true
+        #if DEBUG
+        AppCheck.setAppCheckProviderFactory(AppCheckDebugProviderFactory())
+        #else
+        AppCheck.setAppCheckProviderFactory(ProductionAppCheckProviderFactory())
+        #endif
+        FirebaseApp.configure()
+    }
+}
+
+/// The app's long-lived stores. Built by the app delegate right after Firebase is
+/// configured (they read `FirebaseManager.shared`), and read by `SipTrackApp`.
+final class AppServices {
+    static let shared = AppServices()
+
+    let store: StoreManager
+    let appState: AppState
+    let friends: FriendsStore
+
+    private init() {
+        // Normally a no-op: didFinishLaunching configured Firebase already. Kept so
+        // nothing can reach the stores before Firebase exists.
+        FirebaseSetup.configureIfNeeded()
+        let s = StoreManager()
+        let state = AppState(store: s)
+        store = s
+        appState = state
+        friends = FriendsStore(appState: state)
+        WatchBridge.shared.appState = state
+        PushRegistration.onOpen = { [weak state] route in
+            guard let state else { return }
+            switch route {
+            case .friends:
+                state.pendingOpenFriends = true
+            case .add(let username):
+                // The same add sheet a shared profile link opens.
+                AdManager.shared.suppressAppOpenAd(for: 30)
+                state.pendingFriendLink = username
+            case .social:
+                state.selectedTab = .social
+            case .thread(let owner, let startedAt):
+                // RootView switches to Social (after a cold-launch sign-in restore) and
+                // the feed opens the comment sheet.
+                AdManager.shared.suppressAppOpenAd(for: 30)
+                state.pendingThread = NightKey(owner: owner, startedAt: startedAt)
+            }
+        }
+        // Lock-screen buttons. iOS runs these in a background launch and ends it
+        // when the intent returns, so each one waits for the lock screen and the
+        // push server to hear about the change first.
+        LiveActivityActions.openCamera = { [weak state] eventId in
+            // The app-open ad would present on the same root and knock the camera out.
+            AdManager.shared.suppressAppOpenAd(for: 30)
+            state?.cameraRequest = CameraRequest(eventId: eventId)
+        }
+        LiveActivityActions.addDrink = { [weak state] eventId, drinkTypeId in
+            guard let state else { return }
+            let name = state.allDrinkTypes.first { $0.id == drinkTypeId }?.name ?? "Drink"
+            LiveActivityManager.shared.alertOnNextUpdate("\(name) added")
+            state.addDrink(eventId: eventId, drinkTypeId: drinkTypeId)
+            await LiveActivityManager.shared.flush()
+            await LiveActivityActions.showActionBriefly()
+        }
+        LiveActivityActions.addWater = { [weak state] eventId in
+            guard let state else { return }
+            LiveActivityManager.shared.alertOnNextUpdate("Water added")
+            state.addWater(eventId: eventId)
+            await LiveActivityManager.shared.flush()
+            await LiveActivityActions.showActionBriefly()
+        }
     }
 }

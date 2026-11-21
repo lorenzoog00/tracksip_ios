@@ -13,7 +13,12 @@ import StoreKit
 
 @MainActor
 final class FirebaseManager: ObservableObject {
-    static let shared = FirebaseManager()
+    /// Configures Firebase first if nothing has yet: `auth` below calls `Auth.auth()`
+    /// as the instance is built. The app delegate normally configured it already.
+    static let shared: FirebaseManager = {
+        FirebaseSetup.configureIfNeeded()
+        return FirebaseManager()
+    }()
 
     private let auth = Auth.auth()
     private let db = Firestore.firestore()
@@ -151,10 +156,17 @@ final class FirebaseManager: ObservableObject {
     /// falls back to a reCAPTCHA page it presents itself. The SMS is written in
     /// the phone's language (see `smsLanguageCode`).
     func sendPhoneCode(to e164: String) async throws -> String {
-        if let language = Self.smsLanguageCode(preferred: Locale.preferredLanguages) {
-            auth.languageCode = language
+        // Every phone-auth call traps inside Firebase when its managers are missing
+        // (see `phoneAuth`): say "not available" instead of crashing.
+        guard let phoneAuth = await preparePhoneAuth() else {
+            throw NSError(domain: AuthErrors.domain, code: AuthErrorCode.appNotAuthorized.rawValue)
         }
-        return try await PhoneAuthProvider.provider().verifyPhoneNumber(e164, uiDelegate: nil)
+        passPendingAPNSToken()
+        if let language = Self.smsLanguageCode(preferred: Locale.preferredLanguages) {
+            phoneAuth.languageCode = language
+        }
+        return try await PhoneAuthProvider.provider(auth: phoneAuth)
+            .verifyPhoneNumber(e164, uiDelegate: nil)
     }
 
     /// The language part of the phone's first preferred language, lowercased:
@@ -174,7 +186,9 @@ final class FirebaseManager: ObservableObject {
             throw NSError(domain: "FirebaseManager", code: 401,
                           userInfo: [NSLocalizedDescriptionKey: "Please sign in and try again."])
         }
-        let credential = PhoneAuthProvider.provider().credential(
+        // The code came from the phone-auth app (see `phoneAuth`); the credential
+        // is plain data, linked here onto the signed-in user of the main app.
+        let credential = PhoneAuthProvider.provider(auth: phoneAuthInstance ?? auth).credential(
             withVerificationID: verificationID, verificationCode: code
         )
         // Another device may have added, changed or removed the number since
@@ -203,6 +217,101 @@ final class FirebaseManager: ObservableObject {
         phoneNumber = auth.currentUser?.phoneNumber
     }
 
+    /// Phone verification runs on its own Firebase app, "phone-auth".
+    ///
+    /// Firebase Auth sets up its phone-auth managers on a background queue the
+    /// moment an app is configured, and skips them for good if it can't reach
+    /// `UIApplication` from that queue then. SwiftUI builds the app's state
+    /// objects before `didFinishLaunching`, so the main app is configured that
+    /// early and its managers stay nil (seen in CI and on iPhone, iOS 26;
+    /// firebase-ios-sdk #16273). `setAPNSToken`, `canHandleNotification` and
+    /// `verifyPhoneNumber` then force-unwrap nil: TestFlight 1.0.9's launch crash.
+    ///
+    /// A second app with the same options, configured once the app is running,
+    /// gets working managers. Its verification id is valid for the whole
+    /// project, so the code is still linked onto the main app's signed-in user.
+    /// If a future SDK sets up the main app properly, that one is used instead.
+    private var phoneAuthInstance: Auth?
+
+    nonisolated static let phoneAuthAppName = "phone-auth"
+
+    /// The Auth to verify phones with, once its managers exist; nil if they
+    /// don't come up within a few seconds (the screens then say "not available").
+    func preparePhoneAuth() async -> Auth? {
+        if Self.managersReady(in: auth) { return auth }
+        if phoneAuthInstance == nil, let options = FirebaseApp.app()?.options {
+            if FirebaseApp.app(name: Self.phoneAuthAppName) == nil {
+                FirebaseApp.configure(name: Self.phoneAuthAppName, options: options)
+            }
+            if let app = FirebaseApp.app(name: Self.phoneAuthAppName) {
+                phoneAuthInstance = Auth.auth(app: app)
+            }
+        }
+        guard let phoneAuth = phoneAuthInstance else { return nil }
+        // Its managers are set on Firebase's own queue right after creation.
+        for _ in 0..<60 {
+            if Self.managersReady(in: phoneAuth) {
+                passPendingAPNSToken()
+                return phoneAuth
+            }
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+        return nil
+    }
+
+    /// The Auth instances whose phone-auth managers exist right now. Only these
+    /// may be handed an APNs token, a remote notification or a URL.
+    private var readyPhoneAuths: [Auth] {
+        [auth, phoneAuthInstance].compactMap { $0 }.filter { Self.managersReady(in: $0) }
+    }
+
+    nonisolated static let phoneAuthManagerNames: Set<String> =
+        ["tokenManager", "notificationManager", "appCredentialManager"]
+
+    /// True only when `object` has every manager property and none is nil.
+    /// Read by reflection: Firebase exposes no such check. If the names ever
+    /// change, this says false (no SMS, no crash).
+    nonisolated static func managersReady(in object: Any) -> Bool {
+        let found = Mirror(reflecting: object).children.filter {
+            phoneAuthManagerNames.contains($0.label ?? "")
+        }
+        guard found.count == phoneAuthManagerNames.count else { return false }
+        return found.allSatisfy { child in
+            let value = Mirror(reflecting: child.value)
+            return !(value.displayStyle == .optional && value.children.isEmpty)
+        }
+    }
+
+    /// The APNs token iOS handed over, kept until a phone-auth instance is ready.
+    private var pendingAPNSToken: Data?
+
+    /// Gives Firebase phone auth this phone's APNs token, now or once it's ready.
+    func setAPNSToken(_ token: Data) {
+        pendingAPNSToken = token
+        passPendingAPNSToken()
+    }
+
+    private func passPendingAPNSToken() {
+        guard let token = pendingAPNSToken else { return }
+        let ready = readyPhoneAuths
+        guard !ready.isEmpty else { return }
+        // `.unknown`: Firebase reads sandbox or production from the provisioning profile.
+        for phoneAuth in ready { phoneAuth.setAPNSToken(token, type: .unknown) }
+        // Kept if the phone-auth app isn't up yet, so it gets the token too.
+        if phoneAuthInstance.map({ Self.managersReady(in: $0) }) == true { pendingAPNSToken = nil }
+    }
+
+    /// Hands a remote notification to Firebase phone auth; true when it was
+    /// Firebase's silent push. Only ready instances are asked, so it never traps.
+    func handlesAuthNotification(_ userInfo: [AnyHashable: Any]) -> Bool {
+        readyPhoneAuths.contains { $0.canHandleNotification(userInfo) }
+    }
+
+    /// Whether the URL is Firebase phone auth's reCAPTCHA return.
+    func handlesAuthURL(_ url: URL) -> Bool {
+        [auth, phoneAuthInstance].compactMap { $0 }.contains { $0.canHandle(url) }
+    }
+
     /// Re-reads the account so a number added, changed or removed on another
     /// device shows here too. Called once each time Social or Find friends
     /// appears; a failure (offline, say) keeps the number already shown.
@@ -215,7 +324,10 @@ final class FirebaseManager: ObservableObject {
         }
         // Signed out or switched account meanwhile: the auth listener owns that.
         guard isSignedIn, auth.currentUser?.uid == user.uid else { return }
-        phoneNumber = auth.currentUser?.phoneNumber
+        // Only a real change is published, so the observers don't all re-render
+        // each time Social or Find friends appears.
+        let current = auth.currentUser?.phoneNumber
+        if current != phoneNumber { phoneNumber = current }
     }
 
     /// Copy for the phone screens, keyed by `AuthErrorCode` raw value. Nil means
