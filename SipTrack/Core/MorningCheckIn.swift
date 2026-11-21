@@ -246,6 +246,32 @@ enum MorningCheckIn {
         return fields.filter { wanted.contains($0.key) }
     }
 
+    // MARK: - Restoring plans
+
+    /// How far back a fresh install pulls this account's plans from the server.
+    static let restoreWindowDays = 30
+
+    /// A stored `night_recoveries/{eventId}` doc as a plan. Nil for an old
+    /// recovery brief (or anything else that isn't a morning plan) and for a
+    /// doc that can't be read.
+    static func restoredPlan(eventId: String, doc: [String: Any]) -> MorningRecord? {
+        guard doc["type"] as? String == "morning" else { return nil }
+        return try? MorningRecord(eventId: eventId, serverJSON: planFields(doc))
+    }
+
+    /// The server's plans merged into the ones on this phone. A plan already
+    /// here stays exactly as it is; a server plan for a night this phone knows
+    /// but has no plan for is added. A plan for a night that isn't here (it was
+    /// deleted) is left out.
+    static func mergedPlans(local: [String: MorningRecord], cloud: [MorningRecord],
+                            nights: Set<String>) -> [String: MorningRecord] {
+        var merged = local
+        for record in cloud where merged[record.id] == nil && nights.contains(record.id) {
+            merged[record.id] = record
+        }
+        return merged
+    }
+
     /// Maps one request's result to what the app does next. The callable's
     /// status arrives as `RESOURCE_EXHAUSTED` (or `resource-exhausted`):
     /// free plans used up. `FAILED_PRECONDITION`: nothing in the library fits

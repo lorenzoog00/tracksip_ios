@@ -338,6 +338,7 @@ final class AppState: ObservableObject {
                     // Old nights' pending briefs only; new nights get a morning
                     // plan from the check-in instead of an automatic brief.
                     syncPendingRecoveries()
+                    restoreMorningPlans(uid: uid)
                 }
             }
             if cloudPullQueued {
@@ -1159,6 +1160,25 @@ final class AppState: ObservableObject {
         storeMorningPlan(record)
     }
 
+    /// Brings back this account's recent plans after a reinstall or on a new
+    /// phone. `morningPlans` lives on the device only, so without this past
+    /// plans vanish and the latest night can offer its check-in again. Runs
+    /// after the full pull has merged the nights; a plan already here stays.
+    private func restoreMorningPlans(uid: String) {
+        Task {
+            let window = TimeInterval(MorningCheckIn.restoreWindowDays) * 24 * 60 * 60
+            let cloud = await FirebaseManager.shared.pullMorningPlans(
+                uid: uid, since: Date().addingTimeInterval(-window))
+            // Another account's plans must never land in this one.
+            guard currentUserId == uid, !cloud.isEmpty else { return }
+            let merged = MorningCheckIn.mergedPlans(
+                local: morningPlans, cloud: cloud, nights: Set(events.map(\.id)))
+            guard merged.count > morningPlans.count else { return }
+            morningPlans = merged
+            DataStore.shared.saveMorningPlans(morningPlans)
+        }
+    }
+
     private func storeMorningPlan(_ record: MorningRecord) {
         morningPlans[record.id] = record
         DataStore.shared.saveMorningPlans(morningPlans)
@@ -1228,7 +1248,13 @@ final class AppState: ObservableObject {
         var profile = userProfile
         profile.aiReportsEnabled = enabled
         updateUserProfile(profile)
-        if enabled { checkAndGenerateAutoReports() }
+        if enabled {
+            checkAndGenerateAutoReports()
+        } else {
+            // A queued morning notification would invite them to a plan that
+            // AI is now off for.
+            cancelMorningNotifications()
+        }
     }
 
     func checkAndGenerateAutoReports() {
@@ -1800,9 +1826,16 @@ final class AppState: ObservableObject {
         waterEntries.removeAll { $0.eventId == id }
         foodEntries.removeAll { $0.eventId == id }
         if morningPlans.removeValue(forKey: id) != nil { DataStore.shared.saveMorningPlans(morningPlans) }
+        if nightRecoveries.contains(where: { $0.id == id }) {
+            nightRecoveries.removeAll { $0.id == id }
+            DataStore.shared.saveNightRecoveries(nightRecoveries)
+        }
         cancelMorningNotification(eventId: id)
         refreshWaterReminder()
         push { try await FirebaseManager.shared.deleteEvent(id) }
+        // The night's plan doc (or old brief) goes with it: a plan holds that
+        // morning's symptoms, and a reinstall would otherwise restore it.
+        push { try await FirebaseManager.shared.deleteNightRecovery(eventId: id) }
         // Its ended copy goes whether or not it was still the shared night: an earlier
         // night can still be on friends' feeds through it.
         if let deleted { deleteEndedSharedNightRemotely(deleted) }

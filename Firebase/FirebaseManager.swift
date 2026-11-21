@@ -635,8 +635,31 @@ final class FirebaseManager: ObservableObject {
         guard let uid = currentUserId() else { return nil }
         let doc = try? await db.collection("users").document(uid)
             .collection("night_recoveries").document(eventId).getDocument()
-        guard let d = doc?.data(), d["type"] as? String == "morning" else { return nil }
-        return try? MorningRecord(eventId: eventId, serverJSON: MorningCheckIn.planFields(d))
+        guard let d = doc?.data() else { return nil }
+        return MorningCheckIn.restoredPlan(eventId: eventId, doc: d)
+    }
+
+    /// This account's morning plans created since `since`, for a phone that
+    /// doesn't have them yet (a reinstall or a new device). The query is a
+    /// single-field range on `created_at`, so it needs no composite index;
+    /// old recovery briefs in the same collection are dropped here, the way
+    /// the server does. Empty when `uid` isn't signed in or the read fails.
+    func pullMorningPlans(uid: String, since: Date) async -> [MorningRecord] {
+        guard currentUserId() == uid else { return [] }
+        let snap = try? await db.collection("users").document(uid)
+            .collection("night_recoveries")
+            .whereField("created_at", isGreaterThanOrEqualTo: since.timeIntervalSince1970 * 1000)
+            .getDocuments()
+        return snap?.documents.compactMap { doc in
+            MorningCheckIn.restoredPlan(eventId: doc.documentID, doc: doc.data())
+        } ?? []
+    }
+
+    /// Deletes a night's `night_recoveries/{eventId}` doc with the night: a
+    /// morning plan holds that morning's symptoms. The rules let the owner
+    /// delete it; a missing doc is not an error.
+    func deleteNightRecovery(eventId: String) async throws {
+        try await col("night_recoveries")?.document(eventId).delete()
     }
 
     func deleteCoachReport(reportId: String) async throws {

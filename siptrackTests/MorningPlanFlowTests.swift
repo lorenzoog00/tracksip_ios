@@ -222,6 +222,56 @@ struct MorningPlanFlowTests {
         #expect(answer.record?.plan.headline == "Water first, food in an hour.")
     }
 
+    // MARK: - Restoring plans
+
+    /// `record` for another night, with its own headline to tell copies apart.
+    private func night(_ id: String, headline: String) -> MorningRecord {
+        var copy = self.record
+        copy.id = id
+        copy.plan.headline = headline
+        return copy
+    }
+
+    @Test func aStoredMorningDocIsRestoredAsAPlan() throws {
+        let plan = try #require(MorningCheckIn.restoredPlan(eventId: "friday", doc: try serverDoc()))
+        #expect(plan.id == "friday")
+        #expect(plan.plan.headline == "Water first, food in an hour.")
+    }
+
+    @Test func anOldRecoveryBriefIsNotRestored() throws {
+        let brief: [String: Any] = ["type": "recovery", "report": "Old brief.", "created_at": 1_795_161_600_000]
+        #expect(MorningCheckIn.restoredPlan(eventId: "friday", doc: brief) == nil)
+        var unreadable = try serverDoc()
+        unreadable["plan"] = "nope"
+        #expect(MorningCheckIn.restoredPlan(eventId: "friday", doc: unreadable) == nil)
+    }
+
+    @Test func aPlanOnThisPhoneWinsOverTheServerCopy() {
+        let local = ["friday": night("friday", headline: "Seen on this phone.")]
+        let merged = MorningCheckIn.mergedPlans(
+            local: local, cloud: [night("friday", headline: "Server copy.")], nights: ["friday"])
+        #expect(merged == local)
+    }
+
+    @Test func aServerPlanThisPhoneLacksIsAdded() {
+        let local = ["friday": night("friday", headline: "Seen on this phone.")]
+        let saturday = night("saturday", headline: "From the server.")
+        let merged = MorningCheckIn.mergedPlans(local: local, cloud: [saturday], nights: ["friday", "saturday"])
+        #expect(merged.count == 2)
+        #expect(merged["friday"] == local["friday"])
+        #expect(merged["saturday"] == saturday)
+    }
+
+    @Test func aServerPlanForANightThatIsGoneIsLeftOut() {
+        let merged = MorningCheckIn.mergedPlans(
+            local: [:], cloud: [night("deleted", headline: "Orphan.")], nights: ["friday"])
+        #expect(merged.isEmpty)
+    }
+
+    @Test func plansAreRestoredForThirtyDays() {
+        #expect(MorningCheckIn.restoreWindowDays == 30)
+    }
+
     // MARK: - Free plans
 
     @Test func freeUsersGetThreePlansAMonth() {
