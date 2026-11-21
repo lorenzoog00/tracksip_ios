@@ -88,6 +88,13 @@ struct PhoneAuthErrorTests {
             == "Connection error. Check your internet and try again.")
     }
 
+    /// Replacing a number falls back to remove-then-add; if even that is refused
+    /// for a stale sign-in (17014), the copy says what to do on this screen.
+    @Test func staleSignInOnChangeSaysRemoveThenAdd() {
+        #expect(FirebaseManager.phoneErrorMessage(code: 17014)
+            == "To change your number, remove it under Social → Phone number, then add the new one.")
+    }
+
     // MARK: - Phone auth readiness (TestFlight 1.0.9 launch crash)
 
     /// Stand-ins for Firebase Auth's implicitly unwrapped managers.

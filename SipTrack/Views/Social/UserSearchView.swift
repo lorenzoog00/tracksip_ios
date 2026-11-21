@@ -268,7 +268,7 @@ struct UserSearchView: View {
                     Task { await checkContacts() }
                 } label: {
                     cardLabel("Find friends from your contacts",
-                              subtitle: contactsFailureText ?? "Only phone numbers are checked, and nothing is saved.",
+                              subtitle: contactsFailureText ?? "Only phone numbers are checked, and nothing is stored on our servers.",
                               subtitleIsError: contactsFailureText != nil)
                 }
                 .buttonStyle(.plain)
