@@ -78,10 +78,39 @@ struct PhoneAuthErrorTests {
             == "Connection error. Check your internet and try again.")
     }
 
-    /// TestFlight 1.0.9 crashed on launch: Firebase was configured in `App.init`,
-    /// Auth's phone-auth managers stayed nil, and the first APNs token handed to
-    /// it trapped. This traps the same way unless the managers came up.
-    @Test func firebasePhoneAuthIsWiredAfterLaunch() {
+    // MARK: - Phone auth readiness (TestFlight 1.0.9 launch crash)
+
+    /// Stand-ins for Firebase Auth's implicitly unwrapped managers.
+    final class FakeAuth {
+        var tokenManager: NSObject! = NSObject()
+        var notificationManager: NSObject! = NSObject()
+        var appCredentialManager: NSObject! = NSObject()
+    }
+
+    final class RenamedAuth {
+        var apnsManager: NSObject! = NSObject()
+    }
+
+    @Test func managersReadyOnlyWhenAllThreeExist() {
+        let ready = FakeAuth()
+        #expect(FirebaseManager.managersReady(in: ready))
+
+        let missingToken = FakeAuth()
+        missingToken.tokenManager = nil
+        #expect(!FirebaseManager.managersReady(in: missingToken))
+
+        let missingNotifications = FakeAuth()
+        missingNotifications.notificationManager = nil
+        #expect(!FirebaseManager.managersReady(in: missingNotifications))
+    }
+
+    @Test func renamedManagersCountAsNotReady() {
+        #expect(!FirebaseManager.managersReady(in: RenamedAuth()))
+    }
+
+    /// The call that crashed 1.0.9 (through `canHandleNotification`) must
+    /// never trap, ready or not, and a payload that isn't Firebase's is not handled.
+    @Test func authNotificationNeverTraps() {
         #expect(FirebaseManager.shared.handlesAuthNotification(["not": "firebase"]) == false)
     }
 }

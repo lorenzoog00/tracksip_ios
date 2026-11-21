@@ -155,7 +155,13 @@ final class FirebaseManager: ObservableObject {
     /// `confirmPhoneCode` needs. Firebase tries a silent APNs check first and
     /// falls back to a reCAPTCHA page it presents itself.
     func sendPhoneCode(to e164: String) async throws -> String {
-        try await PhoneAuthProvider.provider().verifyPhoneNumber(e164, uiDelegate: nil)
+        // Every phone-auth call traps inside Firebase when its managers are missing
+        // (see `phoneAuthReady`): say "not available" instead of crashing.
+        guard phoneAuthReady else {
+            throw NSError(domain: AuthErrors.domain, code: AuthErrorCode.appNotAuthorized.rawValue)
+        }
+        passPendingAPNSToken()
+        return try await PhoneAuthProvider.provider().verifyPhoneNumber(e164, uiDelegate: nil)
     }
 
     /// Adds the number to the signed-in account, or replaces the one it has. A
@@ -195,12 +201,54 @@ final class FirebaseManager: ObservableObject {
         phoneNumber = auth.currentUser?.phoneNumber
     }
 
+    /// Whether Firebase Auth's phone-auth managers exist. Firebase sets them up
+    /// on a background queue when it is configured and skips them when it can't
+    /// reach `UIApplication` then; afterwards `setAPNSToken`,
+    /// `canHandleNotification` and `verifyPhoneNumber` all force-unwrap them.
+    /// That trap crashed TestFlight 1.0.9 on every launch, so nothing here calls
+    /// one of those unless this is true. Read by reflection: Firebase exposes no
+    /// such check. If the names ever change, this says false (no SMS, no crash).
+    var phoneAuthReady: Bool {
+        Self.managersReady(in: auth)
+    }
+
+    nonisolated static let phoneAuthManagerNames: Set<String> =
+        ["tokenManager", "notificationManager", "appCredentialManager"]
+
+    /// True only when `object` has every manager property and none is nil.
+    nonisolated static func managersReady(in object: Any) -> Bool {
+        let found = Mirror(reflecting: object).children.filter {
+            phoneAuthManagerNames.contains($0.label ?? "")
+        }
+        guard found.count == phoneAuthManagerNames.count else { return false }
+        return found.allSatisfy { child in
+            let value = Mirror(reflecting: child.value)
+            return !(value.displayStyle == .optional && value.children.isEmpty)
+        }
+    }
+
+    /// The APNs token iOS handed over before phone auth was ready; passed on
+    /// once it is (see `passPendingAPNSToken`).
+    private var pendingAPNSToken: Data?
+
+    /// Gives Firebase phone auth this phone's APNs token, now or once it's ready.
+    func setAPNSToken(_ token: Data) {
+        pendingAPNSToken = token
+        passPendingAPNSToken()
+    }
+
+    private func passPendingAPNSToken() {
+        guard let token = pendingAPNSToken, phoneAuthReady else { return }
+        pendingAPNSToken = nil
+        // `.unknown`: Firebase reads sandbox or production from the provisioning profile.
+        auth.setAPNSToken(token, type: .unknown)
+    }
+
     /// Hands a remote notification to Firebase phone auth; true when it was
-    /// Firebase's silent push. Traps if Auth's phone-auth managers never came up,
-    /// which is what configuring Firebase in `App.init` did on iOS 26 (see
-    /// `FirebaseSetup`), so a test calls it to prove they are there.
+    /// Firebase's silent push. False, untouched, while phone auth isn't ready.
     func handlesAuthNotification(_ userInfo: [AnyHashable: Any]) -> Bool {
-        auth.canHandleNotification(userInfo)
+        guard phoneAuthReady else { return false }
+        return auth.canHandleNotification(userInfo)
     }
 
     /// Re-reads the account so a number added, changed or removed on another

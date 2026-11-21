@@ -116,8 +116,9 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     }
 
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
-        // `.unknown`: Firebase reads sandbox or production from the provisioning profile.
-        Auth.auth().setAPNSToken(deviceToken, type: .unknown)
+        // Never straight to Auth: if its phone-auth setup didn't run, this traps
+        // (TestFlight 1.0.9's launch crash). FirebaseManager waits until it's ready.
+        FirebaseManager.shared.setAPNSToken(deviceToken)
         let token = PushRegistration.hexString(deviceToken)
         // Launch now registers without permission, for phone auth. Uploading only
         // when allowed keeps things as they were: registering used to happen
