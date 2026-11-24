@@ -1305,28 +1305,24 @@ extension FirebaseManager {
         ((error as NSError).userInfo[callableStatusKey] as? String) == "RESOURCE_EXHAUSTED"
     }
 
-    private static func friendProfile(_ row: [String: Any]) -> FriendProfile? {
-        guard let uid = row["uid"] as? String, let username = row["username"] as? String else { return nil }
-        return FriendProfile(
-            uid: uid,
-            username: username,
-            photoURL: (row["photo_url"] as? String).flatMap { URL(string: $0) },
-            avatarColor: row["avatar_color"] as? String ?? ""
-        )
+    /// One profile card from `searchUsers`, `suggestFriends` or `matchContacts`.
+    nonisolated static func friendProfile(_ row: [String: Any]) -> FriendProfile? {
+        FriendProfile.parse(row)
     }
 
     func searchUsers(query: String) async throws -> [FriendProfile] {
         let r = try await callFunction("searchUsers", data: ["query": query])
         let rows = r["results"] as? [[String: Any]] ?? []
-        return rows.compactMap { row in
-            guard let uid = row["uid"] as? String, let username = row["username"] as? String else { return nil }
-            return FriendProfile(
-                uid: uid,
-                username: username,
-                photoURL: (row["photo_url"] as? String).flatMap { URL(string: $0) },
-                avatarColor: row["avatar_color"] as? String ?? ""
-            )
-        }
+        return rows.compactMap { Self.friendProfile($0) }
+    }
+
+    /// Sets my display name, or clears it when `name` is blank. The server trims
+    /// and checks it; a rejected name throws with its message for the user
+    /// ("Names can be up to 30 characters.", "Try a different name."). Returns
+    /// the name as saved, nil when cleared.
+    func setDisplayName(_ name: String) async throws -> String? {
+        let r = try await callFunction("setDisplayName", data: ["name": name])
+        return FriendProfile.displayName(r["name"])
     }
 
     /// Returns "requested" or "friends" (when they had already asked me).

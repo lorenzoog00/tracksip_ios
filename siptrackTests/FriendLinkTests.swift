@@ -124,6 +124,46 @@ struct FriendLinkTests {
         #expect(PersonSuggestion.visible(people, myUid: nil, blocked: ["blocked"]).map(\.id) == ["me", "ok"])
     }
 
+    // MARK: - Profile cards
+
+    /// A callable's profile card (searchUsers, suggestFriends, matchContacts) and a
+    /// `public_profiles` doc parse the same way: the name trimmed, and a missing,
+    /// null, blank or non-string name is no name.
+    @Test func nameIsParsedAndBlankIsNil() throws {
+        let row: [String: Any] = [
+            "uid": "u1", "username": "lorenzo", "name": "Lorenzo Orozco",
+            "photo_url": "https://example.com/l.jpg", "avatar_color": "#FF8800"
+        ]
+        let profile = try #require(FirebaseManager.friendProfile(row))
+        #expect(profile.name == "Lorenzo Orozco")
+        #expect(profile == FriendProfile(uid: "u1", username: "lorenzo",
+                                         photoURL: URL(string: "https://example.com/l.jpg"),
+                                         avatarColor: "#FF8800", name: "Lorenzo Orozco"))
+
+        func parsedName(_ name: Any?) -> String? {
+            var r: [String: Any] = ["uid": "u1", "username": "lorenzo"]
+            if let name { r["name"] = name }
+            return FirebaseManager.friendProfile(r)?.name
+        }
+        #expect(parsedName(nil) == nil)
+        #expect(parsedName(NSNull()) == nil)
+        #expect(parsedName("") == nil)
+        #expect(parsedName("   \n ") == nil)
+        #expect(parsedName(42) == nil)
+        #expect(parsedName("  Ana López ") == "Ana López")
+        #expect(FirebaseManager.friendProfile(["uid": "u1", "username": "lorenzo"]) != nil)
+
+        // A doc has no "uid" key: its id is passed in, and wins over a stray one.
+        let doc = try #require(FriendProfile.parse(["username": "ana", "name": " Ana "], uid: "doc-id"))
+        #expect(doc.uid == "doc-id")
+        #expect(doc.name == "Ana")
+        #expect(FriendProfile.parse(["uid": "other", "username": "ana"], uid: "doc-id")?.uid == "doc-id")
+
+        // No username, or a card without a uid: not a profile.
+        #expect(FirebaseManager.friendProfile(["uid": "u1", "name": "Lorenzo"]) == nil)
+        #expect(FirebaseManager.friendProfile(["username": "lorenzo"]) == nil)
+    }
+
     // MARK: - A friend's chart
 
     private let start = Date(timeIntervalSince1970: 1_700_000_000)

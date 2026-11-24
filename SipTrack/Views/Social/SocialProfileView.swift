@@ -1,8 +1,8 @@
 import SwiftUI
 import PhotosUI
 
-/// My social profile: photo, username, the incognito default, the stats switch and
-/// the friends list.
+/// My social profile: photo, name, username, the incognito default, the stats switch
+/// and the friends list.
 struct SocialProfileView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var friends: FriendsStore
@@ -23,6 +23,23 @@ struct SocialProfileView: View {
     @State private var notifyComments = true
     @State private var notifyReplies = true
     @State private var notificationPrefsLoaded = false
+    /// The Name field as typed. It follows the saved name while not being edited.
+    @State private var nameDraft = ""
+    @State private var isSavingName = false
+    /// The server's reason for refusing a name, shown under the field.
+    @State private var nameError: String?
+    @FocusState private var nameFocused: Bool
+
+    /// The server's limit, counted here in characters as typed.
+    private static let nameLimit = 30
+
+    private var savedName: String { friends.myProfile?.name ?? "" }
+
+    private var trimmedNameDraft: String {
+        nameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var nameChanged: Bool { trimmedNameDraft != savedName }
 
     private var incognitoBinding: Binding<Bool> {
         Binding(
@@ -60,6 +77,8 @@ struct SocialProfileView: View {
                             }
                         }
                         .disabled(isUpdatingAvatar)
+
+                        nameField
 
                         NavigationLink {
                             ChooseUsernameView(mode: .rename)
@@ -148,8 +167,17 @@ struct SocialProfileView: View {
                 }
                 .padding(20)
             }
+            .scrollDismissesKeyboard(.interactively)
         }
         .task { await loadNotificationPrefs() }
+        .onChange(of: friends.myProfile?.name) { _, name in
+            // Saved elsewhere (or loaded late): show it, unless it's being typed over.
+            if !nameFocused && !isSavingName { nameDraft = name ?? "" }
+        }
+        .onChange(of: nameDraft) { _, typed in
+            if typed.count > Self.nameLimit { nameDraft = String(typed.prefix(Self.nameLimit)) }
+            nameError = nil
+        }
         .navigationTitle("Profile")
         .navigationBarTitleDisplayMode(.inline)
         .confirmationDialog("Profile photo", isPresented: $showAvatarOptions) {
@@ -181,6 +209,74 @@ struct SocialProfileView: View {
                     showSocialNotice(title: "Photo unavailable", message: "That photo couldn't be loaded. Try another one.")
                 }
             }
+        }
+    }
+
+    // MARK: - Name
+
+    /// Shown above the @username in friends' lists and search; blank shows the
+    /// @username alone. Saved on Done or with Save, which shows only once the
+    /// name differs from the saved one.
+    private var nameField: some View {
+        VStack(spacing: 6) {
+            HStack(spacing: 10) {
+                TextField("Your name", text: $nameDraft)
+                    .focused($nameFocused)
+                    .textInputAutocapitalization(.words)
+                    .autocorrectionDisabled()
+                    .submitLabel(.done)
+                    .onSubmit { saveName() }
+                    .foregroundStyle(AppColors.text)
+                    .accessibilityLabel("Name")
+                if isSavingName {
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(AppColors.accent)
+                } else if nameChanged {
+                    Button("Save") { saveName() }
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(AppColors.accent)
+                }
+            }
+            .font(.system(size: 18, weight: .semibold))
+            .padding(.horizontal, 14)
+            .frame(minHeight: 48)
+            .background(AppColors.surface)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+
+            if let nameError {
+                Text(nameError)
+                    .font(.system(size: 13))
+                    .foregroundStyle(AppColors.danger)
+                    .multilineTextAlignment(.center)
+            }
+        }
+        .onAppear {
+            if !nameFocused && !isSavingName { nameDraft = savedName }
+        }
+    }
+
+    private func saveName() {
+        guard !isSavingName else { return }
+        let name = trimmedNameDraft
+        nameFocused = false
+        guard name != savedName else {
+            // Nothing new; just drop stray spaces.
+            if nameDraft != name { nameDraft = name }
+            return
+        }
+        isSavingName = true
+        nameError = nil
+        Task {
+            do {
+                let saved = try await friends.setDisplayName(name)
+                // Typed over while saving: keep the newer text (Save shows again).
+                if trimmedNameDraft == name { nameDraft = saved ?? "" }
+            } catch {
+                // The server's own copy: "Names can be up to 30 characters." and the like.
+                nameError = error.localizedDescription
+            }
+            isSavingName = false
         }
     }
 

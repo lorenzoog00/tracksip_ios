@@ -643,9 +643,7 @@ struct UserSearchView: View {
         HStack(spacing: 12) {
             AvatarView(profile: profile, size: 40)
             VStack(alignment: .leading, spacing: 2) {
-                Text("@\(profile.username)")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(AppColors.text)
+                ProfileNameLabel(profile: profile)
                 if let subtitle {
                     Text(subtitle)
                         .font(.system(size: 13))

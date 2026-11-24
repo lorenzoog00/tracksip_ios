@@ -286,14 +286,9 @@ final class FriendsStore: ObservableObject {
         }
     }
 
-    private static func profile(uid: String, data: [String: Any]) -> FriendProfile? {
-        guard let username = data["username"] as? String else { return nil }
-        return FriendProfile(
-            uid: uid,
-            username: username,
-            photoURL: (data["photo_url"] as? String).flatMap { URL(string: $0) },
-            avatarColor: data["avatar_color"] as? String ?? ""
-        )
+    /// A `public_profiles` doc, which has no "uid" field: its id is the uid.
+    private nonisolated static func profile(uid: String, data: [String: Any]) -> FriendProfile? {
+        FriendProfile.parse(data, uid: uid)
     }
 
     private func rebuild() {
@@ -549,6 +544,21 @@ final class FriendsStore: ObservableObject {
 
     func claimUsername(_ name: String) async throws {
         try await FirebaseManager.shared.claimUsername(name)
+    }
+
+    /// Saves my display name ("" clears it) and shows the saved name at once,
+    /// without waiting for the profile listener, which then confirms it.
+    /// Returns the name as saved, nil when cleared.
+    @discardableResult
+    func setDisplayName(_ name: String) async throws -> String? {
+        let s = session
+        let saved = try await FirebaseManager.shared.setDisplayName(name)
+        // Signed out or switched account while saving: that profile isn't shown any more.
+        if session == s, var me = myProfile, me.name != saved {
+            me.name = saved
+            applyMyProfile(me, syncNight: false)
+        }
+        return saved
     }
 
     func search(_ q: String) async throws -> [FriendProfile] {

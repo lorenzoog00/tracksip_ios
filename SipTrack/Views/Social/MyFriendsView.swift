@@ -92,9 +92,7 @@ struct MyFriendsView: View {
         let disabled = coordinator.isBusy(profile) || friends.pending.isPending(profile.uid)
         return HStack(spacing: 12) {
             AvatarView(profile: profile, size: 40)
-            Text("@\(profile.username)")
-                .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(AppColors.text)
+            ProfileNameLabel(profile: profile)
             Spacer()
             if accepted {
                 Text("Friends")
@@ -137,9 +135,7 @@ struct MyFriendsView: View {
     private func friendRow(_ profile: FriendProfile) -> some View {
         HStack(spacing: 12) {
             AvatarView(profile: profile, size: 40)
-            Text("@\(profile.username)")
-                .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(AppColors.text)
+            ProfileNameLabel(profile: profile)
             if isLive(profile) {
                 Circle()
                     .fill(AppColors.success)
@@ -165,8 +161,8 @@ struct MyFriendsView: View {
     private func blockedRow(_ profile: FriendProfile) -> some View {
         HStack(spacing: 12) {
             AvatarView(profile: profile, size: 32)
-            Text("@\(profile.username)")
-                .foregroundStyle(AppColors.text)
+            // A lone "@username" stays the plain 17 pt it was before names.
+            ProfileNameLabel(profile: profile, size: 17, usernameWeight: .regular)
             Spacer()
             Button("Unblock") {
                 coordinator.run(profile, failure: "Couldn't unblock") { try await friends.unblock(profile.uid) }
