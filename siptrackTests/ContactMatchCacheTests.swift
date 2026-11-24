@@ -51,6 +51,22 @@ struct ContactMatchCacheTests {
         #expect(FriendProfileSnapshot(profile).profile == profile)
         let bare = FriendProfile(uid: "u2", username: "beto", photoURL: nil, avatarColor: "")
         #expect(FriendProfileSnapshot(bare).profile == bare)
+        let named = FriendProfile(uid: "u3", username: "caro", photoURL: nil, avatarColor: "", name: "Carolina")
+        #expect(FriendProfileSnapshot(named).profile == named)
+    }
+
+    /// A check saved before display names existed has no "name" key; it still
+    /// loads, with no names.
+    @Test func cacheSavedWithoutNamesStillDecodes() throws {
+        let json = ##"{"uid":"u1","username":"ana","avatarColor":"#FF8800"}"##
+        let snapshot = try JSONDecoder().decode(FriendProfileSnapshot.self, from: Data(json.utf8))
+        #expect(snapshot.name == nil)
+        #expect(snapshot.profile == FriendProfile(uid: "u1", username: "ana", photoURL: nil, avatarColor: "#FF8800"))
+
+        var withName = snapshot
+        withName.name = "Ana"
+        let data = try JSONEncoder().encode(withName)
+        #expect(try JSONDecoder().decode(FriendProfileSnapshot.self, from: data) == withName)
     }
 
     /// Saved per account under "contactMatch.<uid>"; another account sees nothing.

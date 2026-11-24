@@ -45,6 +45,25 @@ function normalizeUsername(raw) {
 }
 
 /**
+ * True when the text contains a word from the offensive list.
+ * @param {string} text any text; compared lowercased
+ * @return {boolean}
+ */
+function containsOffensive(text) {
+  const lowered = text.toLowerCase();
+  return OFFENSIVE.some((word) => lowered.includes(word));
+}
+
+/**
+ * True when the name exactly matches a reserved word.
+ * @param {string} text the name, already lowercased
+ * @return {boolean}
+ */
+function isReserved(text) {
+  return RESERVED.has(text);
+}
+
+/**
  * Checks a username against the format and blocklist policy.
  * @param {string} name the username as typed; normalized before checking
  * @return {{ok: true} | {ok: false, reason: string}} "format" when the
@@ -66,10 +85,15 @@ function validateUsername(name) {
   if (RESERVED.has(normalized)) {
     return {ok: false, reason: "blocked"};
   }
-  if (OFFENSIVE.some((word) => normalized.includes(word))) {
+  if (containsOffensive(normalized)) {
     return {ok: false, reason: "blocked"};
   }
   return {ok: true};
 }
 
-module.exports = {normalizeUsername, validateUsername};
+module.exports = {
+  normalizeUsername,
+  validateUsername,
+  containsOffensive,
+  isReserved,
+};

@@ -95,6 +95,7 @@ async function deleteSocialData({db, bucket, uid}) {
   await db.doc(`notification_prefs/${uid}`).delete();
   await db.doc(`contact_nudges/${uid}`).delete();
   await db.doc(`contact_match_limits/${uid}`).delete();
+  await db.doc(`profile_stats/${uid}`).delete();
   await bucket.file(`avatars/${uid}.jpg`).delete({ignoreNotFound: true});
   // Last, so a failed earlier step leaves the profile for the retry.
   await db.doc(`public_profiles/${uid}`).delete();

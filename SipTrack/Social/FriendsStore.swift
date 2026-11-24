@@ -28,6 +28,9 @@ final class FriendsStore: ObservableObject {
     /// True once the first `public_profiles` snapshot has arrived (even for a missing doc),
     /// so `myProfile == nil` can be told apart from "not loaded yet".
     @Published private(set) var profileLoaded = false
+    /// Friend actions shown on the rows before the server and the listeners
+    /// confirm them; read through `rowState(for:)`.
+    @Published private(set) var pending = PendingFriendActions()
 
     var liveCount: Int {
         let now = Date()
@@ -245,6 +248,9 @@ final class FriendsStore: ObservableObject {
         resolving = []
         uid = nil
         askedPushForIncoming = false
+        // The overrides belong to this account. Their calls' late finishes and
+        // timeouts check `session` and drop themselves.
+        pending = PendingFriendActions()
         // No night sync here: signed out, there is nothing to write or delete.
         applyMyProfile(nil, syncNight: false)
         profileLoaded = false
@@ -280,14 +286,9 @@ final class FriendsStore: ObservableObject {
         }
     }
 
-    private static func profile(uid: String, data: [String: Any]) -> FriendProfile? {
-        guard let username = data["username"] as? String else { return nil }
-        return FriendProfile(
-            uid: uid,
-            username: username,
-            photoURL: (data["photo_url"] as? String).flatMap { URL(string: $0) },
-            avatarColor: data["avatar_color"] as? String ?? ""
-        )
+    /// A `public_profiles` doc, which has no "uid" field: its id is the uid.
+    private nonisolated static func profile(uid: String, data: [String: Any]) -> FriendProfile? {
+        FriendProfile.parse(data, uid: uid)
     }
 
     private func rebuild() {
@@ -308,6 +309,7 @@ final class FriendsStore: ObservableObject {
             FeedOrdering.merge(profile: profile, main: nights[profile.uid],
                                ended: endedNights[profile.uid] ?? [])
         }
+        settlePending()
     }
 
     // MARK: - Friends' nights
@@ -544,6 +546,21 @@ final class FriendsStore: ObservableObject {
         try await FirebaseManager.shared.claimUsername(name)
     }
 
+    /// Saves my display name ("" clears it) and shows the saved name at once,
+    /// without waiting for the profile listener, which then confirms it.
+    /// Returns the name as saved, nil when cleared.
+    @discardableResult
+    func setDisplayName(_ name: String) async throws -> String? {
+        let s = session
+        let saved = try await FirebaseManager.shared.setDisplayName(name)
+        // Signed out or switched account while saving: that profile isn't shown any more.
+        if session == s, var me = myProfile, me.name != saved {
+            me.name = saved
+            applyMyProfile(me, syncNight: false)
+        }
+        return saved
+    }
+
     func search(_ q: String) async throws -> [FriendProfile] {
         try await FirebaseManager.shared.searchUsers(query: q)
     }
@@ -568,18 +585,88 @@ final class FriendsStore: ObservableObject {
         return result
     }
 
+    // MARK: - Friend requests (optimistic)
+
+    /// Where I stand with `uid`, with any pending action on top. The base comes
+    /// from the listeners' uid lists, not the profile lists, so a profile still
+    /// loading doesn't read as "no relation" and flip a row back.
+    func rowState(for uid: String) -> PendingFriendActions.RowState {
+        pending.overlay(listenedState(for: uid), for: uid)
+    }
+
+    /// What the listeners alone say about `uid`.
+    private func listenedState(for uid: String) -> PendingFriendActions.RowState {
+        if friendUids.contains(uid) { return .friend }
+        if incomingUids.contains(uid) { return .accept }
+        if outgoingUids.contains(uid) { return .pending }
+        return .add
+    }
+
+    /// Ends the overrides the listeners now show. Runs after every listener update.
+    private func settlePending() {
+        guard !pending.isEmpty else { return }
+        var listened: [String: PendingFriendActions.RowState] = [:]
+        for uid in pending.uids {
+            listened[uid] = listenedState(for: uid)
+        }
+        pending.settle(listened)
+    }
+
+    /// Longest an override outlives its successful call when the listeners never
+    /// show the change (offline, or a listener that died).
+    private static let pendingTimeout: UInt64 = 10
+
+    /// Shows `action` on `uid`'s row at once, then runs `call`, which returns
+    /// what the server actually did. A failure puts the row back and rethrows,
+    /// so the caller's alert says why. After a success the override stays until
+    /// the listeners show the change (`settlePending`), or for at most 10 s.
+    private func performOptimistic(
+        _ action: PendingFriendActions.Action, for uid: String,
+        _ call: () async throws -> PendingFriendActions.Action
+    ) async throws {
+        let s = session
+        let ticket = pending.begin(action, for: uid)
+        let done: PendingFriendActions.Action
+        do {
+            done = try await call()
+        } catch {
+            // After a sign-out `stop` has already cleared it.
+            if session == s { pending.end(for: uid, ticket: ticket) }
+            throw error
+        }
+        guard session == s else { return }
+        let listened = listenedState(for: uid)
+        guard pending.succeed(done, for: uid, ticket: ticket, listened: listened) else { return }
+        let timeout = Self.pendingTimeout
+        Task { [weak self] in
+            try? await Task.sleep(nanoseconds: timeout * 1_000_000_000)
+            guard let self, self.session == s else { return }
+            self.pending.end(for: uid, ticket: ticket)
+        }
+    }
+
     func sendRequest(to uid: String) async throws {
-        try await FirebaseManager.shared.sendFriendRequest(toUid: uid)
+        try await performOptimistic(.requested, for: uid) {
+            let status = try await FirebaseManager.shared.sendFriendRequest(toUid: uid)
+            // They had already asked me, so the server made us friends.
+            return status == "friends" ? .accepted : .requested
+        }
         // Only reached on success: the first request sent is the moment to ask.
         Task { await PushRegistration.requestIfNeeded(sentCount: 1) }
     }
 
     func respond(to uid: String, accept: Bool) async throws {
-        try await FirebaseManager.shared.respondToFriendRequest(fromUid: uid, accept: accept)
+        try await performOptimistic(accept ? .accepted : .declined, for: uid) {
+            try await FirebaseManager.shared.respondToFriendRequest(fromUid: uid, accept: accept)
+            return accept ? .accepted : .declined
+        }
     }
 
     func cancelRequest(to uid: String) async throws {
-        try await FirebaseManager.shared.cancelFriendRequest(toUid: uid)
+        try await performOptimistic(.cancelled, for: uid) {
+            try await FirebaseManager.shared.cancelFriendRequest(toUid: uid)
+            return .cancelled
+        }
     }
 
     func remove(_ uid: String) async throws {
@@ -624,5 +711,109 @@ final class FriendsStore: ObservableObject {
             payload = jpeg.base64EncodedString()
         }
         try await FirebaseManager.shared.setAvatar(jpegBase64: payload)
+    }
+}
+
+// MARK: - Optimistic friend actions
+
+/// Friend actions just taken on this phone, by uid, shown on the rows before
+/// the server and the Firestore listeners confirm them. Each `begin` gets a
+/// ticket, so an older call that finishes late never ends a newer action's
+/// override.
+nonisolated struct PendingFriendActions {
+    nonisolated enum Action: Equatable {
+        case requested, accepted, declined, cancelled
+    }
+
+    /// What a person's row offers: Add, Pending (my request is out), Friends,
+    /// or Accept (they asked me).
+    nonisolated enum RowState: Equatable {
+        case add, pending, friend, accept
+    }
+
+    private var entries: [String: (action: Action, ticket: Int)] = [:]
+    private var lastTicket = 0
+
+    var isEmpty: Bool { entries.isEmpty }
+    var uids: [String] { Array(entries.keys) }
+
+    func action(for uid: String) -> Action? { entries[uid]?.action }
+
+    func isPending(_ uid: String) -> Bool { entries[uid] != nil }
+
+    /// Shows `action` for `uid`, replacing any earlier one. The returned ticket
+    /// names this action to `end(for:ticket:)` and `succeed`.
+    @discardableResult
+    mutating func begin(_ action: Action, for uid: String) -> Int {
+        lastTicket += 1
+        entries[uid] = (action: action, ticket: lastTicket)
+        return lastTicket
+    }
+
+    mutating func end(for uid: String) {
+        entries[uid] = nil
+    }
+
+    /// Ends `uid`'s override only while it is still the one `ticket` began: a
+    /// failed call rolls its own row back, never a newer action's.
+    mutating func end(for uid: String, ticket: Int) {
+        if entries[uid]?.ticket == ticket { entries[uid] = nil }
+    }
+
+    /// The call for `ticket` succeeded and the server did `done` (a request to
+    /// someone who had already asked me makes us friends). Ends the override
+    /// when `listened`, the listeners' state, already shows it. True while it
+    /// still waits for them; false once ended, or when a newer action or the
+    /// listeners got there first.
+    mutating func succeed(_ done: Action, for uid: String, ticket: Int, listened: RowState) -> Bool {
+        guard entries[uid]?.ticket == ticket else { return false }
+        if Self.isReflected(done, in: listened) {
+            entries[uid] = nil
+            return false
+        }
+        entries[uid] = (action: done, ticket: ticket)
+        return true
+    }
+
+    /// Ends every override whose uid's state in `listened` (from the listeners
+    /// alone) shows its action. Uids not in `listened` are left alone.
+    mutating func settle(_ listened: [String: RowState]) {
+        for (uid, state) in listened {
+            if let action = entries[uid]?.action, Self.isReflected(action, in: state) {
+                entries[uid] = nil
+            }
+        }
+    }
+
+    /// `state` with `uid`'s pending action on top.
+    func overlay(_ state: RowState, for uid: String) -> RowState {
+        guard let action = entries[uid]?.action else { return state }
+        switch action {
+        case .requested:
+            switch state {
+            case .add: return .pending
+            // To someone who had asked me, a request makes us friends.
+            case .accept: return .friend
+            case .pending, .friend: return state
+            }
+        case .accepted:
+            // Also while their request is gone and the friendship is not in yet:
+            // the two come through different listeners, in either order.
+            return .friend
+        case .declined:
+            return state == .accept ? .add : state
+        case .cancelled:
+            return state == .pending ? .add : state
+        }
+    }
+
+    /// True once the listeners alone show what `action` did.
+    static func isReflected(_ action: Action, in state: RowState) -> Bool {
+        switch action {
+        case .requested: return state == .pending || state == .friend
+        case .accepted: return state == .friend
+        case .declined: return state != .accept
+        case .cancelled: return state != .pending
+        }
     }
 }

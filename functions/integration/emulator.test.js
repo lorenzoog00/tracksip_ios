@@ -327,6 +327,8 @@ test("deleting an account removes every social trace of it", async () => {
     "blocks/A/blocked/F": {uid: "F"},
     "blocks/B/blocked/A": {uid: "A"},
     "blocks/B/blocked/G": {uid: "G"},
+    "profile_stats/A": {nights: 1},
+    "profile_stats/B": {nights: 1},
     "shared_nights/A": {x: 1},
     "shared_nights/A/ended/1": {x: 1},
     "shared_nights/B/ended/1": {x: 1},
@@ -373,7 +375,8 @@ test("deleting an account removes every social trace of it", async () => {
   for (const gone of [
     "public_profiles/A", "usernames/a", "friendships/A/friends/B",
     "friendships/B/friends/A", "friend_requests/C_A", "friend_requests/A_E",
-    "blocks/A/blocked/F", "blocks/B/blocked/A", "shared_nights/A",
+    "blocks/A/blocked/F", "blocks/B/blocked/A", "profile_stats/A",
+    "shared_nights/A",
     "shared_nights/A/ended/1",
     "push_tokens/A", "notification_prefs/A", "night_threads/A_1",
     "night_threads/A_1/comments/c1", "night_threads/A_1/reactions/B",
@@ -404,7 +407,7 @@ test("deleting an account removes every social trace of it", async () => {
     "friend_requests/C_E", "blocks/B/blocked/G", "push_tokens/B",
     "notification_prefs/B", "night_threads/B_1",
     "night_threads/B_1/comments/c3", "night_threads/B_1/reactions/D",
-    "shared_nights/B/ended/1",
+    "shared_nights/B/ended/1", "profile_stats/B",
   ]) {
     assert.equal(await exists(kept), true, kept);
   }
@@ -1349,6 +1352,35 @@ test("incognito is accepted on night events and incognito_by_default on profiles
   );
   await assertFails(
       setDoc(doc(alice, "users/alice/profiles/alice"), {...PROFILE, incognito_by_default: 1}),
+  );
+});
+
+test("profiles take share_stats_with_friends as a bool; docs without it stay valid", async () => {
+  const alice = env.authenticatedContext("alice").firestore();
+  const ref = doc(alice, "users/alice/profiles/alice");
+  const merge = {merge: true};
+  // A doc from a build before the switch synced has no key and is still valid.
+  await assertSucceeds(setDoc(ref, PROFILE));
+  await assertSucceeds(
+      setDoc(ref, {...PROFILE, incognito_by_default: true}, merge),
+  );
+  // A newer build adds it to that doc, the way pushProfile merges.
+  await assertSucceeds(
+      setDoc(ref, {...PROFILE, share_stats_with_friends: false}, merge),
+  );
+  await assertSucceeds(updateDoc(ref, {share_stats_with_friends: true}));
+  await assertSucceeds(
+      setDoc(ref, {...PROFILE, share_stats_with_friends: false}),
+  );
+  // Anything but a bool is denied, on create and on update.
+  await assertFails(updateDoc(ref, {share_stats_with_friends: "no"}));
+  await assertFails(updateDoc(ref, {share_stats_with_friends: 0}));
+  await assertFails(
+      setDoc(doc(alice, "users/alice/profiles/alice2"), {...PROFILE, share_stats_with_friends: null}),
+  );
+  const bob = env.authenticatedContext("bob").firestore();
+  await assertFails(
+      setDoc(doc(bob, "users/bob/profiles/bob"), {...PROFILE, share_stats_with_friends: "yes"}),
   );
 });
 
@@ -3209,4 +3241,126 @@ test("library photo: a path added during generation is filled, not erased", asyn
   assert.ok(plan.activities[0].photoUrl);
   const item = (await db.doc("recovery_library/item1").get()).data();
   assert.deepEqual(item.pendingPlanPaths, []);
+});
+
+// --- Display names and friends-only profile stats ---------------------------
+const STATS = {
+  nights: 12, avg_drinks: 3.5, avg_water: 2, favorite_drink: "Beer",
+  member_since: 1700000000000, updated_at: 1700000000001,
+};
+
+test("social: setDisplayName stores the name and an empty one removes it", async () => {
+  await claim("a", "lorenzo");
+  assert.deepEqual(
+      await call("setDisplayName", "a", {name: "  Lorenzo O "}),
+      {name: "Lorenzo O"},
+  );
+  assert.equal((await db.doc("public_profiles/a").get()).data().name, "Lorenzo O");
+  assert.deepEqual(await call("setDisplayName", "a", {name: "   "}), {name: null});
+  const after = (await db.doc("public_profiles/a").get()).data();
+  assert.equal("name" in after, false);
+  assert.equal(after.username, "lorenzo");
+});
+
+test("social: setDisplayName needs a profile and no pending deletion", async () => {
+  await assert.rejects(
+      call("setDisplayName", "ghost", {name: "Boo"}),
+      (e) => e.code === "failed-precondition" &&
+        e.message === "Pick a username first.",
+  );
+  await claim("a", "lorenzo");
+  await db.doc("account_deletions/a").set({startedAt: 1});
+  await assert.rejects(
+      call("setDisplayName", "a", {name: "Boo"}),
+      (e) => e.code === "failed-precondition",
+  );
+});
+
+test("social: search and suggestions carry the display name", async () => {
+  await claim("a", "lorenzo");
+  await claim("b", "lola");
+  await call("setDisplayName", "a", {name: "Lorenzo O"});
+  assert.equal((await search("b", "lo")).results[0].name, "Lorenzo O");
+  assert.equal((await search("a", "lo")).results[0].name, null);
+
+  await claim("c", "carl");
+  await claim("d", "dina");
+  await db.doc("friendships/c/friends/b").set({since: 1});
+  await db.doc("friendships/b/friends/c").set({since: 1});
+  await db.doc("friendships/c/friends/d").set({since: 1});
+  await db.doc("friendships/d/friends/c").set({since: 1});
+  await call("setDisplayName", "d", {name: "Dina D"});
+  const found = await call("suggestFriends", "b", {});
+  assert.deepEqual(found.results.map((r) => [r.uid, r.name]), [["d", "Dina D"]]);
+});
+
+test("profile_stats: owner writes, friend reads, others cannot", async () => {
+  const alice = env.authenticatedContext("alice").firestore();
+  await assertSucceeds(setDoc(doc(alice, "profile_stats/alice"), STATS));
+  await assertSucceeds(setDoc(doc(alice, "profile_stats/alice"), {
+    nights: 0, avg_drinks: 0, avg_water: 0, member_since: 1, updated_at: 2,
+  }));
+  await assertSucceeds(setDoc(doc(alice, "profile_stats/alice"), STATS));
+  await assertSucceeds(getDoc(doc(alice, "profile_stats/alice")));
+  await seedFriendship("alice", "bob");
+  const bob = env.authenticatedContext("bob").firestore();
+  await assertSucceeds(getDoc(doc(bob, "profile_stats/alice")));
+  const carol = env.authenticatedContext("carol").firestore();
+  await assertFails(getDoc(doc(carol, "profile_stats/alice")));
+  const anon = env.unauthenticatedContext().firestore();
+  await assertFails(getDoc(doc(anon, "profile_stats/alice")));
+  await assertFails(setDoc(doc(bob, "profile_stats/alice"), STATS));
+  await assertSucceeds(deleteDoc(doc(alice, "profile_stats/alice")));
+});
+
+test("profile_stats: a friend loses access after unfriending", async () => {
+  await seedFriendship("alice", "bob");
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), "profile_stats/alice"), STATS);
+  });
+  const bob = env.authenticatedContext("bob").firestore();
+  await assertSucceeds(getDoc(doc(bob, "profile_stats/alice")));
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await deleteDoc(doc(ctx.firestore(), "friendships/alice/friends/bob"));
+  });
+  await assertFails(getDoc(doc(bob, "profile_stats/alice")));
+});
+
+test("profile_stats: bad shapes are rejected", async () => {
+  const ref = doc(env.authenticatedContext("alice").firestore(), "profile_stats/alice");
+  await assertFails(setDoc(ref, {...STATS, extra: 1}));
+  await assertFails(setDoc(ref, {...STATS, nights: -1}));
+  await assertFails(setDoc(ref, {...STATS, nights: 100001}));
+  await assertFails(setDoc(ref, {...STATS, nights: 1.5}));
+  await assertFails(setDoc(ref, {...STATS, avg_drinks: 101}));
+  await assertFails(setDoc(ref, {...STATS, avg_water: -0.1}));
+  await assertFails(setDoc(ref, {...STATS, avg_drinks: NaN}));
+  await assertFails(setDoc(ref, {...STATS, avg_water: Infinity}));
+  await assertFails(setDoc(ref, {...STATS, favorite_drink: "x".repeat(41)}));
+  // 20 flags are 40 code points but 80 UTF-16 code units: too long.
+  await assertFails(setDoc(ref, {...STATS, favorite_drink: "🇲🇽".repeat(20)}));
+  await assertFails(setDoc(ref, {...STATS, favorite_drink: 5}));
+  await assertFails(setDoc(ref, {...STATS, member_since: 1.5}));
+  await assertFails(setDoc(ref, {...STATS, updated_at: "now"}));
+});
+
+// The app cuts favorite_drink to fit this count (ProfileStats.truncated).
+test("profile_stats: favorite_drink size counts UTF-16 code units", async () => {
+  const ref = doc(env.authenticatedContext("alice").firestore(), "profile_stats/alice");
+  // Accented and CJK letters are one unit each: 40 of them fit, 41 don't.
+  await assertSucceeds(setDoc(ref, {...STATS, favorite_drink: "é".repeat(40)}));
+  await assertSucceeds(setDoc(ref, {...STATS, favorite_drink: "日".repeat(40)}));
+  await assertFails(setDoc(ref, {...STATS, favorite_drink: "日".repeat(41)}));
+  // A flag is two code points, four units: 10 fit (40 units), 11 don't.
+  await assertSucceeds(setDoc(ref, {...STATS, favorite_drink: "🇲🇽".repeat(10)}));
+  await assertFails(setDoc(ref, {...STATS, favorite_drink: "🇲🇽".repeat(11)}));
+  await assertFails(setDoc(ref, {...STATS, favorite_drink: "🇲🇽".repeat(20)}));
+});
+
+test("profile_stats: nothing is written while a deletion is pending", async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), "account_deletions/alice"), {startedAt: 1});
+  });
+  const ref = doc(env.authenticatedContext("alice").firestore(), "profile_stats/alice");
+  await assertFails(setDoc(ref, STATS));
 });

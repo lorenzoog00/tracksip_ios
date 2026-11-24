@@ -201,6 +201,7 @@ test("a fresh delete writes the tombstone before erasing the user", async () => 
     "notification_prefs/u1",
     "contact_nudges/u1",
     "contact_match_limits/u1",
+    "profile_stats/u1",
     "public_profiles/u1",
   ]);
   assert.deepEqual(calls.avatarDeletes, [
@@ -247,6 +248,7 @@ test("a delete removes the user's threads, reactions, comments and prefs", async
     "push_tokens/u1", "notification_prefs/u1",
     "contact_nudges/u1",
     "contact_match_limits/u1",
+    "profile_stats/u1",
     "public_profiles/u1",
   ]);
 });

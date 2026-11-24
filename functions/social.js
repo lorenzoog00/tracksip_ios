@@ -1,6 +1,11 @@
 const {HttpsError} = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
-const {normalizeUsername, validateUsername} = require("./username-policy");
+const {
+  normalizeUsername,
+  validateUsername,
+  containsOffensive,
+  isReserved,
+} = require("./username-policy");
 const {validatePushToken, tokenIsDead} = require("./live-activity");
 
 // ---------------------------------------------------------------------------
@@ -87,6 +92,75 @@ async function claimUsername({db, uid, data}) {
   return {username};
 }
 
+const DISPLAY_NAME_MAX = 30;
+// Control characters plus invisible and direction-changing format characters
+// (soft hyphen, ALM, zero-width space, LRM/RLM, line and paragraph
+// separators, bidi overrides and isolates, word joiner, BOM). U+200C and
+// U+200D stay: emoji ZWJ sequences and Persian/Indic scripts need them.
+// eslint-disable-next-line no-control-regex
+const HIDDEN_CHARS = new RegExp("[\u0000-\u001f\u007f-\u009f\u00ad" +
+  "\u061c\u200b\u200e\u200f\u2028-\u202e\u2060\u2066-\u2069\ufeff]");
+// Characters that render as nothing even though they are not whitespace.
+const BLANK_CHARS = /^[\s\u115f\u1160\u3164\uffa0]*$/;
+
+/**
+ * Checks a display name typed by the user.
+ * @param {*} raw the name as typed; null or undefined clears it
+ * @return {string|null} the trimmed name, or null when empty
+ */
+function validateDisplayName(raw) {
+  if (raw === null || raw === undefined) return null;
+  if (typeof raw !== "string") {
+    throw new HttpsError("invalid-argument", "Try a different name.");
+  }
+  const name = raw.trim();
+  if (!name) return null;
+  if ([...name].length > DISPLAY_NAME_MAX) {
+    throw new HttpsError(
+        "invalid-argument", "Names can be up to 30 characters.");
+  }
+  const folded = name.normalize("NFKC");
+  if (
+    HIDDEN_CHARS.test(name) ||
+    BLANK_CHARS.test(name) ||
+    containsOffensive(name) ||
+    containsOffensive(folded) ||
+    isReserved(folded.toLowerCase())
+  ) {
+    throw new HttpsError("invalid-argument", "Try a different name.");
+  }
+  return name;
+}
+
+/**
+ * Sets or clears the caller's display name, shown beside their username.
+ * @param {object} params
+ * @param {object} params.db Firestore
+ * @param {string} params.uid the caller
+ * @param {{name: string}} params.data the request payload
+ * @return {Promise<object>} {name}: the stored name, null when cleared
+ */
+async function setDisplayName({db, uid, data}) {
+  const name = validateDisplayName(data && data.name);
+  const profileRef = db.doc(`public_profiles/${uid}`);
+  await db.runTransaction(async (tx) => {
+    const [profile, deleting] = await Promise.all([
+      tx.get(profileRef),
+      tx.get(db.doc(`account_deletions/${uid}`)),
+    ]);
+    assertNotDeleting(deleting);
+    if (!profile.exists) {
+      throw new HttpsError("failed-precondition", "Pick a username first.");
+    }
+    // Replaced whole, so clearing drops the field without an admin import.
+    const next = {...profile.data()};
+    if (name === null) delete next.name;
+    else next.name = name;
+    tx.set(profileRef, next);
+  });
+  return {name};
+}
+
 /**
  * Finds users whose username starts with the query.
  * @param {object} params
@@ -125,6 +199,7 @@ async function searchUsers({db, uid, data}) {
       .map((d) => ({
         uid: d.id,
         username: d.data().username,
+        name: d.data().name || null,
         photo_url: d.data().photo_url || null,
         avatar_color: d.data().avatar_color,
       }));
@@ -571,12 +646,13 @@ const E164_PATTERN = /^\+[1-9]\d{6,14}$/;
 /**
  * The public card for a profile document.
  * @param {object} doc a public_profiles snapshot
- * @return {object} uid, username, photo_url and avatar_color
+ * @return {object} uid, username, name, photo_url and avatar_color
  */
 function profileCard(doc) {
   return {
     uid: doc.id,
     username: doc.data().username,
+    name: doc.data().name || null,
     photo_url: doc.data().photo_url || null,
     avatar_color: doc.data().avatar_color,
   };
@@ -859,6 +935,8 @@ module.exports = {
   CONTACT_PAYLOAD_MAX,
   CONTACT_CALLS_PER_DAY,
   claimUsername,
+  validateDisplayName,
+  setDisplayName,
   searchUsers,
   sendFriendRequest,
   respondToFriendRequest,

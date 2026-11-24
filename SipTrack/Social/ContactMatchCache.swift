@@ -16,16 +16,18 @@ nonisolated struct FriendProfileSnapshot: Codable, Equatable, Sendable {
     var username: String
     var photoURL: URL?
     var avatarColor: String
+    /// Missing from checks saved before display names; those decode with nil.
+    var name: String? = nil
 }
 
 extension FriendProfileSnapshot {
     @MainActor init(_ profile: FriendProfile) {
         self.init(uid: profile.uid, username: profile.username,
-                  photoURL: profile.photoURL, avatarColor: profile.avatarColor)
+                  photoURL: profile.photoURL, avatarColor: profile.avatarColor, name: profile.name)
     }
 
     @MainActor var profile: FriendProfile {
-        FriendProfile(uid: uid, username: username, photoURL: photoURL, avatarColor: avatarColor)
+        FriendProfile(uid: uid, username: username, photoURL: photoURL, avatarColor: avatarColor, name: name)
     }
 }
 

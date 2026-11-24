@@ -1,10 +1,36 @@
 import Foundation
 
-struct FriendProfile: Equatable {
+nonisolated struct FriendProfile: Equatable, Sendable {
     var uid: String
     var username: String
     var photoURL: URL?
     var avatarColor: String
+    /// The display name, shown above the @username; nil when unset. Names aren't
+    /// unique, so the @username always shows with one.
+    var name: String? = nil
+
+    /// A profile from a callable's profile card (searchUsers, suggestFriends,
+    /// matchContacts), which carries its own "uid", or from a `public_profiles`
+    /// doc, whose id is passed as `uid`. Nil without a uid or a username.
+    nonisolated static func parse(_ data: [String: Any], uid: String? = nil) -> FriendProfile? {
+        guard let id = uid ?? data["uid"] as? String,
+              let username = data["username"] as? String else { return nil }
+        return FriendProfile(
+            uid: id,
+            username: username,
+            photoURL: (data["photo_url"] as? String).flatMap { URL(string: $0) },
+            avatarColor: data["avatar_color"] as? String ?? "",
+            name: displayName(data["name"])
+        )
+    }
+
+    /// A display name as stored or returned by the server, trimmed; nil when
+    /// missing, null, not a string or blank.
+    nonisolated static func displayName(_ raw: Any?) -> String? {
+        guard let trimmed = (raw as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !trimmed.isEmpty else { return nil }
+        return trimmed
+    }
 }
 
 /// Someone "You might know", with why: shared friends or your contacts.

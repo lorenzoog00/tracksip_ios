@@ -15,20 +15,20 @@ struct FriendLinkSheet: View {
     }
 
     @State private var lookup: Lookup = .loading
-    /// Set after a request goes out from here, so the state flips before the Firestore listener catches up.
-    @State private var sent = false
-    @State private var isWorking = false
     @State private var errorText: String?
     @StateObject private var coordinator = FriendActionCoordinator()
 
     private enum Relation { case me, friend, outgoing, incoming, stranger }
 
+    /// Changes on the tap, before the server answers (`FriendsStore.pending`).
     private func relation(to profile: FriendProfile) -> Relation {
         if friends.myProfile?.uid == profile.uid { return .me }
-        if friends.friends.contains(where: { $0.uid == profile.uid }) { return .friend }
-        if friends.incoming.contains(where: { $0.uid == profile.uid }) { return .incoming }
-        if sent || friends.outgoing.contains(where: { $0.uid == profile.uid }) { return .outgoing }
-        return .stranger
+        switch friends.rowState(for: profile.uid) {
+        case .friend: return .friend
+        case .accept: return .incoming
+        case .pending: return .outgoing
+        case .add: return .stranger
+        }
     }
 
     var body: some View {
@@ -109,34 +109,27 @@ struct FriendLinkSheet: View {
         case .outgoing:
             message("Request sent")
         case .incoming:
-            primaryButton("Accept", failure: "Couldn't accept request") {
+            primaryButton("Accept", for: profile, failure: "Couldn't accept request") {
                 try await friends.respond(to: profile.uid, accept: true)
             }
         case .stranger:
-            primaryButton("Add friend", failure: "Couldn't send request") {
+            primaryButton("Add friend", for: profile, failure: "Couldn't send request") {
                 try await friends.sendRequest(to: profile.uid)
-                sent = true
             }
         }
     }
 
+    /// The coordinator keeps a second tap out while `work` runs and puts a
+    /// failure under the button (`errorHandler`); the store rolls the state back.
     private func primaryButton(
         _ title: String,
+        for profile: FriendProfile,
         failure: String,
         _ work: @escaping () async throws -> Void
     ) -> some View {
         Button {
-            guard !isWorking else { return }
-            isWorking = true
             errorText = nil
-            Task {
-                do {
-                    try await work()
-                } catch {
-                    errorText = "\(failure): \(error.localizedDescription)"
-                }
-                isWorking = false
-            }
+            coordinator.run(profile, failure: failure, work)
         } label: {
             Text(title)
                 .font(.system(size: 17, weight: .semibold))
@@ -146,13 +139,12 @@ struct FriendLinkSheet: View {
                 .background(AppColors.accent)
                 .clipShape(RoundedRectangle(cornerRadius: 14))
         }
-        .disabled(isWorking)
+        .disabled(coordinator.isBusy(profile) || friends.pending.isPending(profile.uid))
         .padding(.top, 8)
     }
 
     private func resolve() async {
         lookup = .loading
-        sent = false
         errorText = nil
         // Search may not return the caller, so answer for myself locally.
         if let me = friends.myProfile, me.username.lowercased() == username {

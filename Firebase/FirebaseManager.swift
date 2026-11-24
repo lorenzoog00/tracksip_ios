@@ -480,6 +480,50 @@ final class FirebaseManager: ObservableObject {
         db.collection("shared_nights").document(uid).collection("ended").document(String(startedAtMs))
     }
 
+    // MARK: - Profile stats
+
+    /// When this account was created: the stats card's "member since". Nil signed out.
+    func accountCreationDate() -> Date? {
+        auth.currentUser?.metadata.creationDate
+    }
+
+    /// `profile_stats/{uid}`, which only the owner and their friends can read. Full
+    /// replace (no merge): the rules allow exactly the stats keys, and a favorite drink
+    /// that is gone must not linger from an earlier write. `uid` is the account the stats
+    /// were computed for; nothing is written once another account (or none) is signed in.
+    func writeProfileStats(_ stats: ProfileStats, uid: String) async throws {
+        guard currentUserId() == uid else { return }
+        try await db.collection("profile_stats").document(uid).setData(stats.firestoreData)
+    }
+
+    /// Skipped, like the write, once `uid` is no longer the signed-in account.
+    func deleteProfileStats(uid: String) async throws {
+        guard currentUserId() == uid else { return }
+        try await db.collection("profile_stats").document(uid).delete()
+    }
+
+    /// Someone's stats card, read once for their profile screen. Nil when there is no
+    /// doc (sharing off, or a build without stats) or it doesn't parse. Only the owner
+    /// and their friends may read it, so a denied read (not friends, or no longer) is
+    /// nil too, not an error.
+    func fetchProfileStats(uid: String) async throws -> ProfileStats? {
+        do {
+            let snap = try await db.collection("profile_stats").document(uid).getDocument()
+            return snap.data().flatMap { ProfileStats(firestore: $0) }
+        } catch let error as NSError
+            where error.domain == FirestoreErrorDomain
+               && error.code == FirestoreErrorCode.permissionDenied.rawValue {
+            return nil
+        }
+    }
+
+    /// Someone's `public_profiles` card (any signed-in user may read it), read again
+    /// when their profile screen opens or is pulled to refresh. Nil when there is none.
+    func fetchPublicProfile(uid: String) async throws -> FriendProfile? {
+        let snap = try await db.collection("public_profiles").document(uid).getDocument()
+        return snap.data().flatMap { FriendProfile.parse($0, uid: uid) }
+    }
+
     // MARK: - Notification switches
 
     /// `notification_prefs/{uid}`: which social pushes the server sends me. A missing
@@ -541,9 +585,26 @@ final class FirebaseManager: ObservableObject {
         try await col("drink_types")?.document(id).delete()
     }
 
-    func pushProfile(_ profile: UserProfile) async throws {
+    /// `share_stats_with_friends` is only sent when false, or when the user just turned
+    /// it on (`explicitShareStats`), like `incognito` in `pushEvent`. Ordinary pushes run
+    /// before the pull is merged (every launch and foreground, a profile the cloud doesn't
+    /// have yet), and Firestore lays pending writes over what the pull reads, so a stale
+    /// or default "on" sent there would overwrite the account's off and republish the
+    /// stats. A missing key reads as on.
+    func pushProfile(_ profile: UserProfile, explicitShareStats: Bool = false) async throws {
         guard let uid = currentUserId() else { return }
-        let currentYear = Calendar.current.component(.year, from: Date())
+        let data = Self.profilePayload(profile, explicitShareStats: explicitShareStats)
+        try await db.collection("users").document(uid).collection("profiles").document(uid)
+            .setData(data, merge: true)
+    }
+
+    /// The fields `pushProfile` merges into `users/{uid}/profiles/{uid}`. Pure, but on the
+    /// main actor rather than nonisolated: `UserProfile` is main-actor isolated by
+    /// default, as `SharedNight.build` is for the night's models.
+    static func profilePayload(
+        _ profile: UserProfile, explicitShareStats: Bool, now: Date = Date()
+    ) -> [String: Any] {
+        let currentYear = Calendar.current.component(.year, from: now)
         var data: [String: Any] = [
             "weight_kg":           profile.weightKg,
             "sex":                 profile.sex.rawValue,
@@ -558,8 +619,10 @@ final class FirebaseManager: ObservableObject {
         data["favorite_drink_ids"] = profile.favoriteDrinkIds
         data["ai_reports_enabled"] = profile.aiReportsEnabled == true
         data["incognito_by_default"] = profile.incognitoByDefault
-        try await db.collection("users").document(uid).collection("profiles").document(uid)
-            .setData(data, merge: true)
+        if !profile.shareStatsWithFriends || explicitShareStats {
+            data["share_stats_with_friends"] = profile.shareStatsWithFriends
+        }
+        return data
     }
 
     func pushChallenge(_ challenge: Challenge) async throws {
@@ -695,6 +758,8 @@ final class FirebaseManager: ObservableObject {
             up.favoriteDrinkIds = d["favorite_drink_ids"] as? [String] ?? []
             up.aiReportsEnabled = d["ai_reports_enabled"] as? Bool
             up.incognitoByDefault = d["incognito_by_default"] as? Bool ?? false
+            // Missing in docs from builds before the switch synced: on, the default.
+            up.shareStatsWithFriends = d["share_stats_with_friends"] as? Bool ?? true
             profile = up
         }
 
@@ -940,9 +1005,16 @@ final class FirebaseManager: ObservableObject {
     /// revoking kills the refresh token — so asking for a fresh ID token here
     /// afterwards fails and the request never leaves the phone. `deleteAccount`
     /// takes its token before revoking and hands it over.
+    ///
+    /// The cached ID token is used by default: Firebase refreshes one that is
+    /// expired or about to expire on its own, and forcing a refresh cost a
+    /// network round trip before every call. No callable reads token claims
+    /// (they read only the uid; `deleteAccount` reads `auth_time` from the
+    /// token it is handed), so pass `forcingTokenRefresh: true` only for a
+    /// call that needs claims minted after a sign-in or link.
     private func callFunction(
         _ name: String, data: [String: Any], idToken: String? = nil,
-        forcingTokenRefresh: Bool = true
+        forcingTokenRefresh: Bool = false
     ) async throws -> [String: Any] {
         guard let project = FirebaseApp.app()?.options.projectID,
               let url = URL(string: "https://us-central1-\(project).cloudfunctions.net/\(name)") else {
@@ -1276,28 +1348,24 @@ extension FirebaseManager {
         ((error as NSError).userInfo[callableStatusKey] as? String) == "RESOURCE_EXHAUSTED"
     }
 
-    private static func friendProfile(_ row: [String: Any]) -> FriendProfile? {
-        guard let uid = row["uid"] as? String, let username = row["username"] as? String else { return nil }
-        return FriendProfile(
-            uid: uid,
-            username: username,
-            photoURL: (row["photo_url"] as? String).flatMap { URL(string: $0) },
-            avatarColor: row["avatar_color"] as? String ?? ""
-        )
+    /// One profile card from `searchUsers`, `suggestFriends` or `matchContacts`.
+    nonisolated static func friendProfile(_ row: [String: Any]) -> FriendProfile? {
+        FriendProfile.parse(row)
     }
 
     func searchUsers(query: String) async throws -> [FriendProfile] {
         let r = try await callFunction("searchUsers", data: ["query": query])
         let rows = r["results"] as? [[String: Any]] ?? []
-        return rows.compactMap { row in
-            guard let uid = row["uid"] as? String, let username = row["username"] as? String else { return nil }
-            return FriendProfile(
-                uid: uid,
-                username: username,
-                photoURL: (row["photo_url"] as? String).flatMap { URL(string: $0) },
-                avatarColor: row["avatar_color"] as? String ?? ""
-            )
-        }
+        return rows.compactMap { Self.friendProfile($0) }
+    }
+
+    /// Sets my display name, or clears it when `name` is blank. The server trims
+    /// and checks it; a rejected name throws with its message for the user
+    /// ("Names can be up to 30 characters.", "Try a different name."). Returns
+    /// the name as saved, nil when cleared.
+    func setDisplayName(_ name: String) async throws -> String? {
+        let r = try await callFunction("setDisplayName", data: ["name": name])
+        return FriendProfile.displayName(r["name"])
     }
 
     /// Returns "requested" or "friends" (when they had already asked me).
@@ -1349,9 +1417,7 @@ extension FirebaseManager {
         guard auth.currentUser != nil, let token = Self.lastPushToken else { return }
         let call = Task { @MainActor in
             do {
-                _ = try await self.callFunction(
-                    "unregisterPushToken", data: ["token": token], forcingTokenRefresh: false
-                )
+                _ = try await self.callFunction("unregisterPushToken", data: ["token": token])
             } catch {
                 #if DEBUG
                 print("[Push] unregister failed: \(error.localizedDescription)")
