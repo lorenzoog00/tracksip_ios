@@ -1355,6 +1355,35 @@ test("incognito is accepted on night events and incognito_by_default on profiles
   );
 });
 
+test("profiles take share_stats_with_friends as a bool; docs without it stay valid", async () => {
+  const alice = env.authenticatedContext("alice").firestore();
+  const ref = doc(alice, "users/alice/profiles/alice");
+  const merge = {merge: true};
+  // A doc from a build before the switch synced has no key and is still valid.
+  await assertSucceeds(setDoc(ref, PROFILE));
+  await assertSucceeds(
+      setDoc(ref, {...PROFILE, incognito_by_default: true}, merge),
+  );
+  // A newer build adds it to that doc, the way pushProfile merges.
+  await assertSucceeds(
+      setDoc(ref, {...PROFILE, share_stats_with_friends: false}, merge),
+  );
+  await assertSucceeds(updateDoc(ref, {share_stats_with_friends: true}));
+  await assertSucceeds(
+      setDoc(ref, {...PROFILE, share_stats_with_friends: false}),
+  );
+  // Anything but a bool is denied, on create and on update.
+  await assertFails(updateDoc(ref, {share_stats_with_friends: "no"}));
+  await assertFails(updateDoc(ref, {share_stats_with_friends: 0}));
+  await assertFails(
+      setDoc(doc(alice, "users/alice/profiles/alice2"), {...PROFILE, share_stats_with_friends: null}),
+  );
+  const bob = env.authenticatedContext("bob").firestore();
+  await assertFails(
+      setDoc(doc(bob, "users/bob/profiles/bob"), {...PROFILE, share_stats_with_friends: "yes"}),
+  );
+});
+
 test("request inbox queries succeed with a party filter, unfiltered list fails", async () => {
   await env.withSecurityRulesDisabled(async (ctx) => {
     await setDoc(doc(ctx.firestore(), "friend_requests/alice_bob"), {
@@ -3308,9 +3337,24 @@ test("profile_stats: bad shapes are rejected", async () => {
   await assertFails(setDoc(ref, {...STATS, avg_drinks: NaN}));
   await assertFails(setDoc(ref, {...STATS, avg_water: Infinity}));
   await assertFails(setDoc(ref, {...STATS, favorite_drink: "x".repeat(41)}));
+  // 20 flags are 40 code points but 80 UTF-16 code units: too long.
+  await assertFails(setDoc(ref, {...STATS, favorite_drink: "🇲🇽".repeat(20)}));
   await assertFails(setDoc(ref, {...STATS, favorite_drink: 5}));
   await assertFails(setDoc(ref, {...STATS, member_since: 1.5}));
   await assertFails(setDoc(ref, {...STATS, updated_at: "now"}));
+});
+
+// The app cuts favorite_drink to fit this count (ProfileStats.truncated).
+test("profile_stats: favorite_drink size counts UTF-16 code units", async () => {
+  const ref = doc(env.authenticatedContext("alice").firestore(), "profile_stats/alice");
+  // Accented and CJK letters are one unit each: 40 of them fit, 41 don't.
+  await assertSucceeds(setDoc(ref, {...STATS, favorite_drink: "é".repeat(40)}));
+  await assertSucceeds(setDoc(ref, {...STATS, favorite_drink: "日".repeat(40)}));
+  await assertFails(setDoc(ref, {...STATS, favorite_drink: "日".repeat(41)}));
+  // A flag is two code points, four units: 10 fit (40 units), 11 don't.
+  await assertSucceeds(setDoc(ref, {...STATS, favorite_drink: "🇲🇽".repeat(10)}));
+  await assertFails(setDoc(ref, {...STATS, favorite_drink: "🇲🇽".repeat(11)}));
+  await assertFails(setDoc(ref, {...STATS, favorite_drink: "🇲🇽".repeat(20)}));
 });
 
 test("profile_stats: nothing is written while a deletion is pending", async () => {

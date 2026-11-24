@@ -119,10 +119,17 @@ struct ProfileStatsTests {
         #expect(stats.favoriteDrink == String(repeating: "x", count: 40))
         #expect(stats.favoriteDrink?.count == 40)
 
-        // Whole characters only, and never more than 40 code points either.
+        // Whole characters only, and never more than 40 UTF-16 units, which is what the
+        // rules' size() counts (emulator test "favorite_drink size counts UTF-16 code
+        // units"): a flag is four units, so 10 fit.
         let flags = ProfileStats.truncated(String(repeating: "🇲🇽", count: 41))
-        #expect(flags.unicodeScalars.count <= 40)
-        #expect(flags == String(repeating: "🇲🇽", count: 20))
+        #expect(flags.utf16.count <= 40)
+        #expect(flags == String(repeating: "🇲🇽", count: 10))
+        // Accented and CJK letters are one unit each: 40 of them stay whole.
+        let accented = String(repeating: "\u{E9}", count: 41)
+        #expect(ProfileStats.truncated(accented) == String(repeating: "\u{E9}", count: 40))
+        let cjk = String(repeating: "日", count: 41)
+        #expect(ProfileStats.truncated(cjk) == String(repeating: "日", count: 40))
     }
 
     // MARK: - Publishing
@@ -281,19 +288,37 @@ struct ProfileStatsTests {
 
     // MARK: - The switch
 
-    @Test func sharingIsOnByDefaultAndRememberedPerAccount() {
+    /// The switch lives in the profile: on by default, kept through a save, and on for a
+    /// profile saved before it existed.
+    @Test func sharingIsOnByDefaultAndPersistsInTheProfile() throws {
+        #expect(UserProfile().shareStatsWithFriends)
+
+        var off = UserProfile()
+        off.shareStatsWithFriends = false
+        let saved = try JSONDecoder().decode(UserProfile.self, from: JSONEncoder().encode(off))
+        #expect(saved.shareStatsWithFriends == false)
+
+        let older = try #require(#"{"sex":"Male","weightKg":70,"incognitoByDefault":true}"#.data(using: .utf8))
+        let decoded = try JSONDecoder().decode(UserProfile.self, from: older)
+        #expect(decoded.shareStatsWithFriends)
+        #expect(decoded.incognitoByDefault)
+    }
+
+    /// The per-phone switch of earlier builds is answered once, for that account only, so
+    /// an "off" can be carried into the profile and the old key never read again.
+    @Test func theOldPerPhoneSwitchIsTakenOnce() {
         let uid = "profile-stats-test-\(UUID().uuidString)"
         let otherUid = "profile-stats-test-\(UUID().uuidString)"
-        defer { ProfileStatsSharing.clear(uid: uid) }
+        defer {
+            LegacyProfileStatsSwitch.clear(uid: uid)
+            LegacyProfileStatsSwitch.clear(uid: otherUid)
+        }
+        #expect(LegacyProfileStatsSwitch.key(uid) == "profileStatsHidden.\(uid)")
 
-        #expect(ProfileStatsSharing.isOn(uid: uid))
-        ProfileStatsSharing.set(false, uid: uid)
-        #expect(!ProfileStatsSharing.isOn(uid: uid))
-        #expect(ProfileStatsSharing.isOn(uid: otherUid))
-        ProfileStatsSharing.set(true, uid: uid)
-        #expect(ProfileStatsSharing.isOn(uid: uid))
-        ProfileStatsSharing.set(false, uid: uid)
-        ProfileStatsSharing.clear(uid: uid)
-        #expect(ProfileStatsSharing.isOn(uid: uid))
+        UserDefaults.standard.set(true, forKey: "profileStatsHidden.\(uid)")
+        #expect(!LegacyProfileStatsSwitch.takeHidden(uid: otherUid))
+        #expect(LegacyProfileStatsSwitch.takeHidden(uid: uid))
+        #expect(UserDefaults.standard.object(forKey: "profileStatsHidden.\(uid)") == nil)
+        #expect(!LegacyProfileStatsSwitch.takeHidden(uid: uid))
     }
 }

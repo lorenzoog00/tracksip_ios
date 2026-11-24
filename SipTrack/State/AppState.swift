@@ -740,22 +740,22 @@ final class AppState: ObservableObject {
     /// A publish waiting for a server pull to be merged. Released in applyCloudData.
     private var profileStatsHeld = false
 
-    /// "Show my stats to friends" for the signed-in account. On by default.
-    var shareStatsWithFriends: Bool {
-        guard let uid = currentUserId else { return true }
-        return ProfileStatsSharing.isOn(uid: uid)
-    }
+    /// "Show my stats to friends", synced with the account through the profile. On by
+    /// default.
+    var shareStatsWithFriends: Bool { userProfile.shareStatsWithFriends }
 
-    /// Off deletes `profile_stats/{uid}` and stops publishing; on publishes now. Either
-    /// way the network work runs in the background.
+    /// Saves the switch to the profile, which pushes it to the account, so a reinstall
+    /// or another phone follows it. Off deletes `profile_stats/{uid}` and stops
+    /// publishing; on publishes now. Either way the network work runs in the background.
     func setShareStatsWithFriends(_ on: Bool) {
-        guard let uid = currentUserId, on != shareStatsWithFriends else { return }
-        objectWillChange.send()
-        ProfileStatsSharing.set(on, uid: uid)
+        guard let uid = currentUserId, on != userProfile.shareStatsWithFriends else { return }
+        var profile = userProfile
+        profile.shareStatsWithFriends = on
+        updateUserProfile(profile)
         if on {
             publishProfileStats()
         } else {
-            deleteProfileStatsRemotely()
+            deleteProfileStatsRemotely(uid: uid)
         }
     }
 
@@ -764,18 +764,20 @@ final class AppState: ObservableObject {
     /// With sharing off it only makes sure the doc is gone.
     func publishProfileStats() {
         guard let uid = currentUserId else { return }
-        let enabled = ProfileStatsSharing.isOn(uid: uid)
+        let enabled = userProfile.shareStatsWithFriends
         guard enabled else {
+            // Deleting early is always safe, so a delete doesn't wait for the pull.
             profileStatsHeld = false
-            if !profileStatsDeleted { deleteProfileStatsRemotely() }
+            if !profileStatsDeleted { deleteProfileStatsRemotely(uid: uid) }
             return
         }
         // Like the shared night: nothing is shared before a username (hasSocialProfile's
         // didSet publishes once there is one).
         guard hasSocialProfile else { return }
-        // Held, like shared-night writes, until a server pull is merged: until then a night
-        // another phone made incognito can still look public here, and a new install has
-        // no nights yet and would publish zeros.
+        // Held, like shared-night writes, until a server pull is merged. Until then this
+        // phone's "on" may be stale (a new phone or a reinstall says on before the
+        // account's off arrives), a night another phone made incognito can still look
+        // public here, and a new install has no nights yet and would publish zeros.
         guard hasAppliedCloudData else {
             profileStatsHeld = true
             return
@@ -800,14 +802,14 @@ final class AppState: ObservableObject {
             let ok = await fb.attempt {
                 // Checked inside the retried closure, so a superseded write stops retrying.
                 guard self.profileStatsGeneration == gen else { return }
-                try await fb.writeProfileStats(stats)
+                try await fb.writeProfileStats(stats, uid: uid)
             }
             // Not written: the next publish tries again.
             if !ok, self.profileStatsGeneration == gen { self.lastProfileStats = nil }
         }
     }
 
-    private func deleteProfileStatsRemotely() {
+    private func deleteProfileStatsRemotely(uid: String) {
         profileStatsGeneration &+= 1
         let gen = profileStatsGeneration
         lastProfileStats = nil
@@ -817,7 +819,7 @@ final class AppState: ObservableObject {
             let fb = FirebaseManager.shared
             let ok = await fb.attempt {
                 guard self.profileStatsGeneration == gen else { return }
-                try await fb.deleteProfileStats()
+                try await fb.deleteProfileStats(uid: uid)
             }
             // Still owed: the next publish deletes again.
             if !ok, self.profileStatsGeneration == gen { self.profileStatsDeleted = false }
@@ -2435,6 +2437,7 @@ final class AppState: ObservableObject {
             DataStore.shared.saveChallenges(challenges)
         }
 
+        let sharedStatsBefore = userProfile.shareStatsWithFriends
         if let cloud = data.profile {
             // Never downgrade onboardingComplete — the local write may not have
             // reached Firebase yet when this pull was issued.
@@ -2450,6 +2453,18 @@ final class AppState: ObservableObject {
         } else {
             push { try await FirebaseManager.shared.pushProfile(self.userProfile) }
         }
+        // Once, from builds that kept the stats switch on this phone only: an "off" there
+        // becomes the account's off (pushed with the profile). Read after the merge, which
+        // would otherwise bring back the account's default on.
+        if let uid = currentUserId, LegacyProfileStatsSwitch.takeHidden(uid: uid),
+           userProfile.shareStatsWithFriends {
+            var profile = userProfile
+            profile.shareStatsWithFriends = false
+            updateUserProfile(profile)
+        }
+        // The switch changed on another phone (or just moved over): the doc follows it here
+        // too, once the publish below runs.
+        if userProfile.shareStatsWithFriends != sharedStatsBefore { profileStatsHeld = true }
 
         let localCoachIds = Set(coachReports.map { $0.id })
         let newCoach = data.coachReports.filter { !localCoachIds.contains($0.id) }

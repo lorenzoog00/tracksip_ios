@@ -52,7 +52,7 @@ struct SocialProfileView: View {
         )
     }
 
-    /// Off deletes the stats doc friends read; on publishes it. Saved on this phone.
+    /// Off deletes the stats doc friends read; on publishes it. Synced with the account.
     private var shareStatsBinding: Binding<Bool> {
         Binding(
             get: { appState.shareStatsWithFriends },

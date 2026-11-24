@@ -489,14 +489,16 @@ final class FirebaseManager: ObservableObject {
 
     /// `profile_stats/{uid}`, which only the owner and their friends can read. Full
     /// replace (no merge): the rules allow exactly the stats keys, and a favorite drink
-    /// that is gone must not linger from an earlier write.
-    func writeProfileStats(_ stats: ProfileStats) async throws {
-        guard let uid = currentUserId() else { return }
+    /// that is gone must not linger from an earlier write. `uid` is the account the stats
+    /// were computed for; nothing is written once another account (or none) is signed in.
+    func writeProfileStats(_ stats: ProfileStats, uid: String) async throws {
+        guard currentUserId() == uid else { return }
         try await db.collection("profile_stats").document(uid).setData(stats.firestoreData)
     }
 
-    func deleteProfileStats() async throws {
-        guard let uid = currentUserId() else { return }
+    /// Skipped, like the write, once `uid` is no longer the signed-in account.
+    func deleteProfileStats(uid: String) async throws {
+        guard currentUserId() == uid else { return }
         try await db.collection("profile_stats").document(uid).delete()
     }
 
@@ -600,6 +602,7 @@ final class FirebaseManager: ObservableObject {
         data["favorite_drink_ids"] = profile.favoriteDrinkIds
         data["ai_reports_enabled"] = profile.aiReportsEnabled == true
         data["incognito_by_default"] = profile.incognitoByDefault
+        data["share_stats_with_friends"] = profile.shareStatsWithFriends
         try await db.collection("users").document(uid).collection("profiles").document(uid)
             .setData(data, merge: true)
     }
@@ -737,6 +740,8 @@ final class FirebaseManager: ObservableObject {
             up.favoriteDrinkIds = d["favorite_drink_ids"] as? [String] ?? []
             up.aiReportsEnabled = d["ai_reports_enabled"] as? Bool
             up.incognitoByDefault = d["incognito_by_default"] as? Bool ?? false
+            // Missing in docs from builds before the switch synced: on, the default.
+            up.shareStatsWithFriends = d["share_stats_with_friends"] as? Bool ?? true
             profile = up
         }
 
@@ -1132,14 +1137,14 @@ final class FirebaseManager: ObservableObject {
             let result = try await callFunction("deleteAccount", data: [:], idToken: idToken)
             guard result["deleted"] as? Bool == true else { return .failed("Deletion did not complete. Please try again.") }
             // The saved contacts check (matched profiles and numbers), the
-            // Invited marks, the answered phone prompt and the stats switch go
-            // with the account.
+            // Invited marks, the answered phone prompt and any not yet migrated
+            // stats switch go with the account.
             // A plain sign-out keeps them: signing back in the same day must
             // not spend another check.
             ContactMatchCache.clear(uid: user.uid)
             Invite.clear(uid: user.uid)
             PhonePrompt.clear(uid: user.uid)
-            ProfileStatsSharing.clear(uid: user.uid)
+            LegacyProfileStatsSwitch.clear(uid: user.uid)
             await signOut(unregisterPush: false)
             return .deleted
         } catch let error as NSError

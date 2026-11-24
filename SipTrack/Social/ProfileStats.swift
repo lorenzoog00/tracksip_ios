@@ -118,11 +118,12 @@ nonisolated struct ProfileStats: Equatable, Sendable {
         return name.isEmpty ? nil : name
     }
 
-    /// At most 40 characters, cut on whole characters. Also at most 40 code points, so
-    /// a name of long emoji sequences can't pass here and fail the rules' size check.
+    /// At most 40 characters, cut on whole characters. Also at most 40 UTF-16 code units:
+    /// that is what the rules' `size()` counts (the emulator test proves it), so a name of
+    /// emoji (a flag is four units) is cut further instead of being denied.
     nonisolated static func truncated(_ name: String) -> String {
         var result = String(name.prefix(maxFavoriteLength))
-        while result.unicodeScalars.count > maxFavoriteLength { result.removeLast() }
+        while result.utf16.count > maxFavoriteLength { result.removeLast() }
         return result.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
@@ -209,30 +210,24 @@ enum ProfileStatsPublisher {
     }
 }
 
-/// "Show my stats to friends", per account, on this phone. On unless turned off.
-///
-/// Kept here rather than in UserProfile: the profile doc's rules allow a fixed key list,
-/// so it can't sync, and a local UserProfile field is reset by every sign-out, which
-/// would quietly turn sharing back on. A plain sign-out keeps this; account deletion
-/// clears it.
-enum ProfileStatsSharing {
-    static func isOn(uid: String) -> Bool {
-        !UserDefaults.standard.bool(forKey: key(uid))
-    }
-
-    static func set(_ on: Bool, uid: String) {
-        if on {
-            UserDefaults.standard.removeObject(forKey: key(uid))
-        } else {
-            UserDefaults.standard.set(true, forKey: key(uid))
-        }
+/// Where "Show my stats to friends" was kept before it synced with the account
+/// (`UserProfile.shareStatsWithFriends`): per account, on one phone, under
+/// `profileStatsHidden.<uid>`, set only when turned off. Read once to carry an "off"
+/// over, then gone.
+enum LegacyProfileStatsSwitch {
+    /// Whether this phone had sharing turned off for this account. Forgets it either
+    /// way, so it is answered once.
+    static func takeHidden(uid: String) -> Bool {
+        let hidden = UserDefaults.standard.bool(forKey: key(uid))
+        clear(uid: uid)
+        return hidden
     }
 
     static func clear(uid: String) {
         UserDefaults.standard.removeObject(forKey: key(uid))
     }
 
-    private static func key(_ uid: String) -> String {
+    static func key(_ uid: String) -> String {
         "profileStatsHidden.\(uid)"
     }
 }
