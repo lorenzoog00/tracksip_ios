@@ -39,6 +39,22 @@ struct PersonSuggestion: Equatable, Identifiable {
         /// `via` is one of the shared friends, nil if their profile is gone.
         case mutualFriends(count: Int, via: String?)
         case contact
+
+        /// Why, in words: the grey line under a suggested row, and the line under a
+        /// suggested person's profile header.
+        var subtitle: String {
+            switch self {
+            case .contact:
+                return "In your contacts"
+            case .mutualFriends(let count, let via):
+                guard let via else { return count == 1 ? "1 friend in common" : "\(count) friends in common" }
+                switch count {
+                case ..<2: return "Friends with @\(via)"
+                case 2: return "Friends with @\(via) and 1 other"
+                default: return "Friends with @\(via) and \(count - 1) others"
+                }
+            }
+        }
     }
 
     var profile: FriendProfile
@@ -52,19 +68,7 @@ struct PersonSuggestion: Equatable, Identifiable {
     }
 
     /// The grey line under the username.
-    var subtitle: String {
-        switch reason {
-        case .contact:
-            return "In your contacts"
-        case .mutualFriends(let count, let via):
-            guard let via else { return count == 1 ? "1 friend in common" : "\(count) friends in common" }
-            switch count {
-            case ..<2: return "Friends with @\(via)"
-            case 2: return "Friends with @\(via) and 1 other"
-            default: return "Friends with @\(via) and \(count - 1) others"
-            }
-        }
-    }
+    var subtitle: String { reason.subtitle }
 }
 
 /// One night on the feed. A person can have two at once (a live night and the ended

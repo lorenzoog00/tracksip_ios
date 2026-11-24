@@ -249,12 +249,18 @@ struct ProfileStatsTests {
         #expect(FriendProfileView.Layout.for(isFriend: false, stats: nil) == .locked)
     }
 
-    /// The line under a suggested person's header: the one shared friend by name, else
-    /// a count; nothing for a contact or a profile opened from anywhere else.
-    @Test func mutualLineNamesTheOneFriendElseCounts() {
+    /// The line under a suggested person's header says what their row said; nothing for
+    /// a contact or a profile opened from anywhere else.
+    @Test func mutualLineMatchesTheSuggestedRow() {
+        for reason: PersonSuggestion.Reason in [
+            .mutualFriends(count: 1, via: "ana"), .mutualFriends(count: 3, via: "ana"),
+            .mutualFriends(count: 1, via: nil), .mutualFriends(count: 3, via: nil)
+        ] {
+            #expect(FriendProfileView.mutualLine(reason) == reason.subtitle)
+        }
         #expect(FriendProfileView.mutualLine(.mutualFriends(count: 1, via: "ana")) == "Friends with @ana")
-        #expect(FriendProfileView.mutualLine(.mutualFriends(count: 1, via: nil)) == "1 mutual friend")
-        #expect(FriendProfileView.mutualLine(.mutualFriends(count: 3, via: "ana")) == "3 mutual friends")
+        #expect(FriendProfileView.mutualLine(.mutualFriends(count: 3, via: "ana")) == "Friends with @ana and 2 others")
+        #expect(FriendProfileView.mutualLine(.mutualFriends(count: 3, via: nil)) == "3 friends in common")
         #expect(FriendProfileView.mutualLine(.mutualFriends(count: 0, via: nil)) == nil)
         #expect(FriendProfileView.mutualLine(.contact) == nil)
         #expect(FriendProfileView.mutualLine(nil) == nil)

@@ -29,7 +29,7 @@ struct FriendProfileView: View {
     /// The night whose comment sheet is up.
     @State private var thread: NightKey?
 
-    /// Why Find friends suggested them, for the "3 mutual friends" line; nil when opened
+    /// Why Find friends suggested them, for the mutual-friends line; nil when opened
     /// from anywhere else.
     private let suggestion: PersonSuggestion.Reason?
 
@@ -50,6 +50,12 @@ struct FriendProfileView: View {
         Layout.for(isFriend: isFriend, stats: stats)
     }
 
+    /// Accepted (or made friends by a request), and the friends list hasn't caught up
+    /// yet: the stats come next, so no "Add" card meanwhile.
+    private var awaitingFriendList: Bool {
+        !isFriend && friends.rowState(for: profile.uid) == .friend
+    }
+
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
@@ -60,7 +66,11 @@ struct FriendProfileView: View {
                     nightSection
                 case .locked:
                     relationshipSection
-                    lockedCard
+                    if awaitingFriendList {
+                        loadingStatsRow
+                    } else {
+                        lockedCard
+                    }
                 }
             }
             .padding(.horizontal, 16)
@@ -342,12 +352,11 @@ struct FriendProfileView: View {
         }
     }
 
-    /// "3 mutual friends", or "Friends with @ana" when the one shared friend is known;
-    /// nil when they weren't suggested for mutual friends.
+    /// The suggested row's own words ("Friends with @ana and 2 others", "3 friends in
+    /// common"); nil when they weren't suggested for mutual friends.
     static func mutualLine(_ reason: PersonSuggestion.Reason?) -> String? {
-        guard case .mutualFriends(let count, let via)? = reason, count > 0 else { return nil }
-        if count == 1, let via { return "Friends with @\(via)" }
-        return count == 1 ? "1 mutual friend" : "\(count) mutual friends"
+        guard let reason, case .mutualFriends(let count, _) = reason, count > 0 else { return nil }
+        return reason.subtitle
     }
 
     // MARK: - Not friends
@@ -447,6 +456,20 @@ struct FriendProfileView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
         .premiumCard(radius: 20)
+        .accessibilityElement(children: .combine)
+    }
+
+    /// In place of the locked card while `awaitingFriendList`.
+    private var loadingStatsRow: some View {
+        HStack(spacing: 10) {
+            ProgressView()
+                .tint(AppColors.accent)
+            Text("Loading stats…")
+                .font(.subheadline)
+                .foregroundStyle(AppColors.textSecondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 16)
         .accessibilityElement(children: .combine)
     }
 
