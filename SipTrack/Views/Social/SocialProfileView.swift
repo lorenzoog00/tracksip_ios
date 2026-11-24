@@ -1,7 +1,8 @@
 import SwiftUI
 import PhotosUI
 
-/// My social profile: photo, username, the incognito default and the friends list.
+/// My social profile: photo, username, the incognito default, the stats switch and
+/// the friends list.
 struct SocialProfileView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var friends: FriendsStore
@@ -31,6 +32,14 @@ struct SocialProfileView: View {
                 profile.incognitoByDefault = newValue
                 appState.updateUserProfile(profile)
             }
+        )
+    }
+
+    /// Off deletes the stats doc friends read; on publishes it. Saved on this phone.
+    private var shareStatsBinding: Binding<Bool> {
+        Binding(
+            get: { appState.shareStatsWithFriends },
+            set: { appState.setShareStatsWithFriends($0) }
         )
     }
 
@@ -92,6 +101,20 @@ struct SocialProfileView: View {
                                 Text("Incognito by default")
                                     .foregroundStyle(AppColors.text)
                                 Text("New nights are hidden from friends unless you turn it off.")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(AppColors.textSecondary)
+                            }
+                        }
+                        .tint(AppColors.accent)
+                        .padding(16)
+
+                        Divider().overlay(AppColors.border)
+
+                        Toggle(isOn: shareStatsBinding) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Show my stats to friends")
+                                    .foregroundStyle(AppColors.text)
+                                Text("Nights logged, 90-day averages and your favorite drink. Incognito nights never count.")
                                     .font(.system(size: 12))
                                     .foregroundStyle(AppColors.textSecondary)
                             }

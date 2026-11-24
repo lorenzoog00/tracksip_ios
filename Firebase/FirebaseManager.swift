@@ -480,6 +480,26 @@ final class FirebaseManager: ObservableObject {
         db.collection("shared_nights").document(uid).collection("ended").document(String(startedAtMs))
     }
 
+    // MARK: - Profile stats
+
+    /// When this account was created: the stats card's "member since". Nil signed out.
+    func accountCreationDate() -> Date? {
+        auth.currentUser?.metadata.creationDate
+    }
+
+    /// `profile_stats/{uid}`, which only the owner and their friends can read. Full
+    /// replace (no merge): the rules allow exactly the stats keys, and a favorite drink
+    /// that is gone must not linger from an earlier write.
+    func writeProfileStats(_ stats: ProfileStats) async throws {
+        guard let uid = currentUserId() else { return }
+        try await db.collection("profile_stats").document(uid).setData(stats.firestoreData)
+    }
+
+    func deleteProfileStats() async throws {
+        guard let uid = currentUserId() else { return }
+        try await db.collection("profile_stats").document(uid).delete()
+    }
+
     // MARK: - Notification switches
 
     /// `notification_prefs/{uid}`: which social pushes the server sends me. A missing
@@ -1090,12 +1110,14 @@ final class FirebaseManager: ObservableObject {
             let result = try await callFunction("deleteAccount", data: [:], idToken: idToken)
             guard result["deleted"] as? Bool == true else { return .failed("Deletion did not complete. Please try again.") }
             // The saved contacts check (matched profiles and numbers), the
-            // Invited marks and the answered phone prompt go with the account.
+            // Invited marks, the answered phone prompt and the stats switch go
+            // with the account.
             // A plain sign-out keeps them: signing back in the same day must
             // not spend another check.
             ContactMatchCache.clear(uid: user.uid)
             Invite.clear(uid: user.uid)
             PhonePrompt.clear(uid: user.uid)
+            ProfileStatsSharing.clear(uid: user.uid)
             await signOut(unregisterPush: false)
             return .deleted
         } catch let error as NSError
