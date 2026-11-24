@@ -137,3 +137,30 @@ test("validateDisplayName rejects long, control and moderated names", () => {
     );
   }
 });
+
+test("validateDisplayName rejects invisible and spoofing characters", () => {
+  const bad = ["a\u202eb", "a\u2028b", "a\u2029b", "\u200b", "a\u200bb",
+    "a\u00adb", "a\u061cb", "a\u200eb", "a\u2060b", "a\u2066b", "a\ufeffb",
+    "\u3164", " \u3164 "];
+  for (const name of bad) {
+    assert.throws(
+        () => validateDisplayName(name),
+        (e) => e.code === "invalid-argument" &&
+          e.message === "Try a different name.",
+        JSON.stringify(name),
+    );
+  }
+  assert.equal(validateDisplayName("👨‍👩‍👧"), "👨‍👩‍👧");
+});
+
+test("validateDisplayName catches folded, reserved and non-string names", () => {
+  for (const name of ["ｓｈｉｔ", "Admin", "SipTrack", 123, {}, true]) {
+    assert.throws(
+        () => validateDisplayName(name),
+        (e) => e.code === "invalid-argument" &&
+          e.message === "Try a different name.",
+        String(name),
+    );
+  }
+  assert.equal(validateDisplayName(null), null);
+});

@@ -3305,6 +3305,8 @@ test("profile_stats: bad shapes are rejected", async () => {
   await assertFails(setDoc(ref, {...STATS, nights: 1.5}));
   await assertFails(setDoc(ref, {...STATS, avg_drinks: 101}));
   await assertFails(setDoc(ref, {...STATS, avg_water: -0.1}));
+  await assertFails(setDoc(ref, {...STATS, avg_drinks: NaN}));
+  await assertFails(setDoc(ref, {...STATS, avg_water: Infinity}));
   await assertFails(setDoc(ref, {...STATS, favorite_drink: "x".repeat(41)}));
   await assertFails(setDoc(ref, {...STATS, favorite_drink: 5}));
   await assertFails(setDoc(ref, {...STATS, member_since: 1.5}));

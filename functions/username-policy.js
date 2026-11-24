@@ -55,6 +55,15 @@ function containsOffensive(text) {
 }
 
 /**
+ * True when the name exactly matches a reserved word.
+ * @param {string} text the name, already lowercased
+ * @return {boolean}
+ */
+function isReserved(text) {
+  return RESERVED.has(text);
+}
+
+/**
  * Checks a username against the format and blocklist policy.
  * @param {string} name the username as typed; normalized before checking
  * @return {{ok: true} | {ok: false, reason: string}} "format" when the
@@ -82,4 +91,9 @@ function validateUsername(name) {
   return {ok: true};
 }
 
-module.exports = {normalizeUsername, validateUsername, containsOffensive};
+module.exports = {
+  normalizeUsername,
+  validateUsername,
+  containsOffensive,
+  isReserved,
+};
