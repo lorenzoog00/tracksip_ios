@@ -338,8 +338,7 @@ struct ProfileStatsTests {
         #expect(data["sex"] as? String == "Female")
         #expect(data["onboarding_complete"] as? Bool == true)
         #expect(data["height_cm"] as? Double == 168)
-        // `now` is in September 2026 in every time zone.
-        #expect(data["age"] as? Int == 28)
+        #expect(data["age"] as? Int == Calendar.current.component(.year, from: now) - 1998)
         #expect(data["disclaimer_accepted_at"] as? Double == 1_700_000_000_000)
         #expect(data["country_code"] as? String == "MX")
         #expect(data["country_detection_last_dismissed"] as? String == "US")
