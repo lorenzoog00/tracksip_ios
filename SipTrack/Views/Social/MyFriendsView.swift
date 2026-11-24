@@ -5,6 +5,8 @@ struct MyFriendsView: View {
     @EnvironmentObject var friends: FriendsStore
     @StateObject private var coordinator = FriendActionCoordinator()
     @State private var blockedExpanded = false
+    /// The friend whose profile a row tap pushed.
+    @State private var openedProfile: FriendProfile?
 
     private func isLive(_ profile: FriendProfile) -> Bool {
         let now = Date()
@@ -82,6 +84,18 @@ struct MyFriendsView: View {
         .navigationTitle("My friends")
         .navigationBarTitleDisplayMode(.inline)
         .friendActionDialogs(coordinator)
+        .navigationDestination(isPresented: openedProfileBinding) {
+            if let openedProfile {
+                FriendProfileView(profile: openedProfile)
+            }
+        }
+    }
+
+    private var openedProfileBinding: Binding<Bool> {
+        Binding(
+            get: { openedProfile != nil },
+            set: { if !$0 { openedProfile = nil } }
+        )
     }
 
     // MARK: - Rows
@@ -132,17 +146,30 @@ struct MyFriendsView: View {
         }
     }
 
+    /// The row opens their profile (and their night from there); the ⋯ menu and the
+    /// swipe keep Remove, Block and Report.
     private func friendRow(_ profile: FriendProfile) -> some View {
         HStack(spacing: 12) {
-            AvatarView(profile: profile, size: 40)
-            ProfileNameLabel(profile: profile)
-            if isLive(profile) {
-                Circle()
-                    .fill(AppColors.success)
-                    .frame(width: 8, height: 8)
-                    .accessibilityLabel("Live now")
+            Button {
+                openedProfile = profile
+            } label: {
+                HStack(spacing: 12) {
+                    AvatarView(profile: profile, size: 40)
+                    ProfileNameLabel(profile: profile)
+                    if isLive(profile) {
+                        Circle()
+                            .fill(AppColors.success)
+                            .frame(width: 8, height: 8)
+                            .accessibilityLabel("Live now")
+                    }
+                    Spacer(minLength: 0)
+                }
+                .contentShape(Rectangle())
             }
-            Spacer()
+            // Borderless: only this part of the row opens the profile, so the ⋯ menu
+            // keeps its own tap.
+            .buttonStyle(.borderless)
+            .accessibilityHint("Opens their profile")
             Menu {
                 Button("Remove") { coordinator.removeTarget = profile }
                 Button("Block", role: .destructive) { coordinator.blockTarget = profile }

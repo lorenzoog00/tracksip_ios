@@ -78,8 +78,8 @@ struct FeedView: View {
     @EnvironmentObject var friends: FriendsStore
     /// Opens the same search destination as the toolbar magnifier.
     let onAddFriend: () -> Void
-    /// True while this feed has its own thread sheet up or a night pushed, so
-    /// SocialRootView knows a pushed thread can't present over it directly.
+    /// True while this feed has its own thread sheet up or a night or profile pushed,
+    /// so SocialRootView knows a pushed thread can't present over it directly.
     @Binding var isCovered: Bool
 
     /// The night whose comment sheet is up.
@@ -88,6 +88,8 @@ struct FeedView: View {
     @State private var threadOwnerName = ""
     /// The night pushed by tapping a card's body.
     @State private var openedNight: FeedItem?
+    /// The friend whose profile was pushed by tapping a card's avatar or name.
+    @State private var openedProfile: FriendProfile?
     /// Any open reaction picker; closed by a scroll or a tap elsewhere in the feed.
     @ObservedObject private var pickerFocus = ReactionPickerFocus.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -153,16 +155,22 @@ struct FeedView: View {
                 FriendNightView(item: openedNight)
             }
         }
+        .navigationDestination(isPresented: openedProfileBinding) {
+            if let openedProfile {
+                FriendProfileView(profile: openedProfile)
+            }
+        }
         .sheet(item: $thread) { key in
             NightThreadSheet(key: key, ownerName: threadOwnerName)
         }
         .onAppear(perform: reportCovered)
         .onChange(of: thread) { _, _ in reportCovered() }
         .onChange(of: openedNight?.id) { _, _ in reportCovered() }
+        .onChange(of: openedProfile?.uid) { _, _ in reportCovered() }
     }
 
     private func reportCovered() {
-        let covered = thread != nil || openedNight != nil
+        let covered = thread != nil || openedNight != nil || openedProfile != nil
         if isCovered != covered { isCovered = covered }
     }
 
@@ -175,7 +183,9 @@ struct FeedView: View {
                 threadOwnerName = item.profile.username
                 thread = NightKey(owner: item.profile.uid, night: item.night)
             },
-            onOpenNight: { openedNight = item }
+            onOpenNight: { openedNight = item },
+            // My own night has no profile to open: its avatar opens the night.
+            onOpenProfile: isMine ? nil : { openedProfile = item.profile }
         )
     }
 
@@ -183,6 +193,13 @@ struct FeedView: View {
         Binding(
             get: { openedNight != nil },
             set: { if !$0 { openedNight = nil } }
+        )
+    }
+
+    private var openedProfileBinding: Binding<Bool> {
+        Binding(
+            get: { openedProfile != nil },
+            set: { if !$0 { openedProfile = nil } }
         )
     }
 

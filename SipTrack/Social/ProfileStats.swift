@@ -155,6 +155,45 @@ nonisolated struct ProfileStats: Equatable, Sendable {
     }
 }
 
+// In an extension so the memberwise init stays.
+extension ProfileStats {
+    /// A `profile_stats` doc read back: the inverse of `firestoreData` (which adds
+    /// `updated_at`, ignored here). Numbers may come back as Int, Double or NSNumber.
+    /// Nil without `nights` or `member_since`. An `avg_drinks` of 0 means no night in
+    /// the window (a counted night has at least one drink), so both averages read back
+    /// as nil, as `compute` left them. A missing or blank `favorite_drink` is nil.
+    /// Values are kept to the same ranges as on the way out.
+    nonisolated init?(firestore data: [String: Any]) {
+        guard let nights = Self.number(data["nights"]),
+              let since = Self.number(data["member_since"]) else { return nil }
+        let drinks = Self.number(data["avg_drinks"]).map { min(max($0, 0), Self.maxAverage) }
+        let water = Self.number(data["avg_water"]).map { min(max($0, 0), Self.maxAverage) }
+        let inWindow = (drinks ?? 0) > 0
+        let favorite = (data["favorite_drink"] as? String).map { Self.truncated($0) }
+        self.init(
+            nights: Int(min(max(nights, 0), Double(Self.maxNights)).rounded()),
+            avgDrinks: inWindow ? drinks : nil,
+            avgWater: inWindow ? water : nil,
+            favoriteDrink: (favorite?.isEmpty ?? true) ? nil : favorite,
+            memberSince: Date(timeIntervalSince1970: since / 1000)
+        )
+    }
+
+    /// A finite number however Firestore hands it back.
+    private nonisolated static func number(_ raw: Any?) -> Double? {
+        guard let raw else { return nil }
+        let value: Double
+        switch raw {
+        case let int as Int: value = Double(int)
+        case let int as Int64: value = Double(int)
+        case let double as Double: value = double
+        case let boxed as NSNumber: value = boxed.doubleValue
+        default: return nil
+        }
+        return value.isFinite ? value : nil
+    }
+}
+
 enum ProfileStatsPublisher {
     /// Off never writes (the caller deletes the doc instead). Otherwise only a change is
     /// written: `ProfileStats` has no `updated_at`, so equal stats mean nothing changed.

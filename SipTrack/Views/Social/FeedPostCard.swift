@@ -3,7 +3,8 @@ import SwiftUI
 /// One shared night in the feed, as a post: who and how long, BAC, a mini curve that
 /// draws itself in, drink chips that cascade in, the last drink, reactions, the
 /// comment count and the latest comment. Tapping the body opens the full night;
-/// 💬 and the latest comment open the thread.
+/// 💬 and the latest comment open the thread; the avatar and name open the profile
+/// when there is one to open.
 struct FeedPostCard: View {
     let item: FeedItem
     let now: Date
@@ -11,6 +12,9 @@ struct FeedPostCard: View {
     let isMine: Bool
     let onOpenThread: () -> Void
     let onOpenNight: () -> Void
+    /// Nil on my own night and on the profile itself: the avatar and name are then
+    /// part of the tap that opens the night.
+    let onOpenProfile: (() -> Void)?
 
     @EnvironmentObject private var friends: FriendsStore
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -20,12 +24,14 @@ struct FeedPostCard: View {
     private static let maxChips = 3
 
     init(item: FeedItem, now: Date, isMine: Bool,
-         onOpenThread: @escaping () -> Void, onOpenNight: @escaping () -> Void) {
+         onOpenThread: @escaping () -> Void, onOpenNight: @escaping () -> Void,
+         onOpenProfile: (() -> Void)? = nil) {
         self.item = item
         self.now = now
         self.isMine = isMine
         self.onOpenThread = onOpenThread
         self.onOpenNight = onOpenNight
+        self.onOpenProfile = onOpenProfile
         // Shared with the comment sheet through the store cache.
         let key = NightKey(owner: item.profile.uid, night: item.night)
         let myUid = FirebaseManager.shared.currentUserId() ?? ""
@@ -58,6 +64,12 @@ struct FeedPostCard: View {
             .accessibilityLabel(accessibilityText(live: live, bac: bac))
             .accessibilityHint("Opens the night")
             .accessibilityAddTraits(.isButton)
+            // The avatar and name buttons sit inside this ignored element.
+            .accessibilityActions {
+                if onOpenProfile != nil {
+                    Button("Open profile", action: openProfile)
+                }
+            }
 
             footer
                 // 44 pt hit targets inside, 32 pt visuals: keep the visual rhythm.
@@ -110,16 +122,40 @@ struct FeedPostCard: View {
         onOpenThread()
     }
 
+    /// Like `openNight`: with a reaction picker open, a tap only closes it.
+    private func openProfile() {
+        if ReactionPickerFocus.shared.isOpen {
+            ReactionPickerFocus.dismiss(reduceMotion: reduceMotion)
+        } else {
+            onOpenProfile?()
+        }
+    }
+
+    /// `content` as its own button that opens the profile, inside the card's button
+    /// (the inner one takes the tap); just `content` when there is no profile to open.
+    @ViewBuilder
+    private func profileButton<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        if onOpenProfile != nil {
+            Button(action: openProfile) { content() }
+                .buttonStyle(CardPressStyle())
+        } else {
+            content()
+        }
+    }
+
     // MARK: - Header
 
     private func header(live: Bool, bac: Double, color: Color) -> some View {
         HStack(alignment: .center, spacing: 10) {
-            AvatarView(profile: item.profile, size: 40)
+            profileButton { AvatarView(profile: item.profile, size: 40) }
             VStack(alignment: .leading, spacing: 3) {
-                Text(isMine ? "You" : "@\(item.profile.username)")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(AppColors.text)
-                    .lineLimit(1)
+                profileButton {
+                    Text(isMine ? "You" : "@\(item.profile.username)")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(AppColors.text)
+                        .lineLimit(1)
+                        .contentShape(Rectangle())
+                }
                 HStack(spacing: 6) {
                     if live { LiveDot() }
                     Text(statusText(live: live))

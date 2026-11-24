@@ -182,6 +182,47 @@ struct ProfileStatsTests {
         #expect(data["avg_water"] as? Double == 0)
     }
 
+    // MARK: - Reading a friend's stats
+
+    /// What a friend reads back is what was written, `updated_at` aside.
+    @Test func firestoreRoundTrip() {
+        let full = ProfileStats(
+            nights: 42, avgDrinks: 3.4, avgWater: 2.1, favoriteDrink: "Tequila", memberSince: memberSince
+        )
+        #expect(ProfileStats(firestore: full.firestoreData(updatedAt: now)) == full)
+
+        var noFavorite = full
+        noFavorite.favoriteDrink = nil
+        #expect(ProfileStats(firestore: noFavorite.firestoreData(updatedAt: now)) == noFavorite)
+
+        // No night in the last 90 days: the averages go out as 0 and come back nil.
+        let outside = compute([night(daysAgo: 120, drinks: 2, waters: 1)])
+        #expect(outside.nights == 1)
+        #expect(outside.avgDrinks == nil)
+        #expect(ProfileStats(firestore: outside.firestoreData(updatedAt: now)) == outside)
+
+        let empty = compute([])
+        #expect(ProfileStats(firestore: empty.firestoreData(updatedAt: now)) == empty)
+    }
+
+    /// Firestore hands numbers back as NSNumber, and an older or hand-edited doc may hold
+    /// Doubles; a doc without its required keys is no stats at all.
+    @Test func readingStatsIsTolerant() {
+        let data: [String: Any] = [
+            "nights": NSNumber(value: 12.0),
+            "avg_drinks": NSNumber(value: 3),
+            "avg_water": 1.5,
+            "member_since": NSNumber(value: Int64(1_700_000_000_000)),
+            "favorite_drink": "  "
+        ]
+        #expect(ProfileStats(firestore: data) == ProfileStats(
+            nights: 12, avgDrinks: 3, avgWater: 1.5, favoriteDrink: nil, memberSince: memberSince
+        ))
+        #expect(ProfileStats(firestore: ["nights": 3]) == nil)
+        #expect(ProfileStats(firestore: ["member_since": 1_700_000_000_000]) == nil)
+        #expect(ProfileStats(firestore: ["nights": "3", "member_since": 1_700_000_000_000]) == nil)
+    }
+
     // MARK: - Building nights from the app's data
 
     /// Servings count each entry's quantity and carry its type's name (presets and custom

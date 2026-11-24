@@ -500,6 +500,28 @@ final class FirebaseManager: ObservableObject {
         try await db.collection("profile_stats").document(uid).delete()
     }
 
+    /// Someone's stats card, read once for their profile screen. Nil when there is no
+    /// doc (sharing off, or a build without stats) or it doesn't parse. Only the owner
+    /// and their friends may read it, so a denied read (not friends, or no longer) is
+    /// nil too, not an error.
+    func fetchProfileStats(uid: String) async throws -> ProfileStats? {
+        do {
+            let snap = try await db.collection("profile_stats").document(uid).getDocument()
+            return snap.data().flatMap { ProfileStats(firestore: $0) }
+        } catch let error as NSError
+            where error.domain == FirestoreErrorDomain
+               && error.code == FirestoreErrorCode.permissionDenied.rawValue {
+            return nil
+        }
+    }
+
+    /// Someone's `public_profiles` card (any signed-in user may read it), read again
+    /// when their profile screen opens or is pulled to refresh. Nil when there is none.
+    func fetchPublicProfile(uid: String) async throws -> FriendProfile? {
+        let snap = try await db.collection("public_profiles").document(uid).getDocument()
+        return snap.data().flatMap { FriendProfile.parse($0, uid: uid) }
+    }
+
     // MARK: - Notification switches
 
     /// `notification_prefs/{uid}`: which social pushes the server sends me. A missing
