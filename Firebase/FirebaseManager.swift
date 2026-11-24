@@ -940,9 +940,16 @@ final class FirebaseManager: ObservableObject {
     /// revoking kills the refresh token — so asking for a fresh ID token here
     /// afterwards fails and the request never leaves the phone. `deleteAccount`
     /// takes its token before revoking and hands it over.
+    ///
+    /// The cached ID token is used by default: Firebase refreshes one that is
+    /// expired or about to expire on its own, and forcing a refresh cost a
+    /// network round trip before every call. No callable reads token claims
+    /// (they read only the uid; `deleteAccount` reads `auth_time` from the
+    /// token it is handed), so pass `forcingTokenRefresh: true` only for a
+    /// call that needs claims minted after a sign-in or link.
     private func callFunction(
         _ name: String, data: [String: Any], idToken: String? = nil,
-        forcingTokenRefresh: Bool = true
+        forcingTokenRefresh: Bool = false
     ) async throws -> [String: Any] {
         guard let project = FirebaseApp.app()?.options.projectID,
               let url = URL(string: "https://us-central1-\(project).cloudfunctions.net/\(name)") else {
@@ -1349,9 +1356,7 @@ extension FirebaseManager {
         guard auth.currentUser != nil, let token = Self.lastPushToken else { return }
         let call = Task { @MainActor in
             do {
-                _ = try await self.callFunction(
-                    "unregisterPushToken", data: ["token": token], forcingTokenRefresh: false
-                )
+                _ = try await self.callFunction("unregisterPushToken", data: ["token": token])
             } catch {
                 #if DEBUG
                 print("[Push] unregister failed: \(error.localizedDescription)")

@@ -180,3 +180,134 @@ struct FriendLinkTests {
         #expect(data.history.first?.date == start)
     }
 }
+
+// @MainActor: see CeilingCrossingTests.
+@MainActor
+struct PendingFriendActionsTests {
+    private let allStates: [PendingFriendActions.RowState] = [.add, .pending, .friend, .accept]
+
+    @Test func acceptShowsFriendUntilEnded() {
+        var pending = PendingFriendActions()
+        pending.begin(.accepted, for: "u1")
+        #expect(pending.overlay(.accept, for: "u1") == .friend)
+        pending.end(for: "u1")
+        #expect(pending.overlay(.accept, for: "u1") == .accept)
+    }
+
+    @Test func requestShowsPending() {
+        var pending = PendingFriendActions()
+        pending.begin(.requested, for: "u1")
+        #expect(pending.overlay(.add, for: "u1") == .pending)
+    }
+
+    @Test func unknownUidIsUnchanged() {
+        var pending = PendingFriendActions()
+        pending.begin(.accepted, for: "u1")
+        for state in allStates {
+            #expect(pending.overlay(state, for: "u2") == state)
+        }
+        #expect(!pending.isPending("u2"))
+    }
+
+    @Test func declineAndCancelShowAdd() {
+        var pending = PendingFriendActions()
+        pending.begin(.declined, for: "in")
+        pending.begin(.cancelled, for: "out")
+        #expect(pending.overlay(.accept, for: "in") == .add)
+        #expect(pending.overlay(.pending, for: "out") == .add)
+    }
+
+    /// The request doc and the friendship come through different listeners, in
+    /// either order: an accepted row must not flash "Add" in between.
+    @Test func acceptStaysFriendWhileListenersCatchUp() {
+        var pending = PendingFriendActions()
+        pending.begin(.accepted, for: "u1")
+        #expect(pending.overlay(.add, for: "u1") == .friend)
+        #expect(pending.overlay(.friend, for: "u1") == .friend)
+    }
+
+    /// Asking someone who had already asked me makes us friends on the server.
+    @Test func requestToSomeoneWhoAskedMeShowsFriend() {
+        var pending = PendingFriendActions()
+        pending.begin(.requested, for: "u1")
+        #expect(pending.overlay(.accept, for: "u1") == .friend)
+        #expect(pending.overlay(.friend, for: "u1") == .friend)
+    }
+
+    @Test func failedCallRollsBack() {
+        var pending = PendingFriendActions()
+        let ticket = pending.begin(.requested, for: "u1")
+        #expect(pending.isPending("u1"))
+        pending.end(for: "u1", ticket: ticket)
+        #expect(!pending.isPending("u1"))
+        #expect(pending.overlay(.add, for: "u1") == .add)
+    }
+
+    @Test func olderCallFinishingLateLeavesNewerAlone() {
+        var pending = PendingFriendActions()
+        let first = pending.begin(.requested, for: "u1")
+        pending.begin(.cancelled, for: "u1")
+        pending.end(for: "u1", ticket: first)
+        #expect(pending.overlay(.pending, for: "u1") == .add)
+        let waiting = pending.succeed(.requested, for: "u1", ticket: first, listened: .add)
+        #expect(!waiting)
+        #expect(pending.action(for: "u1") == .cancelled)
+    }
+
+    @Test func successWaitsForListeners() {
+        var pending = PendingFriendActions()
+        let ticket = pending.begin(.accepted, for: "u1")
+        let waiting = pending.succeed(.accepted, for: "u1", ticket: ticket, listened: .accept)
+        #expect(waiting)
+        #expect(pending.overlay(.accept, for: "u1") == .friend)
+        pending.settle(["u1": .accept])
+        #expect(pending.isPending("u1"))
+        pending.settle(["u1": .friend])
+        #expect(!pending.isPending("u1"))
+    }
+
+    @Test func successTheListenersAlreadyShowEndsAtOnce() {
+        var pending = PendingFriendActions()
+        let ticket = pending.begin(.declined, for: "u1")
+        let waiting = pending.succeed(.declined, for: "u1", ticket: ticket, listened: .add)
+        #expect(!waiting)
+        #expect(!pending.isPending("u1"))
+    }
+
+    @Test func requestThatMadeFriendsWaitsForTheFriendship() {
+        var pending = PendingFriendActions()
+        let ticket = pending.begin(.requested, for: "u1")
+        let waiting = pending.succeed(.accepted, for: "u1", ticket: ticket, listened: .accept)
+        #expect(waiting)
+        #expect(pending.action(for: "u1") == .accepted)
+        #expect(pending.overlay(.accept, for: "u1") == .friend)
+        // Their request is gone, the friendship not in yet.
+        pending.settle(["u1": .add])
+        #expect(pending.isPending("u1"))
+        pending.settle(["u1": .friend])
+        #expect(!pending.isPending("u1"))
+    }
+
+    @Test func settleLeavesOtherUidsAlone() {
+        var pending = PendingFriendActions()
+        pending.begin(.cancelled, for: "u1")
+        pending.begin(.requested, for: "u2")
+        pending.settle(["u1": .add, "u2": .add])
+        #expect(!pending.isPending("u1"))
+        #expect(pending.isPending("u2"))
+        #expect(!pending.isEmpty)
+    }
+
+    @Test func reflectedOnlyOnceTheListenersShowIt() {
+        #expect(!PendingFriendActions.isReflected(.requested, in: .add))
+        #expect(PendingFriendActions.isReflected(.requested, in: .pending))
+        #expect(PendingFriendActions.isReflected(.requested, in: .friend))
+        #expect(!PendingFriendActions.isReflected(.accepted, in: .accept))
+        #expect(!PendingFriendActions.isReflected(.accepted, in: .add))
+        #expect(PendingFriendActions.isReflected(.accepted, in: .friend))
+        #expect(!PendingFriendActions.isReflected(.declined, in: .accept))
+        #expect(PendingFriendActions.isReflected(.declined, in: .add))
+        #expect(!PendingFriendActions.isReflected(.cancelled, in: .pending))
+        #expect(PendingFriendActions.isReflected(.cancelled, in: .add))
+    }
+}

@@ -11,6 +11,16 @@ struct MyFriendsView: View {
         return friends.feed.contains { $0.profile.uid == profile.uid && $0.night.isLive(now: now) }
     }
 
+    /// Requests still to answer. One being declined goes at once (it comes back
+    /// if the decline fails); one accepted shows "Friends" until it is listed
+    /// under Friends.
+    private var requests: [FriendProfile] {
+        friends.incoming.filter { request in
+            friends.rowState(for: request.uid) != .add
+                && !friends.friends.contains { $0.uid == request.uid }
+        }
+    }
+
     var body: some View {
         ZStack {
             AppColors.background.ignoresSafeArea()
@@ -26,9 +36,9 @@ struct MyFriendsView: View {
                     .listRowBackground(AppColors.surface)
                 }
 
-                if !friends.incoming.isEmpty {
+                if !requests.isEmpty {
                     Section("Requests") {
-                        ForEach(friends.incoming, id: \.uid) { profile in
+                        ForEach(requests, id: \.uid) { profile in
                             requestRow(profile)
                                 .listRowBackground(AppColors.surface)
                         }
@@ -77,37 +87,49 @@ struct MyFriendsView: View {
     // MARK: - Rows
 
     private func requestRow(_ profile: FriendProfile) -> some View {
-        let disabled = coordinator.isBusy(profile)
+        // Accepted, the row says so at once; the call runs behind it.
+        let accepted = friends.rowState(for: profile.uid) == .friend
+        let disabled = coordinator.isBusy(profile) || friends.pending.isPending(profile.uid)
         return HStack(spacing: 12) {
             AvatarView(profile: profile, size: 40)
             Text("@\(profile.username)")
                 .font(.system(size: 16, weight: .medium))
                 .foregroundStyle(AppColors.text)
             Spacer()
-            Button {
-                coordinator.run(profile, failure: "Couldn't accept request") { try await friends.respond(to: profile.uid, accept: true) }
-            } label: {
-                Text("Accept")
+            if accepted {
+                Text("Friends")
                     .font(.system(size: 14, weight: .semibold))
                     .padding(.horizontal, 14)
                     .padding(.vertical, 7)
-                    .foregroundStyle(Color.black)
-                    .background(AppColors.accent)
-                    .clipShape(Capsule())
-            }
-            .buttonStyle(.borderless)
-            .disabled(disabled)
-            Button {
-                coordinator.run(profile, failure: "Couldn't decline request") { try await friends.respond(to: profile.uid, accept: false) }
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(AppColors.textSecondary)
-                    .padding(8)
+                    .background(AppColors.border)
+                    .clipShape(Capsule())
+            } else {
+                Button {
+                    coordinator.run(profile, failure: "Couldn't accept request") { try await friends.respond(to: profile.uid, accept: true) }
+                } label: {
+                    Text("Accept")
+                        .font(.system(size: 14, weight: .semibold))
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 7)
+                        .foregroundStyle(Color.black)
+                        .background(AppColors.accent)
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.borderless)
+                .disabled(disabled)
+                Button {
+                    coordinator.run(profile, failure: "Couldn't decline request") { try await friends.respond(to: profile.uid, accept: false) }
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(AppColors.textSecondary)
+                        .padding(8)
+                }
+                .buttonStyle(.borderless)
+                .disabled(disabled)
+                .accessibilityLabel("Decline")
             }
-            .buttonStyle(.borderless)
-            .disabled(disabled)
-            .accessibilityLabel("Decline")
             ReportBlockMenu(profile: profile, coordinator: coordinator)
         }
     }
