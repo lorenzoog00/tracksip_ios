@@ -58,7 +58,7 @@ struct ContactMatchCacheTests {
     /// A check saved before display names existed has no "name" key; it still
     /// loads, with no names.
     @Test func cacheSavedWithoutNamesStillDecodes() throws {
-        let json = #"{"uid":"u1","username":"ana","avatarColor":"#FF8800"}"#
+        let json = ##"{"uid":"u1","username":"ana","avatarColor":"#FF8800"}"##
         let snapshot = try JSONDecoder().decode(FriendProfileSnapshot.self, from: Data(json.utf8))
         #expect(snapshot.name == nil)
         #expect(snapshot.profile == FriendProfile(uid: "u1", username: "ana", photoURL: nil, avatarColor: "#FF8800"))
