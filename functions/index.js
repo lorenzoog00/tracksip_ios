@@ -18,30 +18,37 @@ const {initializeApp} = require("firebase-admin/app");
 const {getFirestore} = require("firebase-admin/firestore");
 const {getAuth} = require("firebase-admin/auth");
 const {getStorage} = require("firebase-admin/storage");
-const {ImageAnnotatorClient} = require("@google-cloud/vision");
-const {Anthropic} = require("@anthropic-ai/sdk");
-const {generateReport} = require("./report-service");
+// Heavy modules load on first use. Friend callables share this file with the
+// report and recovery ones, and every top-level require is paid by every cold
+// start, so only what each handler needs is loaded when it runs.
+const lazy = (load) => {
+  let mod;
+  return () => (mod = mod || load());
+};
+const vision = lazy(() => require("@google-cloud/vision"));
+const anthropicSdk = lazy(() => require("@anthropic-ai/sdk"));
+const reportService = lazy(() => require("./report-service"));
+const purchases = lazy(() => require("./purchases"));
+const drinkLookup = lazy(() => require("./drink-lookup"));
+const prompts = lazy(() => require("./prompts"));
+const morningPrompt = lazy(() => require("./recovery/prompt"));
+const morningPlan = lazy(() => require("./recovery/plan"));
+const recoveryImage = lazy(() => require("./recovery/image"));
 const {deleteAccount} = require("./accounts");
-const {verifyPurchase} = require("./purchases");
 const {
   validateRequest,
   isProTester,
   assertPromptFits,
 } = require("./report-policy");
-const {lookupDrink} = require("./drink-lookup");
-const {buildPrompt} = require("./prompts");
 const {
   loadMorningContext,
   assertPlannable,
   finalizePlan,
 } = require("./recovery/morning");
-const {buildMorningPrompt} = require("./recovery/prompt");
-const {PLAN_JSON_SCHEMA, parsePlan} = require("./recovery/plan");
 const liveActivity = require("./live-activity");
 const social = require("./social");
 const interactions = require("./interactions");
 const {setAvatar} = require("./avatar");
-const {generatePhoto, completeLibraryPhoto} = require("./recovery/image");
 const {
   requireAdmin,
   listPendingPhotos,
@@ -101,7 +108,7 @@ exports.requestReport = onCall(
       // `generate` below is the billing boundary; this one is the fair one.
       // A morning prompt needs the database, so it is checked further down.
       if (reportKind !== "morning") {
-        const preview = buildPrompt(reportKind, payload);
+        const preview = prompts().buildPrompt(reportKind, payload);
         assertPromptFits(preview.system, preview.prompt);
       }
       const db = getFirestore();
@@ -111,7 +118,7 @@ exports.requestReport = onCall(
             "Account deletion is in progress.",
         );
       }
-      const purchase = await verifyPurchase(
+      const purchase = await purchases().verifyPurchase(
           request.data.signedTransaction,
           request.auth.uid,
           {
@@ -133,16 +140,16 @@ exports.requestReport = onCall(
           uid: request.auth.uid,
           payload,
         });
-        const prompt = buildMorningPrompt(ctx);
+        const prompt = morningPrompt().buildMorningPrompt(ctx);
         assertPromptFits(
-            prompt.system + JSON.stringify(PLAN_JSON_SCHEMA),
+            prompt.system + JSON.stringify(morningPlan().PLAN_JSON_SCHEMA),
             prompt.prompt,
         );
         // Also a certain refusal, so also before any quota is reserved.
         assertPlannable(ctx);
         morning = {ctx, prompt};
       }
-      return generateReport({
+      return reportService().generateReport({
         db,
         uid: request.auth.uid,
         data: request.data,
@@ -150,7 +157,7 @@ exports.requestReport = onCall(
         tester: isProTester(request.auth.uid, proTesters.value()),
         generate: async (kind, data) => {
           if (morning) {
-            const client = new Anthropic({
+            const client = new (anthropicSdk().Anthropic)({
               apiKey: claudeKey.value(),
               timeout: 25000,
               maxRetries: 1,
@@ -167,7 +174,10 @@ exports.requestReport = onCall(
               // parsePlan still checks every id and length; when it refuses
               // a reply it throws, which is a failed attempt the app retries.
               output_config: {
-                format: {type: "json_schema", schema: PLAN_JSON_SCHEMA},
+                format: {
+                  type: "json_schema",
+                  schema: morningPlan().PLAN_JSON_SCHEMA,
+                },
               },
             });
             // A cut-off reply (max_tokens) or a refusal fails parsePlan
@@ -186,17 +196,17 @@ exports.requestReport = onCall(
               db,
               uid: request.auth.uid,
               eventId,
-              parsed: parsePlan(text, morning.ctx),
+              parsed: morningPlan().parsePlan(text, morning.ctx),
               ctx: morning.ctx,
               now: Date.now(),
               dailyCap: photoDailyCap.value(),
             });
           }
-          const prompt = buildPrompt(kind, data);
+          const prompt = prompts().buildPrompt(kind, data);
           // What we pay for is this prompt, not the payload it came
           // from; the two sizes are not the same.
           assertPromptFits(prompt.system, prompt.prompt);
-          const client = new Anthropic({
+          const client = new (anthropicSdk().Anthropic)({
             apiKey: claudeKey.value(),
             timeout: 25000,
             maxRetries: 1,
@@ -233,7 +243,7 @@ exports.lookupDrink = onCall(
       if (!request.auth) {
         throw new HttpsError("unauthenticated", "Please sign in.");
       }
-      const purchase = await verifyPurchase(
+      const purchase = await purchases().verifyPurchase(
           request.data?.signedTransaction,
           request.auth.uid,
           {
@@ -244,14 +254,14 @@ exports.lookupDrink = onCall(
             allowSandbox: allowSandbox.value(),
           },
       );
-      return lookupDrink({
+      return drinkLookup().lookupDrink({
         db: getFirestore(),
         uid: request.auth.uid,
         data: request.data,
         purchase,
         tester: isProTester(request.auth.uid, proTesters.value()),
         generate: async (prompt) => {
-          const client = new Anthropic({
+          const client = new (anthropicSdk().Anthropic)({
             apiKey: claudeKey.value(),
             timeout: 20000,
             maxRetries: 1,
@@ -491,7 +501,7 @@ exports.matchContacts = onCall(
 let visionClient;
 // Likelihood strings per category, as the avatar moderation expects.
 const safeSearch = async (buffer) => {
-  visionClient = visionClient || new ImageAnnotatorClient();
+  visionClient = visionClient || new (vision().ImageAnnotatorClient)();
   const [result] = await visionClient.safeSearchDetection({
     image: {content: buffer},
   });
@@ -539,14 +549,14 @@ async function runLibraryPhoto(itemId, {versioned = false} = {}) {
     // us-central1 returns 404 "publisher model not found" for them.
     location: "global",
   });
-  await completeLibraryPhoto({
+  await recoveryImage().completeLibraryPhoto({
     db: getFirestore(),
     bucket: getStorage().bucket(),
     itemId,
     now: Date.now(),
     versioned,
     generate: (picked) =>
-      generatePhoto(picked, {genai, model: imageModel.value()}),
+      recoveryImage().generatePhoto(picked, {genai, model: imageModel.value()}),
   });
 }
 
