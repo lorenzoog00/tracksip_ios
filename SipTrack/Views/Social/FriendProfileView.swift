@@ -204,7 +204,7 @@ struct FriendProfileView: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Last 90 days")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(AppColors.textTertiary)
+                    .foregroundStyle(AppColors.textSecondary)
                     .textCase(.uppercase)
                 statRow(icon: "wineglass.fill", color: AppColors.accent,
                         value: Self.average(drinks), label: "drinks / night")

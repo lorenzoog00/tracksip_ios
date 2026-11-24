@@ -30,7 +30,7 @@ struct SocialProfileView: View {
     @State private var nameError: String?
     @FocusState private var nameFocused: Bool
 
-    /// The server's limit, counted here in characters as typed.
+    /// The server's limit, in Unicode scalars: what its `[...name].length` counts.
     private static let nameLimit = 30
 
     private var savedName: String { friends.myProfile?.name ?? "" }
@@ -175,7 +175,11 @@ struct SocialProfileView: View {
             if !nameFocused && !isSavingName { nameDraft = name ?? "" }
         }
         .onChange(of: nameDraft) { _, typed in
-            if typed.count > Self.nameLimit { nameDraft = String(typed.prefix(Self.nameLimit)) }
+            // Counted as the server counts (an emoji can be several scalars), cut on whole
+            // characters so none is split.
+            var capped = typed
+            while capped.unicodeScalars.count > Self.nameLimit { capped.removeLast() }
+            if capped != typed { nameDraft = capped }
             nameError = nil
         }
         .navigationTitle("Profile")

@@ -163,6 +163,11 @@ struct MyFriendsView: View {
                             .accessibilityLabel("Live now")
                     }
                     Spacer(minLength: 0)
+                    // Says the row opens something; the hint says what.
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(AppColors.textSecondary)
+                        .accessibilityHidden(true)
                 }
                 .contentShape(Rectangle())
             }
