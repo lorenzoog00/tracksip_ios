@@ -46,24 +46,26 @@ struct FeedPostCard: View {
         let latest = latestVisibleComment
 
         VStack(alignment: .leading, spacing: 12) {
-            Button(action: openNight) {
-                VStack(alignment: .leading, spacing: 12) {
-                    header(live: live, bac: bac, color: stageColor)
-                    MiniBACCurve(
-                        data: NightBACChartData(shared: night, now: now),
-                        live: live,
-                        color: IntoxicationStage.stage(for: night.peakBAC).color
-                    )
-                    chipsRow
-                    lastDrinkLine
-                }
-                .contentShape(Rectangle())
+            // A tap gesture, not a Button: the avatar and name are real buttons inside it,
+            // and a Button inside another Button's label isn't relied on.
+            VStack(alignment: .leading, spacing: 12) {
+                header(live: live, bac: bac, color: stageColor)
+                MiniBACCurve(
+                    data: NightBACChartData(shared: night, now: now),
+                    live: live,
+                    color: IntoxicationStage.stage(for: night.peakBAC).color
+                )
+                chipsRow
+                lastDrinkLine
             }
-            .buttonStyle(CardPressStyle())
+            .contentShape(Rectangle())
+            .onTapGesture { openNight() }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(accessibilityText(live: live, bac: bac))
             .accessibilityHint("Opens the night")
             .accessibilityAddTraits(.isButton)
+            // The default action (a double tap) opens the night, as the tap does.
+            .accessibilityAction { openNight() }
             // The avatar and name buttons sit inside this ignored element.
             .accessibilityActions {
                 if onOpenProfile != nil {
@@ -131,13 +133,24 @@ struct FeedPostCard: View {
         }
     }
 
-    /// `content` as its own button that opens the profile, inside the card's button
-    /// (the inner one takes the tap); just `content` when there is no profile to open.
+    /// `content` as its own button that opens the profile, inside the card's tap area
+    /// (the button takes the tap over the card's gesture); just `content` when there is
+    /// no profile to open. The hit area grows by `growX`/`growY` on each side, to 44 pt
+    /// at least, while the layout keeps the content's own size.
     @ViewBuilder
-    private func profileButton<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+    private func profileButton<Content: View>(
+        growX: CGFloat, growY: CGFloat, @ViewBuilder _ content: () -> Content
+    ) -> some View {
         if onOpenProfile != nil {
-            Button(action: openProfile) { content() }
-                .buttonStyle(CardPressStyle())
+            Button(action: openProfile) {
+                content()
+                    .padding(.horizontal, growX)
+                    .padding(.vertical, growY)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(CardPressStyle())
+            .padding(.horizontal, -growX)
+            .padding(.vertical, -growY)
         } else {
             content()
         }
@@ -147,14 +160,17 @@ struct FeedPostCard: View {
 
     private func header(live: Bool, bac: Double, color: Color) -> some View {
         HStack(alignment: .center, spacing: 10) {
-            profileButton { AvatarView(profile: item.profile, size: 40) }
+            // 40 pt avatar: 44 × 44 to tap.
+            profileButton(growX: 2, growY: 2) { AvatarView(profile: item.profile, size: 40) }
             VStack(alignment: .leading, spacing: 3) {
-                profileButton {
+                // A ~20 pt line, maybe a short "@ana": 44 pt tall and wide at least.
+                // The status line below sits over the overlap, so a tap on its text
+                // still opens the night.
+                profileButton(growX: 10, growY: 12) {
                     Text(isMine ? "You" : "@\(item.profile.username)")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(AppColors.text)
                         .lineLimit(1)
-                        .contentShape(Rectangle())
                 }
                 HStack(spacing: 6) {
                     if live { LiveDot() }
