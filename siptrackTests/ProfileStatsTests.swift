@@ -230,6 +230,42 @@ struct ProfileStatsTests {
         #expect(ProfileStats(firestore: ["nights": "3", "member_since": 1_700_000_000_000]) == nil)
     }
 
+    // MARK: - The profile screen
+
+    /// Stats show only to a friend with nights counted; anyone else gets the locked card,
+    /// whatever stats there are (none are read for them).
+    @Test func profileLayoutFollowsFriendshipThenStats() {
+        let counted = ProfileStats(
+            nights: 3, avgDrinks: 2, avgWater: 1, favoriteDrink: "Beer", memberSince: memberSince
+        )
+        let noNights = ProfileStats(
+            nights: 0, avgDrinks: nil, avgWater: nil, favoriteDrink: nil, memberSince: memberSince
+        )
+        #expect(FriendProfileView.Layout.for(isFriend: true, stats: counted) == .friendStats)
+        #expect(FriendProfileView.Layout.for(isFriend: true, stats: nil) == .friendNoStats)
+        #expect(FriendProfileView.Layout.for(isFriend: true, stats: noNights) == .friendNoStats)
+        #expect(FriendProfileView.Layout.for(isFriend: false, stats: counted) == .locked)
+        #expect(FriendProfileView.Layout.for(isFriend: false, stats: noNights) == .locked)
+        #expect(FriendProfileView.Layout.for(isFriend: false, stats: nil) == .locked)
+    }
+
+    /// The line under a suggested person's header says what their row said; nothing for
+    /// a contact or a profile opened from anywhere else.
+    @Test func mutualLineMatchesTheSuggestedRow() {
+        for reason: PersonSuggestion.Reason in [
+            .mutualFriends(count: 1, via: "ana"), .mutualFriends(count: 3, via: "ana"),
+            .mutualFriends(count: 1, via: nil), .mutualFriends(count: 3, via: nil)
+        ] {
+            #expect(FriendProfileView.mutualLine(reason) == reason.subtitle)
+        }
+        #expect(FriendProfileView.mutualLine(.mutualFriends(count: 1, via: "ana")) == "Friends with @ana")
+        #expect(FriendProfileView.mutualLine(.mutualFriends(count: 3, via: "ana")) == "Friends with @ana and 2 others")
+        #expect(FriendProfileView.mutualLine(.mutualFriends(count: 3, via: nil)) == "3 friends in common")
+        #expect(FriendProfileView.mutualLine(.mutualFriends(count: 0, via: nil)) == nil)
+        #expect(FriendProfileView.mutualLine(.contact) == nil)
+        #expect(FriendProfileView.mutualLine(nil) == nil)
+    }
+
     // MARK: - Building nights from the app's data
 
     /// Servings count each entry's quantity and carry its type's name (presets and custom
