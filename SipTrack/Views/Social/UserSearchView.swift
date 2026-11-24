@@ -15,10 +15,7 @@ struct UserSearchView: View {
     @State private var results: [FriendProfile] = []
     @State private var isSearching = false
     @State private var searchTask: Task<Void, Never>?
-    /// Requests sent from this screen, so the button flips before the Firestore listener catches up.
-    @State private var sent: Set<String> = []
     @StateObject private var coordinator = FriendActionCoordinator()
-    @State private var busy: Set<String> = []
     @State private var suggestions: [PersonSuggestion] = []
     @State private var loadingSuggestions = true
     @State private var contacts: ContactsState = .idle
@@ -45,7 +42,7 @@ struct UserSearchView: View {
         case failed(String)
     }
 
-    private enum RowState { case add, pending, friend, accept }
+    private typealias RowState = PendingFriendActions.RowState
 
     /// An invite going out through the Messages composer.
     private struct MessageDraft: Identifiable {
@@ -71,11 +68,15 @@ struct UserSearchView: View {
         return q
     }
 
+    /// Changes on the tap, before the server answers (`FriendsStore.pending`).
     private func state(for profile: FriendProfile) -> RowState {
-        if friends.friends.contains(where: { $0.uid == profile.uid }) { return .friend }
-        if friends.incoming.contains(where: { $0.uid == profile.uid }) { return .accept }
-        if sent.contains(profile.uid) || friends.outgoing.contains(where: { $0.uid == profile.uid }) { return .pending }
-        return .add
+        friends.rowState(for: profile.uid)
+    }
+
+    /// Friends drop out of the suggestions only once the listener has them, so
+    /// an accepted row shows "Friends" until then instead of vanishing on the tap.
+    private func isFriend(_ profile: FriendProfile) -> Bool {
+        friends.friends.contains { $0.uid == profile.uid }
     }
 
     var body: some View {
@@ -125,11 +126,6 @@ struct UserSearchView: View {
             ShareSheet(items: [draft.text])
         }
         .onChange(of: query) { _, _ in scheduleSearch() }
-        .onChange(of: friends.outgoing.map(\.uid)) { _, ids in
-            // The snapshot has arrived; Pending now comes from `outgoing`, so a later
-            // cancel or decline must not leave a stale "Pending" behind.
-            sent.subtract(ids)
-        }
         .onChange(of: firebase.phoneNumber) { _, phone in
             // Added, changed or removed (here or on another phone): nothing from
             // the old number's check stays on screen, and a new number shows its
@@ -159,14 +155,14 @@ struct UserSearchView: View {
             PersonSuggestion(profile: snapshot.profile, reason: .contact)
         }
         return PersonSuggestion.visible(found, myUid: friends.currentUid, blocked: friends.blockedUidSet)
-            .filter { state(for: $0.profile) != .friend }
+            .filter { !isFriend($0.profile) }
     }
 
     /// Friends of friends, minus anyone already listed from contacts or now a friend.
     private var mutualSuggestions: [PersonSuggestion] {
         let fromContacts = Set(contactMatches.map(\.id))
         return PersonSuggestion.visible(suggestions, myUid: friends.currentUid, blocked: friends.blockedUidSet)
-            .filter { !fromContacts.contains($0.id) && state(for: $0.profile) != .friend }
+            .filter { !fromContacts.contains($0.id) && !isFriend($0.profile) }
     }
 
     /// Only after a check: without it the list could invite people who already
@@ -647,9 +643,7 @@ struct UserSearchView: View {
         HStack(spacing: 12) {
             AvatarView(profile: profile, size: 40)
             VStack(alignment: .leading, spacing: 2) {
-                Text("@\(profile.username)")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(AppColors.text)
+                ProfileNameLabel(profile: profile)
                 if let subtitle {
                     Text(subtitle)
                         .font(.system(size: 13))
@@ -666,7 +660,8 @@ struct UserSearchView: View {
     @ViewBuilder
     private func actionButton(_ profile: FriendProfile) -> some View {
         let rowState = state(for: profile)
-        let inFlight = busy.contains(profile.uid)
+        // Held from the tap until the listener shows the change, so no second tap.
+        let inFlight = coordinator.isBusy(profile) || friends.pending.isPending(profile.uid)
         Button {
             act(profile, rowState)
         } label: {
@@ -691,21 +686,16 @@ struct UserSearchView: View {
         }
     }
 
+    /// The row flips at once (`FriendsStore.pending`); a failure flips it back and
+    /// the coordinator shows the error.
     private func act(_ profile: FriendProfile, _ rowState: RowState) {
         guard rowState == .add || rowState == .accept else { return }
-        busy.insert(profile.uid)
-        Task {
-            do {
-                if rowState == .add {
-                    try await friends.sendRequest(to: profile.uid)
-                    sent.insert(profile.uid)
-                } else {
-                    try await friends.respond(to: profile.uid, accept: true)
-                }
-            } catch {
-                showSocialNotice(title: "Couldn't update request", message: error.localizedDescription)
+        coordinator.run(profile, failure: "Couldn't update request") {
+            if rowState == .add {
+                try await friends.sendRequest(to: profile.uid)
+            } else {
+                try await friends.respond(to: profile.uid, accept: true)
             }
-            busy.remove(profile.uid)
         }
     }
 

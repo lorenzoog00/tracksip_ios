@@ -89,6 +89,9 @@ struct UserProfile: Codable {
     var aiReportMonthKey: String               = "" // format: "2026-05"
     var aiReportsEnabled: Bool?                = nil
     var incognitoByDefault: Bool               = false
+    /// "Show my stats to friends": off deletes `profile_stats/{uid}` and stops publishing.
+    /// Synced with the account (`share_stats_with_friends`) so a new phone keeps it.
+    var shareStatsWithFriends: Bool            = true
 
     var isPro: Bool { subscriptionTier == .pro }
 
@@ -112,7 +115,7 @@ struct UserProfile: Codable {
         case subscriptionTier, subscriptionPeriod, subscriptionStartedAt
         case liveActivityDrinkIds, favoriteDrinkIds
         case aiReportsUsedThisMonth, aiReportMonthKey, aiReportsEnabled
-        case incognitoByDefault
+        case incognitoByDefault, shareStatsWithFriends
     }
 }
 
@@ -159,5 +162,6 @@ extension UserProfile {
         aiReportMonthKey                    = try c.decodeIfPresent(String.self, forKey: .aiReportMonthKey) ?? aiReportMonthKey
         aiReportsEnabled                    = try c.decodeIfPresent(Bool.self, forKey: .aiReportsEnabled)
         incognitoByDefault                  = try c.decodeIfPresent(Bool.self, forKey: .incognitoByDefault) ?? incognitoByDefault
+        shareStatsWithFriends               = try c.decodeIfPresent(Bool.self, forKey: .shareStatsWithFriends) ?? shareStatsWithFriends
     }
 }

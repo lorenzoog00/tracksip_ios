@@ -222,6 +222,7 @@ final class AppState: ObservableObject {
                 self?.lastSentSharedNight = nil
                 self?.sharedNightGeneration &+= 1
                 self?.hasAppliedCloudData = false
+                self?.resetProfileStatsSession()
                 self?.resetProfile()
             }
         refreshFromFirebase()
@@ -315,6 +316,11 @@ final class AppState: ObservableObject {
     func refreshOnForeground() {
         guard let uid = currentUserId else { return }
         hasAppliedCloudData = false
+        // The 90-day window moves with the clock: stats a day old are recomputed once
+        // this pull is merged (and written only if a value changed).
+        if ProfileStatsPublisher.isStale(checkedAt: profileStatsCheckedAt, now: Date()) {
+            profileStatsHeld = true
+        }
         guard cloudPullUid == nil else { return }
         startCloudPull(uid: uid, full: false)
     }
@@ -329,6 +335,9 @@ final class AppState: ObservableObject {
             cloudPullIsFull = false
             // Another account's data must never be merged into this one.
             if currentUserId == uid {
+                // After sign-in or launch: the profile stats are published once the
+                // account's nights are merged (applyCloudData releases the hold).
+                if wasFull { profileStatsHeld = true }
                 applyCloudData(data)
                 if wasFull {
                     // Whatever came back — a profile, no profile, or a pull that
@@ -604,7 +613,10 @@ final class AppState: ObservableObject {
     // MARK: - Shared night (friends)
 
     /// Set by the friends store once the user has a username. Until then nothing is shared.
-    @Published var hasSocialProfile = false
+    @Published var hasSocialProfile = false {
+        // The profile stats wait for a username like the shared night does.
+        didSet { if hasSocialProfile, !oldValue { publishProfileStats() } }
+    }
     /// What was last written to `shared_nights/{uid}`; nil after incognito so the whole
     /// night is re-sent when incognito turns off.
     private var lastSentSharedNight: SharedNight?
@@ -709,6 +721,123 @@ final class AppState: ObservableObject {
         }
     }
 
+    // MARK: - Profile stats (friends)
+
+    /// What this session last wrote, or is writing, to `profile_stats/{uid}`. Nil before
+    /// the first write, after a failed write or a delete, and after sign-out, so the
+    /// next publish writes again.
+    private var lastProfileStats: ProfileStats?
+    /// True once a delete went out this session with nothing written since. While
+    /// sharing is off, the next publish deletes again until one does (a failed delete,
+    /// or a doc another phone wrote, is caught at the next launch or sign-in).
+    private var profileStatsDeleted = false
+    /// Bumped by every profile-stats write and delete, and on sign-out. `attempt` retries
+    /// for seconds, so a superseded write must not land after the delete that replaced
+    /// it, or after sign-out.
+    private var profileStatsGeneration = 0
+    /// When the stats were last computed (written or found unchanged).
+    private var profileStatsCheckedAt: Date?
+    /// A publish waiting for a server pull to be merged. Released in applyCloudData.
+    private var profileStatsHeld = false
+
+    /// "Show my stats to friends", synced with the account through the profile. On by
+    /// default.
+    var shareStatsWithFriends: Bool { userProfile.shareStatsWithFriends }
+
+    /// Saves the switch to the profile, which pushes it to the account, so a reinstall
+    /// or another phone follows it. Off deletes `profile_stats/{uid}` and stops
+    /// publishing; on publishes now. Either way the network work runs in the background.
+    func setShareStatsWithFriends(_ on: Bool) {
+        guard let uid = currentUserId, on != userProfile.shareStatsWithFriends else { return }
+        var profile = userProfile
+        profile.shareStatsWithFriends = on
+        // The one push allowed to write share_stats_with_friends: true (pushProfile omits
+        // an "on" otherwise, so a stale one can't overwrite the account's off).
+        updateUserProfile(profile, explicitShareStats: true)
+        if on {
+            publishProfileStats()
+        } else {
+            deleteProfileStatsRemotely(uid: uid)
+        }
+    }
+
+    /// Recomputes the stats friends see from this phone's nights and writes them if a
+    /// value changed. Never blocks: the write runs in a Task, and nothing awaits it.
+    /// With sharing off it only makes sure the doc is gone.
+    func publishProfileStats() {
+        guard let uid = currentUserId else { return }
+        let enabled = userProfile.shareStatsWithFriends
+        guard enabled else {
+            // Deleting early is always safe, so a delete doesn't wait for the pull.
+            profileStatsHeld = false
+            if !profileStatsDeleted { deleteProfileStatsRemotely(uid: uid) }
+            return
+        }
+        // Like the shared night: nothing is shared before a username (hasSocialProfile's
+        // didSet publishes once there is one).
+        guard hasSocialProfile else { return }
+        // Held, like shared-night writes, until a server pull is merged. Until then this
+        // phone's "on" may be stale (a new phone or a reinstall says on before the
+        // account's off arrives), a night another phone made incognito can still look
+        // public here, and a new install has no nights yet and would publish zeros.
+        guard hasAppliedCloudData else {
+            profileStatsHeld = true
+            return
+        }
+        guard let memberSince = FirebaseManager.shared.accountCreationDate() else { return }
+        profileStatsHeld = false
+        let now = Date()
+        profileStatsCheckedAt = now
+        let nights = NightSummary.summaries(
+            events: events, entries: entries, waterEntries: waterEntries,
+            drinkTypes: allDrinkTypes, userId: uid
+        )
+        let stats = ProfileStats.compute(nights: nights, memberSince: memberSince, now: now)
+        guard ProfileStatsPublisher.shouldWrite(new: stats, last: lastProfileStats, enabled: enabled) else { return }
+
+        profileStatsGeneration &+= 1
+        let gen = profileStatsGeneration
+        lastProfileStats = stats
+        profileStatsDeleted = false
+        Task {
+            let fb = FirebaseManager.shared
+            let ok = await fb.attempt {
+                // Checked inside the retried closure, so a superseded write stops retrying.
+                guard self.profileStatsGeneration == gen else { return }
+                try await fb.writeProfileStats(stats, uid: uid)
+            }
+            // Not written: the next publish tries again.
+            if !ok, self.profileStatsGeneration == gen { self.lastProfileStats = nil }
+        }
+    }
+
+    private func deleteProfileStatsRemotely(uid: String) {
+        profileStatsGeneration &+= 1
+        let gen = profileStatsGeneration
+        lastProfileStats = nil
+        profileStatsDeleted = true
+        profileStatsHeld = false
+        Task {
+            let fb = FirebaseManager.shared
+            let ok = await fb.attempt {
+                guard self.profileStatsGeneration == gen else { return }
+                try await fb.deleteProfileStats(uid: uid)
+            }
+            // Still owed: the next publish deletes again.
+            if !ok, self.profileStatsGeneration == gen { self.profileStatsDeleted = false }
+        }
+    }
+
+    /// Sign-out: stops any write or delete still retrying and forgets what was sent, so
+    /// the next account starts clean.
+    private func resetProfileStatsSession() {
+        profileStatsGeneration &+= 1
+        lastProfileStats = nil
+        profileStatsDeleted = false
+        profileStatsCheckedAt = nil
+        profileStatsHeld = false
+    }
+
     /// Re-reads the clock and pushes the lock screen at once. Called when the app
     /// comes back to the foreground: the 10 s tick is suspended in the background,
     /// so without this the screen showed the time it was left at until the next
@@ -733,6 +862,7 @@ final class AppState: ObservableObject {
         // builds a recovery plan instead.
         scheduleMorningNotification(for: id)
         syncSharedNight()
+        publishProfileStats()
     }
 
     /// nil means the caller didn't choose (Watch, intents): use the profile default.
@@ -753,6 +883,8 @@ final class AppState: ObservableObject {
         if on, sharedNightEvent()?.id != eventId, let event = events.first(where: { $0.id == eventId }) {
             deleteEndedSharedNightRemotely(event)
         }
+        // An incognito night never counts toward the stats friends see.
+        publishProfileStats()
     }
 
     // MARK: - AI Report
@@ -1843,6 +1975,7 @@ final class AppState: ObservableObject {
             deleteSharedNightRemotely(startedAt: deleted?.startTime)
             syncSharedNight()
         }
+        publishProfileStats()
     }
 
     private func updateEvent(id: String, explicitIncognito: Bool = false,
@@ -2026,7 +2159,9 @@ final class AppState: ObservableObject {
 
     // MARK: - Profile
 
-    func updateUserProfile(_ profile: UserProfile) {
+    /// `explicitShareStats`: only the stats switch passes true, so its "on" reaches the
+    /// account (`pushProfile` sends an on only then; an off always goes).
+    func updateUserProfile(_ profile: UserProfile, explicitShareStats: Bool = false) {
         userProfile = profile
         DataStore.shared.saveUserProfile(profile)
         // Pushed after the write, not before it: prepare() re-reads the profile from
@@ -2034,7 +2169,7 @@ final class AppState: ObservableObject {
         // Insurance for a future async save. Today it cannot race: DataStore.save is a
         // synchronous atomic write and AppState and Haptics share the main actor.
         Haptics.shared.setEnabled(profile.hapticsEnabled)
-        push { try await FirebaseManager.shared.pushProfile(profile) }
+        push { try await FirebaseManager.shared.pushProfile(profile, explicitShareStats: explicitShareStats) }
         refreshWaterReminder()
     }
 
@@ -2306,6 +2441,7 @@ final class AppState: ObservableObject {
             DataStore.shared.saveChallenges(challenges)
         }
 
+        let sharedStatsBefore = userProfile.shareStatsWithFriends
         if let cloud = data.profile {
             // Never downgrade onboardingComplete — the local write may not have
             // reached Firebase yet when this pull was issued.
@@ -2321,6 +2457,9 @@ final class AppState: ObservableObject {
         } else {
             push { try await FirebaseManager.shared.pushProfile(self.userProfile) }
         }
+        // The switch changed on another phone: the doc follows it here too, once the
+        // publish below runs.
+        if userProfile.shareStatsWithFriends != sharedStatsBefore { profileStatsHeld = true }
 
         let localCoachIds = Set(coachReports.map { $0.id })
         let newCoach = data.coachReports.filter { !localCoachIds.contains($0.id) }
@@ -2342,6 +2481,11 @@ final class AppState: ObservableObject {
         // held (deletes still go out); refreshOnForeground/retrySync try again.
         if data.succeeded { hasAppliedCloudData = true }
         syncSharedNight()
+        // A night another phone just made incognito comes out of the stats too.
+        if incognitoChanged { profileStatsHeld = true }
+        // A stats publish held for this merge (sign-in, launch, a stale foreground, or a
+        // night ended before it) goes now. A failed pull keeps it held.
+        if profileStatsHeld { publishProfileStats() }
     }
 
     // MARK: - BAC helpers (for active event view)

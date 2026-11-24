@@ -10,7 +10,7 @@ struct SocialRootView: View {
     @State private var showSearch = false
     @State private var showFriends = false
     @State private var showProfile = false
-    /// FeedView's own thread sheet or pushed night is up.
+    /// FeedView's own thread sheet, pushed night or pushed profile is up.
     @State private var feedCovered = false
     /// The night a tapped push opened, presented over the feed.
     @State private var pushedThread: NightKey?
