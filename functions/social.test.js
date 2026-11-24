@@ -107,3 +107,33 @@ test("no numbers means no lookups", async () => {
   assert.deepEqual(owners, []);
   assert.equal(calls.length, 0);
 });
+
+const {validateDisplayName} = require("./social");
+
+test("validateDisplayName trims and keeps ordinary names", () => {
+  assert.equal(validateDisplayName("  Lorenzo Orozco "), "Lorenzo Orozco");
+  assert.equal(validateDisplayName("🍻🍻"), "🍻🍻");
+  assert.equal(validateDisplayName("a".repeat(30)), "a".repeat(30));
+});
+
+test("validateDisplayName returns null for empty or non-string input", () => {
+  assert.equal(validateDisplayName("   "), null);
+  assert.equal(validateDisplayName(""), null);
+  assert.equal(validateDisplayName(undefined), null);
+});
+
+test("validateDisplayName rejects long, control and moderated names", () => {
+  assert.throws(
+      () => validateDisplayName("a".repeat(31)),
+      (e) => e.code === "invalid-argument" &&
+        e.message === "Names can be up to 30 characters.",
+  );
+  for (const bad of ["a\u0007b", "line\nbreak", "Big Shit Lord"]) {
+    assert.throws(
+        () => validateDisplayName(bad),
+        (e) => e.code === "invalid-argument" &&
+          e.message === "Try a different name.",
+        bad,
+    );
+  }
+});

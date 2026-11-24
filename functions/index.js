@@ -402,6 +402,7 @@ const pushingCallable = (
 );
 
 exports.claimUsername = socialCallable("claimUsername");
+exports.setDisplayName = socialCallable("setDisplayName");
 exports.suggestFriends = socialCallable("suggestFriends");
 exports.searchUsers = socialCallable("searchUsers");
 exports.cancelFriendRequest = socialCallable("cancelFriendRequest");

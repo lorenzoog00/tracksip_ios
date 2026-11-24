@@ -169,6 +169,28 @@ service cloud.firestore {
       allow get: if request.auth != null;
     }
 
+    // Aggregate stats the owner's app writes for friends to read. A friend
+    // is anyone the owner lists, so unfriending cuts access at once. Counts
+    // are ints; averages may be any number. All bounded and key-limited.
+    match /profile_stats/{uid} {
+      function validStats(d) {
+        return d.nights is int && d.nights >= 0 && d.nights <= 100000
+          && d.avg_drinks is number && d.avg_drinks >= 0 && d.avg_drinks <= 100
+          && d.avg_water is number && d.avg_water >= 0 && d.avg_water <= 100
+          && text(d.get('favorite_drink', ''), 40)
+          && d.member_since is int
+          && d.updated_at is int;
+      }
+      allow get: if owner(uid)
+        || (request.auth != null
+          && !exists(/databases/$(database)/documents/account_deletions/$(uid))
+          && exists(/databases/$(database)/documents/friendships/$(uid)/friends/$(request.auth.uid)));
+      allow create, update: if owner(uid) && request.resource.data.keys().hasOnly([
+        'nights', 'avg_drinks', 'avg_water', 'favorite_drink', 'member_since', 'updated_at'
+      ]) && validStats(request.resource.data);
+      allow delete: if owner(uid);
+    }
+
     match /friend_requests/{id} {
       allow read: if request.auth != null
         && (resource.data.to == request.auth.uid
