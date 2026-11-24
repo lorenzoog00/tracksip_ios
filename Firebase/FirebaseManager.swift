@@ -585,9 +585,26 @@ final class FirebaseManager: ObservableObject {
         try await col("drink_types")?.document(id).delete()
     }
 
-    func pushProfile(_ profile: UserProfile) async throws {
+    /// `share_stats_with_friends` is only sent when false, or when the user just turned
+    /// it on (`explicitShareStats`), like `incognito` in `pushEvent`. Ordinary pushes run
+    /// before the pull is merged (every launch and foreground, a profile the cloud doesn't
+    /// have yet), and Firestore lays pending writes over what the pull reads, so a stale
+    /// or default "on" sent there would overwrite the account's off and republish the
+    /// stats. A missing key reads as on.
+    func pushProfile(_ profile: UserProfile, explicitShareStats: Bool = false) async throws {
         guard let uid = currentUserId() else { return }
-        let currentYear = Calendar.current.component(.year, from: Date())
+        let data = Self.profilePayload(profile, explicitShareStats: explicitShareStats)
+        try await db.collection("users").document(uid).collection("profiles").document(uid)
+            .setData(data, merge: true)
+    }
+
+    /// The fields `pushProfile` merges into `users/{uid}/profiles/{uid}`. Pure, but on the
+    /// main actor rather than nonisolated: `UserProfile` is main-actor isolated by
+    /// default, as `SharedNight.build` is for the night's models.
+    static func profilePayload(
+        _ profile: UserProfile, explicitShareStats: Bool, now: Date = Date()
+    ) -> [String: Any] {
+        let currentYear = Calendar.current.component(.year, from: now)
         var data: [String: Any] = [
             "weight_kg":           profile.weightKg,
             "sex":                 profile.sex.rawValue,
@@ -602,9 +619,10 @@ final class FirebaseManager: ObservableObject {
         data["favorite_drink_ids"] = profile.favoriteDrinkIds
         data["ai_reports_enabled"] = profile.aiReportsEnabled == true
         data["incognito_by_default"] = profile.incognitoByDefault
-        data["share_stats_with_friends"] = profile.shareStatsWithFriends
-        try await db.collection("users").document(uid).collection("profiles").document(uid)
-            .setData(data, merge: true)
+        if !profile.shareStatsWithFriends || explicitShareStats {
+            data["share_stats_with_friends"] = profile.shareStatsWithFriends
+        }
+        return data
     }
 
     func pushChallenge(_ challenge: Challenge) async throws {
@@ -1137,14 +1155,12 @@ final class FirebaseManager: ObservableObject {
             let result = try await callFunction("deleteAccount", data: [:], idToken: idToken)
             guard result["deleted"] as? Bool == true else { return .failed("Deletion did not complete. Please try again.") }
             // The saved contacts check (matched profiles and numbers), the
-            // Invited marks, the answered phone prompt and any not yet migrated
-            // stats switch go with the account.
+            // Invited marks and the answered phone prompt go with the account.
             // A plain sign-out keeps them: signing back in the same day must
             // not spend another check.
             ContactMatchCache.clear(uid: user.uid)
             Invite.clear(uid: user.uid)
             PhonePrompt.clear(uid: user.uid)
-            LegacyProfileStatsSwitch.clear(uid: user.uid)
             await signOut(unregisterPush: false)
             return .deleted
         } catch let error as NSError

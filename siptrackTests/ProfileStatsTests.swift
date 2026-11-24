@@ -304,21 +304,93 @@ struct ProfileStatsTests {
         #expect(decoded.incognitoByDefault)
     }
 
-    /// The per-phone switch of earlier builds is answered once, for that account only, so
-    /// an "off" can be carried into the profile and the old key never read again.
-    @Test func theOldPerPhoneSwitchIsTakenOnce() {
-        let uid = "profile-stats-test-\(UUID().uuidString)"
-        let otherUid = "profile-stats-test-\(UUID().uuidString)"
-        defer {
-            LegacyProfileStatsSwitch.clear(uid: uid)
-            LegacyProfileStatsSwitch.clear(uid: otherUid)
-        }
-        #expect(LegacyProfileStatsSwitch.key(uid) == "profileStatsHidden.\(uid)")
+    // MARK: - Pushing the switch
 
-        UserDefaults.standard.set(true, forKey: "profileStatsHidden.\(uid)")
-        #expect(!LegacyProfileStatsSwitch.takeHidden(uid: otherUid))
-        #expect(LegacyProfileStatsSwitch.takeHidden(uid: uid))
-        #expect(UserDefaults.standard.object(forKey: "profileStatsHidden.\(uid)") == nil)
-        #expect(!LegacyProfileStatsSwitch.takeHidden(uid: uid))
+    /// Every key `pushProfile` sends for `fullProfile`, the switch aside.
+    private static let profileKeys: Set<String> = [
+        "weight_kg", "sex", "onboarding_complete", "height_cm", "age", "disclaimer_accepted_at",
+        "country_code", "country_detection_last_dismissed", "country_detection_disabled",
+        "favorite_drink_ids", "ai_reports_enabled", "incognito_by_default"
+    ]
+
+    /// A profile with every optional key `pushProfile` can send set.
+    private func fullProfile(sharing: Bool) -> UserProfile {
+        var profile = UserProfile()
+        profile.sex = .female
+        profile.weightKg = 61.5
+        profile.heightCm = 168
+        profile.birthYear = 1998
+        profile.disclaimerAcceptedAt = Date(timeIntervalSince1970: 1_700_000_000)
+        profile.onboardingComplete = true
+        profile.countryCode = "MX"
+        profile.countryDetectionLastDismissedCode = "US"
+        profile.countryDetectionDisabled = true
+        profile.favoriteDrinkIds = ["beer", "tequila"]
+        profile.aiReportsEnabled = true
+        profile.incognitoByDefault = true
+        profile.shareStatsWithFriends = sharing
+        return profile
+    }
+
+    /// The other keys are sent as they were before the switch existed.
+    private func expectOtherProfileKeys(_ data: [String: Any]) {
+        #expect(data["weight_kg"] as? Double == 61.5)
+        #expect(data["sex"] as? String == "Female")
+        #expect(data["onboarding_complete"] as? Bool == true)
+        #expect(data["height_cm"] as? Double == 168)
+        // `now` is in September 2026 in every time zone.
+        #expect(data["age"] as? Int == 28)
+        #expect(data["disclaimer_accepted_at"] as? Double == 1_700_000_000_000)
+        #expect(data["country_code"] as? String == "MX")
+        #expect(data["country_detection_last_dismissed"] as? String == "US")
+        #expect(data["country_detection_disabled"] as? Bool == true)
+        #expect(data["favorite_drink_ids"] as? [String] == ["beer", "tequila"])
+        #expect(data["ai_reports_enabled"] as? Bool == true)
+        #expect(data["incognito_by_default"] as? Bool == true)
+    }
+
+    /// Off always reaches the account, whoever pushes it.
+    @Test func profilePayloadAlwaysSendsOff() {
+        for explicit in [false, true] {
+            let data = FirebaseManager.profilePayload(
+                fullProfile(sharing: false), explicitShareStats: explicit, now: now
+            )
+            #expect(Set(data.keys) == Self.profileKeys.union(["share_stats_with_friends"]))
+            #expect(data["share_stats_with_friends"] as? Bool == false)
+            expectOtherProfileKeys(data)
+        }
+    }
+
+    /// Review focus: an ordinary push runs before the pull is merged, so its "on" may be
+    /// stale or the default and must not overwrite the account's off. A missing key
+    /// reads as on.
+    @Test func profilePayloadLeavesOutAnOnTheUserDidNotJustChoose() {
+        let data = FirebaseManager.profilePayload(
+            fullProfile(sharing: true), explicitShareStats: false, now: now
+        )
+        #expect(Set(data.keys) == Self.profileKeys)
+        #expect(data["share_stats_with_friends"] == nil)
+        expectOtherProfileKeys(data)
+    }
+
+    /// Turning the switch on is the one push that writes true.
+    @Test func profilePayloadSendsOnWhenTheUserTurnsItOn() {
+        let data = FirebaseManager.profilePayload(
+            fullProfile(sharing: true), explicitShareStats: true, now: now
+        )
+        #expect(Set(data.keys) == Self.profileKeys.union(["share_stats_with_friends"]))
+        #expect(data["share_stats_with_friends"] as? Bool == true)
+        expectOtherProfileKeys(data)
+    }
+
+    /// Nothing optional set: only the keys that are always sent.
+    @Test func profilePayloadOfADefaultProfile() {
+        let data = FirebaseManager.profilePayload(UserProfile(), explicitShareStats: false, now: now)
+        #expect(Set(data.keys) == [
+            "weight_kg", "sex", "onboarding_complete", "country_detection_disabled",
+            "favorite_drink_ids", "ai_reports_enabled", "incognito_by_default"
+        ])
+        #expect(data["ai_reports_enabled"] as? Bool == false)
+        #expect(data["incognito_by_default"] as? Bool == false)
     }
 }

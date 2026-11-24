@@ -751,7 +751,9 @@ final class AppState: ObservableObject {
         guard let uid = currentUserId, on != userProfile.shareStatsWithFriends else { return }
         var profile = userProfile
         profile.shareStatsWithFriends = on
-        updateUserProfile(profile)
+        // The one push allowed to write share_stats_with_friends: true (pushProfile omits
+        // an "on" otherwise, so a stale one can't overwrite the account's off).
+        updateUserProfile(profile, explicitShareStats: true)
         if on {
             publishProfileStats()
         } else {
@@ -2157,7 +2159,9 @@ final class AppState: ObservableObject {
 
     // MARK: - Profile
 
-    func updateUserProfile(_ profile: UserProfile) {
+    /// `explicitShareStats`: only the stats switch passes true, so its "on" reaches the
+    /// account (`pushProfile` sends an on only then; an off always goes).
+    func updateUserProfile(_ profile: UserProfile, explicitShareStats: Bool = false) {
         userProfile = profile
         DataStore.shared.saveUserProfile(profile)
         // Pushed after the write, not before it: prepare() re-reads the profile from
@@ -2165,7 +2169,7 @@ final class AppState: ObservableObject {
         // Insurance for a future async save. Today it cannot race: DataStore.save is a
         // synchronous atomic write and AppState and Haptics share the main actor.
         Haptics.shared.setEnabled(profile.hapticsEnabled)
-        push { try await FirebaseManager.shared.pushProfile(profile) }
+        push { try await FirebaseManager.shared.pushProfile(profile, explicitShareStats: explicitShareStats) }
         refreshWaterReminder()
     }
 
@@ -2453,17 +2457,8 @@ final class AppState: ObservableObject {
         } else {
             push { try await FirebaseManager.shared.pushProfile(self.userProfile) }
         }
-        // Once, from builds that kept the stats switch on this phone only: an "off" there
-        // becomes the account's off (pushed with the profile). Read after the merge, which
-        // would otherwise bring back the account's default on.
-        if let uid = currentUserId, LegacyProfileStatsSwitch.takeHidden(uid: uid),
-           userProfile.shareStatsWithFriends {
-            var profile = userProfile
-            profile.shareStatsWithFriends = false
-            updateUserProfile(profile)
-        }
-        // The switch changed on another phone (or just moved over): the doc follows it here
-        // too, once the publish below runs.
+        // The switch changed on another phone: the doc follows it here too, once the
+        // publish below runs.
         if userProfile.shareStatsWithFriends != sharedStatsBefore { profileStatsHeld = true }
 
         let localCoachIds = Set(coachReports.map { $0.id })

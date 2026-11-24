@@ -209,25 +209,3 @@ enum ProfileStatsPublisher {
         return now.timeIntervalSince(checkedAt) >= ProfileStats.refreshInterval
     }
 }
-
-/// Where "Show my stats to friends" was kept before it synced with the account
-/// (`UserProfile.shareStatsWithFriends`): per account, on one phone, under
-/// `profileStatsHidden.<uid>`, set only when turned off. Read once to carry an "off"
-/// over, then gone.
-enum LegacyProfileStatsSwitch {
-    /// Whether this phone had sharing turned off for this account. Forgets it either
-    /// way, so it is answered once.
-    static func takeHidden(uid: String) -> Bool {
-        let hidden = UserDefaults.standard.bool(forKey: key(uid))
-        clear(uid: uid)
-        return hidden
-    }
-
-    static func clear(uid: String) {
-        UserDefaults.standard.removeObject(forKey: key(uid))
-    }
-
-    static func key(_ uid: String) -> String {
-        "profileStatsHidden.\(uid)"
-    }
-}
