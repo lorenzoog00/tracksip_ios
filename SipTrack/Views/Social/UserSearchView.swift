@@ -33,6 +33,8 @@ struct UserSearchView: View {
     @State private var showAddPhone = false
     @State private var messageDraft: MessageDraft?
     @State private var shareDraft: ShareDraft?
+    /// The person whose profile a row tap pushed.
+    @State private var openedProfile: OpenedProfile?
 
     private enum ContactsState: Equatable {
         case idle, checking, denied
@@ -57,6 +59,12 @@ struct UserSearchView: View {
     private struct ShareDraft: Identifiable {
         let id = UUID()
         let text: String
+    }
+
+    /// A profile opened from a row, with why they were suggested (nil from a search).
+    private struct OpenedProfile {
+        let profile: FriendProfile
+        let reason: PersonSuggestion.Reason?
     }
 
     /// Invite rows shown before "Show all".
@@ -125,6 +133,11 @@ struct UserSearchView: View {
         .sheet(item: $shareDraft) { draft in
             ShareSheet(items: [draft.text])
         }
+        .navigationDestination(isPresented: openedProfileBinding) {
+            if let openedProfile {
+                FriendProfileView(profile: openedProfile.profile, suggestion: openedProfile.reason)
+            }
+        }
         .onChange(of: query) { _, _ in scheduleSearch() }
         .onChange(of: firebase.phoneNumber) { _, phone in
             // Added, changed or removed (here or on another phone): nothing from
@@ -139,6 +152,13 @@ struct UserSearchView: View {
         }
         .onDisappear { searchTask?.cancel() }
         .task { await loadSuggestions(refresh: false) }
+    }
+
+    private var openedProfileBinding: Binding<Bool> {
+        Binding(
+            get: { openedProfile != nil },
+            set: { if !$0 { openedProfile = nil } }
+        )
     }
 
     // MARK: - You might know
@@ -191,7 +211,7 @@ struct UserSearchView: View {
             if !contactMatches.isEmpty {
                 Section {
                     ForEach(contactMatches) { suggestion in
-                        row(suggestion.profile, subtitle: suggestion.subtitle)
+                        row(suggestion.profile, subtitle: suggestion.subtitle, reason: suggestion.reason)
                     }
                 } header: {
                     sectionHeader("In your contacts")
@@ -212,7 +232,7 @@ struct UserSearchView: View {
                         .foregroundStyle(AppColors.textSecondary)
                 } else {
                     ForEach(mutualSuggestions) { suggestion in
-                        row(suggestion.profile, subtitle: suggestion.subtitle)
+                        row(suggestion.profile, subtitle: suggestion.subtitle, reason: suggestion.reason)
                     }
                 }
             } header: {
@@ -639,19 +659,37 @@ struct UserSearchView: View {
             .padding(32)
     }
 
-    private func row(_ profile: FriendProfile, subtitle: String? = nil) -> some View {
+    /// The avatar and name open their profile (`reason` feeds its mutual-friends line);
+    /// the Add / Accept button and the ⋯ menu keep their own taps.
+    private func row(_ profile: FriendProfile, subtitle: String? = nil, reason: PersonSuggestion.Reason? = nil) -> some View {
         HStack(spacing: 12) {
-            AvatarView(profile: profile, size: 40)
-            VStack(alignment: .leading, spacing: 2) {
-                ProfileNameLabel(profile: profile)
-                if let subtitle {
-                    Text(subtitle)
-                        .font(.system(size: 13))
+            Button {
+                openedProfile = OpenedProfile(profile: profile, reason: reason)
+            } label: {
+                HStack(spacing: 12) {
+                    AvatarView(profile: profile, size: 40)
+                    VStack(alignment: .leading, spacing: 2) {
+                        ProfileNameLabel(profile: profile)
+                        if let subtitle {
+                            Text(subtitle)
+                                .font(.system(size: 13))
+                                .foregroundStyle(AppColors.textSecondary)
+                                .lineLimit(1)
+                        }
+                    }
+                    Spacer(minLength: 0)
+                    // Says the row opens something; the hint says what.
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(AppColors.textSecondary)
-                        .lineLimit(1)
+                        .accessibilityHidden(true)
                 }
+                .contentShape(Rectangle())
             }
-            Spacer()
+            // Borderless: only this part of the row opens the profile, so the button
+            // and the ⋯ menu keep their own taps.
+            .buttonStyle(.borderless)
+            .accessibilityHint("Opens their profile")
             actionButton(profile)
             ReportBlockMenu(profile: profile, coordinator: coordinator)
         }
