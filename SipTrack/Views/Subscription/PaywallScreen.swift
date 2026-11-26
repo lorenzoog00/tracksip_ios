@@ -418,13 +418,14 @@ struct PaywallScreen: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
-                PaywallPlanPreview(animated: animated)
-                    .padding(.horizontal, PaywallLayout.gutter)
-                    .padding(.top, 12)
+                if !inlinesPurchase {
+                    hero
+                        .padding(.top, 12)
+                }
 
                 header
                     .padding(.horizontal, PaywallLayout.gutter)
-                    .padding(.top, 28)
+                    .padding(.top, inlinesPurchase ? 12 : 28)
 
                 if inlinesPurchase {
                     plansSection
@@ -436,6 +437,11 @@ struct PaywallScreen: View {
                             .padding(.horizontal, PaywallLayout.gutter)
                             .padding(.top, 24)
                     }
+
+                    // Accessibility sizes: the hero sits below the price and
+                    // terms so they are not pushed off-screen.
+                    hero
+                        .padding(.top, 32)
 
                     PaywallFeatureStrip(features: PaywallFeatures.pro, animated: animated)
                         .padding(.top, 32)
@@ -460,6 +466,11 @@ struct PaywallScreen: View {
         }
         .background { backdrop }
         .safeAreaInset(edge: .bottom, spacing: 0) { pinnedPurchaseBar }
+    }
+
+    private var hero: some View {
+        PaywallPlanPreview(animated: animated)
+            .padding(.horizontal, PaywallLayout.gutter)
     }
 
     private var backdrop: some View {
