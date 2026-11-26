@@ -65,10 +65,11 @@ struct PaywallTests {
 
 /// Draws the paywall on the smallest and the largest iPhone, at the default
 /// and the largest accessibility text size, plus the loading, failed and
-/// moving states, and saves each as a PNG in `build/paywall-shots/`, which CI
-/// uploads as the `paywall-shots` artifact. With no Mac to hand these are the
-/// only look at the screen before TestFlight, so every image is checked for
-/// its size and for having really been drawn.
+/// moving states and the whole screen at full length at both text sizes, and
+/// saves each as a PNG in `build/paywall-shots/`, which CI uploads as the
+/// `paywall-shots` artifact. With no Mac to hand these are the only look at
+/// the screen before TestFlight, so every image is checked for its size and
+/// for having really been drawn.
 @MainActor
 struct PaywallRenderTests {
     /// A phone's screen in points, with its portrait safe area.
@@ -82,6 +83,12 @@ struct PaywallRenderTests {
         /// iPhone 16 Pro Max: the largest, Dynamic Island and home indicator.
         static let large = Phone(size: CGSize(width: 440, height: 956),
                                  safeArea: UIEdgeInsets(top: 62, left: 0, bottom: 34, right: 0))
+
+        /// The SE's width and safe area, tall enough to show the whole loaded
+        /// screen at once, plan cards and inline purchase block included.
+        static func fullLength(_ height: CGFloat) -> Phone {
+            Phone(size: CGSize(width: small.size.width, height: height), safeArea: small.safeArea)
+        }
     }
 
     /// The default text size and the largest accessibility one.
@@ -103,9 +110,12 @@ struct PaywallRenderTests {
         var animated = false
         /// Ends the file name for anything but loaded plans standing still.
         var variant: String? = nil
+        /// Replaces the generated name, without the extension.
+        var name: String? = nil
 
         /// `paywall-375x667-large.png`, `paywall-375x667-large-loading.png`, …
         var fileName: String {
+            if let name { return name + ".png" }
             let parts = ["paywall", "\(Int(phone.size.width))x\(Int(phone.size.height))", textSize.rawValue, variant]
             return parts.compactMap { $0 }.joined(separator: "-") + ".png"
         }
@@ -136,6 +146,10 @@ struct PaywallRenderTests {
         // Moving: the chips drift in one strip instead of sitting in a grid,
         // and the sample plan has not ticked anything yet.
         Shot(phone: .small, textSize: .large, plans: loadedPlans, animated: true, variant: "animated"),
+        // The whole screen, top to bottom: at the largest text size the plan
+        // cards and the purchase block are far below the first screenful.
+        Shot(phone: .fullLength(1800), textSize: .large, plans: loadedPlans, name: "paywall-375-full-large"),
+        Shot(phone: .fullLength(3600), textSize: .accessibility5, plans: loadedPlans, name: "paywall-375-full-ax5"),
     ]
 
     @Test func rendersAtSmallAndLargeSizes() async throws {
@@ -230,7 +244,9 @@ struct PaywallRenderTests {
         }
 
         let format = UIGraphicsImageRendererFormat()
-        format.scale = scene.screen.scale
+        // At most 8192 px tall, a texture size every renderer handles; only
+        // the 3600 pt full-length shot comes down from the screen's scale.
+        format.scale = min(scene.screen.scale, max(1, (8192 / shot.phone.size.height).rounded(.down)))
         format.preferredRange = .standard
         let renderer = UIGraphicsImageRenderer(bounds: bounds, format: format)
 
@@ -258,7 +274,7 @@ struct PaywallRenderTests {
     /// Whether the render really drew the screen: every sample opaque (the
     /// paywall's backdrop covers the whole window, so anything see-through
     /// is somewhere the render left empty) and not all one color. Samples a
-    /// 24 x 48 grid, one row about every 20 pt down the tallest screen.
+    /// 24 x 48 grid, one row about every 20 pt down the 956 pt screen.
     private static func isDrawn(_ image: CGImage) -> Bool {
         let columns = 24
         let rows = 48
