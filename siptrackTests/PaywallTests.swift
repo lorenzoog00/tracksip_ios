@@ -69,6 +69,14 @@ struct PaywallTests {
         #expect(PaywallPlansState.loaded([monthly]).resolvedSelection(.monthly) == .monthly)
         #expect(PaywallPlansState.loading.resolvedSelection(.yearly) == nil)
     }
+
+    /// The hero's photos are in the app's asset catalog. Without them its
+    /// tiles are empty wells.
+    @Test func heroPhotosAreBundled() {
+        for name in ["PaywallBreakfast", "PaywallWalk", "PaywallNap"] {
+            #expect(UIImage(named: name) != nil, "\(name) is missing from the app bundle")
+        }
+    }
 }
 
 // MARK: - Screenshots
@@ -86,6 +94,9 @@ struct PaywallTests {
 /// doubtful (a blank or cut-off render, a safe area that didn't take, a
 /// full-length shot whose content runs past its bottom) is printed to the
 /// test log as a `PAYWALL-SHOT WARNING <file>: …` line.
+///
+/// Serialized so only one test window is on screen at a time.
+@Suite(.serialized)
 @MainActor
 struct PaywallRenderTests {
     /// A phone's screen in points, with its portrait safe area.
@@ -201,6 +212,11 @@ struct PaywallRenderTests {
         Shot(phone: .fullLength(8000), textSize: .accessibility5, plans: loadedPlans, name: "paywall-375-full-ax5"),
     ]
 
+    /// The breakfast photo on its own, 200 x 150 pt, for `drawsTheHeroPhoto`.
+    private static let photoCheck = Shot(
+        phone: Phone(size: CGSize(width: 200, height: 150), safeArea: .zero),
+        textSize: .large, plans: loadedPlans, name: "paywall-photo-check")
+
     @Test func rendersAtSmallAndLargeSizes() async throws {
         let connected = await Self.windowScene()
         let scene = try #require(connected, "No connected window scene: the tests must run hosted in the app")
@@ -222,6 +238,38 @@ struct PaywallRenderTests {
                     "\(shot.fileName): \(pixels.width) px wide at @\(image.scale)x")
             #expect(pixels.height == Int((size.height * image.scale).rounded()),
                     "\(shot.fileName): \(pixels.height) px tall at @\(image.scale)x")
+        }
+    }
+
+    /// Diagnostic: the breakfast photo alone, drawn through the same window
+    /// path as the shots and saved as `paywall-photo-check.png`. A flat
+    /// result means the render path draws no asset photos; that is logged,
+    /// never failed. A missing asset fails `heroPhotosAreBundled` instead.
+    @Test func drawsTheHeroPhoto() async throws {
+        let connected = await Self.windowScene()
+        let scene = try #require(connected, "No connected window scene: the tests must run hosted in the app")
+        let directory = Self.outputDirectory()
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+
+        let shot = Self.photoCheck
+        guard let photo = UIImage(named: "PaywallBreakfast") else {
+            Self.warn(shot, "no PaywallBreakfast image in the app bundle, nothing to draw")
+            return
+        }
+        let size = shot.phone.size
+        let view = Image(uiImage: photo)
+            .resizable()
+            .scaledToFill()
+            .frame(width: size.width, height: size.height)
+            .clipped()
+        let image = try await Self.render(view, as: shot, in: scene)
+        let png = try #require(image.pngData(), "\(shot.fileName): no PNG data")
+        try png.write(to: directory.appendingPathComponent(shot.fileName), options: .atomic)
+
+        if Self.isPlain(image, from: 0, to: size.height) {
+            Self.warn(shot, "the photo came out one flat color: this render path is not drawing asset photos")
+        } else {
+            Self.note(shot, "photo drawn")
         }
     }
 
@@ -262,17 +310,23 @@ struct PaywallRenderTests {
         .preferredColorScheme(.dark)
     }
 
-    /// Shows the shot in its own window on the app's scene, lets SwiftUI lay
-    /// it out, then snapshots the window. Logs anything doubtful about the
-    /// picture instead of failing.
+    /// The shot's paywall screen, drawn by `render(_:as:in:)`.
     private static func render(_ shot: Shot, in scene: UIWindowScene) async throws -> UIImage {
+        try await render(screen(for: shot), as: shot, in: scene)
+    }
+
+    /// Shows `content` in its own window on the app's scene, sized and inset
+    /// as the shot's phone, lets SwiftUI lay it out, then snapshots the
+    /// window. Logs anything doubtful about the picture instead of failing.
+    private static func render<Content: View>(_ content: Content, as shot: Shot,
+                                              in scene: UIWindowScene) async throws -> UIImage {
         let bounds = CGRect(origin: .zero, size: shot.phone.size)
         let window = PhoneWindow(windowScene: scene)
         window.phoneSafeArea = shot.phone.safeArea
         window.frame = bounds
         window.overrideUserInterfaceStyle = .dark
         window.windowLevel = UIWindow.Level(rawValue: UIWindow.Level.alert.rawValue + 1)
-        let host = UIHostingController(rootView: screen(for: shot))
+        let host = UIHostingController(rootView: content)
         window.rootViewController = host
         // Shown, not made key, so nothing else in the app loses its key window.
         window.isHidden = false
