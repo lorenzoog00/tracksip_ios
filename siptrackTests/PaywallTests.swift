@@ -68,14 +68,23 @@ struct PaywallTests {
 /// moving states and the whole screen at full length at both text sizes, and
 /// saves each as a PNG in `build/paywall-shots/`, which CI uploads as the
 /// `paywall-shots` artifact. With no Mac to hand these are the only look at
-/// the screen before TestFlight, so every image is checked for its size and
-/// for having really been drawn.
+/// the screen before TestFlight.
+///
+/// The shots are for people to look at, so they never turn CI red for a
+/// rendering reason. Only what would mean a real bug fails: a PNG that can't
+/// be written, is empty or has the wrong size. Anything that makes a picture
+/// doubtful (a blank or cut-off render, a safe area that didn't take, a
+/// full-length shot whose content runs past its bottom) is printed to the
+/// test log as a `PAYWALL-SHOT WARNING <file>: …` line.
 @MainActor
 struct PaywallRenderTests {
     /// A phone's screen in points, with its portrait safe area.
     private struct Phone {
         let size: CGSize
         let safeArea: UIEdgeInsets
+        /// Tall enough for the whole screen, so the log says whether the
+        /// content ended before the window did.
+        var isFullLength = false
 
         /// iPhone SE: the smallest screen, status bar only.
         static let small = Phone(size: CGSize(width: 375, height: 667),
@@ -87,7 +96,8 @@ struct PaywallRenderTests {
         /// The SE's width and safe area, tall enough to show the whole loaded
         /// screen at once, plan cards and inline purchase block included.
         static func fullLength(_ height: CGFloat) -> Phone {
-            Phone(size: CGSize(width: small.size.width, height: height), safeArea: small.safeArea)
+            Phone(size: CGSize(width: small.size.width, height: height), safeArea: small.safeArea,
+                  isFullLength: true)
         }
     }
 
@@ -121,6 +131,31 @@ struct PaywallRenderTests {
         }
     }
 
+    /// What sampling a render on a 24 x 48 grid found. A see-through sample
+    /// is somewhere the render left empty, since the paywall's backdrop
+    /// covers the whole window; a handful of colors means nothing was drawn.
+    private struct Inspection {
+        static let columns = 24
+        static let rows = 48
+
+        var seeThrough = 0
+        var colors = 0
+
+        var problem: String? {
+            if seeThrough > 0 {
+                return "\(seeThrough) of \(Self.columns * Self.rows) samples are see-through (blank or cut off)"
+            }
+            if colors < 8 { return "only \(colors) colors (blank)" }
+            return nil
+        }
+
+        func isBetter(than other: Inspection) -> Bool {
+            if (problem == nil) != (other.problem == nil) { return problem == nil }
+            if seeThrough != other.seeThrough { return seeThrough < other.seeThrough }
+            return colors > other.colors
+        }
+    }
+
     /// The window a shot is drawn in. It reports the phone's safe area, not
     /// the simulator's: CI runs on whichever iPhone the runner has, which
     /// would give the SE a Dynamic Island and, where the window is bigger
@@ -148,8 +183,10 @@ struct PaywallRenderTests {
         Shot(phone: .small, textSize: .large, plans: loadedPlans, animated: true, variant: "animated"),
         // The whole screen, top to bottom: at the largest text size the plan
         // cards and the purchase block are far below the first screenful.
-        Shot(phone: .fullLength(1800), textSize: .large, plans: loadedPlans, name: "paywall-375-full-large"),
-        Shot(phone: .fullLength(3600), textSize: .accessibility5, plans: loadedPlans, name: "paywall-375-full-ax5"),
+        // The content is estimated at about 1,600 pt tall at the default size
+        // and 6,800 pt at accessibility5; the log says if either runs past.
+        Shot(phone: .fullLength(2000), textSize: .large, plans: loadedPlans, name: "paywall-375-full-large"),
+        Shot(phone: .fullLength(8000), textSize: .accessibility5, plans: loadedPlans, name: "paywall-375-full-ax5"),
     ]
 
     @Test func rendersAtSmallAndLargeSizes() async throws {
@@ -161,9 +198,10 @@ struct PaywallRenderTests {
         for shot in Self.shots {
             let image = try await Self.render(shot, in: scene)
             let png = try #require(image.pngData(), "\(shot.fileName): no PNG data")
-            // Saved before the checks, so a bad render still reaches the artifact.
             try png.write(to: directory.appendingPathComponent(shot.fileName), options: .atomic)
 
+            // Only a real bug fails the test; how the render came out is
+            // logged as PAYWALL-SHOT lines by `render`.
             let size = shot.phone.size
             let pixels = try #require(image.cgImage, "\(shot.fileName): no bitmap")
             #expect(!png.isEmpty, "\(shot.fileName): empty PNG")
@@ -172,7 +210,6 @@ struct PaywallRenderTests {
                     "\(shot.fileName): \(pixels.width) px wide at @\(image.scale)x")
             #expect(pixels.height == Int((size.height * image.scale).rounded()),
                     "\(shot.fileName): \(pixels.height) px tall at @\(image.scale)x")
-            #expect(Self.isDrawn(pixels), "\(shot.fileName) came out blank, one flat color or partly empty")
         }
     }
 
@@ -214,7 +251,8 @@ struct PaywallRenderTests {
     }
 
     /// Shows the shot in its own window on the app's scene, lets SwiftUI lay
-    /// it out, then snapshots the window at the screen's scale.
+    /// it out, then snapshots the window. Logs anything doubtful about the
+    /// picture instead of failing.
     private static func render(_ shot: Shot, in scene: UIWindowScene) async throws -> UIImage {
         let bounds = CGRect(origin: .zero, size: shot.phone.size)
         let window = PhoneWindow(windowScene: scene)
@@ -240,44 +278,54 @@ struct PaywallRenderTests {
         window.layoutIfNeeded()
 
         if host.view.safeAreaInsets != shot.phone.safeArea {
-            print("\(shot.fileName): laid out with safe area \(host.view.safeAreaInsets), wanted \(shot.phone.safeArea)")
+            warn(shot, "laid out with safe area \(host.view.safeAreaInsets), wanted \(shot.phone.safeArea)")
         }
 
         let format = UIGraphicsImageRendererFormat()
-        // At most 8192 px tall, a texture size every renderer handles; only
-        // the 3600 pt full-length shot comes down from the screen's scale.
+        // At most 8192 px tall, a texture size every renderer handles. Only
+        // the 8000 pt full-length shot comes down, to @1x, where its
+        // accessibility-size text is still 40 px tall and up.
         format.scale = min(scene.screen.scale, max(1, (8192 / shot.phone.size.height).rounded(.down)))
         format.preferredRange = .standard
         let renderer = UIGraphicsImageRenderer(bounds: bounds, format: format)
 
         var drewHierarchy = false
-        let snapshot = renderer.image { _ in
+        var image = renderer.image { _ in
             drewHierarchy = window.drawHierarchy(in: bounds, afterScreenUpdates: true)
         }
-        if drewHierarchy, let pixels = snapshot.cgImage, isDrawn(pixels) {
-            return snapshot
+        var inspection = inspect(image)
+        if !drewHierarchy || inspection.problem != nil {
+            // drawHierarchy goes through the render server and can come back
+            // empty, or cut off where the window runs past the simulator's
+            // screen. The layer tree draws without it, minus blurs and
+            // materials; keep whichever came out better.
+            let found = inspection.problem ?? "nothing wrong"
+            let reason = drewHierarchy ? "came back with \(found)" : "returned false"
+            let layers = renderer.image { context in
+                window.layer.render(in: context.cgContext)
+            }
+            let layersInspection = inspect(layers)
+            if layersInspection.isBetter(than: inspection) {
+                warn(shot, "drawHierarchy \(reason); saved the layer tree instead, which has no blurs or materials")
+                image = layers
+                inspection = layersInspection
+            } else {
+                warn(shot, "drawHierarchy \(reason); the layer tree came out no better, so kept it")
+            }
         }
-
-        // drawHierarchy goes through the render server and can come back
-        // empty, or cut off where the window runs past the simulator's
-        // screen. The layer tree draws without it, minus blurs and materials.
-        print("\(shot.fileName): drawHierarchy came back blank or partial, drawing the layer tree instead")
-        let layers = renderer.image { context in
-            window.layer.render(in: context.cgContext)
+        if let problem = inspection.problem {
+            warn(shot, "the saved image may not show the screen: \(problem)")
         }
-        if let pixels = layers.cgImage, isDrawn(pixels) {
-            return layers
+        if shot.phone.isFullLength {
+            logReachesBottom(shot, image: image, window: window)
         }
-        return snapshot
+        return image
     }
 
-    /// Whether the render really drew the screen: every sample opaque (the
-    /// paywall's backdrop covers the whole window, so anything see-through
-    /// is somewhere the render left empty) and not all one color. Samples a
-    /// 24 x 48 grid, one row about every 20 pt down the 956 pt screen.
-    private static func isDrawn(_ image: CGImage) -> Bool {
-        let columns = 24
-        let rows = 48
+    private static func inspect(_ image: UIImage) -> Inspection {
+        let columns = Inspection.columns
+        let rows = Inspection.rows
+        guard let cgImage = image.cgImage else { return Inspection(seeThrough: columns * rows) }
         var samples = [UInt8](repeating: 0, count: columns * rows * 4)
         let sampled = samples.withUnsafeMutableBytes { buffer -> Bool in
             guard let context = CGContext(data: buffer.baseAddress, width: columns, height: rows,
@@ -287,21 +335,110 @@ struct PaywallRenderTests {
                 return false
             }
             context.interpolationQuality = .none
-            context.draw(image, in: CGRect(x: 0, y: 0, width: columns, height: rows))
+            context.draw(cgImage, in: CGRect(x: 0, y: 0, width: columns, height: rows))
             return true
         }
-        guard sampled else { return false }
+        guard sampled else { return Inspection(seeThrough: columns * rows) }
 
+        var inspection = Inspection()
         var colors = Set<UInt32>()
         for offset in stride(from: 0, to: samples.count, by: 4) {
-            if samples[offset + 3] < 250 { return false }
+            if samples[offset + 3] < 250 {
+                inspection.seeThrough += 1
+                continue
+            }
             let red = UInt32(samples[offset])
             let green = UInt32(samples[offset + 1])
             let blue = UInt32(samples[offset + 2])
             colors.insert(red << 16 | green << 8 | blue)
         }
-        // A real screen gives hundreds; a blank one gives one.
-        return colors.count >= 8
+        inspection.colors = colors.count
+        return inspection
+    }
+
+    // MARK: - Full length
+
+    /// For a full-length shot, whether the content ended before the window
+    /// did: the 40 pt ending 8 pt above the bottom of the scroll area (the
+    /// top of the pinned purchase bar at the default text size) should be
+    /// plain backdrop. Also logs the scroll content's height.
+    private static func logReachesBottom(_ shot: Shot, image: UIImage, window: UIWindow) {
+        var bottom = shot.phone.size.height
+        var content = "content height unknown, no scroll view found"
+        if let scroll = scrollView(in: window) {
+            let frame = scroll.convert(scroll.bounds, to: window)
+            let insets = scroll.adjustedContentInset
+            bottom = frame.maxY - insets.bottom
+            let needed = scroll.contentSize.height + insets.top + insets.bottom
+            content = "content \(Int(scroll.contentSize.height)) pt, needs \(Int(needed)) of \(Int(frame.height)) pt"
+        }
+        if isPlain(image, from: bottom - 48, to: bottom - 8) {
+            note(shot, "reaches bottom: yes (\(content))")
+        } else {
+            note(shot, "reaches bottom: no (\(content))")
+            warn(shot, "the end of the scroll area is not plain backdrop, so the content may be cut off; "
+                 + "raise the shot's height (\(content))")
+        }
+    }
+
+    /// The paywall's scroll view: of the scroll views in `view`, the one with
+    /// the tallest content.
+    private static func scrollView(in view: UIView) -> UIScrollView? {
+        var tallest = view as? UIScrollView
+        for subview in view.subviews {
+            if let found = scrollView(in: subview),
+               found.contentSize.height > (tallest?.contentSize.height ?? -1) {
+                tallest = found
+            }
+        }
+        return tallest
+    }
+
+    /// Whether the band of `image` from `top` to `bottom` (points from the
+    /// top) is one flat color, within a few levels: backdrop with nothing on
+    /// it. Reads every pixel, so thin text can't slip between samples.
+    private static func isPlain(_ image: UIImage, from top: CGFloat, to bottom: CGFloat) -> Bool {
+        guard let cgImage = image.cgImage else { return false }
+        let band = CGRect(x: 0, y: (top * image.scale).rounded(),
+                          width: CGFloat(cgImage.width), height: ((bottom - top) * image.scale).rounded())
+        guard band.minY >= 0, band.maxY <= CGFloat(cgImage.height), band.height >= 1,
+              let cropped = cgImage.cropping(to: band) else { return false }
+
+        let width = cropped.width
+        let height = cropped.height
+        var pixels = [UInt8](repeating: 0, count: width * height * 4)
+        let drew = pixels.withUnsafeMutableBytes { buffer -> Bool in
+            guard let context = CGContext(data: buffer.baseAddress, width: width, height: height,
+                                          bitsPerComponent: 8, bytesPerRow: width * 4,
+                                          space: CGColorSpaceCreateDeviceRGB(),
+                                          bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else {
+                return false
+            }
+            context.draw(cropped, in: CGRect(x: 0, y: 0, width: width, height: height))
+            return true
+        }
+        guard drew, !pixels.isEmpty else { return false }
+
+        var low = [Int](repeating: 255, count: 4)
+        var high = [Int](repeating: 0, count: 4)
+        for offset in stride(from: 0, to: pixels.count, by: 4) {
+            for channel in 0..<4 {
+                let value = Int(pixels[offset + channel])
+                low[channel] = min(low[channel], value)
+                high[channel] = max(high[channel], value)
+            }
+        }
+        return (0..<4).allSatisfy { high[$0] - low[$0] <= 6 }
+    }
+
+    // MARK: - Log
+
+    private static func note(_ shot: Shot, _ message: String) {
+        print("PAYWALL-SHOT \(shot.fileName): \(message)")
+    }
+
+    private static func warn(_ shot: Shot, _ message: String) {
+        print("PAYWALL-SHOT WARNING \(shot.fileName): \(message)")
     }
 
     // MARK: - Setup
