@@ -8,9 +8,10 @@ import StoreKit
 //   .pushed — used from the Profile menu route (Route.subscription).
 //             Renders inside the existing nav stack, no dismiss button.
 //
-// Same view handles the "already Pro" state — header swaps to a thank-you composition,
-// the comparison table is replaced by a compact "Everything you have" grid, and pricing
-// is replaced by Manage / Restore utilities.
+// Free users get `PaywallScreen`, which only draws: this view feeds it the
+// StoreKit plans and eligible free trials, and owns purchase and restore.
+// Pro members get the membership view instead: a thank-you hero, an
+// "Everything you have" grid and Manage / Restore utilities.
 struct ProView: View {
     enum Presentation { case modal, pushed }
     let presentation: Presentation
@@ -23,7 +24,8 @@ struct ProView: View {
     @State private var isPurchasing = false
     @State private var errorMessage: String? = nil
     @State private var heroBreath = false
-    @State private var scrollY: CGFloat = 0
+    /// Free trials the user is eligible for, by period.
+    @State private var trials: [SubscriptionPeriod: PaywallTrial] = [:]
     init(presentation: Presentation) {
         self.presentation = presentation
     }
@@ -41,32 +43,19 @@ struct ProView: View {
     // MARK: - Content
 
     private var content: some View {
-        ZStack {
-            AppColors.background.ignoresSafeArea()
-            backdropGlow
-
-            ScrollView {
-                VStack(spacing: 0) {
-                    scrollOffsetReader
-                    hero
-                        .padding(.top, 24)
-                        .padding(.bottom, 32)
-
-                    if appState.isPro {
-                        proActiveBody
-                    } else {
-                        upgradeBody
-                    }
-
-                    Color.clear.frame(height: appState.isPro ? 40 : 120)
-                }
+        Group {
+            if appState.isPro {
+                membershipView
+            } else {
+                paywall
             }
-            .coordinateSpace(name: "proScroll")
-            .onPreferenceChange(ScrollOffsetKey.self) { scrollY = $0 }
         }
         .navigationTitle(appState.isPro ? "Membership" : "Tracksip Pro")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar { modalDismissButton }
+        .toolbar {
+            modalDismissButton
+            restoreButton
+        }
         .onChange(of: store.restoreError) { _, message in
             guard let message else { return }
             NoticeCenter.shared.show(Notice(
@@ -75,12 +64,6 @@ struct ProView: View {
                 message: message,
                 actions: [NoticeAction("OK") { store.restoreError = nil }]
             ))
-        }
-        .safeAreaInset(edge: .bottom) { stickyFooter }
-        .onAppear {
-            withAnimation(.easeInOut(duration: 5.5).repeatForever(autoreverses: true)) {
-                heroBreath = true
-            }
         }
     }
 
@@ -97,14 +80,115 @@ struct ProView: View {
         }
     }
 
-    private var scrollOffsetReader: some View {
-        GeometryReader { geo in
-            Color.clear.preference(
-                key: ScrollOffsetKey.self,
-                value: -geo.frame(in: .named("proScroll")).minY
+    /// Restore on the paywall, in both presentations. Members already have
+    /// Restore Purchases in their utilities, running the same closure.
+    @ToolbarContentBuilder
+    private var restoreButton: some ToolbarContent {
+        if !appState.isPro {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    Task {
+                        await store.restorePurchases()
+                        errorMessage = store.restoreError
+                        appState.syncSubscriptionFromStore()
+                    }
+                } label: {
+                    Text("Restore")
+                        .foregroundStyle(AppColors.textSecondary)
+                }
+                .disabled(isPurchasing)
+            }
+        }
+    }
+
+    // MARK: - Paywall (not Pro)
+
+    private var paywall: some View {
+        PaywallScreen(
+            plans: plans,
+            selected: $selectedPeriod,
+            isPurchasing: isPurchasing,
+            errorMessage: errorMessage,
+            onPurchase: { Task { await purchase() } },
+            onRetry: { store.retryLoadProducts() }
+        )
+        // `purchase()` buys `selectedPeriod`, so keep it on the plan the
+        // screen shows as selected (Monthly when only Monthly loaded).
+        .onChange(of: store.products, initial: true) { _, _ in
+            if let period = plans.resolvedSelection(selectedPeriod) {
+                selectedPeriod = period
+            }
+        }
+        .task(id: store.products.map(\.id)) { await loadTrials() }
+    }
+
+    /// Yearly and Monthly in display form; Lifetime is never offered here.
+    private var plans: PaywallPlansState {
+        if store.isLoadingProducts { return .loading }
+        if store.products.isEmpty { return .failed(store.loadError ?? "Could not load plans") }
+
+        var savings: Int? = nil
+        if let yearly = store.product(for: .yearly), let monthly = store.product(for: .monthly) {
+            savings = PaywallCopy.savingsPercent(monthly: monthly.price, yearly: yearly.price)
+        }
+
+        let options = [SubscriptionPeriod.yearly, .monthly].compactMap { period -> PaywallPlanOption? in
+            guard let product = store.product(for: period) else { return nil }
+            let isYearly = period == .yearly
+            return PaywallPlanOption(
+                period: period,
+                price: product.displayPrice,
+                monthlyEquivalent: isYearly
+                    ? "≈ \(product.priceFormatStyle.format(product.price / 12))/mo"
+                    : nil,
+                savings: isYearly ? savings : nil,
+                trial: trials[period]
             )
         }
-        .frame(height: 0)
+        return .loaded(options)
+    }
+
+    /// The free trial each plan would start. An intro offer the user is no
+    /// longer eligible for, or one that isn't a free trial, leaves no entry.
+    private func loadTrials() async {
+        var found: [SubscriptionPeriod: PaywallTrial] = [:]
+        for period in [SubscriptionPeriod.yearly, .monthly] {
+            guard let subscription = store.product(for: period)?.subscription else { continue }
+            let eligible = await subscription.isEligibleForIntroOffer
+            guard eligible,
+                  let offer = subscription.introductoryOffer,
+                  let trial = PaywallTrial(offer: offer) else { continue }
+            found[period] = trial
+        }
+        // Products changed (a newer task writes instead) or the screen closed.
+        guard !Task.isCancelled else { return }
+        trials = found
+    }
+
+    // MARK: - Membership (Pro)
+
+    private var membershipView: some View {
+        ZStack {
+            AppColors.background.ignoresSafeArea()
+            backdropGlow
+
+            ScrollView {
+                VStack(spacing: 0) {
+                    hero
+                        .padding(.top, 24)
+                        .padding(.bottom, 32)
+
+                    proActiveBody
+
+                    Color.clear.frame(height: 40)
+                }
+            }
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 5.5).repeatForever(autoreverses: true)) {
+                heroBreath = true
+            }
+        }
     }
 
     private var backdropGlow: some View {
@@ -118,8 +202,6 @@ struct ProView: View {
         }
         .ignoresSafeArea()
     }
-
-    // MARK: - Hero
 
     private var hero: some View {
         VStack(spacing: 14) {
@@ -142,7 +224,7 @@ struct ProView: View {
             }
             .frame(height: 100)
 
-            Text(appState.isPro ? "You're on Pro" : "Tracksip Pro")
+            Text("You're on Pro")
                 .font(.system(size: 34, weight: .bold))
                 .foregroundStyle(
                     LinearGradient(
@@ -153,7 +235,7 @@ struct ProView: View {
                 )
                 .multilineTextAlignment(.center)
 
-            Text(appState.isPro ? proStatusSubtitle : "Your drinking habits, understood.")
+            Text(proStatusSubtitle)
                 .font(.system(size: 17))
                 .foregroundStyle(AppColors.textSecondary)
                 .multilineTextAlignment(.center)
@@ -162,31 +244,10 @@ struct ProView: View {
         .padding(.horizontal, 24)
     }
 
-    @ViewBuilder
     private var heroIcon: some View {
-        if appState.isPro {
-            ZStack(alignment: .topTrailing) {
-                Image(systemName: "wineglass.fill")
-                    .font(.system(size: 56))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [AppColors.accentWarm, AppColors.accent],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .shadow(color: AppColors.accent.opacity(0.55), radius: 18, y: 4)
-
-                Image(systemName: "checkmark.seal.fill")
-                    .font(.system(size: 24))
-                    .foregroundStyle(AppColors.success)
-                    .background(Circle().fill(AppColors.background).frame(width: 24, height: 24))
-                    .offset(x: 14, y: -8)
-                    .shadow(color: AppColors.success.opacity(0.5), radius: 8)
-            }
-        } else {
+        ZStack(alignment: .topTrailing) {
             Image(systemName: "wineglass.fill")
-                .font(.system(size: 60))
+                .font(.system(size: 56))
                 .foregroundStyle(
                     LinearGradient(
                         colors: [AppColors.accentWarm, AppColors.accent],
@@ -194,7 +255,14 @@ struct ProView: View {
                         endPoint: .bottomTrailing
                     )
                 )
-                .shadow(color: AppColors.accent.opacity(0.6), radius: 20, y: 4)
+                .shadow(color: AppColors.accent.opacity(0.55), radius: 18, y: 4)
+
+            Image(systemName: "checkmark.seal.fill")
+                .font(.system(size: 24))
+                .foregroundStyle(AppColors.success)
+                .background(Circle().fill(AppColors.background).frame(width: 24, height: 24))
+                .offset(x: 14, y: -8)
+                .shadow(color: AppColors.success.opacity(0.5), radius: 8)
         }
     }
 
@@ -213,253 +281,6 @@ struct ProView: View {
         return "\(periodWord) · since \(df.string(from: date))"
     }
 
-    // MARK: - Upgrade body (not Pro)
-
-    private var upgradeBody: some View {
-        VStack(spacing: 22) {
-            beerValueCallout
-                .padding(.horizontal)
-
-            proFeaturesGrid
-                .padding(.horizontal)
-
-            pricingBlock
-                .padding(.horizontal)
-        }
-    }
-
-    private var beerValueCallout: some View {
-        HStack(alignment: .top, spacing: 16) {
-            Text("🍺")
-                .font(.system(size: 38))
-                .padding(.top, 1)
-
-            VStack(alignment: .leading, spacing: 5) {
-                Text("Less than one beer a month")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundStyle(AppColors.text)
-                Text("Know if your drinking habits are actually okay — for less than the cost of a pint.")
-                    .font(.system(size: 16))
-                    .foregroundStyle(AppColors.textSecondary)
-                    .lineSpacing(3)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-        .padding(18)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            ZStack {
-                AppColors.surface
-                LinearGradient(
-                    colors: [AppColors.accent.opacity(0.07), Color.clear],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            }
-        )
-        .cornerRadius(16)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(AppColors.accent.opacity(0.28), lineWidth: 1)
-        )
-    }
-
-    private var proFeaturesGrid: some View {
-        let items: [(String, String)] = [
-            ("calendar",             "Unlimited history"),
-            ("sunrise.fill",         "Unlimited morning recovery plans"),
-            ("chart.bar.fill",       "Full analytics & trends"),
-            ("calendar.badge.clock", "Calendar heatmap"),
-            ("trophy.fill",          "Challenges & goals"),
-            ("flame.fill",           "Calorie tracking"),
-            ("doc.text.fill",        "PDF export"),
-            ("eye.slash.fill",       "No ads"),
-        ]
-
-        return VStack(alignment: .leading, spacing: 12) {
-            Text("EVERYTHING YOU GET")
-                .font(.system(size: 13, weight: .semibold))
-                .tracking(1.8)
-                .foregroundStyle(AppColors.textTertiary)
-
-            LazyVGrid(
-                columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)],
-                spacing: 10
-            ) {
-                ForEach(Array(items.enumerated()), id: \.offset) { _, item in
-                    HStack(spacing: 9) {
-                        Image(systemName: item.0)
-                            .font(.system(size: 15))
-                            .foregroundStyle(AppColors.accent)
-                            .frame(width: 28, height: 28)
-                            .background(AppColors.accentDim)
-                            .clipShape(Circle())
-                        Text(item.1)
-                            .font(.system(size: 15, weight: .medium))
-                            .foregroundStyle(AppColors.text)
-                            .lineLimit(2)
-                            .minimumScaleFactor(0.85)
-                        Spacer(minLength: 0)
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 10)
-                    .background(AppColors.surface)
-                    .cornerRadius(11)
-                    .overlay(RoundedRectangle(cornerRadius: 11).stroke(AppColors.border, lineWidth: 1))
-                }
-            }
-
-            HStack(alignment: .top, spacing: 6) {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 14))
-                    .foregroundStyle(AppColors.textTertiary)
-                    .padding(.top, 1)
-                Text("Plus all free features: live BAC tracking, drink log, Apple Watch, and country-specific legal limits.")
-                    .font(.system(size: 14))
-                    .foregroundStyle(AppColors.textTertiary)
-                    .lineSpacing(2)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .padding(10)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(AppColors.surface.opacity(0.5))
-            .cornerRadius(8)
-        }
-    }
-
-    private var pricingBlock: some View {
-        VStack(spacing: 14) {
-            Text("Free includes \(MorningCheckIn.freeMonthlyPlans) morning recovery plans a month. With Pro, recovery plans and AI reports are unlimited within fair-use limits. AI features require your consent in Profile.")
-                .font(.footnote)
-                .foregroundStyle(AppColors.textSecondary)
-                .multilineTextAlignment(.center)
-            if store.isLoadingProducts {
-                ProgressView("Loading plans…")
-                    .tint(AppColors.accent)
-                    .padding(.vertical, 24)
-            } else if store.products.isEmpty {
-                VStack(spacing: 10) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: 30))
-                        .foregroundStyle(AppColors.danger)
-                    Text(store.loadError ?? "Could not load plans")
-                        .font(.system(size: 16))
-                        .foregroundStyle(AppColors.textSecondary)
-                        .multilineTextAlignment(.center)
-                    Button("Try Again") { store.retryLoadProducts() }
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(AppColors.accent)
-                        .padding(.vertical, 8)
-                        .padding(.horizontal, 18)
-                        .background(AppColors.accentDim)
-                        .cornerRadius(8)
-                }
-                .padding(.vertical, 24)
-            } else {
-                VStack(spacing: 10) {
-                    ForEach([SubscriptionPeriod.yearly, .monthly], id: \.self) { period in
-                        ProPlanCard(
-                            period: period,
-                            product: store.product(for: period),
-                            isSelected: selectedPeriod == period
-                        ) {
-                            withAnimation(.easeOut(duration: 0.18)) { selectedPeriod = period }
-                        }
-                    }
-                }
-
-                HStack(spacing: 6) {
-                    Text("🍺")
-                        .font(.system(size: 15))
-                    Text(selectedPeriod == .yearly
-                         ? "Yearly plan = less than one beer a month"
-                         : "Cancel anytime · less than a night out")
-                        .font(.system(size: 15))
-                        .foregroundStyle(AppColors.textSecondary)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 2)
-
-                inlineCTA
-                    .padding(.top, 2)
-
-                if let err = errorMessage {
-                    Text(err)
-                        .font(.system(size: 16))
-                        .foregroundStyle(AppColors.danger)
-                        .multilineTextAlignment(.center)
-                }
-
-                legalAndRestore
-                      .padding(.top, 6)
-            }
-        }
-    }
-
-    private var inlineCTA: some View {
-        Button {
-            Task { await purchase() }
-        } label: {
-            Group {
-                if isPurchasing {
-                    ProgressView().tint(.black)
-                } else {
-                    Text(purchaseLabel)
-                        .font(.system(size: 18, weight: .bold))
-                        .monospacedDigit()
-                }
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: 54)
-            .background(
-                LinearGradient(
-                    colors: [AppColors.accentWarm, AppColors.accent],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
-            .foregroundStyle(.black)
-            .cornerRadius(14)
-            .shadow(color: AppColors.accent.opacity(0.5), radius: 16, y: 6)
-        }
-        .disabled(isPurchasing || store.product(for: selectedPeriod) == nil)
-    }
-
-    private var legalAndRestore: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 6) {
-                Image(systemName: "shield.checkered")
-                    .font(.system(size: 13))
-                Text("Cancel anytime · Auto-renews until cancelled")
-                    .font(.system(size: 14))
-            }
-            .foregroundStyle(AppColors.textTertiary)
-
-            Button {
-                Task {
-                    await store.restorePurchases()
-                    errorMessage = store.restoreError
-                    appState.syncSubscriptionFromStore()
-                }
-            } label: {
-                Text("Restore Purchases")
-                    .font(.system(size: 15))
-                    .foregroundStyle(AppColors.textTertiary)
-            }
-
-            HStack(spacing: 16) {
-                Link("Privacy Policy",
-                     destination: URL(string: "https://tracksip.online/policy")!)
-                Link("Terms of Use",
-                     destination: URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!)
-            }
-            .font(.system(size: 14))
-            .foregroundStyle(AppColors.textTertiary)
-        }
-    }
-
-    // MARK: - Pro active body
-
     private var proActiveBody: some View {
         VStack(spacing: 18) {
             proInventoryCard
@@ -471,19 +292,7 @@ struct ProView: View {
     }
 
     private var proInventoryCard: some View {
-        let items: [(String, String)] = [
-            ("calendar",             "Unlimited history"),
-            ("sunrise.fill",         "Unlimited morning recovery plans"),
-            ("chart.bar.fill",       "Full analytics"),
-            ("calendar.badge.clock", "Calendar heatmap"),
-            ("trophy.fill",          "Challenges & goals"),
-            ("wineglass.fill",       "Custom drinks"),
-            ("doc.text.fill",        "PDF night export"),
-            ("xmark.shield.fill",    "No ads"),
-            ("applewatch",           "Watch live activity"),
-        ]
-
-        return VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: 0) {
             Text("EVERYTHING YOU HAVE")
                 .font(.system(size: 13, weight: .semibold))
                 .tracking(1.8)
@@ -496,15 +305,15 @@ struct ProView: View {
                 columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)],
                 spacing: 12
             ) {
-                ForEach(Array(items.enumerated()), id: \.offset) { _, item in
+                ForEach(PaywallFeatures.membership, id: \.self) { feature in
                     HStack(spacing: 10) {
-                        Image(systemName: item.0)
+                        Image(systemName: feature.icon)
                             .font(.system(size: 16))
                             .foregroundStyle(AppColors.accent)
                             .frame(width: 26, height: 26)
                             .background(AppColors.accentDim)
                             .clipShape(Circle())
-                        Text(item.1)
+                        Text(feature.title)
                             .font(.system(size: 15, weight: .medium))
                             .foregroundStyle(AppColors.text)
                             .lineLimit(2)
@@ -555,89 +364,7 @@ struct ProView: View {
         }
     }
 
-    // MARK: - Sticky footer (only visible when free + scrolled past hero)
-
-    @ViewBuilder
-    private var stickyFooter: some View {
-        if !appState.isPro,
-           !store.products.isEmpty,
-           !store.isLoadingProducts {
-            let opacity = min(max((scrollY - 180) / 120, 0), 1)
-            let product = store.product(for: selectedPeriod)
-            ZStack {
-                Rectangle()
-                    .fill(.ultraThinMaterial)
-                Rectangle()
-                    .fill(AppColors.background.opacity(0.6))
-
-                Rectangle()
-                    .frame(height: 0.5)
-                    .foregroundStyle(AppColors.border)
-                    .frame(maxHeight: .infinity, alignment: .top)
-
-                HStack(spacing: 12) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(stickyPlanLabel.uppercased())
-                            .font(.system(size: 13, weight: .semibold))
-                            .tracking(1.2)
-                            .foregroundStyle(AppColors.textTertiary)
-                        Text(product?.displayPrice ?? "—")
-                            .font(.system(size: 20, weight: .bold))
-                            .monospacedDigit()
-                            .foregroundStyle(AppColors.text)
-                    }
-                    Spacer()
-                    Button {
-                        Task { await purchase() }
-                    } label: {
-                        Group {
-                            if isPurchasing {
-                                ProgressView().tint(.black)
-                            } else {
-                                Text("Subscribe")
-                                    .font(.system(size: 17, weight: .bold))
-                            }
-                        }
-                        .frame(width: 134, height: 44)
-                        .background(
-                            LinearGradient(
-                                colors: [AppColors.accentWarm, AppColors.accent],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .foregroundStyle(.black)
-                        .cornerRadius(12)
-                    }
-                    .disabled(isPurchasing || product == nil)
-                }
-                .padding(.horizontal, 18)
-                .padding(.vertical, 12)
-            }
-            .frame(height: 76)
-            .opacity(opacity)
-            .allowsHitTesting(opacity > 0.5)
-        }
-    }
-
-    private var stickyPlanLabel: String {
-        switch selectedPeriod {
-        case .monthly:  return "Monthly"
-        case .yearly:   return "Yearly · best value"
-        case .lifetime: return "Lifetime"
-        }
-    }
-
-    // MARK: - Helpers
-
-    private var purchaseLabel: String {
-        guard let product = store.product(for: selectedPeriod) else { return "Subscribe" }
-        switch selectedPeriod {
-        case .yearly:   return "Start Yearly · \(product.displayPrice) / yr"
-        case .monthly:  return "Start Monthly · \(product.displayPrice) / mo"
-        case .lifetime: return "Get Lifetime · \(product.displayPrice)"
-        }
-    }
+    // MARK: - Purchase
 
     private func purchase() async {
         guard let product = store.product(for: selectedPeriod) else { return }
@@ -658,112 +385,5 @@ struct ProView: View {
         case .cancelled, .pending:
             break
         }
-    }
-}
-
-// MARK: - Scroll offset tracking
-
-private struct ScrollOffsetKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
-    }
-}
-
-// MARK: - Plan card
-
-struct ProPlanCard: View {
-    let period: SubscriptionPeriod
-    let product: Product?
-    let isSelected: Bool
-    let onTap: () -> Void
-
-    private var title: String {
-        switch period {
-        case .monthly:  return "Monthly"
-        case .yearly:   return "Yearly"
-        case .lifetime: return "Lifetime"
-        }
-    }
-
-    private var subtitle: String {
-        switch period {
-        case .monthly:  return "Flexible · cancel anytime"
-        case .yearly:   return "Save ~17% vs monthly"
-        case .lifetime: return "One-time payment, forever"
-        }
-    }
-
-    private var monthlyEquiv: String? {
-        guard let p = product, period == .yearly else { return nil }
-        let monthly = p.price / 12
-        return "≈ \(p.priceFormatStyle.format(monthly))/mo"
-    }
-
-    private var isRecommended: Bool { period == .yearly }
-
-    var body: some View {
-        Button(action: onTap) {
-            HStack(spacing: 14) {
-                ZStack {
-                    Circle()
-                        .stroke(isSelected ? AppColors.accent : AppColors.border,
-                                lineWidth: isSelected ? 2 : 1)
-                        .frame(width: 20, height: 20)
-                    if isSelected {
-                        Circle()
-                            .fill(AppColors.accent)
-                            .frame(width: 10, height: 10)
-                    }
-                }
-
-                VStack(alignment: .leading, spacing: 3) {
-                    HStack(spacing: 6) {
-                        Text(title)
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundStyle(AppColors.text)
-                        if isRecommended {
-                            Text("BEST VALUE")
-                                .font(.system(size: 12, weight: .bold))
-                                .tracking(0.6)
-                                .foregroundStyle(AppColors.accent)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 3)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 4)
-                                        .stroke(AppColors.accent, lineWidth: 1)
-                                )
-                        }
-                    }
-                    Text(subtitle)
-                        .font(.system(size: 15))
-                        .foregroundStyle(AppColors.textSecondary)
-                }
-
-                Spacer()
-
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text(product?.displayPrice ?? "—")
-                        .font(.system(size: 19, weight: .bold))
-                        .monospacedDigit()
-                        .foregroundStyle(isSelected ? AppColors.accent : AppColors.text)
-                    if let equiv = monthlyEquiv {
-                        Text(equiv)
-                            .font(.system(size: 14))
-                            .monospacedDigit()
-                            .foregroundStyle(AppColors.textTertiary)
-                    }
-                }
-            }
-            .padding(16)
-            .background(isSelected ? AppColors.accentDim.opacity(0.6) : AppColors.surface)
-            .cornerRadius(14)
-            .overlay(
-                RoundedRectangle(cornerRadius: 14)
-                    .stroke(isSelected ? AppColors.accent : AppColors.border,
-                            lineWidth: isSelected ? 2 : 1)
-            )
-        }
-        .buttonStyle(.plain)
     }
 }

@@ -650,8 +650,9 @@ struct PaywallScreen: View {
 // MARK: - Feature strip
 
 /// The other Pro features as chips drifting left at 28 pt/s. The row is drawn
-/// twice side by side and wraps after sliding one row plus the gap, when the
-/// copy sits exactly where the original started, so the loop has no seam.
+/// side by side as often as it takes to cover the strip (twice on a phone) and
+/// wraps after sliding one row plus the gap, when the second copy sits exactly
+/// where the first started, so the loop has no seam.
 /// With Reduce Motion, `animated == false` (renders) or an accessibility text
 /// size the chips sit still in a wrapping grid. One accessibility element.
 struct PaywallFeatureStrip: View {
@@ -662,6 +663,8 @@ struct PaywallFeatureStrip: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     /// One row's width; 0 until it has been laid out.
     @State private var rowWidth: CGFloat = 0
+    /// The strip's width; 0 until it has been laid out.
+    @State private var containerWidth: CGFloat = 0
 
     private static let pointsPerSecond: Double = 28
     private static let spacing: CGFloat = 8
@@ -691,21 +694,33 @@ struct PaywallFeatureStrip: View {
     /// width, so the strip is exactly as wide as the screen and as tall as a
     /// chip; the overflow is clipped and faded at both edges.
     private var marquee: some View {
-        TimelineView(.animation(paused: rowWidth == 0)) { context in
+        TimelineView(.animation(minimumInterval: 1.0 / 60, paused: rowWidth == 0)) { context in
             HStack(spacing: Self.spacing) {
                 chipRow
                     .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { width in
                         rowWidth = width
                     }
-                chipRow
+                ForEach(1..<rowCopies, id: \.self) { _ in
+                    chipRow
+                }
             }
             .fixedSize()
             .offset(x: -drift(at: context.date))
         }
         .frame(width: 0, alignment: .leading)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { width in
+            containerWidth = width
+        }
         .clipped()
         .mask { edgeFade }
+    }
+
+    /// Enough rows to cover the strip at any point of the slide: two on a
+    /// phone, more when the strip is wider than a row (full-width iPad).
+    private var rowCopies: Int {
+        guard rowWidth > 0 else { return 2 }
+        return max(2, Int((containerWidth / (rowWidth + Self.spacing)).rounded(.up)) + 1)
     }
 
     /// How far the rows have slid at `date`, wrapping every row plus gap.
