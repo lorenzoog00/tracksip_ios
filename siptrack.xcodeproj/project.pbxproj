@@ -56,6 +56,7 @@
 		4D0E9A110000000000000B06 /* RecoveryPlanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D0E9A110000000000000B05 /* RecoveryPlanView.swift */; };
 		4D0E9A110000000000000B08 /* MorningPlanDisplay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D0E9A110000000000000B07 /* MorningPlanDisplay.swift */; };
 		4D0E9A110000000000000B0A /* MorningPlanDisplayTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D0E9A110000000000000B09 /* MorningPlanDisplayTests.swift */; };
+		4D0E9A120000000000000004 /* PaywallTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D0E9A120000000000000003 /* PaywallTests.swift */; };
 		4D0E9A110000000000000C02 /* AdminAccess.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D0E9A110000000000000C01 /* AdminAccess.swift */; };
 		4D0E9A110000000000000C04 /* PhotoReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D0E9A110000000000000C03 /* PhotoReviewView.swift */; };
 		4D0E9A110000000000000C06 /* PhotoReviewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D0E9A110000000000000C05 /* PhotoReviewTests.swift */; };
@@ -135,6 +136,7 @@
 		D317628791554B1180EF8C30 /* GettingStartedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D317628791554B1180EF8C31 /* GettingStartedView.swift */; };
 		B101B4F92F9CD648009F7DDD /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4BF2F9C2F32009F7DDD /* ProfileView.swift */; };
 		B101B4FA2F9CD648009F7DDD /* ProView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4C12F9C2F32009F7DDD /* ProView.swift */; };
+		4D0E9A120000000000000002 /* PaywallScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D0E9A120000000000000001 /* PaywallScreen.swift */; };
 		B101B4FC2F9CD648009F7DDD /* SummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4C42F9C2F32009F7DDD /* SummaryView.swift */; };
 		B101B4FD2F9CD648009F7DDD /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B101B4C62F9C2F32009F7DDD /* RootView.swift */; };
 		B101B5142F9EB92E009F7DDD /* GoogleMobileAds in Frameworks */ = {isa = PBXBuildFile; productRef = B101B5122F9EB92E009F7DDD /* GoogleMobileAds */; };
@@ -315,6 +317,7 @@
 		4D0E9A110000000000000B05 /* RecoveryPlanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecoveryPlanView.swift; sourceTree = "<group>"; };
 		4D0E9A110000000000000B07 /* MorningPlanDisplay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningPlanDisplay.swift; sourceTree = "<group>"; };
 		4D0E9A110000000000000B09 /* MorningPlanDisplayTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MorningPlanDisplayTests.swift; sourceTree = "<group>"; };
+		4D0E9A120000000000000003 /* PaywallTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaywallTests.swift; sourceTree = "<group>"; };
 		4D0E9A110000000000000C01 /* AdminAccess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminAccess.swift; sourceTree = "<group>"; };
 		4D0E9A110000000000000C03 /* PhotoReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoReviewView.swift; sourceTree = "<group>"; };
 		4D0E9A110000000000000C05 /* PhotoReviewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoReviewTests.swift; sourceTree = "<group>"; };
@@ -394,6 +397,7 @@
 		B1CC10062FA1000000001006 /* CountryDetectedSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CountryDetectedSheet.swift; sourceTree = "<group>"; };
 		B101B4BF2F9C2F32009F7DDD /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		B101B4C12F9C2F32009F7DDD /* ProView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProView.swift; sourceTree = "<group>"; };
+		4D0E9A120000000000000001 /* PaywallScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaywallScreen.swift; sourceTree = "<group>"; };
 		B101B4C42F9C2F32009F7DDD /* SummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SummaryView.swift; sourceTree = "<group>"; };
 		B101B4C62F9C2F32009F7DDD /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		B101B4C82F9C2F32009F7DDD /* SipTrackApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SipTrackApp.swift; sourceTree = "<group>"; };
@@ -825,6 +829,7 @@
 			isa = PBXGroup;
 			children = (
 				B101B4C12F9C2F32009F7DDD /* ProView.swift */,
+				4D0E9A120000000000000001 /* PaywallScreen.swift */,
 			);
 			path = Subscription;
 			sourceTree = "<group>";
@@ -961,6 +966,7 @@
 				4D0E9A110000000000000907 /* MorningCheckInTests.swift */,
 				4D0E9A110000000000000A01 /* MorningPlanFlowTests.swift */,
 				4D0E9A110000000000000B09 /* MorningPlanDisplayTests.swift */,
+				4D0E9A120000000000000003 /* PaywallTests.swift */,
 				4D0E9A110000000000000C05 /* PhotoReviewTests.swift */,
 				E34D6123C210440E9E1B4414 /* DrinkLookupTests.swift */,
 				E34D6123C210440E9E1B4418 /* AppDatesTests.swift */,
@@ -1379,6 +1385,7 @@
 				B15DA9AE2FAC1A1600345F64 /* GoogleGLogo.swift in Sources */,
 				CC1A2B3D4E5F6A7B8C9D0E1F /* LearnView.swift in Sources */,
 				B101B4FA2F9CD648009F7DDD /* ProView.swift in Sources */,
+				4D0E9A120000000000000002 /* PaywallScreen.swift in Sources */,
 				B101B4FC2F9CD648009F7DDD /* SummaryView.swift in Sources */,
 				D77C112605A0000000000002 /* NightReview.swift in Sources */,
 				D77C112605A0000000000004 /* NightPhotoStore.swift in Sources */,
@@ -1431,6 +1438,7 @@
 				4D0E9A110000000000000908 /* MorningCheckInTests.swift in Sources */,
 				4D0E9A110000000000000A02 /* MorningPlanFlowTests.swift in Sources */,
 				4D0E9A110000000000000B0A /* MorningPlanDisplayTests.swift in Sources */,
+				4D0E9A120000000000000004 /* PaywallTests.swift in Sources */,
 				4D0E9A110000000000000C06 /* PhotoReviewTests.swift in Sources */,
 				E34D6123C210440E9E1B4413 /* DrinkLookupTests.swift in Sources */,
 				E34D6123C210440E9E1B4417 /* AppDatesTests.swift in Sources */,
