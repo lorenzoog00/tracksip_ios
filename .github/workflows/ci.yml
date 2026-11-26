@@ -117,7 +117,7 @@ jobs:
             CODE_SIGNING_REQUIRED=NO
 
       - name: Upload paywall screenshots
-        if: always()
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: paywall-shots
