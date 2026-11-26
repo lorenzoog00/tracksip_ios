@@ -74,7 +74,7 @@ struct ProView: View {
                 Button { dismiss() } label: {
                     Image(systemName: "xmark")
                         .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(AppColors.textTertiary)
+                        .foregroundStyle(AppColors.textSecondary)
                 }
             }
         }
@@ -97,6 +97,7 @@ struct ProView: View {
                         .foregroundStyle(AppColors.textSecondary)
                 }
                 .disabled(isPurchasing)
+                .accessibilityLabel("Restore Purchases")
             }
         }
     }
@@ -150,6 +151,10 @@ struct ProView: View {
 
     /// The free trial each plan would start. An intro offer the user is no
     /// longer eligible for, or one that isn't a free trial, leaves no entry.
+    /// Only free trials are worded: a paid intro offer (pay as you go, pay up
+    /// front) would still be charged by StoreKit at its intro price while the
+    /// button and terms show the full price. None is configured; the paywall
+    /// needs a change before one is added in App Store Connect.
     private func loadTrials() async {
         var found: [SubscriptionPeriod: PaywallTrial] = [:]
         for period in [SubscriptionPeriod.yearly, .monthly] {

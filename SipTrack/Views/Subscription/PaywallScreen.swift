@@ -27,7 +27,10 @@ struct PaywallTrial: Equatable {
 }
 
 extension PaywallTrial {
-    /// nil unless the offer is a free trial.
+    /// nil unless the offer is a free trial. Only free trials are worded: a
+    /// paid intro offer (pay as you go, pay up front) maps to nil, yet StoreKit
+    /// would still charge its intro price while the button and terms show the
+    /// full one. Change the paywall before adding one in App Store Connect.
     init?(offer: Product.SubscriptionOffer) {
         guard offer.paymentMode == .freeTrial else { return nil }
         let unit: Unit
@@ -91,6 +94,17 @@ enum PaywallCopy {
         }
     }
 
+    /// What VoiceOver reads for the button: `ctaLabel` with the "·" and the
+    /// "/yr" or "/mo" spelled out. The trial wording reads fine as it is.
+    static func ctaAccessibilityLabel(period: SubscriptionPeriod, price: String, trial: PaywallTrial?) -> String {
+        if trial != nil { return ctaLabel(period: period, price: price, trial: trial) }
+        switch period {
+        case .yearly: return "Continue, \(price) per year"
+        case .monthly: return "Continue, \(price) per month"
+        case .lifetime: return "Continue, \(price), one-time purchase"
+        }
+    }
+
     static func renewalTerms(period: SubscriptionPeriod, price: String, trial: PaywallTrial?) -> String {
         switch period {
         case .lifetime:
@@ -110,8 +124,9 @@ enum PaywallCopy {
 /// The paywall's hero: `MorningPlan.sample` as a compact plan card, in the
 /// plan screen's look, with real recovery-library photos. Its five ticks fill
 /// in plan order when it appears; with `animated == false` (renders) or
-/// Reduce Motion they all start ticked. Decorative: one accessibility element,
-/// nothing to tap, no haptics.
+/// Reduce Motion they all start ticked. At accessibility text sizes it is
+/// compact: no photos, every item a ticked row, so the plans come sooner.
+/// Decorative: one accessibility element, nothing to tap, no haptics.
 struct PaywallPlanPreview: View {
     var animated: Bool = true
 
@@ -139,6 +154,9 @@ struct PaywallPlanPreview: View {
     /// Right now, then breakfast, then the activities: five for the sample.
     private var tickTotal: Int { remedies.count + 1 + activities.count }
     private var isStatic: Bool { !animated || reduceMotion }
+    /// Accessibility text sizes: breakfast and the activities as plain rows,
+    /// without their photos.
+    private var isCompact: Bool { dynamicTypeSize.isAccessibilitySize }
 
     private func isTicked(_ index: Int) -> Bool {
         isStatic || index < tickedCount
@@ -163,21 +181,29 @@ struct PaywallPlanPreview: View {
                 ForEach(Array(remedies.enumerated()), id: \.offset) { index, remedy in
                     remedyRow(remedy, isOn: isTicked(index))
                 }
+                if isCompact {
+                    plainRow(plan.breakfast.name, isOn: isTicked(remedies.count))
+                    ForEach(Array(activities.enumerated()), id: \.offset) { index, activity in
+                        plainRow(activity.name, isOn: isTicked(remedies.count + 1 + index))
+                    }
+                }
             }
             .padding(.top, 14)
 
-            breakfastCard(isOn: isTicked(remedies.count))
-                .padding(.top, 10)
+            if !isCompact {
+                breakfastCard(isOn: isTicked(remedies.count))
+                    .padding(.top, 10)
 
-            // fixedSize: side by side, both tiles take the taller one's height.
-            activityLayout {
-                ForEach(Array(activities.enumerated()), id: \.offset) { index, activity in
-                    activityTile(activity, imageName: Self.activityPhotos[index],
-                                 isOn: isTicked(remedies.count + 1 + index))
+                // fixedSize: both tiles take the taller one's height.
+                HStack(alignment: .top, spacing: 10) {
+                    ForEach(Array(activities.enumerated()), id: \.offset) { index, activity in
+                        activityTile(activity, imageName: Self.activityPhotos[index],
+                                     isOn: isTicked(remedies.count + 1 + index))
+                    }
                 }
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 10)
             }
-            .fixedSize(horizontal: false, vertical: true)
-            .padding(.top, 10)
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -212,14 +238,6 @@ struct PaywallPlanPreview: View {
         }
     }
 
-    /// Side by side; stacked at accessibility text sizes so the names keep
-    /// the full width.
-    private var activityLayout: AnyLayout {
-        dynamicTypeSize.isAccessibilitySize
-            ? AnyLayout(VStackLayout(spacing: 10))
-            : AnyLayout(HStackLayout(alignment: .top, spacing: 10))
-    }
-
     private func remedyRow(_ remedy: PlanRemedy, isOn: Bool) -> some View {
         HStack(alignment: .top, spacing: 10) {
             PaywallPlanTick(isOn: isOn)
@@ -232,6 +250,19 @@ struct PaywallPlanPreview: View {
                 }
                 itemTitle(remedy.title, isOn: isOn)
             }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(Self.well, in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    /// A tick and a title in the well, like a remedy row at accessibility
+    /// sizes: the compact hero's breakfast and activities.
+    private func plainRow(_ title: String, isOn: Bool) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            PaywallPlanTick(isOn: isOn)
+            itemTitle(title, isOn: isOn)
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 12)
@@ -364,9 +395,11 @@ private enum PaywallLayout {
 /// no AppState) so tests can render it. Top to bottom: the sample plan, the
 /// title, the free/Pro allowance, the other Pro features, what stays free and
 /// the plans. The button, the renewal terms and the legal links sit pinned at
-/// the bottom; at accessibility text sizes they follow the plans inline so
-/// nothing has to squeeze. They only appear once plans have loaded, so a price
-/// is always next to the button.
+/// the bottom. At accessibility text sizes nothing is pinned, so nothing has
+/// to squeeze: the plans and then the button, terms and links follow the
+/// title inline, ahead of the features and what stays free, so the price is
+/// not thousands of points down. They only appear once plans have loaded, so
+/// a price is always next to the button.
 struct PaywallScreen: View {
     let plans: PaywallPlansState
     @Binding var selected: SubscriptionPeriod
@@ -401,21 +434,34 @@ struct PaywallScreen: View {
                     .padding(.horizontal, PaywallLayout.gutter)
                     .padding(.top, 28)
 
-                PaywallFeatureStrip(features: PaywallFeatures.pro, animated: animated)
-                    .padding(.top, 22)
-
-                footnotes
-                    .padding(.horizontal, PaywallLayout.gutter)
-                    .padding(.top, 18)
-
-                plansSection
-                    .padding(.horizontal, PaywallLayout.gutter)
-                    .padding(.top, 26)
-
-                if inlinesPurchase, let option = selectedOption {
-                    purchaseBlock(option)
+                if inlinesPurchase {
+                    plansSection
                         .padding(.horizontal, PaywallLayout.gutter)
-                        .padding(.top, 24)
+                        .padding(.top, 26)
+
+                    if let option = selectedOption {
+                        purchaseBlock(option)
+                            .padding(.horizontal, PaywallLayout.gutter)
+                            .padding(.top, 24)
+                    }
+
+                    PaywallFeatureStrip(features: PaywallFeatures.pro, animated: animated)
+                        .padding(.top, 32)
+
+                    footnotes
+                        .padding(.horizontal, PaywallLayout.gutter)
+                        .padding(.top, 18)
+                } else {
+                    PaywallFeatureStrip(features: PaywallFeatures.pro, animated: animated)
+                        .padding(.top, 22)
+
+                    footnotes
+                        .padding(.horizontal, PaywallLayout.gutter)
+                        .padding(.top, 18)
+
+                    plansSection
+                        .padding(.horizontal, PaywallLayout.gutter)
+                        .padding(.top, 26)
                 }
             }
             .padding(.bottom, 24)
@@ -486,7 +532,7 @@ struct PaywallScreen: View {
                 .foregroundStyle(AppColors.textSecondary)
             Text(PaywallCopy.trust)
                 .font(.footnote)
-                .foregroundStyle(AppColors.textTertiary)
+                .foregroundStyle(AppColors.textSecondary)
         }
         .multilineTextAlignment(.center)
         .fixedSize(horizontal: false, vertical: true)
@@ -625,6 +671,8 @@ struct PaywallScreen: View {
                 .shadow(color: AppColors.accent.opacity(0.45), radius: 18, y: 6)
         }
         .disabled(isPurchasing)
+        .accessibilityLabel(PaywallCopy.ctaAccessibilityLabel(period: option.period, price: option.price,
+                                                              trial: option.trial))
     }
 
     /// Side by side; stacked at accessibility sizes so neither link wraps
@@ -792,9 +840,9 @@ struct PaywallFeatureStrip: View {
 
 // MARK: - Plan card
 
-/// A selectable plan: radio, name (BEST VALUE on yearly), what it saves or
-/// how it bills, and the price with yearly's monthly equivalent. At
-/// accessibility sizes the price moves under the name.
+/// A selectable plan: radio, name (BEST VALUE on yearly when it saves against
+/// monthly), what it saves or how it bills, and the price with yearly's
+/// monthly equivalent. At accessibility sizes the price moves under the name.
 struct PaywallPlanCard: View {
     let option: PaywallPlanOption
     let isSelected: Bool
@@ -825,7 +873,9 @@ struct PaywallPlanCard: View {
         }
     }
 
-    private var isBestValue: Bool { option.period == .yearly }
+    /// Only with a saving to back it: no badge when Monthly didn't load or
+    /// Yearly costs twelve months or more.
+    private var isBestValue: Bool { option.period == .yearly && option.savings != nil }
 
     private var shape: RoundedRectangle {
         RoundedRectangle(cornerRadius: 16, style: .continuous)

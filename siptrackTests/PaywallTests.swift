@@ -27,6 +27,16 @@ struct PaywallTests {
         #expect(PaywallCopy.ctaLabel(period: .yearly, price: "$19.99", trial: trial) == "Start your 3-day free trial")
     }
 
+    @Test func ctaAccessibilityLabelSpellsOutThePeriod() {
+        #expect(PaywallCopy.ctaAccessibilityLabel(period: .yearly, price: "$19.99", trial: nil)
+                == "Continue, $19.99 per year")
+        #expect(PaywallCopy.ctaAccessibilityLabel(period: .monthly, price: "$1.99", trial: nil)
+                == "Continue, $1.99 per month")
+        #expect(PaywallCopy.ctaAccessibilityLabel(period: .yearly, price: "$19.99",
+                                                  trial: PaywallTrial(value: 3, unit: .day))
+                == "Start your 3-day free trial")
+    }
+
     @Test func renewalTermsStatePriceAndPeriod() {
         #expect(PaywallCopy.renewalTerms(period: .yearly, price: "$19.99", trial: nil)
                 == "Auto-renews yearly at $19.99 until canceled. Cancel anytime in Settings.")
@@ -182,9 +192,11 @@ struct PaywallRenderTests {
         // and the sample plan has not ticked anything yet.
         Shot(phone: .small, textSize: .large, plans: loadedPlans, animated: true, variant: "animated"),
         // The whole screen, top to bottom: at the largest text size the plan
-        // cards and the purchase block are far below the first screenful.
-        // The content is estimated at about 1,600 pt tall at the default size
-        // and 6,800 pt at accessibility5; the log says if either runs past.
+        // cards and the purchase block follow the compact hero and the title,
+        // with the features after them. The content was estimated at about
+        // 1,600 pt tall at the default size and 6,800 pt at accessibility5
+        // before the hero dropped its photos there; the log says if either
+        // runs past.
         Shot(phone: .fullLength(2000), textSize: .large, plans: loadedPlans, name: "paywall-375-full-large"),
         Shot(phone: .fullLength(8000), textSize: .accessibility5, plans: loadedPlans, name: "paywall-375-full-ax5"),
     ]
@@ -235,7 +247,7 @@ struct PaywallRenderTests {
                     Button {} label: {
                         Image(systemName: "xmark")
                             .font(.system(size: 17, weight: .semibold))
-                            .foregroundStyle(AppColors.textTertiary)
+                            .foregroundStyle(AppColors.textSecondary)
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
