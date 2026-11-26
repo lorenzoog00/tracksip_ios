@@ -122,11 +122,13 @@ enum PaywallCopy {
 // MARK: - Hero
 
 /// The paywall's hero: `MorningPlan.sample` as a compact plan card, in the
-/// plan screen's look, with real recovery-library photos. Its five ticks fill
-/// in plan order when it appears; with `animated == false` (renders) or
-/// Reduce Motion they all start ticked. At accessibility text sizes it is
-/// compact: no photos, every item a ticked row, so the plans come sooner.
-/// Decorative: one accessibility element, nothing to tap, no haptics.
+/// plan screen's look, with real recovery-library photos: the label, the
+/// headline, the two "Right now" rows, then breakfast, the walk and the nap
+/// as one row of three photo tiles. Its five ticks fill in plan order when
+/// it appears; with `animated == false` (renders) or Reduce Motion they all
+/// start ticked. At accessibility text sizes it is compact: no photos, every
+/// item a ticked row, so the plans come sooner. Decorative: one
+/// accessibility element, nothing to tap, no haptics.
 struct PaywallPlanPreview: View {
     var animated: Bool = true
 
@@ -138,25 +140,32 @@ struct PaywallPlanPreview: View {
     static let accessibilitySummary =
         "Sample morning plan: water and electrolytes, ibuprofen, eggs on toast with a banana, a 20-minute walk and a nap."
 
-    private static let breakfastPhoto = "PaywallBreakfast"
-    /// One per activity, in plan order.
-    private static let activityPhotos = ["PaywallWalk", "PaywallNap"]
+    /// Breakfast, the walk and the nap, in plan order: one per photo tile.
+    private static let photoNames = ["PaywallBreakfast", "PaywallWalk", "PaywallNap"]
     private static let firstTickDelay: Duration = .seconds(0.4)
     private static let tickInterval: Duration = .seconds(0.55)
-    private static let breakfastPhotoHeight: CGFloat = 112
-    private static let activityPhotoHeight: CGFloat = 76
-    /// Rows and photo cards sit in a faint well inside the card.
+    private static let photoHeight: CGFloat = 84
+    /// Rows and photo tiles sit in a faint well inside the card.
     private static let well = Color.white.opacity(0.05)
 
     private var plan: MorningPlan { .sample }
     private var remedies: [PlanRemedy] { Array(plan.rightNow.prefix(2)) }
-    private var activities: [PlanPhotoItem] { Array(plan.activities.prefix(Self.activityPhotos.count)) }
+    /// Breakfast, then the activities: the photo tiles, in plan order.
+    private var photoItems: [PlanPhotoItem] {
+        Array(([plan.breakfast] + plan.activities).prefix(Self.photoNames.count))
+    }
     /// Right now, then breakfast, then the activities: five for the sample.
-    private var tickTotal: Int { remedies.count + 1 + activities.count }
+    private var tickTotal: Int { remedies.count + photoItems.count }
     private var isStatic: Bool { !animated || reduceMotion }
     /// Accessibility text sizes: breakfast and the activities as plain rows,
     /// without their photos.
     private var isCompact: Bool { dynamicTypeSize.isAccessibilitySize }
+
+    /// A smaller serif keeps the headline to about three lines; the compact
+    /// hero keeps the larger one it had.
+    private var headlineFont: Font {
+        isCompact ? .system(.title3, design: .serif) : .system(.callout, design: .serif, weight: .medium)
+    }
 
     private func isTicked(_ index: Int) -> Bool {
         isStatic || index < tickedCount
@@ -171,34 +180,30 @@ struct PaywallPlanPreview: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             Text(plan.headline)
-                .font(.system(.title3, design: .serif))
+                .font(headlineFont)
                 .foregroundStyle(AppColors.text)
-                .lineSpacing(3)
+                .lineSpacing(isCompact ? 3 : 2)
                 .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, 10)
+                .padding(.top, isCompact ? 10 : 8)
 
             VStack(spacing: 6) {
                 ForEach(Array(remedies.enumerated()), id: \.offset) { index, remedy in
                     remedyRow(remedy, isOn: isTicked(index))
                 }
                 if isCompact {
-                    plainRow(plan.breakfast.name, isOn: isTicked(remedies.count))
-                    ForEach(Array(activities.enumerated()), id: \.offset) { index, activity in
-                        plainRow(activity.name, isOn: isTicked(remedies.count + 1 + index))
+                    ForEach(Array(photoItems.enumerated()), id: \.offset) { index, item in
+                        plainRow(item.name, isOn: isTicked(remedies.count + index))
                     }
                 }
             }
-            .padding(.top, 14)
+            .padding(.top, isCompact ? 14 : 10)
 
             if !isCompact {
-                breakfastCard(isOn: isTicked(remedies.count))
-                    .padding(.top, 10)
-
-                // fixedSize: both tiles take the taller one's height.
-                HStack(alignment: .top, spacing: 10) {
-                    ForEach(Array(activities.enumerated()), id: \.offset) { index, activity in
-                        activityTile(activity, imageName: Self.activityPhotos[index],
-                                     isOn: isTicked(remedies.count + 1 + index))
+                // Three equal tiles; fixedSize gives each the tallest one's height.
+                HStack(alignment: .top, spacing: 8) {
+                    ForEach(Array(photoItems.enumerated()), id: \.offset) { index, item in
+                        photoTile(item, imageName: Self.photoNames[index],
+                                  isOn: isTicked(remedies.count + index))
                     }
                 }
                 .fixedSize(horizontal: false, vertical: true)
@@ -238,22 +243,24 @@ struct PaywallPlanPreview: View {
         }
     }
 
+    /// Tighter than at accessibility sizes, where the compact hero keeps the
+    /// roomier row it had.
     private func remedyRow(_ remedy: PlanRemedy, isOn: Bool) -> some View {
-        HStack(alignment: .top, spacing: 10) {
+        HStack(alignment: .top, spacing: isCompact ? 10 : 8) {
             PaywallPlanTick(isOn: isOn)
-            HStack(alignment: .firstTextBaseline, spacing: 7) {
+            HStack(alignment: .firstTextBaseline, spacing: 5) {
                 // Dropped at accessibility sizes to leave the title room.
                 if !dynamicTypeSize.isAccessibilitySize {
                     Image(systemName: remedy.symbolName)
                         .font(.footnote.weight(.semibold))
                         .foregroundStyle(AppColors.accent)
                 }
-                itemTitle(remedy.title, isOn: isOn)
+                itemTitle(remedy.title)
             }
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(.horizontal, isCompact ? 12 : 10)
+        .padding(.vertical, isCompact ? 10 : 7)
         .background(Self.well, in: RoundedRectangle(cornerRadius: 12))
     }
 
@@ -262,7 +269,7 @@ struct PaywallPlanPreview: View {
     private func plainRow(_ title: String, isOn: Bool) -> some View {
         HStack(alignment: .top, spacing: 10) {
             PaywallPlanTick(isOn: isOn)
-            itemTitle(title, isOn: isOn)
+            itemTitle(title)
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 12)
@@ -270,88 +277,73 @@ struct PaywallPlanPreview: View {
         .background(Self.well, in: RoundedRectangle(cornerRadius: 12))
     }
 
-    private func breakfastCard(isOn: Bool) -> some View {
+    /// One of the three equal tiles: the photo, then a small tick and the
+    /// item's name under it, wrapping rather than truncating.
+    private func photoTile(_ item: PlanPhotoItem, imageName: String, isOn: Bool) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            photo(Self.breakfastPhoto, height: Self.breakfastPhotoHeight)
-            HStack(alignment: .top, spacing: 10) {
-                PaywallPlanTick(isOn: isOn)
-                VStack(alignment: .leading, spacing: 2) {
-                    itemTitle(plan.breakfast.name, isOn: isOn)
-                    if let when = plan.breakfast.when {
-                        Text("\(Image(systemName: "clock")) \(when)")
-                            .font(.caption)
-                            .foregroundStyle(AppColors.textSecondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-                Spacer(minLength: 0)
+            photo(imageName, height: Self.photoHeight)
+            HStack(alignment: .top, spacing: 5) {
+                PaywallPlanTick(isOn: isOn, size: 16)
+                itemTitle(item.name, font: .caption.weight(.semibold))
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(10)
-        }
-        .background(Self.well)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
-    }
-
-    private func activityTile(_ item: PlanPhotoItem, imageName: String, isOn: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            photo(imageName, height: Self.activityPhotoHeight)
-            HStack(alignment: .top, spacing: 8) {
-                PaywallPlanTick(isOn: isOn)
-                itemTitle(item.name, isOn: isOn, font: .footnote.weight(.semibold))
-                Spacer(minLength: 0)
-            }
-            .padding(10)
+            .padding(.horizontal, 6)
+            .padding(.top, 6)
+            .padding(.bottom, 7)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(Self.well)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
     /// A bundled photo filling a fixed-height strip. The strip sets the size
     /// and the photo is an overlay, so its fill can never widen the layout.
+    /// Loaded through UIKit, so the app and the test renders decode the same
+    /// image.
     private func photo(_ name: String, height: CGFloat) -> some View {
         Self.well
             .frame(height: height)
             .frame(maxWidth: .infinity)
             .overlay {
-                Image(name)
+                Image(uiImage: UIImage(named: name) ?? UIImage())
                     .resizable()
                     .scaledToFill()
             }
             .clipped()
     }
 
-    /// A ticked item reads as done, as on the plan screen: struck through and dimmed.
-    private func itemTitle(_ title: String, isOn: Bool,
-                           font: Font = .subheadline.weight(.semibold)) -> some View {
+    /// An item's name. Unlike the plan screen, a ticked item is not struck
+    /// through or dimmed: the gold tick says it is done and the sample stays
+    /// readable.
+    private func itemTitle(_ title: String, font: Font = .subheadline.weight(.semibold)) -> some View {
         Text(title)
             .font(font)
-            .foregroundStyle(isOn ? AppColors.textSecondary : AppColors.text)
-            .strikethrough(isOn, color: AppColors.textSecondary)
+            .foregroundStyle(AppColors.text)
             .fixedSize(horizontal: false, vertical: true)
     }
 }
 
-/// The plan screen's round gold tick, a size smaller. The fill pops in with
-/// whatever animation changes `isOn`.
+/// The plan screen's round gold tick, a size smaller (smaller still under the
+/// photos). The fill pops in with whatever animation changes `isOn`.
 private struct PaywallPlanTick: View {
     let isOn: Bool
+    var size: CGFloat = 20
 
     var body: some View {
         ZStack {
             Circle()
-                .stroke(isOn ? AppColors.accent : AppColors.border, lineWidth: 2)
+                .stroke(isOn ? AppColors.accent : AppColors.border, lineWidth: size / 10)
             Circle()
                 .fill(AppColors.accent)
                 .overlay {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 10, weight: .black))
+                        .font(.system(size: size / 2, weight: .black))
                         .foregroundStyle(.black)
                 }
                 .scaleEffect(isOn ? 1 : 0.3)
                 .opacity(isOn ? 1 : 0)
         }
-        .frame(width: 20, height: 20)
+        .frame(width: size, height: size)
     }
 }
 
