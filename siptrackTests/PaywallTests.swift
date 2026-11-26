@@ -3,8 +3,8 @@ import StoreKit
 import Testing
 @testable import siptrack
 
-/// The paywall's pure pieces: price and trial wording, the savings badge and
-/// the Pro feature list.
+/// The paywall's pure pieces: price and trial wording, the savings badge, the
+/// Pro feature list and which plan the button buys.
 @MainActor
 struct PaywallTests {
     @Test func savingsFloorsToWholePercent() {
@@ -47,5 +47,12 @@ struct PaywallTests {
         for banned in ["max", "peak", "streak", "rank", "record", "most drinks", "leaderboard"] {
             #expect(!copy.contains { $0.localizedCaseInsensitiveContains(banned) }, "\(banned)")
         }
+    }
+
+    @Test func selectionFallsBackToAPlanThatLoaded() {
+        let monthly = PaywallPlanOption(period: .monthly, price: "$1.99", monthlyEquivalent: nil, savings: nil, trial: nil)
+        #expect(PaywallPlansState.loaded([monthly]).resolvedSelection(.yearly) == .monthly)
+        #expect(PaywallPlansState.loaded([monthly]).resolvedSelection(.monthly) == .monthly)
+        #expect(PaywallPlansState.loading.resolvedSelection(.yearly) == nil)
     }
 }

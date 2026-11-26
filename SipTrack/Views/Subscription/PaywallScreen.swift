@@ -323,3 +323,611 @@ private struct PaywallPlanTick: View {
         .frame(width: 20, height: 20)
     }
 }
+
+// MARK: - Screen
+
+/// One plan the paywall offers, already in display form: StoreKit's price
+/// strings, the yearly saving and an eligible free trial.
+struct PaywallPlanOption: Identifiable, Equatable {
+    let period: SubscriptionPeriod
+    let price: String
+    /// "≈ $1.67/mo", shown under the yearly price.
+    let monthlyEquivalent: String?
+    let savings: Int?
+    let trial: PaywallTrial?
+
+    var id: SubscriptionPeriod { period }
+}
+
+enum PaywallPlansState: Equatable {
+    case loading
+    case failed(String)
+    case loaded([PaywallPlanOption])
+}
+
+extension PaywallPlansState {
+    /// The plan the button buys: `selected` when it loaded, else the first
+    /// plan that did, else nil (loading, failed or nothing loaded).
+    func resolvedSelection(_ selected: SubscriptionPeriod) -> SubscriptionPeriod? {
+        guard case .loaded(let options) = self else { return nil }
+        if options.contains(where: { $0.period == selected }) { return selected }
+        return options.first?.period
+    }
+}
+
+/// Side margin shared by the paywall's sections.
+private enum PaywallLayout {
+    static let gutter: CGFloat = 20
+}
+
+/// The free user's paywall, drawn from plain values and closures (no StoreKit,
+/// no AppState) so tests can render it. Top to bottom: the sample plan, the
+/// title, the free/Pro allowance, the other Pro features, what stays free and
+/// the plans. The button, the renewal terms and the legal links sit pinned at
+/// the bottom; at accessibility text sizes they follow the plans inline so
+/// nothing has to squeeze. They only appear once plans have loaded, so a price
+/// is always next to the button.
+struct PaywallScreen: View {
+    let plans: PaywallPlansState
+    @Binding var selected: SubscriptionPeriod
+    let isPurchasing: Bool
+    let errorMessage: String?
+    var animated: Bool = true
+    let onPurchase: () -> Void
+    let onRetry: () -> Void
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    private static let termsURL = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!
+    private static let privacyURL = URL(string: "https://tracksip.online/policy")!
+
+    private var inlinesPurchase: Bool { dynamicTypeSize.isAccessibilitySize }
+
+    /// What the button buys. nil unless plans loaded and the list has one.
+    private var selectedOption: PaywallPlanOption? {
+        guard case .loaded(let options) = plans,
+              let period = plans.resolvedSelection(selected) else { return nil }
+        return options.first { $0.period == period }
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 0) {
+                PaywallPlanPreview(animated: animated)
+                    .padding(.horizontal, PaywallLayout.gutter)
+                    .padding(.top, 12)
+
+                header
+                    .padding(.horizontal, PaywallLayout.gutter)
+                    .padding(.top, 28)
+
+                PaywallFeatureStrip(features: PaywallFeatures.pro, animated: animated)
+                    .padding(.top, 22)
+
+                footnotes
+                    .padding(.horizontal, PaywallLayout.gutter)
+                    .padding(.top, 18)
+
+                plansSection
+                    .padding(.horizontal, PaywallLayout.gutter)
+                    .padding(.top, 26)
+
+                if inlinesPurchase, let option = selectedOption {
+                    purchaseBlock(option)
+                        .padding(.horizontal, PaywallLayout.gutter)
+                        .padding(.top, 24)
+                }
+            }
+            .padding(.bottom, 24)
+        }
+        .background { backdrop }
+        .safeAreaInset(edge: .bottom, spacing: 0) { pinnedPurchaseBar }
+    }
+
+    private var backdrop: some View {
+        ZStack(alignment: .top) {
+            AppColors.background
+            Ellipse()
+                .fill(AppColors.accent.opacity(0.12))
+                .frame(width: 360, height: 220)
+                .blur(radius: 80)
+                .offset(y: 40)
+        }
+        .ignoresSafeArea()
+    }
+
+    private var header: some View {
+        VStack(spacing: 10) {
+            Text(PaywallCopy.title)
+                .font(.largeTitle.weight(.bold))
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [AppColors.textWarm, AppColors.text],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityAddTraits(.isHeader)
+
+            Text(PaywallCopy.subtitle)
+                .font(.body)
+                .foregroundStyle(AppColors.textSecondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text(PaywallCopy.allowance)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(AppColors.accent)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 7)
+                .background(AppColors.accentDim, in: pillShape)
+                .overlay { pillShape.stroke(AppColors.accent.opacity(0.35), lineWidth: 1) }
+                .padding(.top, 4)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    /// A capsule; a rounded rectangle once accessibility sizes wrap the
+    /// allowance onto several lines.
+    private var pillShape: AnyShape {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            : AnyShape(Capsule())
+    }
+
+    private var footnotes: some View {
+        VStack(spacing: 8) {
+            Text(PaywallCopy.alwaysFree)
+                .font(.subheadline)
+                .foregroundStyle(AppColors.textSecondary)
+            Text(PaywallCopy.trust)
+                .font(.footnote)
+                .foregroundStyle(AppColors.textTertiary)
+        }
+        .multilineTextAlignment(.center)
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(maxWidth: .infinity)
+    }
+
+    @ViewBuilder
+    private var plansSection: some View {
+        switch plans {
+        case .loading:
+            ProgressView("Loading plans…")
+                .tint(AppColors.accent)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 24)
+        case .failed(let message):
+            failedView(message)
+        case .loaded(let options):
+            if options.isEmpty {
+                failedView("Could not load plans")
+            } else {
+                let current = plans.resolvedSelection(selected)
+                VStack(spacing: 10) {
+                    ForEach(options) { option in
+                        PaywallPlanCard(option: option, isSelected: option.period == current) {
+                            withAnimation(.easeOut(duration: 0.18)) { selected = option.period }
+                        }
+                    }
+                }
+                .disabled(isPurchasing)
+            }
+        }
+    }
+
+    /// Today's error look: warning, message, Try Again.
+    private func failedView(_ message: String) -> some View {
+        VStack(spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.title)
+                .foregroundStyle(AppColors.danger)
+            Text(message)
+                .font(.callout)
+                .foregroundStyle(AppColors.textSecondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+            Button(action: onRetry) {
+                Text("Try Again")
+                    .font(.headline)
+                    .foregroundStyle(AppColors.accent)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 18)
+                    .background(AppColors.accentDim, in: RoundedRectangle(cornerRadius: 8))
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 24)
+    }
+
+    @ViewBuilder
+    private var pinnedPurchaseBar: some View {
+        if !inlinesPurchase, let option = selectedOption {
+            purchaseBlock(option)
+                .padding(.horizontal, PaywallLayout.gutter)
+                .padding(.top, 14)
+                .padding(.bottom, 8)
+                .background {
+                    ZStack(alignment: .top) {
+                        Rectangle().fill(.ultraThinMaterial)
+                        AppColors.background.opacity(0.8)
+                        AppColors.border.frame(height: 0.5)
+                    }
+                    .ignoresSafeArea(edges: .bottom)
+                }
+        }
+    }
+
+    /// Error, button, renewal terms, legal links: price, period and terms
+    /// always travel together.
+    private func purchaseBlock(_ option: PaywallPlanOption) -> some View {
+        VStack(spacing: 10) {
+            if let errorMessage {
+                Text(errorMessage)
+                    .font(.callout)
+                    .foregroundStyle(AppColors.danger)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            purchaseButton(option)
+
+            Text(PaywallCopy.renewalTerms(period: option.period, price: option.price, trial: option.trial))
+                .font(.footnote)
+                .foregroundStyle(AppColors.textSecondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+
+            legalLinks
+        }
+    }
+
+    private func purchaseButton(_ option: PaywallPlanOption) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
+        return Button(action: onPurchase) {
+            Text(PaywallCopy.ctaLabel(period: option.period, price: option.price, trial: option.trial))
+                .font(.headline.weight(.bold))
+                .monospacedDigit()
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                // Hidden, not removed, so the button keeps its size.
+                .opacity(isPurchasing ? 0 : 1)
+                .overlay {
+                    if isPurchasing {
+                        ProgressView().tint(.black)
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 16)
+                .frame(maxWidth: .infinity, minHeight: 56)
+                .foregroundStyle(.black)
+                .background(
+                    LinearGradient(
+                        colors: [AppColors.accentWarm, AppColors.accent],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    in: shape
+                )
+                .overlay {
+                    shape.stroke(
+                        LinearGradient(colors: [Color.white.opacity(0.45), .clear],
+                                       startPoint: .top, endPoint: .bottom),
+                        lineWidth: 1
+                    )
+                }
+                .shadow(color: AppColors.accent.opacity(0.45), radius: 18, y: 6)
+        }
+        .disabled(isPurchasing)
+    }
+
+    /// Side by side; stacked at accessibility sizes so neither link wraps
+    /// into the other.
+    private var legalLinks: some View {
+        let stacked = dynamicTypeSize.isAccessibilitySize
+        let layout = stacked
+            ? AnyLayout(VStackLayout(spacing: 8))
+            : AnyLayout(HStackLayout(spacing: 8))
+        return layout {
+            Link("Terms of Use", destination: Self.termsURL)
+            if !stacked {
+                Text("·").accessibilityHidden(true)
+            }
+            Link("Privacy Policy", destination: Self.privacyURL)
+        }
+        .font(.footnote.weight(.medium))
+        .foregroundStyle(AppColors.textSecondary)
+        .multilineTextAlignment(.center)
+    }
+}
+
+// MARK: - Feature strip
+
+/// The other Pro features as chips drifting left at 28 pt/s. The row is drawn
+/// twice side by side and wraps after sliding one row plus the gap, when the
+/// copy sits exactly where the original started, so the loop has no seam.
+/// With Reduce Motion, `animated == false` (renders) or an accessibility text
+/// size the chips sit still in a wrapping grid. One accessibility element.
+struct PaywallFeatureStrip: View {
+    let features: [PaywallFeature]
+    var animated: Bool = true
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    /// One row's width; 0 until it has been laid out.
+    @State private var rowWidth: CGFloat = 0
+
+    private static let pointsPerSecond: Double = 28
+    private static let spacing: CGFloat = 8
+
+    private var drifts: Bool {
+        animated && !reduceMotion && !dynamicTypeSize.isAccessibilitySize
+    }
+
+    private var accessibilitySummary: String {
+        "Also in Pro: " + features.map(\.title).joined(separator: ", ")
+    }
+
+    var body: some View {
+        Group {
+            if drifts {
+                marquee
+            } else {
+                grid
+                    .padding(.horizontal, PaywallLayout.gutter)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilitySummary)
+    }
+
+    /// The rows overflow a zero-width frame that then takes the offered
+    /// width, so the strip is exactly as wide as the screen and as tall as a
+    /// chip; the overflow is clipped and faded at both edges.
+    private var marquee: some View {
+        TimelineView(.animation(paused: rowWidth == 0)) { context in
+            HStack(spacing: Self.spacing) {
+                chipRow
+                    .onGeometryChange(for: CGFloat.self, of: { $0.size.width }) { width in
+                        rowWidth = width
+                    }
+                chipRow
+            }
+            .fixedSize()
+            .offset(x: -drift(at: context.date))
+        }
+        .frame(width: 0, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .clipped()
+        .mask { edgeFade }
+    }
+
+    /// How far the rows have slid at `date`, wrapping every row plus gap.
+    private func drift(at date: Date) -> CGFloat {
+        guard rowWidth > 0 else { return 0 }
+        let cycle = Double(rowWidth + Self.spacing)
+        return CGFloat((date.timeIntervalSinceReferenceDate * Self.pointsPerSecond)
+            .truncatingRemainder(dividingBy: cycle))
+    }
+
+    private var edgeFade: some View {
+        LinearGradient(
+            stops: [
+                .init(color: .clear, location: 0),
+                .init(color: .black, location: 0.08),
+                .init(color: .black, location: 0.92),
+                .init(color: .clear, location: 1)
+            ],
+            startPoint: .leading,
+            endPoint: .trailing
+        )
+    }
+
+    private var chipRow: some View {
+        HStack(spacing: Self.spacing) {
+            ForEach(features, id: \.self) { feature in
+                chip(feature, inGrid: false)
+            }
+        }
+    }
+
+    private var grid: some View {
+        LazyVGrid(columns: gridColumns, alignment: .leading, spacing: Self.spacing) {
+            ForEach(features, id: \.self) { feature in
+                chip(feature, inGrid: true)
+            }
+        }
+    }
+
+    private var gridColumns: [GridItem] {
+        if dynamicTypeSize.isAccessibilitySize {
+            return [GridItem(.flexible(), alignment: .leading)]
+        }
+        return [GridItem(.adaptive(minimum: 150), spacing: Self.spacing, alignment: .leading)]
+    }
+
+    /// Icon and title in a capsule. In the grid it fills its cell and becomes
+    /// a rounded rectangle, since the title may wrap there.
+    private func chip(_ feature: PaywallFeature, inGrid: Bool) -> some View {
+        let shape = inGrid
+            ? AnyShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            : AnyShape(Capsule())
+        return HStack(alignment: .firstTextBaseline, spacing: 7) {
+            Image(systemName: feature.icon)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(AppColors.accent)
+            Text(feature.title)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppColors.text)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 9)
+        .frame(maxWidth: inGrid ? CGFloat.infinity : nil, alignment: .leading)
+        .background(AppColors.surface, in: shape)
+        .overlay { shape.stroke(AppColors.border, lineWidth: 1) }
+    }
+}
+
+// MARK: - Plan card
+
+/// A selectable plan: radio, name (BEST VALUE on yearly), what it saves or
+/// how it bills, and the price with yearly's monthly equivalent. At
+/// accessibility sizes the price moves under the name.
+struct PaywallPlanCard: View {
+    let option: PaywallPlanOption
+    let isSelected: Bool
+    let onTap: () -> Void
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    private var title: String {
+        switch option.period {
+        case .yearly: return "Yearly"
+        case .monthly: return "Monthly"
+        case .lifetime: return "Lifetime"
+        }
+    }
+
+    /// The trial when there is one; otherwise yearly's saving (or how it
+    /// bills when the saving is unknown) and how monthly bills.
+    private var subtitle: String {
+        if let trial = option.trial { return "\(trial.adjective) free trial" }
+        switch option.period {
+        case .yearly:
+            if let savings = option.savings { return "Save \(savings)% vs monthly" }
+            return "Billed once a year"
+        case .monthly:
+            return "Billed monthly · cancel anytime"
+        case .lifetime:
+            return "One-time purchase"
+        }
+    }
+
+    private var isBestValue: Bool { option.period == .yearly }
+
+    private var shape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: 16, style: .continuous)
+    }
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(alignment: dynamicTypeSize.isAccessibilitySize ? .top : .center, spacing: 14) {
+                radio
+                if dynamicTypeSize.isAccessibilitySize {
+                    VStack(alignment: .leading, spacing: 6) {
+                        details
+                        price(alignment: .leading)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    details
+                    Spacer(minLength: 8)
+                    price(alignment: .trailing)
+                        .fixedSize()
+                }
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background {
+                shape
+                    .fill(AppColors.surface)
+                    .overlay {
+                        if isSelected {
+                            shape.fill(
+                                LinearGradient(
+                                    colors: [AppColors.accent.opacity(0.18), AppColors.accent.opacity(0.05)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                        }
+                    }
+            }
+            .overlay {
+                shape.stroke(isSelected ? AppColors.accent : AppColors.border,
+                             lineWidth: isSelected ? 2 : 1)
+            }
+            .shadow(color: AppColors.accent.opacity(isSelected ? 0.22 : 0), radius: 14, y: 4)
+            .contentShape(shape)
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    private var radio: some View {
+        ZStack {
+            Circle()
+                .stroke(isSelected ? AppColors.accent : AppColors.border,
+                        lineWidth: isSelected ? 2 : 1.5)
+            if isSelected {
+                Circle()
+                    .fill(AppColors.accent)
+                    .frame(width: 11, height: 11)
+            }
+        }
+        .frame(width: 22, height: 22)
+    }
+
+    private var details: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            // The badge drops under the name when both don't fit on a line.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) {
+                    titleText
+                    badge
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    titleText
+                    badge
+                }
+            }
+            Text(subtitle)
+                .font(.subheadline)
+                .foregroundStyle(AppColors.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var titleText: some View {
+        Text(title)
+            .font(.headline)
+            .foregroundStyle(AppColors.text)
+    }
+
+    @ViewBuilder
+    private var badge: some View {
+        if isBestValue {
+            Text("BEST VALUE")
+                .font(.caption2.weight(.heavy))
+                .tracking(0.6)
+                .foregroundStyle(.black)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 3)
+                .background(AppColors.accent, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func price(alignment: HorizontalAlignment) -> some View {
+        VStack(alignment: alignment, spacing: 2) {
+            Text(option.price)
+                .font(.title3.weight(.bold))
+                .monospacedDigit()
+                .foregroundStyle(isSelected ? AppColors.accent : AppColors.text)
+            if let monthlyEquivalent = option.monthlyEquivalent {
+                Text(monthlyEquivalent)
+                    .font(.footnote)
+                    .monospacedDigit()
+                    .foregroundStyle(AppColors.textSecondary)
+            }
+        }
+        .fixedSize(horizontal: false, vertical: true)
+    }
+}
