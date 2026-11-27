@@ -4,6 +4,7 @@ const {onSchedule} = require("firebase-functions/v2/scheduler");
 const {
   onDocumentCreated,
   onDocumentDeleted,
+  onDocumentWritten,
 } = require("firebase-functions/v2/firestore");
 const {
   defineSecret,
@@ -48,6 +49,7 @@ const {
 const liveActivity = require("./live-activity");
 const social = require("./social");
 const interactions = require("./interactions");
+const nightStart = require("./night-start");
 const {setAvatar} = require("./avatar");
 const {
   requireAdmin,
@@ -423,6 +425,35 @@ exports.addComment = pushingCallable(
     "addComment", interactions, interactions.notifyThread);
 exports.deleteComment = socialCallable("deleteComment", interactions);
 exports.getNightThread = socialCallable("getNightThread", interactions);
+
+// A shared night starting pushes "@x started a night" to the owner's friends.
+// Every drink rewrites the doc, so all but the write that brings a new night
+// return before an APNs client is built. Incognito nights never write it.
+exports.notifyFriendsOfNight = onDocumentWritten(
+    {document: "shared_nights/{uid}", secrets: [apnsKey], timeoutSeconds: 120},
+    async (event) => {
+      const now = Date.now();
+      const startedAt = nightStart.isNewNight(
+          event.data && event.data.before.data(),
+          event.data && event.data.after.data(),
+          now,
+      );
+      if (startedAt === null) return;
+      const client = alertPushClient();
+      if (!client) return;
+      try {
+        await nightStart.notifyFriendsOfNight({
+          db: getFirestore(),
+          uid: event.params.uid,
+          startedAt,
+          send: client.send,
+          now,
+        });
+      } finally {
+        client.close();
+      }
+    },
+);
 
 // Going incognito, deleting the shared night or the account deletes
 // shared_nights/{uid}; the thread of the night that doc held goes with it,

@@ -336,6 +336,7 @@ test("deleting an account removes every social trace of it", async () => {
     "push_tokens/B": {token: "t"},
     "notification_prefs/A": {reactions: false},
     "notification_prefs/B": {reactions: false},
+    "night_start_pushes/A": {started_at: 1, sent_at: 1},
     "night_threads/A_1": {owner: "A", started_at: 1},
     "night_threads/A_1/comments/c1": {uid: "B", text: "hi"},
     "night_threads/A_1/reactions/B": {uid: "B", emoji: "beer"},
@@ -378,7 +379,8 @@ test("deleting an account removes every social trace of it", async () => {
     "blocks/A/blocked/F", "blocks/B/blocked/A", "profile_stats/A",
     "shared_nights/A",
     "shared_nights/A/ended/1",
-    "push_tokens/A", "notification_prefs/A", "night_threads/A_1",
+    "push_tokens/A", "notification_prefs/A", "night_start_pushes/A",
+    "night_threads/A_1",
     "night_threads/A_1/comments/c1", "night_threads/A_1/reactions/B",
     "night_threads/B_1/comments/c2", "night_threads/B_1/comments/c4",
     "night_threads/B_1/reactions/A", "night_threads/B_1/limits/A",
@@ -3082,7 +3084,7 @@ test("thread rules: nobody writes a thread from a client", async () => {
   }
 });
 
-test("prefs rules: the owner reads and writes only the three switches", async () => {
+test("prefs rules: the owner reads and writes only the four switches", async () => {
   const alice = env.authenticatedContext("alice").firestore();
   const ref = doc(alice, "notification_prefs/alice");
   await assertSucceeds(getDoc(ref));
@@ -3090,9 +3092,15 @@ test("prefs rules: the owner reads and writes only the three switches", async ()
   await assertSucceeds(setDoc(ref,
       {reactions: true, comments: false, replies: true}));
   await assertSucceeds(updateDoc(ref, {replies: false}));
+  await assertSucceeds(setDoc(ref, {friend_nights: false}));
+  await assertSucceeds(setDoc(ref,
+      {reactions: true, comments: false, replies: true, friend_nights: true}));
+  await assertSucceeds(updateDoc(ref, {friend_nights: false}));
   await assertSucceeds(getDoc(ref));
   await assertFails(setDoc(ref, {reactions: "off"}));
   await assertFails(setDoc(ref, {replies: 0}));
+  await assertFails(setDoc(ref, {friend_nights: "off"}));
+  await assertFails(updateDoc(ref, {friend_nights: null}));
   await assertFails(setDoc(ref, {reactions: true, mentions: false}));
   await assertFails(updateDoc(ref, {extra: true}));
   await assertFails(setDoc(doc(alice, "notification_prefs/bob"),
@@ -3363,4 +3371,127 @@ test("profile_stats: nothing is written while a deletion is pending", async () =
   });
   const ref = doc(env.authenticatedContext("alice").firestore(), "profile_stats/alice");
   await assertFails(setDoc(ref, STATS));
+});
+
+// --- Pushes when a friend starts a night -----------------------------------
+const nightStart = require("../night-start");
+const NIGHT_AT = 1764000000000;
+const B_TOKEN = "b0".repeat(32);
+const C_TOKEN = "c0".repeat(32);
+const nightPushes = async ({
+  startedAt = NIGHT_AT, now = NIGHT_AT, result = {status: 200, reason: ""},
+} = {}) => {
+  const sent = [];
+  const outcome = await nightStart.notifyFriendsOfNight({
+    db, uid: "A", startedAt, now,
+    send: async (environment, token, payload) => {
+      sent.push({environment, token, payload});
+      return result;
+    },
+  });
+  return {sent, outcome};
+};
+const tokenWith = (uid, token, features = ["threads", "nights"]) =>
+  registerPushToken({db, uid,
+    data: {token, environment: "production", features}});
+// A's friends are B and C; D has the app but is not A's friend.
+const nightCrew = async () => {
+  for (const [uid, name] of [["A", "alpha"], ["B", "bravo"],
+    ["C", "carla"], ["D", "diego"]]) {
+    await claim(uid, name);
+  }
+  await befriend("A", "B");
+  await befriend("A", "C");
+  await tokenWith("B", B_TOKEN);
+  await tokenWith("C", C_TOKEN);
+  await tokenWith("D", "d0".repeat(32));
+};
+
+test("night start: each friend with the app gets one neutral push", async () => {
+  await nightCrew();
+  const {sent, outcome} = await nightPushes();
+  assert.deepEqual(outcome, {sent: 2, skipped: null});
+  assert.deepEqual(sent.map((push) => push.token).sort(), [B_TOKEN, C_TOKEN]);
+  for (const push of sent) {
+    assert.equal(push.environment, "production");
+    assert.deepEqual(push.payload, {
+      aps: {
+        "alert": {body: "@alpha started a night"},
+        "sound": "default",
+        "thread-id": `A_${NIGHT_AT}`,
+      },
+      route: "thread",
+      owner: "A",
+      started_at: NIGHT_AT,
+    });
+  }
+  assert.deepEqual((await db.doc("night_start_pushes/A").get()).data(),
+      {started_at: NIGHT_AT, sent_at: NIGHT_AT});
+});
+
+test("night start: the switch, an older app or no token means no push", async () => {
+  await nightCrew();
+  await db.doc("notification_prefs/B").set({friend_nights: false});
+  // An app from before the switch registered only "threads".
+  await tokenWith("C", C_TOKEN, ["threads"]);
+  assert.deepEqual(await nightPushes(),
+      {sent: [], outcome: {sent: 0, skipped: null}});
+
+  // Only friend_nights turns it off, and a friend with no token gets nothing.
+  await db.doc("notification_prefs/B")
+      .set({reactions: false, comments: false, replies: false});
+  await db.doc("push_tokens/C").delete();
+  const later = NIGHT_AT + nightStart.COOLDOWN_MS;
+  const {sent} = await nightPushes({startedAt: later, now: later});
+  assert.deepEqual(sent.map((push) => push.token), [B_TOKEN]);
+});
+
+test("night start: a dead token is removed", async () => {
+  await nightCrew();
+  const {outcome} = await nightPushes(
+      {result: {status: 410, reason: "Unregistered"}});
+  assert.deepEqual(outcome, {sent: 0, skipped: null});
+  assert.equal(await exists("push_tokens/B"), false);
+  assert.equal(await exists("push_tokens/C"), false);
+  assert.equal(await exists("push_tokens/D"), true);
+});
+
+test("night start: one push per night, and none again for 12 hours", async () => {
+  await nightCrew();
+  assert.equal((await nightPushes()).sent.length, 2);
+  // A retried trigger, or the same night shown again after incognito.
+  assert.deepEqual(await nightPushes({now: NIGHT_AT + 60000}),
+      {sent: [], outcome: {sent: 0, skipped: "duplicate"}});
+  // Its start moved, or a second night begun, inside the cooldown.
+  for (const at of [NIGHT_AT + 30 * 60000,
+    NIGHT_AT + nightStart.COOLDOWN_MS - 1]) {
+    assert.deepEqual(await nightPushes({startedAt: at, now: at}),
+        {sent: [], outcome: {sent: 0, skipped: "cooldown"}});
+  }
+  const nextDay = NIGHT_AT + nightStart.COOLDOWN_MS;
+  assert.equal((await nightPushes({startedAt: nextDay, now: nextDay}))
+      .sent.length, 2);
+});
+
+test("night start: two deliveries of the same write send once", async () => {
+  await nightCrew();
+  const [one, two] = await Promise.all([nightPushes(), nightPushes()]);
+  assert.equal(one.sent.length + two.sent.length, 2);
+  assert.deepEqual([one.outcome.skipped, two.outcome.skipped].sort(),
+      ["duplicate", null].sort());
+});
+
+test("night start: nothing without a profile, friends, or once deleting", async () => {
+  assert.deepEqual(await nightPushes(),
+      {sent: [], outcome: {sent: 0, skipped: "no-profile"}});
+  await claim("A", "alpha");
+  assert.deepEqual(await nightPushes(),
+      {sent: [], outcome: {sent: 0, skipped: null}});
+
+  await env.clearFirestore();
+  await nightCrew();
+  await db.doc("account_deletions/A").set({startedAt: 1});
+  assert.deepEqual(await nightPushes(),
+      {sent: [], outcome: {sent: 0, skipped: "deleting"}});
+  assert.equal(await exists("night_start_pushes/A"), false);
 });
