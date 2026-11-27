@@ -7,6 +7,7 @@ struct NightStatsSheet: View {
     var opensAtTimeline = false
     @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) private var dismiss
+    @State private var pendingRemoval: PendingRemoval?
 
     private var event: NightEvent? { appState.events.first { $0.id == eventId } }
     private var entries: [DrinkEntry] {
@@ -190,6 +191,23 @@ struct NightStatsSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
                 }
+            }
+            .confirmationDialog(
+                removalTitle,
+                isPresented: Binding(
+                    get: { pendingRemoval != nil },
+                    set: { if !$0 { pendingRemoval = nil } }
+                ),
+                titleVisibility: .visible,
+                presenting: pendingRemoval
+            ) { pending in
+                Button("Remove", role: .destructive) {
+                    appState.deleteEntry(pending.entry.id)
+                    Haptics.shared.play(.light)
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: { pending in
+                Text(pending.impact.message)
             }
         }
     }
@@ -497,9 +515,40 @@ struct NightStatsSheet: View {
         case .drink(let entry):
             DrinkTimelineCard(
                 entry: entry, appState: appState, bacLimit: bacLimit,
-                marginalBAC: contributions[entry.id] ?? 0
+                marginalBAC: contributions[entry.id] ?? 0,
+                onRemove: removeAction(for: entry)
             )
         }
+    }
+
+    /// Only tonight's drinks can be removed: an ended night's summary, feed post
+    /// and recovery plan were built from its drinks.
+    private func removeAction(for entry: DrinkEntry) -> (() -> Void)? {
+        guard event?.isActive == true else { return nil }
+        return { askToRemove(entry) }
+    }
+
+    // MARK: - Removing a mistaken drink
+
+    private struct PendingRemoval: Identifiable {
+        let entry: DrinkEntry
+        let drinkName: String
+        let impact: BACRemovalImpact
+        var id: String { entry.id }
+    }
+
+    /// Reads the BAC effect once, when the user asks, so the dialog shows the
+    /// numbers for that moment rather than recomputing the model on every render.
+    private func askToRemove(_ entry: DrinkEntry) {
+        guard let impact = appState.removalImpact(ofEntry: entry.id) else { return }
+        let name = appState.allDrinkTypes.first { $0.id == entry.drinkTypeId }?.name ?? "this drink"
+        pendingRemoval = PendingRemoval(entry: entry, drinkName: name, impact: impact)
+    }
+
+    private var removalTitle: String {
+        guard let pending = pendingRemoval else { return "" }
+        let time = pending.entry.timestamp.formatted(date: .omitted, time: .shortened)
+        return "Remove \(pending.drinkName) (\(time))?"
     }
 
     private func waterCard(_ water: WaterEntry) -> some View {
@@ -547,6 +596,8 @@ private struct DrinkTimelineCard: View {
     let appState: AppState
     let bacLimit: Double
     let marginalBAC: Double
+    /// Set only for the active night; nil hides the remove action.
+    var onRemove: (() -> Void)? = nil
 
     private var dt: DrinkType? {
         appState.allDrinkTypes.first(where: { $0.id == entry.drinkTypeId })
@@ -578,35 +629,62 @@ private struct DrinkTimelineCard: View {
                 .frame(height: 2)
                 .clipShape(RoundedRectangle(cornerRadius: 1))
 
-            HStack {
-                Text(dt?.name ?? "Unknown Drink")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(AppColors.text)
-                Spacer()
-                Text(String(format: "+%.3f BAC", marginalBAC))
-                    .font(.system(size: 14, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(barColor)
-            }
-            .padding(.horizontal, 10)
-            .padding(.top, 8)
+            HStack(spacing: 0) {
+                VStack(spacing: 0) {
+                    HStack {
+                        Text(dt?.name ?? "Unknown Drink")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(AppColors.text)
+                        Spacer()
+                        Text(String(format: "+%.3f BAC", marginalBAC))
+                            .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(barColor)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.top, 8)
 
-            HStack {
-                Text(entry.timestamp, format: .dateTime.hour().minute())
-                    .font(.system(size: 14, design: .monospaced))
-                    .foregroundStyle(AppColors.textTertiary)
-                Spacer()
-                if calories > 0 {
-                    Text("\(calories) cal")
-                        .font(.system(size: 14))
-                        .foregroundStyle(AppColors.textTertiary)
+                    HStack {
+                        Text(entry.timestamp, format: .dateTime.hour().minute())
+                            .font(.system(size: 14, design: .monospaced))
+                            .foregroundStyle(AppColors.textTertiary)
+                        Spacer()
+                        if calories > 0 {
+                            Text("\(calories) cal")
+                                .font(.system(size: 14))
+                                .foregroundStyle(AppColors.textTertiary)
+                        }
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.bottom, 8)
+                }
+
+                if let onRemove {
+                    // Visible, because a long press alone is undiscoverable.
+                    Menu {
+                        removeButton(onRemove)
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(AppColors.textSecondary)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .accessibilityLabel("More for \(dt?.name ?? "this drink")")
                 }
             }
-            .padding(.horizontal, 10)
-            .padding(.bottom, 8)
         }
         .background(AppColors.surface)
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .overlay(RoundedRectangle(cornerRadius: 10).stroke(AppColors.border.opacity(0.5), lineWidth: 1))
+        .contextMenu {
+            if let onRemove { removeButton(onRemove) }
+        }
+    }
+
+    private func removeButton(_ action: @escaping () -> Void) -> some View {
+        Button(role: .destructive, action: action) {
+            Label("Remove drink", systemImage: "trash")
+        }
     }
 }
 

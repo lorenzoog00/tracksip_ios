@@ -401,7 +401,8 @@ final class AppState: ObservableObject {
             // set to true when it fires: the file stays the source of truth across
             // launches, but re-reading it every 10 s would only re-learn a settled
             // fact. No staleness risk: this task is recreated on every launch and
-            // every new event, and nothing else writes the id for this night.
+            // every new event, and the one other writer — removing the drink that
+            // caused the buzz (`releaseCeilingLatch`) — restarts this task.
             var alreadyFired = hasFiredCeilingCrossing(eventId: eventId)
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 10_000_000_000)
@@ -441,9 +442,11 @@ final class AppState: ObservableObject {
     /// A live timer task does hold an in-memory copy: it reads this once at the top
     /// of `startBACRefreshTimer` and latches its own `alreadyFired` when it fires,
     /// rather than re-reading a settled fact every 10 s. That copy can only be
-    /// stale in the safe direction — it is seeded from disk, it never un-latches,
-    /// and the task is recreated on every launch and every new event — so a wrong
-    /// guess means one haptic too few, never one too many.
+    /// stale in the safe direction — it is seeded from disk, it never un-latches
+    /// on its own, and the task is recreated on every launch and every new event —
+    /// so a wrong guess means one haptic too few, never one too many. The one
+    /// un-latch is removing the drink whose buzz it was: `releaseCeilingLatch`
+    /// clears the file and restarts the task, so the copy is re-read.
     func hasFiredCeilingCrossing(eventId: String) -> Bool {
         DataStore.shared.loadCeilingCrossedEventIds().contains(eventId)
     }
@@ -2033,16 +2036,68 @@ final class AppState: ObservableObject {
     }
 
     func deleteEntry(_ id: String) {
+        // Judged while the drink is still in `entries`: the latch rule compares the
+        // night with and without it.
+        let releasesLatch = ceilingLatchReleases(removingEntry: id)
         DataStore.shared.deleteEntry(id)
         entries.removeAll { $0.id == id }
         push { try await FirebaseManager.shared.deleteEntry(id) }
+        // A removed drink must not leave its undo toast up, or the toast's Undo
+        // would act on an entry that is already gone.
+        if undoEntry?.id == id {
+            undoTask?.cancel()
+            undoTask = nil
+            undoEntry = nil
+        }
+        // Warnings on screen were computed with the drink in the night.
+        activeWarnings = []
         // Undoing a drink changes the curve, so the lock screen and the push
         // server need the new one; before this they kept counting the drink.
         if let active = activeEvent {
+            if releasesLatch { releaseCeilingLatch(eventId: active.id) }
             bacTick = Date()
             updateLiveActivity(for: active.id)
         }
+        WatchBridge.shared.pushState()
         syncSharedNight()
+    }
+
+    /// What removing this drink does to BAC now and to the peak ahead, for the
+    /// confirmation before removing it. Nil once the drink or its night is gone.
+    func removalImpact(ofEntry id: String, now: Date = .now) -> BACRemovalImpact? {
+        guard let entry = entries.first(where: { $0.id == id }),
+              let event = events.first(where: { $0.id == entry.eventId }) else { return nil }
+        return BACCalculator.removalImpact(
+            removing: id,
+            entries: entries.filter { $0.eventId == event.id },
+            drinkTypes: allDrinkTypes,
+            profile: userProfile,
+            eventStart: event.startTime,
+            stomachState: event.stomachState ?? .empty,
+            stomachStateTimestamp: event.stomachStateTimestamp ?? event.startTime,
+            foodEntries: foodEntries.filter { $0.eventId == event.id },
+            asOf: now
+        )
+    }
+
+    /// True when the drink belongs to the active night, that night's ceiling
+    /// haptic has played, and without the drink the night never reached the
+    /// ceiling: the buzz was the mistake's alone.
+    private func ceilingLatchReleases(removingEntry id: String) -> Bool {
+        guard let active = activeEvent,
+              entries.contains(where: { $0.id == id && $0.eventId == active.id }),
+              hasFiredCeilingCrossing(eventId: active.id),
+              let impact = removalImpact(ofEntry: id) else { return false }
+        return HapticSpec.releasesCeilingLatch(peakSoFar: impact.peakSoFarAfter, ceiling: Self.ceiling(for: active))
+    }
+
+    /// Clears the night's ceiling latch on disk and restarts the refresh task,
+    /// whose in-memory copy of the latch is read once when the task starts.
+    private func releaseCeilingLatch(eventId: String) {
+        var fired = DataStore.shared.loadCeilingCrossedEventIds()
+        fired.remove(eventId)
+        DataStore.shared.saveCeilingCrossedEventIds(fired)
+        if bacTimerTask != nil { startBACRefreshTimer(for: eventId) }
     }
 
     func undoLastEntry() {
