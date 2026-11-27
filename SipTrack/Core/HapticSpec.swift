@@ -116,6 +116,18 @@ enum HapticSpec {
         return currentBAC >= ceiling
     }
 
+    // Whether removing a drink should clear this night's ceiling latch, so the
+    // haptic can play again later. `peakSoFar` is the highest BAC from the night's
+    // start up to now with the drink gone. If that never reached the ceiling, the
+    // buzz was the mistaken drink's alone, and keeping the latch would leave the
+    // night silent when the user really crosses it. Reaching the ceiling uses the
+    // same `>=` as the firing predicates, and a ceiling too low to ever fire has
+    // no latch worth clearing.
+    static func releasesCeilingLatch(peakSoFar: Double, ceiling: Double?) -> Bool {
+        guard let ceiling, ceiling >= minimumMeaningfulCeiling else { return false }
+        return peakSoFar < ceiling
+    }
+
     // Whether a drag on the ceiling slider should tick: only when the value it
     // lands on differs from the one before. nil is the "off" state, so switching
     // on and off both tick, and nothing else in the UI confirms the off one. A touch

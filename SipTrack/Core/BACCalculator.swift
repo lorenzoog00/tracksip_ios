@@ -8,6 +8,28 @@ struct BACDataPoint: Identifiable {
     let bac: Double
 }
 
+// What removing one drink does to the night, read off the model with and without
+// it. "After" is the night as if the drink was never logged, so a drink that made
+// the one before it count as gulped takes that gulp with it.
+nonisolated struct BACRemovalImpact: Equatable, Sendable {
+    let nowBefore: Double
+    let nowAfter: Double
+    let peakAheadBefore: Double
+    let peakAheadAfter: Double
+    /// Highest BAC from the night's start up to now, without the drink.
+    let peakSoFarAfter: Double
+
+    /// Confirmation text. The peak line only shows while BAC is still heading up,
+    /// which is when a just-logged drink matters more ahead than now.
+    var message: String {
+        var lines = [String(format: "BAC now: %.3f → %.3f", nowBefore, nowAfter)]
+        if peakAheadBefore - nowBefore >= 0.001 {
+            lines.append(String(format: "Peak ahead: %.3f → %.3f", peakAheadBefore, peakAheadAfter))
+        }
+        return lines.joined(separator: "\n")
+    }
+}
+
 // BAC model for SipTrack.
 //
 // Architecture: one-compartment model solved by forward numeric integration
@@ -456,6 +478,45 @@ struct BACCalculator {
             out[e.id] = maxDelta
         }
         return out
+    }
+
+    // Before/after numbers for removing one drink. Unlike `drinkContributions`, which
+    // keeps the excluded drink for the previous drink's gulp detection, this drops it
+    // from the list entirely: a mistaken drink was never drunk, so it never made the
+    // one before it a gulp. BAC is recomputed from the list on every read, so this is
+    // exactly what the meter shows once the entry is deleted.
+    static func removalImpact(
+        removing entryId: String,
+        entries: [DrinkEntry],
+        drinkTypes: [DrinkType],
+        profile: UserProfile,
+        eventStart: Date,
+        stomachState: StomachState = .empty,
+        stomachStateTimestamp: Date? = nil,
+        foodEntries: [FoodEntry] = [],
+        asOf now: Date = .now
+    ) -> BACRemovalImpact {
+        func read(_ list: [DrinkEntry]) -> (now: Double, peakAhead: Double, peakSoFar: Double) {
+            let timeline = bacTimeline(
+                entries: list, drinkTypes: drinkTypes, profile: profile, eventStart: eventStart,
+                stomachState: stomachState, stomachStateTimestamp: stomachStateTimestamp,
+                foodEntries: foodEntries
+            )
+            let nowBAC = currentBAC(
+                entries: list, waterEntries: [], drinkTypes: drinkTypes, profile: profile,
+                eventStart: eventStart, stomachState: stomachState,
+                stomachStateTimestamp: stomachStateTimestamp, foodEntries: foodEntries, asOf: now
+            )
+            let peakSoFar = timeline.filter { $0.date <= now }.map(\.bac).reduce(nowBAC, max)
+            return (nowBAC, futurePeakBAC(timeline, from: now, currentBAC: nowBAC), peakSoFar)
+        }
+        let before = read(entries)
+        let after = read(entries.filter { $0.id != entryId })
+        return BACRemovalImpact(
+            nowBefore: before.now, nowAfter: after.now,
+            peakAheadBefore: before.peakAhead, peakAheadAfter: after.peakAhead,
+            peakSoFarAfter: after.peakSoFar
+        )
     }
 
     // MARK: - Mean BAC

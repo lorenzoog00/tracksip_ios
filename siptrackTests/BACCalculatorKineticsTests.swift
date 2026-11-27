@@ -356,4 +356,78 @@ struct BACCalculatorKineticsTests {
         let points = (0...300).map { BACDataPoint(date: now.addingTimeInterval(Double($0) * 300), bac: 0.3) }
         #expect(BACCalculator.lockScreenSchedule(points, from: now, currentBAC: 0.3).count == 144)
     }
+
+    // MARK: - Removing a mistaken drink
+
+    private func impact(removing id: String, from entries: [DrinkEntry], start: Date, asOf: Date) -> BACRemovalImpact {
+        let beerType = DrinkType.presets.first { $0.id == "beer" }!
+        return BACCalculator.removalImpact(
+            removing: id, entries: entries, drinkTypes: [beerType],
+            profile: maleProfile(), eventStart: start, asOf: asOf
+        )
+    }
+
+    private func bacNow(_ entries: [DrinkEntry], start: Date, asOf: Date) -> Double {
+        let beerType = DrinkType.presets.first { $0.id == "beer" }!
+        return BACCalculator.currentBAC(
+            entries: entries, waterEntries: [], drinkTypes: [beerType],
+            profile: maleProfile(), eventStart: start, asOf: asOf
+        )
+    }
+
+    @Test func removalImpact_removingOnlyDrink_dropsEverythingToZero() {
+        let start = Date(timeIntervalSince1970: 1_000_000)
+        let now = start.addingTimeInterval(30 * 60)
+        let result = impact(removing: "d1", from: [beer("d1", at: start)], start: start, asOf: now)
+        #expect(result.nowBefore > 0)
+        #expect(result.nowAfter == 0)
+        #expect(result.peakAheadAfter == 0)
+        #expect(result.peakSoFarAfter == 0)
+    }
+
+    @Test func removalImpact_afterIsTheNightWithoutTheDrink() {
+        let start = Date(timeIntervalSince1970: 1_000_000)
+        let first = beer("d1", at: start)
+        let second = beer("d2", at: start.addingTimeInterval(60 * 60))
+        let now = start.addingTimeInterval(75 * 60)
+        let result = impact(removing: "d2", from: [first, second], start: start, asOf: now)
+        #expect(abs(result.nowAfter - bacNow([first], start: start, asOf: now)) < 1e-9)
+        #expect(result.nowBefore > result.nowAfter)
+    }
+
+    @Test func removalImpact_justLoggedDrink_lowersPeakAheadMoreThanNow() {
+        // Logged 30 s ago: almost nothing absorbed yet, so BAC now barely moves,
+        // but the rise it was about to cause disappears from the peak ahead.
+        let start = Date(timeIntervalSince1970: 1_000_000)
+        let first = beer("d1", at: start)
+        let second = beer("d2", at: start.addingTimeInterval(60 * 60))
+        let now = start.addingTimeInterval(60 * 60 + 30)
+        let result = impact(removing: "d2", from: [first, second], start: start, asOf: now)
+        #expect(result.nowBefore - result.nowAfter < 0.002)
+        #expect(result.peakAheadBefore - result.peakAheadAfter > 0.005)
+    }
+
+    @Test func removalImpact_unGulpsThePreviousDrink() {
+        // The mistaken beer came 2 min after the real one, so the real one counted
+        // as gulped (instantly absorbed). Without the mistake it was never gulped:
+        // it is back on its gradual curve, and BAC drops by more than the mistake.
+        let start = Date(timeIntervalSince1970: 1_000_000)
+        let first = beer("d1", at: start)
+        let mistake = beer("d2", at: start.addingTimeInterval(2 * 60))
+        let now = start.addingTimeInterval(5 * 60)
+        let result = impact(removing: "d2", from: [first, mistake], start: start, asOf: now)
+        #expect(abs(result.nowAfter - bacNow([first], start: start, asOf: now)) < 1e-9)
+        #expect(result.nowAfter < 0.5 * result.nowBefore)
+    }
+
+    @Test func removalMessage_showsPeakLineOnlyWhileRising() {
+        let rising = BACRemovalImpact(
+            nowBefore: 0.085, nowAfter: 0.071, peakAheadBefore: 0.102, peakAheadAfter: 0.088, peakSoFarAfter: 0
+        )
+        #expect(rising.message == "BAC now: 0.085 → 0.071\nPeak ahead: 0.102 → 0.088")
+        let falling = BACRemovalImpact(
+            nowBefore: 0.085, nowAfter: 0.071, peakAheadBefore: 0.085, peakAheadAfter: 0.071, peakSoFarAfter: 0
+        )
+        #expect(falling.message == "BAC now: 0.085 → 0.071")
+    }
 }
