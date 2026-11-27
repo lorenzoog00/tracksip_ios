@@ -53,6 +53,28 @@ nonisolated enum PushRoute: Equatable, Sendable {
     }
 }
 
+/// `notification_prefs/{uid}`: which social pushes the server sends. A missing doc or
+/// key, or anything that isn't a bool, means on.
+nonisolated struct NotificationPrefs: Equatable, Sendable {
+    var reactions = true
+    var comments = true
+    /// Replies on a night, and mentions.
+    var replies = true
+    /// A friend starting a night (`friend_nights`).
+    var friendNights = true
+
+    static let allOn = NotificationPrefs()
+
+    init() {}
+
+    init(data: [String: Any]) {
+        reactions = data["reactions"] as? Bool ?? true
+        comments = data["comments"] as? Bool ?? true
+        replies = data["replies"] as? Bool ?? true
+        friendNights = data["friend_nights"] as? Bool ?? true
+    }
+}
+
 /// Remote push for friend requests and contacts joining. The permission prompt only
 /// appears once there is a reason for it (the user sent a request or received one),
 /// never at launch.

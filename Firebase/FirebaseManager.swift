@@ -528,17 +528,14 @@ final class FirebaseManager: ObservableObject {
 
     /// `notification_prefs/{uid}`: which social pushes the server sends me. A missing
     /// doc or key means on.
-    func notificationPrefs() async throws -> (reactions: Bool, comments: Bool, replies: Bool) {
-        guard let uid = currentUserId() else { return (true, true, true) }
+    func notificationPrefs() async throws -> NotificationPrefs {
+        guard let uid = currentUserId() else { return .allOn }
         let data = try await db.collection("notification_prefs").document(uid).getDocument().data() ?? [:]
-        return (
-            reactions: data["reactions"] as? Bool ?? true,
-            comments: data["comments"] as? Bool ?? true,
-            replies: data["replies"] as? Bool ?? true
-        )
+        return NotificationPrefs(data: data)
     }
 
-    /// `key` is "reactions", "comments" or "replies"; the rules reject anything else.
+    /// `key` is "reactions", "comments", "replies" or "friend_nights"; the rules
+    /// reject anything else.
     func setNotificationPref(_ key: String, on: Bool) async throws {
         guard let uid = currentUserId() else { return }
         try await db.collection("notification_prefs").document(uid).setData([key: on], merge: true)
@@ -1380,9 +1377,10 @@ extension FirebaseManager {
     }
 
     /// What this app can do with a push beyond friend requests. "threads": it opens
-    /// night reaction/comment pushes and has the switches for them. The server sends
-    /// thread pushes only to tokens that registered it, so older builds get none.
-    static let pushFeatures = ["threads"]
+    /// night reaction/comment pushes and has the switches for them. "nights": it has
+    /// the switch for pushes about friends starting a night. The server sends each
+    /// kind only to tokens that registered it, so older builds get none.
+    static let pushFeatures = ["threads", "nights"]
 
     /// This phone's APNs token, once iOS has handed it over this launch. Sent with
     /// `unregisterPushToken` so sign-out removes only this phone's token.
