@@ -180,4 +180,20 @@ struct HapticSpecTests {
         let tenthNotch = 10.0 * 0.005
         #expect(HapticSpec.selectionChanged(from: 0.05, to: tenthNotch) == false)
     }
+
+    // MARK: - Ceiling latch after removing a drink
+
+    @Test func releasesCeilingLatch_whenNightNeverReachedItWithoutTheDrink() {
+        #expect(HapticSpec.releasesCeilingLatch(peakSoFar: 0.07, ceiling: 0.08))
+    }
+
+    @Test func keepsCeilingLatch_whenRealDrinksReachedIt() {
+        #expect(HapticSpec.releasesCeilingLatch(peakSoFar: 0.08, ceiling: 0.08) == false)
+        #expect(HapticSpec.releasesCeilingLatch(peakSoFar: 0.09, ceiling: 0.08) == false)
+    }
+
+    @Test func releasesCeilingLatch_noMeaningfulCeiling_isFalse() {
+        #expect(HapticSpec.releasesCeilingLatch(peakSoFar: 0.0, ceiling: nil) == false)
+        #expect(HapticSpec.releasesCeilingLatch(peakSoFar: 0.0, ceiling: 0.0) == false)
+    }
 }
