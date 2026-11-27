@@ -199,6 +199,7 @@ test("a fresh delete writes the tombstone before erasing the user", async () => 
   assert.deepEqual(calls.docDeletes, [
     "live_activities/u1", "push_tokens/u1",
     "notification_prefs/u1",
+    "night_start_pushes/u1",
     "contact_nudges/u1",
     "contact_match_limits/u1",
     "profile_stats/u1",
@@ -246,6 +247,7 @@ test("a delete removes the user's threads, reactions, comments and prefs", async
     "night_threads/f1_7/limits/u1",
     "night_threads/f2_8/comments/c2", "night_threads/f2_8/limits/u1",
     "push_tokens/u1", "notification_prefs/u1",
+    "night_start_pushes/u1",
     "contact_nudges/u1",
     "contact_match_limits/u1",
     "profile_stats/u1",

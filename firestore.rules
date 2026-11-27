@@ -163,7 +163,8 @@ service cloud.firestore {
     // --- Social graph (Friends v1) ---------------------------------------
     // Everything here is written by the Admin SDK in Cloud Functions, which
     // bypasses rules, so no client write is ever allowed. Anything not named
-    // below (usernames, reports, push_tokens) falls to the default deny.
+    // below (usernames, reports, push_tokens, night_start_pushes) falls to
+    // the default deny.
     // get, not list: profiles are looked up by uid; search goes through the
     // searchUsers callable, so the collection can't be enumerated.
     match /public_profiles/{uid} {
@@ -316,15 +317,17 @@ service cloud.firestore {
       }
     }
 
-    // Which thread pushes a person gets: reactions, comments, replies (which
-    // mentions follow). A missing doc or key means on.
+    // Which pushes a person gets: reactions, comments, replies (which
+    // mentions follow) and friends starting a night. A missing doc or key
+    // means on.
     match /notification_prefs/{uid} {
       allow read: if owner(uid);
       allow create, update: if owner(uid)
-        && request.resource.data.keys().hasOnly(['reactions', 'comments', 'replies'])
+        && request.resource.data.keys().hasOnly(['reactions', 'comments', 'replies', 'friend_nights'])
         && request.resource.data.get('reactions', true) is bool
         && request.resource.data.get('comments', true) is bool
-        && request.resource.data.get('replies', true) is bool;
+        && request.resource.data.get('replies', true) is bool
+        && request.resource.data.get('friend_nights', true) is bool;
       allow delete: if owner(uid);
     }
   }

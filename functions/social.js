@@ -437,7 +437,8 @@ async function unblockUser({db, uid, data}) {
 const REPORT_KINDS = ["username", "photo", "comment"];
 // What a push token's app can handle. "threads": it opens night reaction
 // and comment pushes and can switch them off; older apps never send it.
-const PUSH_FEATURES = ["threads"];
+// "nights": it can switch off pushes about friends starting a night.
+const PUSH_FEATURES = ["threads", "nights"];
 const MAX_PUSH_FEATURES = 5;
 const PUSH_COPY = {
   request: (username) => `@${username} sent you a friend request`,

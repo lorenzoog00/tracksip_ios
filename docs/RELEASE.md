@@ -319,6 +319,22 @@ credentials.
        builds keep working. (This deploy also capped email contact matching
        at 500 a call, twice a day. Superseded: matching is by phone now and
        the server refuses emails; see "Phone friends — one-time setup".)
+11. **Friend started a night push.** The approved Deploy backend run ships
+    the rules and the trigger together, before the build reaches anyone:
+    1. **Rules.** `notification_prefs` accepts `friend_nights`. Until it is
+       live, the new "Friends starting a night" switch shows "Couldn't save".
+    2. **Functions.** Check `functions:list` lists the `notifyFriendsOfNight`
+       Firestore trigger (on `shared_nights/{uid}`). The same deploy makes
+       `registerPushToken` keep the `nights` push feature. Until then the
+       server drops that feature, and friends get no push until their app
+       re-registers on its next launch.
+    3. **Two-account QA.** On B, open the new build once so it re-registers
+       its token. A starts a night, and B gets "@a started a night"; tapping
+       it opens A's night. Then check each of these sends nothing to B:
+       - A ends that night and starts another within 12 h;
+       - A starts an incognito night;
+       - B turns off Social profile → Notifications → "Friends starting a
+         night".
 
 ## Phone friends — one-time setup
 

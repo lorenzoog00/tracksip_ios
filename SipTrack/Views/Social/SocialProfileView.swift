@@ -22,6 +22,7 @@ struct SocialProfileView: View {
     @State private var notifyReactions = true
     @State private var notifyComments = true
     @State private var notifyReplies = true
+    @State private var notifyFriendNights = true
     @State private var notificationPrefsLoaded = false
     /// The Name field as typed. It follows the saved name while not being edited.
     @State private var nameDraft = ""
@@ -406,6 +407,8 @@ struct SocialProfileView: View {
                 .accessibilityAddTraits(.isHeader)
 
             VStack(spacing: 0) {
+                notificationToggle("Friends starting a night", isOn: prefBinding("friend_nights", $notifyFriendNights))
+                Divider().overlay(AppColors.border)
                 notificationToggle("Reactions on your night", isOn: prefBinding("reactions", $notifyReactions))
                 Divider().overlay(AppColors.border)
                 notificationToggle("Comments on your night", isOn: prefBinding("comments", $notifyComments))
@@ -452,6 +455,7 @@ struct SocialProfileView: View {
         notifyReactions = prefs.reactions
         notifyComments = prefs.comments
         notifyReplies = prefs.replies
+        notifyFriendNights = prefs.friendNights
         notificationPrefsLoaded = true
     }
 

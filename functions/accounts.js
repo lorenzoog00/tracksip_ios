@@ -40,8 +40,8 @@ async function deleteAccount({
 
 // Friends data: profile, handle, graph (both directions), requests, blocks
 // (both directions), shared night and its threads, reactions and comments on
-// friends' nights, push token, notification prefs, contact-push and
-// contact-check bookkeeping, and avatar file.
+// friends' nights, push token, notification prefs, night-start push mark,
+// contact-push and contact-check bookkeeping, and avatar file.
 // eslint-disable-next-line require-jsdoc
 async function deleteSocialData({db, bucket, uid}) {
   // Found by owner, not via the profile: a retry after a partial failure has
@@ -93,6 +93,7 @@ async function deleteSocialData({db, bucket, uid}) {
   }
   await db.doc(`push_tokens/${uid}`).delete();
   await db.doc(`notification_prefs/${uid}`).delete();
+  await db.doc(`night_start_pushes/${uid}`).delete();
   await db.doc(`contact_nudges/${uid}`).delete();
   await db.doc(`contact_match_limits/${uid}`).delete();
   await db.doc(`profile_stats/${uid}`).delete();
