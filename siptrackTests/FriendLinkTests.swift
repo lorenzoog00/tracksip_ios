@@ -94,6 +94,31 @@ struct FriendLinkTests {
         #expect(PushRoute(userInfo: ["route": "thread", "owner": "A", "started_at": "1700000000000"]) == .social)
     }
 
+    // MARK: - Notification switches
+
+    @Test func notificationPrefsDefaultToOn() {
+        #expect(NotificationPrefs(data: [:]) == .allOn)
+        #expect(NotificationPrefs.allOn.friendNights)
+        #expect(NotificationPrefs.allOn.reactions && NotificationPrefs.allOn.comments && NotificationPrefs.allOn.replies)
+        // Anything but a bool reads as on, like a missing key.
+        #expect(NotificationPrefs(data: ["friend_nights": "off"]) == .allOn)
+    }
+
+    @Test func notificationPrefsReadEachSwitch() {
+        let nights = NotificationPrefs(data: ["friend_nights": false])
+        #expect(!nights.friendNights)
+        #expect(nights.reactions && nights.comments && nights.replies)
+        let others = NotificationPrefs(data: ["reactions": false, "comments": false, "replies": false])
+        #expect(others.friendNights)
+        #expect(!others.reactions && !others.comments && !others.replies)
+    }
+
+    @Test func pushFeaturesIncludeFriendNights() {
+        // Without "nights" the server sends no friend-started-a-night pushes.
+        #expect(FirebaseManager.pushFeatures.contains("nights"))
+        #expect(FirebaseManager.pushFeatures.contains("threads"))
+    }
+
     // MARK: - Suggestions
 
     private func suggestion(_ reason: PersonSuggestion.Reason) -> PersonSuggestion {
