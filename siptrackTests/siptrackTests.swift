@@ -8,6 +8,7 @@
 import Testing
 import Foundation
 import SwiftUI
+import UIKit
 @testable import siptrack
 
 struct siptrackTests {
@@ -27,6 +28,13 @@ struct siptrackTests {
         #expect(allowed(lifetime))
         #expect(!allowed(lifetime, revoked: now))
         #expect(!allowed(lifetime, upgraded: true))
+    }
+
+    /// Info.plist's `UILaunchScreen` names this colour. It has to live in the
+    /// asset catalog the app target builds (the repo-root `Assets.xcassets`),
+    /// or iOS shows its default background while the app launches.
+    @Test func launchBackgroundColorIsInTheAppBundle() {
+        #expect(UIColor(named: "LaunchBackground") != nil)
     }
 
     // MARK: - Notices
